@@ -249,7 +249,7 @@ export interface ClassifierSettings {
 
 export function getDefaultClassifierSettings(): ClassifierSettings {
   return {
-    model: 'x-ai/grok-4.1-fast',
+    model: 'xiaomi/mimo-v2-flash:free',
     temperature: 0.3,
     maxTokens: 2000,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.classifier,

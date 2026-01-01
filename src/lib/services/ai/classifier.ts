@@ -141,6 +141,9 @@ export class ClassifierService {
     try {
       log('Sending classification request...');
 
+      // Use reasoning with max_tokens for mimo models
+      const isMimo = this.model.includes('mimo');
+
       const response = await this.provider.generateResponse({
         model: this.model,
         messages: [
@@ -150,7 +153,7 @@ export class ClassifierService {
         temperature: this.temperature,
         maxTokens: this.maxTokens,
         extraBody: {
-          reasoning: { enabled: true },
+          reasoning: isMimo ? { max_tokens: 5000 } : { enabled: true },
         },
       });
 

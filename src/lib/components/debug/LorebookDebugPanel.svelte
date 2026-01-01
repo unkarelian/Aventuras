@@ -4,8 +4,14 @@
 
   const tierLabels = {
     1: 'Always Active',
-    2: 'Keyword Match',
+    2: 'Keyword Matched',
     3: 'LLM Selected',
+  };
+
+  const tierDescriptions = {
+    1: 'State-based or always-inject entries',
+    2: 'Matched by name, alias, or keyword',
+    3: 'Contextually relevant (AI selected)',
   };
 
   const tierColors = {
@@ -83,8 +89,9 @@
               <div class="mb-4">
                 <h3 class="text-sm font-medium text-green-400 mb-2 flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                  Tier 1: Always Active ({result.tier1.length})
+                  Tier 1: {tierLabels[1]} ({result.tier1.length})
                 </h3>
+                <p class="text-xs text-surface-500 mb-2 ml-4">{tierDescriptions[1]}</p>
                 <div class="space-y-2">
                   {#each result.tier1 as retrieved}
                     {@const Icon = getIcon(retrieved.entry.type)}
@@ -112,13 +119,14 @@
               </div>
             {/if}
 
-            <!-- Tier 2: Keyword Match -->
+            <!-- Tier 2: Keyword Matched -->
             {#if result.tier2.length > 0}
               <div class="mb-4">
                 <h3 class="text-sm font-medium text-amber-400 mb-2 flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-                  Tier 2: Keyword Match ({result.tier2.length})
+                  Tier 2: {tierLabels[2]} ({result.tier2.length})
                 </h3>
+                <p class="text-xs text-surface-500 mb-2 ml-4">{tierDescriptions[2]}</p>
                 <div class="space-y-2">
                   {#each result.tier2 as retrieved}
                     {@const Icon = getIcon(retrieved.entry.type)}
@@ -151,8 +159,9 @@
               <div class="mb-4">
                 <h3 class="text-sm font-medium text-purple-400 mb-2 flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-purple-400"></span>
-                  Tier 3: LLM Selected ({result.tier3.length})
+                  Tier 3: {tierLabels[3]} ({result.tier3.length})
                 </h3>
+                <p class="text-xs text-surface-500 mb-2 ml-4">{tierDescriptions[3]}</p>
                 <div class="space-y-2">
                   {#each result.tier3 as retrieved}
                     {@const Icon = getIcon(retrieved.entry.type)}

@@ -4,8 +4,8 @@
  *
  * Implements three tiers of entry injection for lorebook entries:
  * - Tier 1: Always inject (injection.mode === 'always', or state-based like isPresent)
- * - Tier 2: Keyword matching (fuzzy match name/aliases/keywords against input)
- * - Tier 3: LLM selection (for large entry counts, runs in parallel)
+ * - Tier 2: Keyword matching (match name/aliases/keywords against user input & recent story)
+ * - Tier 3: LLM selection (remaining entries sent to LLM to decide relevance)
  */
 
 import type { Entry, EntryType, StoryEntry } from '$lib/types';
@@ -21,27 +21,21 @@ function log(...args: any[]) {
 }
 
 export interface EntryRetrievalConfig {
-  /** Minimum entries to trigger LLM selection (set to 0 to always use LLM) */
-  llmThreshold: number;
   /** Maximum entries to include from Tier 3 (0 = unlimited) */
   maxTier3Entries: number;
-  /** Enable LLM selection */
+  /** Enable LLM selection for Tier 3 */
   enableLLMSelection: boolean;
-  /** Number of recent story entries to check for matching */
+  /** Number of recent story entries to check for keyword matching */
   recentEntriesCount: number;
   /** Model to use for Tier 3 selection */
   tier3Model: string;
-  /** Always use LLM to select ALL relevant entries (ignores threshold) */
-  alwaysUseLLM: boolean;
 }
 
 export const DEFAULT_ENTRY_RETRIEVAL_CONFIG: EntryRetrievalConfig = {
-  llmThreshold: 0, // Always run LLM selection
   maxTier3Entries: 0, // No limit - select all relevant
   enableLLMSelection: true,
   recentEntriesCount: 5,
   tier3Model: 'x-ai/grok-4.1-fast',
-  alwaysUseLLM: true, // Always use LLM for comprehensive selection
 };
 
 export interface RetrievedEntry {
@@ -72,7 +66,8 @@ export class EntryRetrievalService {
    * Retrieve relevant entries using tiered injection.
    *
    * Tier 1: Always injected (injection.mode === 'always' or state-based conditions)
-   * Tier 2/3: LLM selects ALL relevant entries from remaining pool
+   * Tier 2: Keyword matched (name/aliases/keywords match user input or recent story)
+   * Tier 3: LLM selection (remaining entries evaluated by LLM for relevance)
    */
   async getRelevantEntries(
     entries: Entry[],
@@ -95,26 +90,41 @@ export class EntryRetrievalService {
       recentCount: recentStoryEntries.length,
     });
 
+    // Build search content from user input and recent story
+    const recentContent = recentStoryEntries
+      .slice(-this.config.recentEntriesCount)
+      .map(e => e.content)
+      .join(' ');
+    const searchContent = `${userInput} ${recentContent}`.toLowerCase();
+
     // Tier 1: Always inject - entries with injection.mode === 'always' or state-based
     const tier1 = this.getTier1Entries(entries);
-    log('Tier 1 entries:', tier1.length);
+    log('Tier 1 entries (always active):', tier1.length, tier1.map(e => e.entry.name));
 
     // Get IDs already in tier 1
     const tier1Ids = new Set(tier1.map(e => e.entry.id));
 
-    // All remaining entries go to LLM for selection
-    const remainingEntries = entries.filter(e => !tier1Ids.has(e.id) && e.injection.mode !== 'never');
+    // Filter to entries that could be in tier 2 or 3 (not tier 1, not 'never' mode)
+    const candidateEntries = entries.filter(e => !tier1Ids.has(e.id) && e.injection.mode !== 'never');
 
-    // Tier 2/3: LLM selection for ALL remaining entries
-    let tier2: RetrievedEntry[] = [];
+    // Tier 2: Keyword matching - check name, aliases, keywords against search content
+    const tier2 = this.getTier2Entries(candidateEntries, searchContent);
+    log('Tier 2 entries (keyword matched):', tier2.length, tier2.map(e => e.entry.name));
+
+    // Get IDs already in tier 1 or tier 2
+    const tier1And2Ids = new Set([...tier1Ids, ...tier2.map(e => e.entry.id)]);
+
+    // Remaining entries for Tier 3 LLM selection
+    const remainingEntries = candidateEntries.filter(e => !tier1And2Ids.has(e.id));
+    log('Remaining entries for Tier 3 LLM:', remainingEntries.length);
+
+    // Tier 3: LLM selection for remaining entries
     let tier3: RetrievedEntry[] = [];
 
     if (this.config.enableLLMSelection && remainingEntries.length > 0 && this.provider) {
-      log('Sending all remaining entries to LLM for selection:', remainingEntries.length);
-      const llmSelected = await this.getLLMSelectedEntries(remainingEntries, userInput, recentStoryEntries);
-      // Put LLM-selected entries in tier 2 (tier 3 reserved for future use if needed)
-      tier2 = llmSelected;
-      log('LLM selected entries:', tier2.length);
+      log('Sending remaining entries to LLM for selection:', remainingEntries.length);
+      tier3 = await this.getLLMSelectedEntries(remainingEntries, userInput, recentStoryEntries);
+      log('Tier 3 entries (LLM selected):', tier3.length, tier3.map(e => e.entry.name));
     }
 
     // Combine and sort by priority
@@ -124,6 +134,52 @@ export class EntryRetrievalService {
     const contextBlock = this.buildContextBlock(tier1, tier2, tier3);
 
     return { tier1, tier2, tier3, all, contextBlock };
+  }
+
+  /**
+   * Tier 2: Keyword matching.
+   * Match entry name, aliases, and keywords against user input and recent story content.
+   */
+  private getTier2Entries(entries: Entry[], searchContent: string): RetrievedEntry[] {
+    const result: RetrievedEntry[] = [];
+
+    for (const entry of entries) {
+      const matchedKeywords: string[] = [];
+
+      // Check entry name
+      if (this.textMatches(entry.name, searchContent)) {
+        matchedKeywords.push(entry.name);
+      }
+
+      // Check aliases
+      if (entry.aliases) {
+        for (const alias of entry.aliases) {
+          if (this.textMatches(alias, searchContent)) {
+            matchedKeywords.push(alias);
+          }
+        }
+      }
+
+      // Check injection keywords
+      if (entry.injection.keywords) {
+        for (const keyword of entry.injection.keywords) {
+          if (this.textMatches(keyword, searchContent)) {
+            matchedKeywords.push(keyword);
+          }
+        }
+      }
+
+      if (matchedKeywords.length > 0) {
+        result.push({
+          entry,
+          tier: 2,
+          priority: 70 + entry.injection.priority,
+          matchReason: `matched: ${[...new Set(matchedKeywords)].join(', ')}`,
+        });
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -197,8 +253,8 @@ export class EntryRetrievalService {
   }
 
   /**
-   * LLM-based selection for all non-Tier-1 entries.
-   * Selects ALL relevant entries based on the current context.
+   * Tier 3: LLM-based selection for entries not matched by Tier 1 or Tier 2.
+   * Evaluates remaining entries for contextual relevance.
    */
   private async getLLMSelectedEntries(
     availableEntries: Entry[],
@@ -221,7 +277,7 @@ export class EntryRetrievalService {
       .map((e, i) => `${i + 1}. [${e.type.toUpperCase()}] "${e.name}": ${e.description.substring(0, 250)}${e.description.length > 250 ? '...' : ''}`)
       .join('\n');
 
-    const prompt = `You are a lorebook retrieval system. Your job is to select entries that could be relevant to the narrator.
+    const prompt = `You are a lorebook retrieval system. These entries were NOT matched by keyword search. Your job is to select any that are still relevant to the current scene.
 
 ## Current Scene
 ${recentContent || '(Story just started)'}
@@ -229,23 +285,20 @@ ${recentContent || '(Story just started)'}
 ## User's Next Action
 "${userInput}"
 
-## Available Lorebook Entries
+## Available Lorebook Entries (not keyword-matched)
 ${entryList}
 
 ## Instructions
-Select ALL entries that could possibly be relevant. When in doubt, INCLUDE the entry. It's better to include too much context than too little.
+Select entries that are contextually relevant even though they weren't keyword-matched. Include entries if they:
+- Describe background lore, magic systems, or world rules that apply
+- Are thematically connected to the current situation
+- Provide context that would help the narrator
+- Describe factions, organizations, or history relevant to current events
 
-Include entries if they:
-- Are mentioned or referenced in any way
-- Describe characters who are or could be present
-- Describe the current location or nearby areas
-- Contain world-building, lore, magic systems, or background info
-- Describe factions, organizations, or groups involved
-- Could inform the narrator's response in any way
-- Have ANY connection to the current situation
+Be selective - these entries didn't match keywords, so only include ones with genuine contextual relevance.
 
 Return ONLY a JSON array of numbers: [1, 2, 3, ...]
-Include ALL potentially relevant entries. Be generous with inclusion.`;
+Return an empty array [] if none are relevant.`;
 
     try {
       const response = await this.provider.generateResponse({
@@ -296,9 +349,9 @@ Include ALL potentially relevant entries. Be generous with inclusion.`;
         if (entry) {
           result.push({
             entry,
-            tier: 2,
+            tier: 3,
             priority: 50 + entry.injection.priority,
-            matchReason: 'LLM selected',
+            matchReason: 'contextually relevant',
           });
         }
       }

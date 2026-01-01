@@ -143,7 +143,7 @@ Respond with valid JSON:
 export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
   return {
     settingExpansion: {
-      model: 'x-ai/grok-4-fast', // Grok 4 (not 4.1) for better world elaboration after lorebook import
+      model: 'xiaomi/mimo-v2-flash:free', // mimo-v2-flash with reasoning for world elaboration
       systemPrompt: DEFAULT_PROMPTS.settingExpansion,
       temperature: 0.8,
       maxTokens: 2000,
@@ -155,7 +155,7 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       maxTokens: 800,
     },
     characterElaboration: {
-      model: SCENARIO_MODEL,
+      model: 'xiaomi/mimo-v2-flash:free', // mimo-v2-flash with reasoning for character elaboration
       systemPrompt: DEFAULT_PROMPTS.characterElaboration,
       temperature: 0.8,
       maxTokens: 800,
@@ -167,7 +167,7 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       maxTokens: 1200,
     },
     openingGeneration: {
-      model: SCENARIO_MODEL,
+      model: 'z-ai/glm-4.7', // GLM-4.7 with z-ai provider for opening generation
       systemPrompt: DEFAULT_PROMPTS.openingGeneration,
       temperature: 0.85,
       maxTokens: 2000,
@@ -338,14 +338,18 @@ Expand this into a rich, detailed world suitable for interactive storytelling.${
       }
     ];
 
+    // Use reasoning for mimo models
+    const model = overrides?.model || 'xiaomi/mimo-v2-flash:free';
+    const isMimo = model.includes('mimo');
+
     const response = await provider.generateResponse({
       messages,
-      model: overrides?.model || SCENARIO_MODEL,
+      model,
       temperature: overrides?.temperature ?? 0.8,
       maxTokens: overrides?.maxTokens ?? 2000,
       extraBody: {
         provider: SCENARIO_PROVIDER,
-        reasoning: { max_tokens: 8000 },
+        ...(isMimo && { reasoning: { max_tokens: 8000 } }),
       },
     });
 
@@ -430,12 +434,19 @@ Expand and enrich these details while staying true to what I've provided.`
       }
     ];
 
+    // Use reasoning for mimo models
+    const model = overrides?.model || 'xiaomi/mimo-v2-flash:free';
+    const isMimo = model.includes('mimo');
+
     const response = await provider.generateResponse({
       messages,
-      model: overrides?.model || SCENARIO_MODEL,
+      model,
       temperature: overrides?.temperature ?? 0.8,
       maxTokens: overrides?.maxTokens ?? 800,
-      extraBody: { provider: SCENARIO_PROVIDER },
+      extraBody: {
+        provider: SCENARIO_PROVIDER,
+        ...(isMimo && { reasoning: { max_tokens: 5000 } }),
+      },
     });
 
     log('Character elaboration response received', { length: response.content.length });
@@ -736,13 +747,17 @@ Describe the environment and situation. Do NOT write anything ${userName} does, 
       }
     ];
 
+    // Use z-ai provider for GLM models
+    const model = overrides?.model || 'z-ai/glm-4.7';
+    const isZAI = model.startsWith('z-ai/');
+
     const response = await provider.generateResponse({
       messages,
-      model: overrides?.model || SCENARIO_MODEL,
+      model,
       temperature: overrides?.temperature ?? 0.85,
       maxTokens: overrides?.maxTokens ?? 2000,
       extraBody: {
-        provider: SCENARIO_PROVIDER,
+        provider: isZAI ? { order: ['z-ai'], require_parameters: true } : SCENARIO_PROVIDER,
         reasoning: { max_tokens: 8000 },
       },
     });
@@ -857,11 +872,16 @@ Describe the environment and situation only. Do NOT write anything ${userName} d
       }
     ];
 
+    // Use z-ai provider for GLM models
+    const model = overrides?.model || 'z-ai/glm-4.7';
+    const isZAI = model.startsWith('z-ai/');
+
     for await (const chunk of provider.streamResponse({
       messages,
-      model: overrides?.model || SCENARIO_MODEL,
+      model,
       temperature: overrides?.temperature ?? 0.85,
       maxTokens: overrides?.maxTokens ?? 1000,
+      extraBody: isZAI ? { provider: { order: ['z-ai'], require_parameters: true } } : undefined,
     })) {
       yield chunk;
     }
