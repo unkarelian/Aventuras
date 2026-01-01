@@ -6,6 +6,7 @@
   import LocationPanel from '$lib/components/world/LocationPanel.svelte';
   import InventoryPanel from '$lib/components/world/InventoryPanel.svelte';
   import QuestPanel from '$lib/components/world/QuestPanel.svelte';
+  import { swipe } from '$lib/utils/swipe';
 
   const tabs = [
     { id: 'characters' as const, icon: Users, label: 'Characters' },
@@ -13,9 +14,16 @@
     { id: 'inventory' as const, icon: Backpack, label: 'Inventory' },
     { id: 'quests' as const, icon: Scroll, label: 'Quests' },
   ];
+
+  function handleSwipeLeft() {
+    ui.toggleSidebar();
+  }
 </script>
 
-<aside class="sidebar flex h-full w-72 flex-col border-r border-surface-700">
+<aside
+  class="sidebar flex h-full w-72 flex-col border-r border-surface-700"
+  use:swipe={{ onSwipeLeft: handleSwipeLeft, threshold: 50 }}
+>
   <!-- Tab navigation -->
   <div class="flex border-b border-surface-700">
     {#each tabs as tab}

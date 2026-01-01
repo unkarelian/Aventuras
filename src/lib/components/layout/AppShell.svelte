@@ -7,15 +7,51 @@
   import LibraryView from '$lib/components/story/LibraryView.svelte';
   import SettingsModal from '$lib/components/settings/SettingsModal.svelte';
   import LorebookDebugPanel from '$lib/components/debug/LorebookDebugPanel.svelte';
+  import { swipe } from '$lib/utils/swipe';
   import type { Snippet } from 'svelte';
 
   let { children }: { children?: Snippet } = $props();
+
+  // Swipe handlers for mobile sidebar toggle
+  function handleSwipeRight() {
+    if (story.currentStory && !ui.sidebarOpen) {
+      ui.toggleSidebar();
+    }
+  }
+
+  function handleSwipeLeft() {
+    if (ui.sidebarOpen) {
+      ui.toggleSidebar();
+    }
+  }
 </script>
 
-<div class="flex h-screen w-screen bg-surface-900">
+<div
+  class="flex h-screen w-screen bg-surface-900"
+  use:swipe={{ onSwipeRight: handleSwipeRight, onSwipeLeft: handleSwipeLeft, threshold: 50 }}
+>
+  <!-- Mobile sidebar overlay (tap to close) -->
+  {#if ui.sidebarOpen && story.currentStory}
+    <button
+      class="mobile-sidebar-overlay"
+      onclick={() => ui.toggleSidebar()}
+      aria-label="Close sidebar"
+    ></button>
+  {/if}
+
   <!-- Sidebar -->
   {#if ui.sidebarOpen && story.currentStory}
-    <Sidebar />
+    <div class="sidebar-container">
+      <Sidebar />
+    </div>
+  {/if}
+
+  <!-- Left edge swipe zone for opening sidebar (when closed) -->
+  {#if !ui.sidebarOpen && story.currentStory}
+    <div
+      class="swipe-edge-zone"
+      use:swipe={{ onSwipeRight: handleSwipeRight, threshold: 30 }}
+    ></div>
   {/if}
 
   <!-- Main content area -->
@@ -41,3 +77,59 @@
   <!-- Lorebook Debug Panel -->
   <LorebookDebugPanel />
 </div>
+
+<style>
+  /* Mobile sidebar overlay - visible only on touch devices */
+  .mobile-sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Sidebar container for mobile positioning */
+  .sidebar-container {
+    z-index: 50;
+  }
+
+  /* Left edge swipe zone */
+  .swipe-edge-zone {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 20px;
+    height: 100%;
+    z-index: 30;
+  }
+
+  /* Mobile styles */
+  @media (max-width: 768px) {
+    .mobile-sidebar-overlay {
+      display: block;
+    }
+
+    .sidebar-container {
+      position: fixed;
+      left: 0;
+      top: 0;
+      height: 100%;
+      animation: slide-in 0.2s ease-out;
+    }
+
+    .swipe-edge-zone {
+      width: 30px;
+    }
+  }
+
+  @keyframes slide-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+</style>

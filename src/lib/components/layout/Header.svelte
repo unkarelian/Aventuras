@@ -58,10 +58,10 @@
     </div>
 
     {#if story.currentStory}
-      <span class="text-surface-500">|</span>
-      <span class="text-surface-300">{story.currentStory.title}</span>
+      <span class="text-surface-500 hidden sm:inline">|</span>
+      <span class="text-surface-300 truncate max-w-[150px] sm:max-w-none">{story.currentStory.title}</span>
       {#if settings.uiSettings.showWordCount}
-        <span class="text-sm text-surface-500">({story.wordCount} words)</span>
+        <span class="text-sm text-surface-500 hidden sm:inline">({story.wordCount} words)</span>
       {/if}
     {/if}
   </div>
@@ -72,9 +72,10 @@
       class="btn-ghost flex items-center gap-2 rounded-lg px-3 py-1.5"
       class:bg-surface-700={ui.activePanel === 'library' || !story.currentStory}
       onclick={() => ui.setActivePanel('library')}
+      title="Library"
     >
       <Library class="h-4 w-4" />
-      <span class="text-sm">Library</span>
+      <span class="text-sm hidden sm:inline">Library</span>
     </button>
 
     {#if story.currentStory}
@@ -82,9 +83,10 @@
         class="btn-ghost flex items-center gap-2 rounded-lg px-3 py-1.5"
         class:bg-surface-700={ui.activePanel === 'story'}
         onclick={() => ui.setActivePanel('story')}
+        title="Story"
       >
         <BookOpen class="h-4 w-4" />
-        <span class="text-sm">Story</span>
+        <span class="text-sm hidden sm:inline">Story</span>
       </button>
     {/if}
   </div>
@@ -94,7 +96,7 @@
     {#if ui.isGenerating}
       <div class="flex items-center gap-2 text-sm text-accent-400">
         <div class="h-2 w-2 animate-pulse rounded-full bg-accent-500"></div>
-        <span>Generating...</span>
+        <span class="hidden sm:inline">Generating...</span>
       </div>
     {/if}
 
@@ -106,8 +108,8 @@
           title="Export story"
         >
           <Download class="h-4 w-4" />
-          <span>Export</span>
-          <ChevronDown class="h-3 w-3" />
+          <span class="hidden sm:inline">Export</span>
+          <ChevronDown class="h-3 w-3 hidden sm:inline" />
         </button>
 
         {#if showExportMenu}

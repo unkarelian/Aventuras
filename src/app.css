@@ -829,3 +829,210 @@
 [data-theme="retro-console"] input[type="checkbox"]:focus {
   --tw-ring-color: var(--color-retro-green);
 }
+
+/* =============================================
+   MOBILE & TOUCH FRIENDLY STYLES
+   ============================================= */
+
+/* Touch-friendly tap targets (minimum 44px per Apple/Google guidelines) */
+@media (max-width: 768px) {
+  /* Larger buttons on mobile */
+  .btn {
+    @apply min-h-[44px] px-4;
+  }
+
+  /* Larger icon buttons */
+  .btn-ghost {
+    @apply min-h-[44px] min-w-[44px];
+  }
+
+  /* Action type buttons - horizontal scroll on small screens */
+  .action-type-buttons {
+    @apply flex gap-1 overflow-x-auto pb-2 -mx-1 px-1;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .action-type-buttons::-webkit-scrollbar {
+    display: none;
+  }
+
+  .action-type-buttons .btn {
+    @apply flex-shrink-0 min-h-[40px] px-3;
+  }
+
+  /* Larger input areas */
+  .input {
+    @apply min-h-[44px] text-base;
+    /* Prevent zoom on focus on iOS */
+    font-size: 16px !important;
+  }
+
+  textarea.input {
+    @apply min-h-[80px];
+  }
+
+  /* Story container - full width on mobile */
+  .story-container {
+    @apply px-3;
+  }
+
+  /* Story entries - more compact on mobile */
+  .story-text {
+    @apply text-base leading-normal;
+  }
+
+  /* Header adjustments */
+  header {
+    @apply px-2;
+  }
+
+  /* Hide word count on mobile */
+  .word-count-mobile-hide {
+    @apply hidden;
+  }
+
+  /* Action choices - larger touch targets */
+  .action-choice-btn {
+    @apply min-h-[52px] py-3;
+  }
+
+  /* Sidebar tabs - larger touch targets */
+  .sidebar-tabs .btn,
+  .sidebar-tabs button {
+    @apply min-h-[48px];
+  }
+
+  /* Modal improvements for mobile */
+  .modal-content {
+    @apply mx-2 max-h-[90vh];
+  }
+
+  /* Dropdown menus - larger items */
+  .dropdown-item {
+    @apply min-h-[44px] py-3;
+  }
+
+  /* Entry action buttons (edit/delete) - always visible on mobile */
+  .entry-actions {
+    @apply opacity-100;
+  }
+
+  /* Prevent text selection on interactive elements */
+  button, .btn, a {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  /* Smooth scrolling for touch */
+  .scroll-container {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+
+  /* Full-width story view on mobile */
+  .max-w-3xl {
+    @apply max-w-full;
+  }
+
+  /* Reduce padding on story container */
+  .story-view-container {
+    @apply px-3 py-2;
+  }
+
+  /* Action input area - sticky at bottom */
+  .action-input-container {
+    @apply pb-safe;
+  }
+}
+
+/* Extra small screens (phones in portrait) */
+@media (max-width: 480px) {
+  /* Even more compact */
+  .story-text {
+    @apply text-[15px];
+  }
+
+  /* Stack header elements */
+  header .flex {
+    @apply flex-wrap;
+  }
+
+  /* Hide decorative text */
+  .decorative-text {
+    @apply hidden;
+  }
+
+  /* Smaller story title */
+  .story-title {
+    @apply text-sm truncate max-w-[120px];
+  }
+}
+
+/* Safe area insets for notched devices */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .action-input-container {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Touch feedback */
+@media (hover: none) and (pointer: coarse) {
+  /* Add touch ripple effect */
+  .btn:active,
+  button:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+
+  /* Faster transitions for touch */
+  .btn,
+  button {
+    transition-duration: 100ms;
+  }
+
+  /* Remove hover states on touch devices (they cause sticky hover) */
+  .btn-ghost:hover {
+    background-color: transparent;
+  }
+
+  .btn-ghost:active {
+    background-color: var(--bg-secondary);
+  }
+}
+
+/* Landscape mode adjustments */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Reduce header height */
+  header {
+    @apply h-10;
+  }
+
+  /* Compact action input */
+  .action-input-container {
+    @apply py-2;
+  }
+
+  /* Smaller text */
+  .story-text {
+    @apply text-sm;
+  }
+}
+
+/* Android-specific fixes */
+@supports (-webkit-touch-callout: none) {
+  /* iOS-specific */
+  input, textarea, select {
+    font-size: 16px; /* Prevent zoom */
+  }
+}
+
+/* Disable pull-to-refresh on Android when in app */
+body {
+  overscroll-behavior-y: contain;
+}

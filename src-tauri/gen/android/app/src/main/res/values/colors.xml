@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Aventura Dark Theme Colors -->
+    <color name="surface_900">#FF0f172a</color>
+    <color name="surface_800">#FF1e293b</color>
+    <color name="surface_700">#FF334155</color>
+    <color name="accent_500">#FF3b82f6</color>
+    <color name="accent_600">#FF2563eb</color>
+    <color name="accent_400">#FF60a5fa</color>
+
+    <!-- Material colors mapped to theme -->
+    <color name="colorPrimary">@color/accent_600</color>
+    <color name="colorPrimaryVariant">@color/accent_500</color>
+    <color name="colorOnPrimary">#FFFFFFFF</color>
+    <color name="colorSecondary">@color/accent_400</color>
+    <color name="colorSecondaryVariant">@color/accent_500</color>
+    <color name="colorOnSecondary">#FF000000</color>
+    <color name="colorBackground">@color/surface_900</color>
+    <color name="colorSurface">@color/surface_800</color>
+    <color name="colorError">#FFB00020</color>
+    <color name="colorOnBackground">#FFFFFFFF</color>
+    <color name="colorOnSurface">#FFFFFFFF</color>
+    <color name="colorOnError">#FFFFFFFF</color>
+
+    <!-- Status bar -->
+    <color name="statusBarColor">@color/surface_900</color>
+    <color name="navigationBarColor">@color/surface_800</color>
+
+    <!-- Legacy colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- Launcher icon background -->
+    <color name="ic_launcher_background">#FF0f172a</color>
+</resources>
