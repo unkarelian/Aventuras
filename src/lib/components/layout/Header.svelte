@@ -3,7 +3,7 @@
   import { story } from '$lib/stores/story.svelte';
   import { settings } from '$lib/stores/settings.svelte';
   import { exportService } from '$lib/services/export';
-  import { PanelLeft, Settings, BookOpen, Library, Feather, Download, FileJson, FileText, ChevronDown, Bug } from 'lucide-svelte';
+  import { PanelLeft, Settings, BookOpen, Library, Feather, Download, FileJson, FileText, ChevronDown, Bug, BookMarked } from 'lucide-svelte';
 
   let showExportMenu = $state(false);
 
@@ -87,6 +87,16 @@
       >
         <BookOpen class="h-4 w-4" />
         <span class="text-sm hidden sm:inline">Story</span>
+      </button>
+
+      <button
+        class="btn-ghost flex items-center gap-1 sm:gap-2 rounded-lg px-2 sm:px-3 py-1.5 min-h-[40px]"
+        class:bg-surface-700={ui.activePanel === 'lorebook'}
+        onclick={() => ui.setActivePanel('lorebook')}
+        title="Lorebook"
+      >
+        <BookMarked class="h-4 w-4" />
+        <span class="text-sm hidden sm:inline">Lorebook</span>
       </button>
     {/if}
   </div>

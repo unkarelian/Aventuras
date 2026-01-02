@@ -526,6 +526,77 @@ class StoryStore {
     return beat;
   }
 
+  // ===== Lorebook Entry CRUD Methods =====
+
+  /**
+   * Add a new lorebook entry.
+   */
+  async addLorebookEntry(entryData: Omit<Entry, 'id' | 'storyId' | 'createdAt' | 'updatedAt'>): Promise<Entry> {
+    if (!this.currentStory) throw new Error('No story loaded');
+
+    const now = Date.now();
+    const entry: Entry = {
+      ...entryData,
+      id: crypto.randomUUID(),
+      storyId: this.currentStory.id,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await database.addEntry(entry);
+    this.lorebookEntries = [...this.lorebookEntries, entry];
+    log('Lorebook entry added:', entry.name);
+    return entry;
+  }
+
+  /**
+   * Update a lorebook entry.
+   */
+  async updateLorebookEntry(id: string, updates: Partial<Entry>): Promise<void> {
+    if (!this.currentStory) throw new Error('No story loaded');
+
+    const updatesWithTimestamp = {
+      ...updates,
+      updatedAt: Date.now(),
+    };
+
+    await database.updateEntry(id, updatesWithTimestamp);
+    this.lorebookEntries = this.lorebookEntries.map(e =>
+      e.id === id ? { ...e, ...updatesWithTimestamp } : e
+    );
+    log('Lorebook entry updated:', id);
+  }
+
+  /**
+   * Delete a lorebook entry.
+   */
+  async deleteLorebookEntry(id: string): Promise<void> {
+    if (!this.currentStory) throw new Error('No story loaded');
+
+    await database.deleteEntry(id);
+    this.lorebookEntries = this.lorebookEntries.filter(e => e.id !== id);
+    log('Lorebook entry deleted:', id);
+  }
+
+  /**
+   * Delete multiple lorebook entries (bulk operation).
+   */
+  async deleteLorebookEntries(ids: string[]): Promise<void> {
+    if (!this.currentStory) throw new Error('No story loaded');
+
+    // Delete all entries in parallel
+    await Promise.all(ids.map(id => database.deleteEntry(id)));
+    this.lorebookEntries = this.lorebookEntries.filter(e => !ids.includes(e.id));
+    log('Lorebook entries deleted:', ids.length);
+  }
+
+  /**
+   * Get a single lorebook entry by ID.
+   */
+  getLorebookEntry(id: string): Entry | undefined {
+    return this.lorebookEntries.find(e => e.id === id);
+  }
+
   /**
    * Apply classification results to update world state.
    * This is Phase 4 of the processing pipeline per design doc.

@@ -1,4 +1,4 @@
-import type { ActivePanel, SidebarTab, UIState } from '$lib/types';
+import type { ActivePanel, SidebarTab, UIState, EntryType } from '$lib/types';
 import type { ActionChoice } from '$lib/services/ai/actionChoices';
 import type { StyleReviewResult } from '$lib/services/ai/styleReviewer';
 import type { EntryRetrievalResult, ActivationTracker } from '$lib/services/ai/entryRetrieval';
@@ -47,6 +47,18 @@ class UIStore {
   // Lorebook debug state
   lastLorebookRetrieval = $state<EntryRetrievalResult | null>(null);
   lorebookDebugOpen = $state(false);
+
+  // Lorebook manager state
+  selectedLorebookEntryId = $state<string | null>(null);
+  lorebookEditMode = $state(false);
+  lorebookBulkSelection = $state<Set<string>>(new Set());
+  lorebookSearchQuery = $state('');
+  lorebookTypeFilter = $state<EntryType | 'all'>('all');
+  lorebookSortBy = $state<'name' | 'type' | 'updated'>('name');
+  lorebookImportModalOpen = $state(false);
+  lorebookExportModalOpen = $state(false);
+  // Mobile: track if we're viewing detail (for stacked navigation)
+  lorebookShowDetail = $state(false);
 
   // Lorebook activation tracking for stickiness
   // Maps entry ID -> last activation position (story entry index)
@@ -217,6 +229,85 @@ class UIStore {
 
   toggleLorebookDebug() {
     this.lorebookDebugOpen = !this.lorebookDebugOpen;
+  }
+
+  // Lorebook manager methods
+  selectLorebookEntry(id: string | null) {
+    this.selectedLorebookEntryId = id;
+    this.lorebookEditMode = false;
+    if (id) {
+      this.lorebookShowDetail = true;
+    }
+  }
+
+  setLorebookEditMode(editing: boolean) {
+    this.lorebookEditMode = editing;
+  }
+
+  toggleBulkSelection(id: string) {
+    const newSet = new Set(this.lorebookBulkSelection);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    this.lorebookBulkSelection = newSet;
+  }
+
+  selectAllForBulk(ids: string[]) {
+    this.lorebookBulkSelection = new Set(ids);
+  }
+
+  clearBulkSelection() {
+    this.lorebookBulkSelection = new Set();
+  }
+
+  setLorebookSearchQuery(query: string) {
+    this.lorebookSearchQuery = query;
+  }
+
+  setLorebookTypeFilter(filter: EntryType | 'all') {
+    this.lorebookTypeFilter = filter;
+  }
+
+  setLorebookSortBy(sort: 'name' | 'type' | 'updated') {
+    this.lorebookSortBy = sort;
+  }
+
+  openLorebookImport() {
+    this.lorebookImportModalOpen = true;
+  }
+
+  closeLorebookImport() {
+    this.lorebookImportModalOpen = false;
+  }
+
+  openLorebookExport() {
+    this.lorebookExportModalOpen = true;
+  }
+
+  closeLorebookExport() {
+    this.lorebookExportModalOpen = false;
+  }
+
+  // Mobile navigation for lorebook
+  showLorebookDetail() {
+    this.lorebookShowDetail = true;
+  }
+
+  hideLorebookDetail() {
+    this.lorebookShowDetail = false;
+    this.selectedLorebookEntryId = null;
+    this.lorebookEditMode = false;
+  }
+
+  // Reset lorebook manager state (when leaving panel or switching stories)
+  resetLorebookManager() {
+    this.selectedLorebookEntryId = null;
+    this.lorebookEditMode = false;
+    this.lorebookBulkSelection = new Set();
+    this.lorebookSearchQuery = '';
+    this.lorebookShowDetail = false;
   }
 
   // Activation tracking methods for lorebook stickiness

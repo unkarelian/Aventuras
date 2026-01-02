@@ -5,6 +5,7 @@
   import Header from './Header.svelte';
   import StoryView from '$lib/components/story/StoryView.svelte';
   import LibraryView from '$lib/components/story/LibraryView.svelte';
+  import LorebookView from '$lib/components/lorebook/LorebookView.svelte';
   import SettingsModal from '$lib/components/settings/SettingsModal.svelte';
   import LorebookDebugPanel from '$lib/components/debug/LorebookDebugPanel.svelte';
   import { swipe } from '$lib/utils/swipe';
@@ -61,6 +62,8 @@
     <main class="flex-1 overflow-hidden">
       {#if ui.activePanel === 'story' && story.currentStory}
         <StoryView />
+      {:else if ui.activePanel === 'lorebook' && story.currentStory}
+        <LorebookView />
       {:else if ui.activePanel === 'library' || !story.currentStory}
         <LibraryView />
       {:else if children}
