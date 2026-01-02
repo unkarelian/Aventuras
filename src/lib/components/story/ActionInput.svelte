@@ -262,7 +262,7 @@
       const result = await aiService.runLoreManagement(
         story.currentStory.id,
         [...story.lorebookEntries], // Clone to avoid mutation issues
-        story.entries.slice(-100), // Recent messages
+        [], // Lore management runs without current chat history
         story.chapters,
         {
           onCreateEntry: async (entry) => {

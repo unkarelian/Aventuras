@@ -368,20 +368,26 @@ export class LoreManagementService {
     this.changes = [];
     const sessionId = crypto.randomUUID();
 
+    // Lore management runs with its own agentic context; do not include live chat history.
+    const sanitizedContext: ToolExecutionContext = {
+      ...context,
+      recentMessages: [],
+    };
+
     // Filter out blacklisted entries - AI won't see or be able to modify them
-    const blacklistedCount = context.entries.filter(e => e.loreManagementBlacklisted).length;
-    context.entries = context.entries.filter(e => !e.loreManagementBlacklisted);
+    const blacklistedCount = sanitizedContext.entries.filter(e => e.loreManagementBlacklisted).length;
+    sanitizedContext.entries = sanitizedContext.entries.filter(e => !e.loreManagementBlacklisted);
 
     log('Starting lore management session', {
       sessionId,
-      entriesCount: context.entries.length,
+      entriesCount: sanitizedContext.entries.length,
       blacklistedCount,
-      recentMessagesCount: context.recentMessages.length,
-      chaptersCount: context.chapters.length,
+      recentMessagesCount: sanitizedContext.recentMessages.length,
+      chaptersCount: sanitizedContext.chapters.length,
     });
 
     // Build initial prompt with context
-    const initialPrompt = this.buildInitialPrompt(context);
+    const initialPrompt = this.buildInitialPrompt(sanitizedContext);
 
     // Initialize conversation with system message and context
     const messages: AgenticMessage[] = [
@@ -489,7 +495,7 @@ export class LoreManagementService {
 
         // Execute each tool call
         for (const toolCall of response.tool_calls) {
-          const result = await this.executeTool(toolCall, context);
+          const result = await this.executeTool(toolCall, sanitizedContext);
 
           if (toolCall.function.name === 'finish_lore_management') {
             complete = true;
@@ -548,6 +554,9 @@ export class LoreManagementService {
       const prefix = m.type === 'user_action' ? '[ACTION]' : '[NARRATION]';
       return `${prefix} ${m.content.substring(0, 200)}...`;
     }).join('\n\n');
+    const recentStorySection = context.recentMessages.length > 0
+      ? `# Recent Story (last ${Math.min(10, context.recentMessages.length)} messages)\n${recentStory}\n`
+      : '';
 
     // Build chapter summary
     const chapterSummary = context.chapters.length > 0
@@ -556,11 +565,7 @@ export class LoreManagementService {
 
     return `# Current Lorebook Entries
 ${entrySummary}
-
-# Recent Story (last ${Math.min(10, context.recentMessages.length)} messages)
-${recentStory}
-
-# Chapter Summaries
+${recentStorySection}# Chapter Summaries
 ${chapterSummary}
 
 Please review the story content and identify:
