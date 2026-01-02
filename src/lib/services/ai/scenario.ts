@@ -194,6 +194,7 @@ export interface WizardData {
     tone: string;
   };
   title: string;
+  openingGuidance?: string; // Creative writing mode: user guidance for the opening scene
 }
 
 export interface ExpandedSetting {
@@ -776,6 +777,11 @@ Respond with valid JSON:
       }
     }
 
+    // Build opening guidance section if provided
+    const guidanceSection = wizardData.openingGuidance?.trim()
+      ? `\nAUTHOR'S GUIDANCE FOR OPENING:\n${wizardData.openingGuidance.trim()}\n`
+      : '';
+
     const messages: Message[] = [
       {
         role: 'system',
@@ -797,8 +803,7 @@ ${protagonist?.description || ''}
 
 ${characters && characters.length > 0 ? `NPCs WHO MAY APPEAR:
 ${characters.map(c => `- ${c.name} (${c.role}): ${c.description}`).join('\n')}
-` : ''}
-${lorebookContext}
+` : ''}${guidanceSection}${lorebookContext}
 Describe the environment and situation. Do NOT write anything ${userName} does, says, thinks, or perceives. End with a moment that invites action.`
       }
     ];

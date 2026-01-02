@@ -45,6 +45,8 @@
     Check,
     AlertCircle,
     Book,
+    Trash2,
+    Plus,
   } from 'lucide-svelte';
 
   interface Props {
@@ -86,6 +88,16 @@
   let manualCharacterTraits = $state('');
   let showManualInput = $state(true); // Show manual input by default
 
+  // Supporting character input
+  let showSupportingCharacterForm = $state(false);
+  let editingSupportingCharacterIndex = $state<number | null>(null);
+  let supportingCharacterName = $state('');
+  let supportingCharacterRole = $state('');
+  let supportingCharacterDescription = $state('');
+  let supportingCharacterRelationship = $state('');
+  let supportingCharacterTraits = $state('');
+  let isElaboratingSupportingCharacter = $state(false);
+
   // Step 2: Import Lorebook (optional - moved to early position)
   let importedLorebook = $state<LorebookImportResult | null>(null);
   let importedEntries = $state<ImportedEntry[]>([]);
@@ -102,6 +114,7 @@
 
   // Step 7: Generate Opening
   let storyTitle = $state('');
+  let openingGuidance = $state(''); // Creative writing mode: user guidance for opening scene
   let generatedOpening = $state<GeneratedOpening | null>(null);
   let isGeneratingOpening = $state(false);
   let openingError = $state<string | null>(null);
@@ -170,7 +183,22 @@
     }
   }
 
-  // Step 3: Expand Setting
+  // Step 3: Use setting as-is without AI expansion
+  function useSettingAsIs() {
+    if (!settingSeed.trim()) return;
+
+    // Create a minimal expanded setting from the seed text
+    expandedSetting = {
+      name: settingSeed.split('.')[0].trim().slice(0, 50) || 'Custom Setting',
+      description: settingSeed.trim(),
+      keyLocations: [],
+      atmosphere: '',
+      themes: [],
+      potentialConflicts: [],
+    };
+  }
+
+  // Step 3: Expand Setting with AI
   async function expandSetting() {
     if (!settingSeed.trim() || isExpandingSetting) return;
 
@@ -323,6 +351,118 @@
     }
   }
 
+  // Supporting character form management
+  function openSupportingCharacterForm() {
+    editingSupportingCharacterIndex = null;
+    supportingCharacterName = '';
+    supportingCharacterRole = '';
+    supportingCharacterDescription = '';
+    supportingCharacterRelationship = '';
+    supportingCharacterTraits = '';
+    showSupportingCharacterForm = true;
+  }
+
+  function editSupportingCharacter(index: number) {
+    const char = supportingCharacters[index];
+    editingSupportingCharacterIndex = index;
+    supportingCharacterName = char.name;
+    supportingCharacterRole = char.role;
+    supportingCharacterDescription = char.description;
+    supportingCharacterRelationship = char.relationship;
+    supportingCharacterTraits = char.traits?.join(', ') || '';
+    showSupportingCharacterForm = true;
+  }
+
+  function cancelSupportingCharacterForm() {
+    showSupportingCharacterForm = false;
+    editingSupportingCharacterIndex = null;
+    supportingCharacterName = '';
+    supportingCharacterRole = '';
+    supportingCharacterDescription = '';
+    supportingCharacterRelationship = '';
+    supportingCharacterTraits = '';
+  }
+
+  function useSupportingCharacterAsIs() {
+    if (!supportingCharacterName.trim()) return;
+
+    const newChar: GeneratedCharacter = {
+      name: supportingCharacterName.trim(),
+      role: supportingCharacterRole.trim() || 'supporting',
+      description: supportingCharacterDescription.trim() || '',
+      relationship: supportingCharacterRelationship.trim() || '',
+      traits: supportingCharacterTraits.trim()
+        ? supportingCharacterTraits.split(',').map(t => t.trim()).filter(Boolean)
+        : [],
+    };
+
+    if (editingSupportingCharacterIndex !== null) {
+      supportingCharacters[editingSupportingCharacterIndex] = newChar;
+      supportingCharacters = [...supportingCharacters]; // Trigger reactivity
+    } else {
+      supportingCharacters = [...supportingCharacters, newChar];
+    }
+
+    cancelSupportingCharacterForm();
+  }
+
+  async function elaborateSupportingCharacter() {
+    if (isElaboratingSupportingCharacter) return;
+
+    const hasInput = supportingCharacterName.trim() ||
+      supportingCharacterDescription.trim() ||
+      supportingCharacterRelationship.trim();
+
+    if (!hasInput) return;
+
+    isElaboratingSupportingCharacter = true;
+
+    try {
+      // Use the same elaboration service but for supporting characters
+      const elaborated = await scenarioService.elaborateCharacter(
+        {
+          name: supportingCharacterName.trim() || undefined,
+          description: supportingCharacterDescription.trim() || undefined,
+          background: supportingCharacterRelationship.trim() || undefined, // Use relationship as background context
+          motivation: supportingCharacterRole.trim() || undefined, // Use role as motivation context
+          traits: supportingCharacterTraits.trim()
+            ? supportingCharacterTraits.split(',').map(t => t.trim()).filter(Boolean)
+            : undefined,
+        },
+        expandedSetting,
+        selectedGenre,
+        customGenre || undefined,
+        settings.wizardSettings.characterElaboration
+      );
+
+      // Convert elaborated protagonist format to supporting character format
+      const newChar: GeneratedCharacter = {
+        name: elaborated.name,
+        role: supportingCharacterRole.trim() || 'supporting',
+        description: elaborated.description,
+        relationship: supportingCharacterRelationship.trim() || elaborated.background || '',
+        traits: elaborated.traits || [],
+      };
+
+      if (editingSupportingCharacterIndex !== null) {
+        supportingCharacters[editingSupportingCharacterIndex] = newChar;
+        supportingCharacters = [...supportingCharacters];
+      } else {
+        supportingCharacters = [...supportingCharacters, newChar];
+      }
+
+      cancelSupportingCharacterForm();
+    } catch (error) {
+      console.error('Failed to elaborate supporting character:', error);
+    } finally {
+      isElaboratingSupportingCharacter = false;
+    }
+  }
+
+  function deleteSupportingCharacter(index: number) {
+    supportingCharacters = supportingCharacters.filter((_, i) => i !== index);
+  }
+
   // Step 7: Generate Opening
   async function generateOpeningScene() {
     if (isGeneratingOpening) return;
@@ -344,6 +484,7 @@
         tone,
       },
       title: storyTitle,
+      openingGuidance: selectedMode === 'creative-writing' && openingGuidance.trim() ? openingGuidance.trim() : undefined,
     };
 
     // Prepare lorebook entries for opening generation context
@@ -389,6 +530,7 @@
         tone,
       },
       title: storyTitle,
+      openingGuidance: selectedMode === 'creative-writing' && openingGuidance.trim() ? openingGuidance.trim() : undefined,
     };
 
     // Generate opening if not already done
@@ -805,20 +947,29 @@
             ></textarea>
           </div>
 
-          {#if settingSeed.trim().length > 0}
-            <button
-              class="btn btn-secondary flex items-center gap-2"
-              onclick={expandSetting}
-              disabled={isExpandingSetting}
-            >
-              {#if isExpandingSetting}
-                <Loader2 class="h-4 w-4 animate-spin" />
-                Expanding...
-              {:else}
-                <Globe class="h-4 w-4" />
-                Expand Setting with AI
-              {/if}
-            </button>
+          {#if settingSeed.trim().length > 0 && !expandedSetting}
+            <div class="flex flex-wrap gap-2">
+              <button
+                class="btn btn-secondary flex items-center gap-2"
+                onclick={useSettingAsIs}
+              >
+                <Check class="h-4 w-4" />
+                Use As-Is
+              </button>
+              <button
+                class="btn btn-primary flex items-center gap-2"
+                onclick={expandSetting}
+                disabled={isExpandingSetting}
+              >
+                {#if isExpandingSetting}
+                  <Loader2 class="h-4 w-4 animate-spin" />
+                  Expanding...
+                {:else}
+                  <Sparkles class="h-4 w-4" />
+                  Expand with AI
+                {/if}
+              </button>
+            </div>
           {/if}
 
           {#if settingError}
@@ -829,14 +980,23 @@
             <div class="card bg-surface-900 p-4 space-y-3">
               <div class="flex items-center justify-between">
                 <h3 class="font-semibold text-surface-100">{expandedSetting.name}</h3>
-                <button
-                  class="text-xs text-accent-400 hover:text-accent-300"
-                  onclick={expandSetting}
-                  disabled={isExpandingSetting}
-                >
-                  <RefreshCw class="h-3 w-3 inline mr-1" />
-                  Regenerate
-                </button>
+                <div class="flex gap-2">
+                  <button
+                    class="text-xs text-surface-400 hover:text-surface-200 flex items-center gap-1"
+                    onclick={() => expandedSetting = null}
+                  >
+                    <PenTool class="h-3 w-3" />
+                    Edit
+                  </button>
+                  <button
+                    class="text-xs text-accent-400 hover:text-accent-300 flex items-center gap-1"
+                    onclick={expandSetting}
+                    disabled={isExpandingSetting}
+                  >
+                    <RefreshCw class="h-3 w-3" />
+                    Regenerate
+                  </button>
+                </div>
               </div>
               <p class="text-sm text-surface-300 whitespace-pre-wrap">{expandedSetting.description}</p>
 
@@ -1058,39 +1218,169 @@
               <div class="space-y-3 pt-4 border-t border-surface-700">
                 <div class="flex items-center justify-between">
                   <h3 class="font-medium text-surface-100">Supporting Cast</h3>
-                  <button
-                    class="btn btn-secondary btn-sm flex items-center gap-1"
-                    onclick={generateCharacters}
-                    disabled={isGeneratingCharacters || !protagonist}
-                  >
-                    {#if isGeneratingCharacters}
-                      <Loader2 class="h-3 w-3 animate-spin" />
-                      Generating...
-                    {:else}
-                      <Users class="h-3 w-3" />
-                      {supportingCharacters.length > 0 ? 'Regenerate' : 'Generate Characters'}
-                    {/if}
-                  </button>
+                  <div class="flex gap-2">
+                    <button
+                      class="btn btn-secondary btn-sm flex items-center gap-1"
+                      onclick={openSupportingCharacterForm}
+                      disabled={showSupportingCharacterForm}
+                    >
+                      <Plus class="h-3 w-3" />
+                      Add
+                    </button>
+                    <button
+                      class="btn btn-secondary btn-sm flex items-center gap-1"
+                      onclick={generateCharacters}
+                      disabled={isGeneratingCharacters || !protagonist}
+                      title="Generate 3 AI characters at once"
+                    >
+                      {#if isGeneratingCharacters}
+                        <Loader2 class="h-3 w-3 animate-spin" />
+                        Generating...
+                      {:else}
+                        <Sparkles class="h-3 w-3" />
+                        Generate 3
+                      {/if}
+                    </button>
+                  </div>
                 </div>
 
+                <!-- Supporting Character Form -->
+                {#if showSupportingCharacterForm}
+                  <div class="card bg-surface-900 p-4 space-y-4">
+                    <p class="text-sm text-surface-400">
+                      {editingSupportingCharacterIndex !== null ? 'Edit' : 'Add'} a supporting character. You can use them as-is or have AI elaborate on them.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-3">
+                      <div>
+                        <label class="mb-1 block text-xs font-medium text-surface-400">Name</label>
+                        <input
+                          type="text"
+                          bind:value={supportingCharacterName}
+                          placeholder="e.g., Lady Vivienne"
+                          class="input"
+                        />
+                      </div>
+                      <div>
+                        <label class="mb-1 block text-xs font-medium text-surface-400">Role</label>
+                        <input
+                          type="text"
+                          bind:value={supportingCharacterRole}
+                          placeholder="e.g., ally, antagonist, mentor..."
+                          class="input"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-surface-400">Description</label>
+                      <textarea
+                        bind:value={supportingCharacterDescription}
+                        placeholder="Physical appearance, personality, notable features..."
+                        class="input min-h-[60px] resize-none"
+                        rows="2"
+                      ></textarea>
+                    </div>
+
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-surface-400">Relationship to Protagonist</label>
+                      <input
+                        type="text"
+                        bind:value={supportingCharacterRelationship}
+                        placeholder="e.g., Childhood friend, rival from academy..."
+                        class="input"
+                      />
+                    </div>
+
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-surface-400">Traits (comma-separated)</label>
+                      <input
+                        type="text"
+                        bind:value={supportingCharacterTraits}
+                        placeholder="e.g., cunning, loyal, mysterious..."
+                        class="input"
+                      />
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 pt-2 border-t border-surface-700">
+                      <button
+                        class="btn btn-secondary btn-sm flex items-center gap-1"
+                        onclick={useSupportingCharacterAsIs}
+                        disabled={!supportingCharacterName.trim()}
+                        title="Use character as entered"
+                      >
+                        <Check class="h-3 w-3" />
+                        Use As-Is
+                      </button>
+                      <button
+                        class="btn btn-primary btn-sm flex items-center gap-1"
+                        onclick={elaborateSupportingCharacter}
+                        disabled={isElaboratingSupportingCharacter || (!supportingCharacterName.trim() && !supportingCharacterDescription.trim())}
+                        title="Have AI expand on character details"
+                      >
+                        {#if isElaboratingSupportingCharacter}
+                          <Loader2 class="h-3 w-3 animate-spin" />
+                          Elaborating...
+                        {:else}
+                          <Sparkles class="h-3 w-3" />
+                          Elaborate with AI
+                        {/if}
+                      </button>
+                      <button
+                        class="btn btn-secondary btn-sm flex items-center gap-1"
+                        onclick={cancelSupportingCharacterForm}
+                      >
+                        <X class="h-3 w-3" />
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                {/if}
+
+                <!-- Character List -->
                 {#if supportingCharacters.length > 0}
                   <div class="space-y-2">
-                    {#each supportingCharacters as char}
+                    {#each supportingCharacters as char, index}
                       <div class="card bg-surface-900 p-3">
-                        <div class="flex items-center justify-between mb-1">
-                          <span class="font-medium text-surface-100">{char.name}</span>
-                          <span class="text-xs text-accent-400">{char.role}</span>
+                        <div class="flex items-start justify-between mb-1">
+                          <div class="flex items-center gap-2">
+                            <span class="font-medium text-surface-100">{char.name}</span>
+                            <span class="text-xs px-1.5 py-0.5 rounded bg-accent-500/20 text-accent-400">{char.role}</span>
+                          </div>
+                          <div class="flex gap-1">
+                            <button
+                              class="text-xs text-surface-400 hover:text-surface-200 flex items-center gap-1 p-1"
+                              onclick={() => editSupportingCharacter(index)}
+                              title="Edit character"
+                            >
+                              <PenTool class="h-3 w-3" />
+                            </button>
+                            <button
+                              class="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 p-1"
+                              onclick={() => deleteSupportingCharacter(index)}
+                              title="Delete character"
+                            >
+                              <Trash2 class="h-3 w-3" />
+                            </button>
+                          </div>
                         </div>
                         <p class="text-sm text-surface-300">{char.description}</p>
-                        <p class="text-xs text-surface-400 mt-1">{char.relationship}</p>
+                        {#if char.relationship}
+                          <p class="text-xs text-surface-400 mt-1">{char.relationship}</p>
+                        {/if}
+                        {#if char.traits && char.traits.length > 0}
+                          <div class="flex flex-wrap gap-1 mt-1">
+                            {#each char.traits as trait}
+                              <span class="px-1.5 py-0.5 rounded-full bg-surface-700 text-xs text-surface-400">{trait}</span>
+                            {/each}
+                          </div>
+                        {/if}
                       </div>
                     {/each}
                   </div>
-                {:else}
+                {:else if !showSupportingCharacterForm}
                   <p class="text-sm text-surface-500 italic">
-                    {protagonist
-                      ? 'Click "Generate Characters" to create supporting cast members.'
-                      : 'Generate a protagonist first to create supporting characters.'}
+                    No supporting characters yet. Add one manually or generate multiple with AI.
                   </p>
                 {/if}
               </div>
@@ -1182,6 +1472,26 @@
               class="input"
             />
           </div>
+
+          <!-- Opening Scene Guidance (Creative Writing Mode Only) -->
+          {#if selectedMode === 'creative-writing'}
+            <div class="card bg-surface-900 p-4 space-y-3">
+              <div class="flex items-center gap-2">
+                <Feather class="h-4 w-4 text-secondary-400" />
+                <h4 class="font-medium text-surface-200">Opening Scene Guidance</h4>
+                <span class="text-xs text-surface-500">(Optional)</span>
+              </div>
+              <p class="text-sm text-surface-400">
+                As the author, describe what you want to happen in the opening scene. Include setting details, character positions, mood, or specific events.
+              </p>
+              <textarea
+                bind:value={openingGuidance}
+                placeholder="e.g., The scene opens at night in a crowded tavern. Elara sits alone in a corner, nursing a drink, when a mysterious stranger approaches her table with urgent news about her missing brother..."
+                class="input min-h-[100px] resize-y text-sm"
+                rows="4"
+              ></textarea>
+            </div>
+          {/if}
 
           {#if storyTitle.trim()}
             <button
