@@ -160,35 +160,36 @@ export const DEFAULT_SERVICE_PROMPTS = {
 
 ## Your Role
 Extract ONLY significant, named entities that matter to the ongoing story. Be precise and conservative.
+Note: The story may be in Adventure mode (player as protagonist) or Creative Writing mode (author directing characters).
 
 ## What to Extract
 
 ### Characters - ONLY extract if:
 - They have a proper name (not "the merchant" or "a guard")
-- They have meaningful interaction with the protagonist
+- They have meaningful interaction or story relevance
 - They are likely to appear again or are plot-relevant
-- Example: "Elena, the blacksmith's daughter who gives you a quest" = YES
-- Example: "the innkeeper who served your drink" = NO
+- Example: "Elena, the blacksmith's daughter who offers a task" = YES
+- Example: "the innkeeper who served a drink" = NO
 
 ### Locations - ONLY extract if:
-- The protagonist physically travels there or it's their current location
+- The scene takes place there or characters travel there
 - It has a specific name (not "a dark alley" or "the forest")
-- Example: "You enter the Thornwood Tavern" = YES
-- Example: "You see mountains in the distance" = NO
+- Example: "The scene shifts to the Thornwood Tavern" = YES
+- Example: "Mountains visible in the distance" = NO
 
 ### Items - ONLY extract if:
-- The protagonist explicitly acquires, picks up, or is given the item
-- The item has narrative significance (quest item, weapon, key, etc.)
-- Example: "She hands you an ancient amulet" = YES
+- A character explicitly acquires, picks up, or is given the item
+- The item has narrative significance (plot item, weapon, key, etc.)
+- Example: "She hands over an ancient amulet" = YES
 - Example: "There's a bottle on the shelf" = NO
 
 ### Story Beats - ONLY extract if:
-- A quest or task is explicitly given or accepted
+- A task, quest, or plot thread is introduced or resolved
 - A major revelation or plot twist occurs
 - A significant milestone is reached
-- Example: "She asks you to find her missing brother" = YES (quest)
-- Example: "You learn the king was murdered by his own son" = YES (revelation)
-- Example: "You enjoy a nice meal" = NO
+- Example: "She asks for help finding her missing brother" = YES (quest/plot_point)
+- Example: "The truth about the king's murder is revealed" = YES (revelation)
+- Example: "They enjoy a nice meal" = NO
 
 ## Critical Rules
 1. When in doubt, DO NOT extract - false positives pollute the world state

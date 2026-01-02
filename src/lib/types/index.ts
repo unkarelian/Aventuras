@@ -90,7 +90,7 @@ export interface StoryBeat {
   storyId: string;
   title: string;
   description: string | null;
-  type: 'milestone' | 'quest' | 'revelation' | 'event';
+  type: 'milestone' | 'quest' | 'revelation' | 'event' | 'plot_point';
   status: 'pending' | 'active' | 'completed' | 'failed';
   triggeredAt: number | null;
   metadata: Record<string, unknown> | null;

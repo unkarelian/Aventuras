@@ -85,7 +85,7 @@ export interface NewItem {
 export interface NewStoryBeat {
   title: string;
   description: string;
-  type: 'milestone' | 'quest' | 'revelation' | 'event';
+  type: 'milestone' | 'quest' | 'revelation' | 'event' | 'plot_point';
   status: 'pending' | 'active' | 'completed';
 }
 
@@ -98,6 +98,7 @@ export interface ClassificationContext {
   existingItems: Item[];
   existingStoryBeats: StoryBeat[];
   genre: string | null;
+  storyMode: 'adventure' | 'creative-writing';
 }
 
 export class ClassifierService {
@@ -187,14 +188,28 @@ export class ClassifierService {
     const existingCharacterNames = context.existingCharacters.map(c => c.name);
     const existingLocationNames = context.existingLocations.map(l => l.name);
     const existingItemNames = context.existingItems.map(i => i.name);
+    const isCreativeMode = context.storyMode === 'creative-writing';
+
+    // Mode-specific terminology
+    const inputLabel = isCreativeMode ? "The Author's Direction" : "The Player's Action";
+    const sceneLocationDesc = isCreativeMode
+      ? "The name of where the current scene takes place, or null if unchanged"
+      : "The name of where the protagonist IS (not where they're going), or null if unchanged";
+    const itemLocationOptions = isCreativeMode
+      ? "with_character|scene|mentioned"
+      : "inventory|dropped|given";
+    const storyBeatTypes = isCreativeMode
+      ? "plot_point|revelation|milestone|event"
+      : "quest|revelation|milestone|event";
 
     return `Analyze this narrative passage and extract world state changes.
 
 ## Context
 ${context.genre ? `Genre: ${context.genre}` : ''}
+Mode: ${isCreativeMode ? 'Creative Writing (author directing the story)' : 'Adventure (player as protagonist)'}
 Already tracking: ${existingCharacterNames.length} characters, ${existingLocationNames.length} locations, ${existingItemNames.length} items
 
-## The Player's Action
+## ${inputLabel}
 "${context.userAction}"
 
 ## The Narrative Response
@@ -236,17 +251,17 @@ characterUpdates: [{"name": "ExistingName", "changes": {"status": "active|inacti
 
 locationUpdates: [{"name": "ExistingName", "changes": {"visited": true, "current": true, "descriptionAddition": "new detail learned"}}]
 
-itemUpdates: [{"name": "ExistingName", "changes": {"quantity": 1, "equipped": true, "location": "inventory|dropped|given"}}]
+itemUpdates: [{"name": "ExistingName", "changes": {"quantity": 1, "equipped": true, "location": "${itemLocationOptions}"}}]
 
 newCharacters: [{"name": "ProperName", "description": "one sentence", "relationship": "friend|enemy|ally|neutral|unknown", "traits": ["trait1"]}]
 
 newLocations: [{"name": "ProperName", "description": "one sentence", "visited": true, "current": false}]
 
-newItems: [{"name": "ItemName", "description": "one sentence", "quantity": 1, "location": "inventory"}]
+newItems: [{"name": "ItemName", "description": "one sentence", "quantity": 1, "location": "${isCreativeMode ? 'with_character' : 'inventory'}"}]
 
-newStoryBeats: [{"title": "Short Title", "description": "what happened or was learned", "type": "quest|revelation|milestone|event", "status": "pending|active|completed"}]
+newStoryBeats: [{"title": "Short Title", "description": "what happened or was learned", "type": "${storyBeatTypes}", "status": "pending|active|completed"}]
 
-scene.currentLocationName: The name of where the protagonist IS (not where they're going), or null if unchanged
+scene.currentLocationName: ${sceneLocationDesc}
 scene.presentCharacterNames: Names of characters physically present in the scene
 scene.timeProgression: How much time passed - "none", "minutes", "hours", or "days"
 

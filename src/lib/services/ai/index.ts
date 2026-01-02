@@ -295,6 +295,7 @@ class AIService {
       existingItems: worldState.items,
       existingStoryBeats: worldState.storyBeats,
       genre: story?.genre ?? null,
+      storyMode: story?.mode ?? 'adventure',
     };
 
     const result = await classifier.classify(context);
