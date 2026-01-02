@@ -365,22 +365,24 @@ class AIService {
   }
 
   /**
-   * Analyze if a new chapter should be created.
+   * Analyze if a new chapter should be created based on token count.
    * Per design doc section 3.1.2: Auto-Summarization
    */
   async analyzeForChapter(
     entries: StoryEntry[],
     lastChapterEndIndex: number,
-    config: MemoryConfig
+    config: MemoryConfig,
+    tokensOutsideBuffer: number
   ): Promise<ChapterAnalysis> {
     log('analyzeForChapter called', {
       entriesCount: entries.length,
       lastChapterEndIndex,
+      tokensOutsideBuffer,
     });
 
     const provider = this.getProvider();
     const memory = new MemoryService(provider);
-    return await memory.analyzeForChapter(entries, lastChapterEndIndex, config);
+    return await memory.analyzeForChapter(entries, lastChapterEndIndex, config, tokensOutsideBuffer);
   }
 
   /**

@@ -264,7 +264,7 @@ export interface MemorySettings {
 
 export function getDefaultMemorySettings(): MemorySettings {
   return {
-    model: 'deepseek/deepseek-v3.2',
+    model: 'x-ai/grok-4.1-fast',
     temperature: 0.3,
     chapterAnalysisPrompt: DEFAULT_SERVICE_PROMPTS.chapterAnalysis,
     chapterSummarizationPrompt: DEFAULT_SERVICE_PROMPTS.chapterSummarization,
@@ -372,7 +372,7 @@ The context you provide will be injected into the narrator's prompt to help main
 export function getDefaultAgenticRetrievalSettings(): AgenticRetrievalSettings {
   return {
     enabled: false, // Disabled by default, static retrieval usually sufficient
-    model: 'deepseek/deepseek-v3.2',
+    model: 'x-ai/grok-4.1-fast',
     temperature: 0.3,
     maxIterations: 10,
     systemPrompt: DEFAULT_AGENTIC_RETRIEVAL_PROMPT,
@@ -672,6 +672,56 @@ class SettingsStore {
   async resetAllSystemServicesSettings() {
     this.systemServicesSettings = getDefaultSystemServicesSettings();
     await this.saveSystemServicesSettings();
+  }
+
+  /**
+   * Reset ALL settings to their default values.
+   * This preserves the API key but resets everything else.
+   */
+  async resetAllSettings(preserveApiKey = true) {
+    const apiKey = preserveApiKey ? this.apiSettings.openrouterApiKey : null;
+
+    // Reset API settings (except key if preserving)
+    this.apiSettings = {
+      openrouterApiKey: apiKey,
+      defaultModel: 'z-ai/glm-4.7',
+      temperature: 0.8,
+      maxTokens: 8192,
+      enableThinking: true,
+    };
+
+    // Reset UI settings
+    this.uiSettings = {
+      theme: 'dark',
+      fontSize: 'medium',
+      showWordCount: true,
+      autoSave: true,
+    };
+
+    // Reset wizard settings
+    this.wizardSettings = getDefaultAdvancedSettings();
+
+    // Reset story generation settings
+    this.storyGenerationSettings = getDefaultStoryGenerationSettings();
+
+    // Reset system services settings
+    this.systemServicesSettings = getDefaultSystemServicesSettings();
+
+    // Save all to database
+    await database.setSetting('default_model', this.apiSettings.defaultModel);
+    await database.setSetting('temperature', this.apiSettings.temperature.toString());
+    await database.setSetting('max_tokens', this.apiSettings.maxTokens.toString());
+    await database.setSetting('enable_thinking', this.apiSettings.enableThinking.toString());
+    await database.setSetting('theme', this.uiSettings.theme);
+    await database.setSetting('font_size', this.uiSettings.fontSize);
+    await database.setSetting('show_word_count', this.uiSettings.showWordCount.toString());
+    await database.setSetting('auto_save', this.uiSettings.autoSave.toString());
+    await this.saveWizardSettings();
+    await this.saveStoryGenerationSettings();
+    await this.saveSystemServicesSettings();
+
+    // Apply theme
+    this.applyTheme(this.uiSettings.theme);
   }
 }
 

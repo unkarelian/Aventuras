@@ -18,7 +18,7 @@ export interface Story {
 }
 
 export interface MemoryConfig {
-  chapterThreshold: number;  // Messages before considering a chapter (default: 50)
+  tokenThreshold: number;    // Token count before triggering summarization (default: 24000)
   chapterBuffer: number;     // Recent messages protected from chapter end (default: 10)
   autoSummarize: boolean;    // Enable auto-summarization
   enableRetrieval: boolean;  // Enable memory retrieval
@@ -200,6 +200,9 @@ export interface Entry {
   createdBy: EntryCreator;
   createdAt: number;
   updatedAt: number;
+
+  // Lore management settings
+  loreManagementBlacklisted: boolean; // If true, hidden from AI lore management
 }
 
 export interface EntryInjection {

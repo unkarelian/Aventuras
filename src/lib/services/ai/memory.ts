@@ -12,8 +12,8 @@ function log(...args: any[]) {
 
 // Default memory configuration
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
-  chapterThreshold: 50,
-  chapterBuffer: 10,
+  tokenThreshold: 24000,  // Trigger summarization when token count exceeds 24k
+  chapterBuffer: 10,      // Protect last 10 messages from being included in chapter
   autoSummarize: true,
   enableRetrieval: true,
   maxChaptersPerRetrieval: 3,
@@ -77,26 +77,43 @@ export class MemoryService {
   }
 
   /**
-   * Analyze if a new chapter should be created based on message count and story content.
+   * Analyze if a new chapter should be created based on token count.
+   * Triggered when tokens exceed threshold, excluding buffer messages.
    * Per design doc section 3.1.2: Auto-Summarization
    */
   async analyzeForChapter(
     entries: StoryEntry[],
     lastChapterEndIndex: number,
-    config: MemoryConfig
+    config: MemoryConfig,
+    tokensOutsideBuffer: number
   ): Promise<ChapterAnalysis> {
     const messagesSinceLastChapter = entries.length - lastChapterEndIndex;
-    const threshold = config.chapterThreshold + config.chapterBuffer;
 
     log('analyzeForChapter', {
       totalEntries: entries.length,
       lastChapterEndIndex,
       messagesSinceLastChapter,
-      threshold,
+      tokensOutsideBuffer,
+      tokenThreshold: config.tokenThreshold,
+      buffer: config.chapterBuffer,
     });
 
-    // Not enough messages yet
-    if (messagesSinceLastChapter < threshold) {
+    // Check if there are any messages outside the buffer
+    if (messagesSinceLastChapter <= config.chapterBuffer) {
+      log('All messages are within buffer, skipping');
+      return {
+        shouldCreateChapter: false,
+        optimalEndIndex: -1,
+        suggestedTitle: null,
+      };
+    }
+
+    // Check if tokens exceed threshold
+    if (tokensOutsideBuffer < config.tokenThreshold) {
+      log('Tokens outside buffer below threshold', {
+        tokensOutsideBuffer,
+        threshold: config.tokenThreshold,
+      });
       return {
         shouldCreateChapter: false,
         optimalEndIndex: -1,
@@ -109,7 +126,8 @@ export class MemoryService {
     const endIndex = entries.length - config.chapterBuffer;
     const chapterEntries = entries.slice(startIndex, endIndex);
 
-    if (chapterEntries.length < config.chapterThreshold) {
+    if (chapterEntries.length === 0) {
+      log('No entries outside buffer to summarize');
       return {
         shouldCreateChapter: false,
         optimalEndIndex: -1,
@@ -137,10 +155,10 @@ export class MemoryService {
       return result;
     } catch (error) {
       log('Chapter analysis failed:', error);
-      // Fallback: use threshold as break point
+      // Fallback: use all entries outside buffer as the chapter
       return {
         shouldCreateChapter: true,
-        optimalEndIndex: startIndex + config.chapterThreshold,
+        optimalEndIndex: endIndex, // End at the buffer boundary
         suggestedTitle: null,
       };
     }

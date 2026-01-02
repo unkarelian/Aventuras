@@ -21,6 +21,7 @@
   let injectionMode = $state<EntryInjectionMode>(entry?.injection.mode ?? 'keyword');
   let priority = $state(entry?.injection.priority ?? 50);
   let showHiddenInfo = $state(!!entry?.hiddenInfo);
+  let loreManagementBlacklisted = $state(entry?.loreManagementBlacklisted ?? false);
 
   // Tag input states
   let newAlias = $state('');
@@ -177,6 +178,7 @@
         createdBy: entry?.createdBy ?? 'user',
         createdAt: entry?.createdAt ?? now,
         updatedAt: now,
+        loreManagementBlacklisted,
       };
 
       onSave(entryData);
@@ -349,6 +351,27 @@
       />
       <span class="text-sm text-surface-300 w-8 text-right">{priority}</span>
     </div>
+  </div>
+
+  <!-- Lore Management Blacklist -->
+  <div class="flex items-center justify-between p-3 rounded-lg bg-surface-800/50 border border-surface-700">
+    <div>
+      <div class="text-sm font-medium text-surface-300">Hide from AI Lore Management</div>
+      <div class="text-xs text-surface-500">
+        When enabled, the AI won't see or modify this entry during lore management
+      </div>
+    </div>
+    <button
+      type="button"
+      class="relative w-11 h-6 rounded-full transition-colors
+        {loreManagementBlacklisted ? 'bg-amber-500' : 'bg-surface-600'}"
+      onclick={() => loreManagementBlacklisted = !loreManagementBlacklisted}
+    >
+      <span
+        class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform
+          {loreManagementBlacklisted ? 'translate-x-5' : ''}"
+      ></span>
+    </button>
   </div>
 
   <!-- Hidden Info (collapsible) -->

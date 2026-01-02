@@ -635,8 +635,8 @@ class DatabaseService {
         id, story_id, name, type, description, hidden_info, aliases,
         state, adventure_state, creative_state, injection,
         first_mentioned, last_mentioned, mention_count, created_by,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        created_at, updated_at, lore_management_blacklisted
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         entry.id,
         entry.storyId,
@@ -655,6 +655,7 @@ class DatabaseService {
         entry.createdBy,
         entry.createdAt,
         entry.updatedAt,
+        entry.loreManagementBlacklisted ? 1 : 0,
       ]
     );
   }
@@ -711,6 +712,10 @@ class DatabaseService {
     if (updates.mentionCount !== undefined) {
       setClauses.push('mention_count = ?');
       values.push(updates.mentionCount);
+    }
+    if (updates.loreManagementBlacklisted !== undefined) {
+      setClauses.push('lore_management_blacklisted = ?');
+      values.push(updates.loreManagementBlacklisted ? 1 : 0);
     }
 
     values.push(id);
@@ -899,6 +904,7 @@ class DatabaseService {
       createdBy: row.created_by || 'user',
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      loreManagementBlacklisted: row.lore_management_blacklisted === 1,
     };
   }
 }

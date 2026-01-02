@@ -414,6 +414,7 @@ export class EntryRetrievalService {
       createdBy: 'ai',
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      loreManagementBlacklisted: false,
     };
   }
 
@@ -446,6 +447,7 @@ export class EntryRetrievalService {
       createdBy: 'ai',
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      loreManagementBlacklisted: false,
     };
   }
 
@@ -486,6 +488,7 @@ export class EntryRetrievalService {
       createdBy: 'ai',
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      loreManagementBlacklisted: false,
     };
   }
 

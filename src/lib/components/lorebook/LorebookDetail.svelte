@@ -192,6 +192,13 @@
           </div>
         </div>
 
+        <!-- Lore Management Status -->
+        {#if entry.loreManagementBlacklisted}
+          <div class="flex items-center gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <span class="text-amber-400 text-sm">Hidden from AI Lore Management</span>
+          </div>
+        {/if}
+
         <!-- Hidden Info -->
         {#if entry.hiddenInfo}
           <div>

@@ -533,6 +533,7 @@ export function convertToEntries(
       createdBy,
       createdAt: now,
       updatedAt: now,
+      loreManagementBlacklisted: false,
     };
   });
 }

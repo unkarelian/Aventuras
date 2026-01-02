@@ -168,6 +168,15 @@
     if (length >= 1000) return `${Math.round(length / 1000)}K`;
     return length.toString();
   }
+
+  async function handleResetAll() {
+    const confirmed = confirm(
+      'Reset all settings to their default values?\n\nYour API key will be preserved, but all other settings (models, temperatures, prompts, UI preferences) will be reset.\n\nThis cannot be undone.'
+    );
+    if (!confirmed) return;
+
+    await settings.resetAllSettings(true);
+  }
 </script>
 
 <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60" onclick={() => ui.closeSettings()}>
@@ -1333,6 +1342,25 @@
                 </div>
               </div>
             {/if}
+          </div>
+
+          <!-- Reset All Settings -->
+          <div class="mt-6 pt-6 border-t border-red-500/30">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-medium text-red-400">Reset All Settings</h3>
+                <p class="text-xs text-surface-500 mt-1">
+                  Reset all settings to their default values. Your API key will be preserved.
+                </p>
+              </div>
+              <button
+                class="px-4 py-2 text-sm font-medium text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/20 transition-colors flex items-center gap-2"
+                onclick={handleResetAll}
+              >
+                <RotateCcw class="h-4 w-4" />
+                Reset All
+              </button>
+            </div>
           </div>
         </div>
       {/if}

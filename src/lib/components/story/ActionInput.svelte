@@ -170,16 +170,27 @@
     if (!story.currentStory) return;
 
     const config = story.memoryConfig;
+    const tokensOutsideBuffer = story.tokensOutsideBuffer;
+
     log('checkAutoSummarize', {
-      messagesSinceLastChapter: story.messagesSinceLastChapter,
-      threshold: config.chapterThreshold + config.chapterBuffer,
+      tokensSinceLastChapter: story.tokensSinceLastChapter,
+      tokensOutsideBuffer,
+      tokenThreshold: config.tokenThreshold,
+      messagesOutsideBuffer: story.messagesSinceLastChapter - config.chapterBuffer,
     });
 
-    // Analyze if we should create a chapter
+    // Skip if no tokens outside buffer (all messages are protected)
+    if (tokensOutsideBuffer === 0) {
+      log('No messages outside buffer, skipping');
+      return;
+    }
+
+    // Analyze if we should create a chapter (token-based)
     const analysis = await aiService.analyzeForChapter(
       story.entries,
       story.lastChapterEndIndex,
-      config
+      config,
+      tokensOutsideBuffer
     );
 
     if (!analysis.shouldCreateChapter) {
@@ -262,6 +273,7 @@
               lastMentioned: entry.lastMentioned,
               mentionCount: entry.mentionCount,
               createdBy: entry.createdBy,
+              loreManagementBlacklisted: entry.loreManagementBlacklisted,
             });
             ui.updateLoreManagementProgress('Creating entries...', result?.changes.length ?? 0);
           },
@@ -290,6 +302,7 @@
               lastMentioned: mergedEntry.lastMentioned,
               mentionCount: mergedEntry.mentionCount,
               createdBy: mergedEntry.createdBy,
+              loreManagementBlacklisted: mergedEntry.loreManagementBlacklisted,
             });
             ui.updateLoreManagementProgress('Merging entries...', result?.changes.length ?? 0);
           },

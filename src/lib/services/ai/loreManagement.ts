@@ -368,9 +368,14 @@ export class LoreManagementService {
     this.changes = [];
     const sessionId = crypto.randomUUID();
 
+    // Filter out blacklisted entries - AI won't see or be able to modify them
+    const blacklistedCount = context.entries.filter(e => e.loreManagementBlacklisted).length;
+    context.entries = context.entries.filter(e => !e.loreManagementBlacklisted);
+
     log('Starting lore management session', {
       sessionId,
       entriesCount: context.entries.length,
+      blacklistedCount,
       recentMessagesCount: context.recentMessages.length,
       chaptersCount: context.chapters.length,
     });
@@ -719,6 +724,7 @@ Use the available tools to make necessary changes, then call finish_lore_managem
       createdBy: 'ai',
       createdAt: now,
       updatedAt: now,
+      loreManagementBlacklisted: false,
     };
   }
 

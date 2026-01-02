@@ -120,6 +120,45 @@ class StoryStore {
   }
 
   /**
+   * Calculate approximate token count since last chapter.
+   * Uses entry metadata tokenCount if available, otherwise estimates from content length.
+   */
+  get tokensSinceLastChapter(): number {
+    const visibleEntries = this.entries.slice(this.lastChapterEndIndex);
+    return visibleEntries.reduce((total, entry) => {
+      // Use stored token count if available
+      if (entry.metadata?.tokenCount) {
+        return total + entry.metadata.tokenCount;
+      }
+      // Estimate: ~4 characters per token (rough approximation)
+      return total + Math.ceil(entry.content.length / 4);
+    }, 0);
+  }
+
+  /**
+   * Get token count for entries outside the buffer (eligible for summarization).
+   * Returns 0 if no entries exist outside the buffer.
+   */
+  get tokensOutsideBuffer(): number {
+    const bufferSize = this.memoryConfig.chapterBuffer;
+    const visibleEntries = this.entries.slice(this.lastChapterEndIndex);
+
+    // If all visible entries are within the buffer, nothing to summarize
+    if (visibleEntries.length <= bufferSize) {
+      return 0;
+    }
+
+    // Count tokens for entries outside the buffer
+    const entriesOutsideBuffer = visibleEntries.slice(0, -bufferSize);
+    return entriesOutsideBuffer.reduce((total, entry) => {
+      if (entry.metadata?.tokenCount) {
+        return total + entry.metadata.tokenCount;
+      }
+      return total + Math.ceil(entry.content.length / 4);
+    }, 0);
+  }
+
+  /**
    * Get entries that are NOT part of any chapter (visible in context).
    * These are entries after the last chapter's endEntryId.
    * Per design doc section 3.1.2: summarized entries should be excluded from context.
