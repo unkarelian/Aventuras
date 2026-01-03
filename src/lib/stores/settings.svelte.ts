@@ -436,7 +436,7 @@ export function getDefaultLoreManagementSettings(): LoreManagementSettings {
   return {
     model: 'minimax/minimax-m2.1', // Good for agentic tool calling with reasoning
     temperature: 0.3,
-    maxIterations: 20,
+    maxIterations: 50,
     systemPrompt: DEFAULT_LORE_MANAGEMENT_PROMPT,
   };
 }
@@ -472,7 +472,7 @@ export function getDefaultAgenticRetrievalSettings(): AgenticRetrievalSettings {
     enabled: false, // Disabled by default, static retrieval usually sufficient
     model: 'minimax/minimax-m2.1',
     temperature: 0.3,
-    maxIterations: 10,
+    maxIterations: 30,
     systemPrompt: DEFAULT_AGENTIC_RETRIEVAL_PROMPT,
     agenticThreshold: 30,
   };
