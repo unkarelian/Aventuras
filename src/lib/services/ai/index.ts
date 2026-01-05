@@ -908,6 +908,9 @@ I am the player. You narrate the world around me. Begin when I take my first act
       }
     }
 
+    const protagonist = worldState.characters.find(c => c.relationship === 'self');
+    const protagonistName = protagonist?.name || 'the protagonist';
+
     // If no template prompt, use mode-appropriate default prompt from settings
     if (!basePrompt) {
       if (mode === 'creative-writing') {
@@ -917,13 +920,25 @@ I am the player. You narrate the world around me. Begin when I take my first act
       }
     }
 
+    const protagonistToken = '{{protagonistName}}';
+    if (!basePrompt.includes(protagonistToken) && !basePrompt.includes(protagonistName)) {
+      const matchingNames = worldState.characters
+        .map(character => character.name)
+        .filter(name => name && basePrompt.includes(name));
+      if (matchingNames.length === 1) {
+        basePrompt = basePrompt.replaceAll(matchingNames[0], protagonistName);
+      }
+    }
+
+    if (basePrompt.includes(protagonistToken)) {
+      basePrompt = basePrompt.replaceAll(protagonistToken, protagonistName);
+    }
+
     // Add POV and tense instructions
     const tenseInstruction = tense === 'past' ? 'PAST TENSE' : 'PRESENT TENSE';
 
     if (mode === 'creative-writing') {
       // Creative writing mode: third person by default
-      const protagonist = worldState.characters.find(c => c.relationship === 'self');
-      const protagonistName = protagonist?.name || 'the protagonist';
       basePrompt += `\n\n<style_instruction>
 Write in ${tenseInstruction}, THIRD PERSON.
 Refer to the protagonist as "${protagonistName}" or "they/them".
@@ -931,8 +946,6 @@ Example: "${protagonistName} ${tense === 'past' ? 'stepped' : 'steps'} forward..
 </style_instruction>`;
     } else if (pov === 'third') {
       // Adventure mode: third person
-      const protagonist = worldState.characters.find(c => c.relationship === 'self');
-      const protagonistName = protagonist?.name || 'the protagonist';
       basePrompt += `\n\n<style_instruction>
 Write in ${tenseInstruction}, THIRD PERSON.
 Refer to the protagonist as "${protagonistName}" or "they/them".

@@ -346,7 +346,9 @@
   }
 
   // Get protagonist name for third person POV
-  const protagonistName = $derived(story.protagonist?.name ?? 'The protagonist');
+  const protagonistName = $derived.by(() => (
+    story.characters.find(c => c.relationship === 'self')?.name ?? 'The protagonist'
+  ));
   const pov = $derived(story.pov);
 
   // Generate action prefixes based on POV

@@ -17,6 +17,9 @@
   let pendingProtagonistId = $state<string | null>(null);
   let previousRelationshipLabel = $state('');
   let swapError = $state<string | null>(null);
+  const currentProtagonistName = $derived.by(() => (
+    story.characters.find(c => c.relationship === 'self')?.name ?? 'current'
+  ));
 
   async function addCharacter() {
     if (!newName.trim()) return;
@@ -244,7 +247,7 @@
           {#if pendingProtagonistId === character.id}
             <div class="mt-3 space-y-2 rounded-md border border-surface-700/60 bg-surface-800/40 p-2">
               <p class="text-xs text-surface-400">
-                Label the previous protagonist ({story.protagonist?.name || 'current'}).
+                Label the previous protagonist ({currentProtagonistName}).
               </p>
               <input
                 type="text"

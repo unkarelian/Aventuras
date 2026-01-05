@@ -776,6 +776,21 @@ class StoryStore {
       }
       return c;
     });
+
+    const promptOverride = this.currentStory.settings?.systemPromptOverride;
+    const protagonistToken = '{{protagonistName}}';
+    if (promptOverride && currentProtagonist?.name) {
+      let updatedPrompt = promptOverride;
+      if (!promptOverride.includes(protagonistToken)) {
+        const safeName = currentProtagonist.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        updatedPrompt = promptOverride.replace(new RegExp(safeName, 'g'), protagonistToken);
+      }
+      if (updatedPrompt !== promptOverride) {
+        const newSettings = { ...this.currentStory.settings, systemPromptOverride: updatedPrompt };
+        await database.updateStory(this.currentStory.id, { settings: newSettings });
+        this.currentStory = { ...this.currentStory, settings: newSettings };
+      }
+    }
   }
 
   // ===== Lorebook Entry CRUD Methods =====

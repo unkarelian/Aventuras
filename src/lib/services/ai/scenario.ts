@@ -1250,9 +1250,9 @@ Describe the environment and situation only. Do NOT write anything ${userName} d
   }
 
   private buildSystemPrompt(wizardData: WizardData, setting?: ExpandedSetting): string {
-    const { mode, genre, customGenre, writingStyle, protagonist } = wizardData;
+    const { mode, genre, customGenre, writingStyle } = wizardData;
     const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
-    const userName = protagonist?.name || 'the protagonist';
+    const userName = '{{protagonistName}}';
 
     let povInstruction = '';
     switch (writingStyle.pov) {
