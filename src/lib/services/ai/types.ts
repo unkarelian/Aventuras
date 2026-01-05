@@ -117,6 +117,7 @@ export interface AgenticRequest {
   tools: Tool[];
   tool_choice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
   extraBody?: Record<string, unknown>;
+  signal?: AbortSignal;
 }
 
 export interface GenerationResponse {

@@ -460,7 +460,8 @@
                     chapterNumber,
                     question,
                     story.chapters,
-                    story.entries
+                    story.entries,
+                    activeAbortController?.signal
                   ),
                 (startChapter, endChapter, question) =>
                   aiService.answerChapterRangeQuestion(
@@ -468,8 +469,10 @@
                     endChapter,
                     question,
                     story.chapters,
-                    story.entries
-                  )
+                    story.entries,
+                    activeAbortController?.signal
+                  ),
+                activeAbortController?.signal
               );
 
               if (agenticResult.context) {
@@ -490,7 +493,8 @@
                 userActionContent,
                 story.visibleEntries,
                 story.chapters,
-                story.entries // All entries for querying chapter content
+                story.entries, // All entries for querying chapter content
+                activeAbortController?.signal
               );
 
               if (timelineResult.responses.length > 0) {
@@ -514,6 +518,10 @@
               }
             }
           } catch (retrievalError) {
+            if (retrievalError instanceof Error && retrievalError.name === 'AbortError') {
+              log('Memory retrieval aborted');
+              return;
+            }
             log('Memory retrieval failed (non-fatal)', retrievalError);
             console.warn('Memory retrieval failed:', retrievalError);
           }
@@ -547,7 +555,8 @@
                 locations: story.locations,
                 items: story.items,
               },
-              activationTracker
+              activationTracker,
+              activeAbortController?.signal
             );
             lorebookContext = entryResult.contextBlock;
             // Store retrieval result for debug panel
@@ -561,6 +570,10 @@
               contextLength: lorebookContext?.length ?? 0,
             });
           } catch (entryError) {
+            if (entryError instanceof Error && entryError.name === 'AbortError') {
+              log('Lorebook retrieval aborted');
+              return;
+            }
             log('Lorebook retrieval failed (non-fatal)', entryError);
             console.warn('Lorebook retrieval failed:', entryError);
           }

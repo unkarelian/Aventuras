@@ -139,6 +139,7 @@ export class OpenAIProvider implements AIProvider {
         'X-Title': 'Aventura',
       },
       body: JSON.stringify(requestBody),
+      signal: request.signal,
     });
 
     log('Tool response received', { status: response.status, ok: response.ok });
@@ -245,6 +246,7 @@ export class OpenAIProvider implements AIProvider {
         'X-Title': 'Aventura',
       },
       body: JSON.stringify(requestBody),
+      signal: request.signal,
     });
 
     log('Stream response received', { status: response.status, ok: response.ok });

@@ -116,7 +116,8 @@ export class TimelineFillService {
     userInput: string,
     visibleEntries: StoryEntry[],
     chapters: Chapter[],
-    allEntries: StoryEntry[]
+    allEntries: StoryEntry[],
+    signal?: AbortSignal
   ): Promise<TimelineFillResult> {
     log('fillTimeline called', {
       userInputLength: userInput.length,
@@ -130,7 +131,7 @@ export class TimelineFillService {
     }
 
     // Step 1: Generate queries based on current context (visible entries = current chapter)
-    const queries = await this.generateQueries(userInput, visibleEntries, chapters);
+    const queries = await this.generateQueries(userInput, visibleEntries, chapters, signal);
     log('Generated queries', { count: queries.length, queries: queries.map(q => q.query) });
 
     if (queries.length === 0) {
@@ -138,7 +139,7 @@ export class TimelineFillService {
     }
 
     // Step 2: Execute queries in parallel against full chapter content
-    const responses = await this.executeQueries(queries, chapters, allEntries);
+    const responses = await this.executeQueries(queries, chapters, allEntries, signal);
     log('Executed queries', { responsesCount: responses.length });
 
     return {
@@ -155,7 +156,8 @@ export class TimelineFillService {
   private async generateQueries(
     userInput: string,
     recentEntries: StoryEntry[],
-    chapters: Chapter[]
+    chapters: Chapter[],
+    signal?: AbortSignal
   ): Promise<ResolvedTimelineQuery[]> {
     // Build visible chat history (current chapter content)
     const chapterHistory = recentEntries.map(e => {
@@ -195,6 +197,7 @@ Return ONLY the JSON array, no code fences or commentary.`;
         ],
         temperature: this.temperature,
         maxTokens: 8192,
+        signal,
       });
 
       return this.parseQueriesResponse(response.content, chapters);
@@ -211,7 +214,8 @@ Return ONLY the JSON array, no code fences or commentary.`;
   private async executeQueries(
     queries: ResolvedTimelineQuery[],
     chapters: Chapter[],
-    allEntries: StoryEntry[]
+    allEntries: StoryEntry[],
+    signal?: AbortSignal
   ): Promise<TimelineQueryResult[]> {
     // Build a map of chapter content for querying
     const chapterContentMap = this.buildChapterContentMap(chapters, allEntries);
@@ -238,7 +242,7 @@ Return ONLY the JSON array, no code fences or commentary.`;
         return `=== Chapter ${ch.number}: ${ch.title || 'Untitled'} ===\n[Summary only] ${ch.summary}`;
       }).join('\n\n');
 
-      return await this.answerFromCombinedContent(query, combinedContent);
+      return await this.answerFromCombinedContent(query, combinedContent, signal);
     });
 
     return Promise.all(queryPromises);
@@ -251,7 +255,8 @@ Return ONLY the JSON array, no code fences or commentary.`;
     question: string,
     chapterNumbers: number[],
     chapters: Chapter[],
-    allEntries: StoryEntry[]
+    allEntries: StoryEntry[],
+    signal?: AbortSignal
   ): Promise<string> {
     const limitedNumbers = chapterNumbers.filter(n => typeof n === 'number').slice(0, 3);
     if (limitedNumbers.length === 0) {
@@ -285,7 +290,8 @@ Return ONLY the JSON array, no code fences or commentary.`;
 
     const result = await this.answerFromCombinedContent(
       { query: question, chapterIds, chapterNumbers: validNumbers },
-      combinedContent
+      combinedContent,
+      signal
     );
 
     return result.answer;
@@ -299,7 +305,8 @@ Return ONLY the JSON array, no code fences or commentary.`;
     startChapter: number,
     endChapter: number,
     chapters: Chapter[],
-    allEntries: StoryEntry[]
+    allEntries: StoryEntry[],
+    signal?: AbortSignal
   ): Promise<string> {
     const start = startChapter;
     const end = Math.min(endChapter, startChapter + 2);
@@ -307,7 +314,7 @@ Return ONLY the JSON array, no code fences or commentary.`;
     for (let i = start; i <= end; i++) {
       chapterNumbers.push(i);
     }
-    return this.answerQuestionForChapters(question, chapterNumbers, chapters, allEntries);
+    return this.answerQuestionForChapters(question, chapterNumbers, chapters, allEntries, signal);
   }
 
   /**
@@ -342,7 +349,8 @@ Return ONLY the JSON array, no code fences or commentary.`;
    */
   private async answerFromCombinedContent(
     query: ResolvedTimelineQuery,
-    combinedContent: string
+    combinedContent: string,
+    signal?: AbortSignal
   ): Promise<TimelineQueryResult> {
     const chapterLabel = query.chapterNumbers.length === 1
       ? `Chapter ${query.chapterNumbers[0]}`
@@ -363,6 +371,7 @@ Provide a concise, factual answer based only on the chapter content above. If th
         ],
         temperature: 0.2,
         maxTokens: 8192,
+        signal,
       });
 
       return {

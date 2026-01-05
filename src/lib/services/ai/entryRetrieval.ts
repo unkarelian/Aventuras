@@ -134,7 +134,8 @@ export class EntryRetrievalService {
     userInput: string,
     recentStoryEntries: StoryEntry[],
     liveState?: LiveWorldState,
-    activationTracker?: ActivationTracker
+    activationTracker?: ActivationTracker,
+    signal?: AbortSignal
   ): Promise<EntryRetrievalResult> {
     const currentPosition = activationTracker?.currentPosition ?? recentStoryEntries.length;
 
@@ -181,7 +182,7 @@ export class EntryRetrievalService {
 
     if (this.config.enableLLMSelection && remainingEntries.length > 0 && this.provider) {
       log('Sending remaining entries to LLM for selection:', remainingEntries.length);
-      tier3 = await this.getLLMSelectedEntries(remainingEntries, userInput, recentStoryEntries);
+      tier3 = await this.getLLMSelectedEntries(remainingEntries, userInput, recentStoryEntries, signal);
       log('Tier 3 entries (LLM selected):', tier3.length, tier3.map(e => e.entry.name));
     }
 
@@ -517,7 +518,8 @@ export class EntryRetrievalService {
   private async getLLMSelectedEntries(
     availableEntries: Entry[],
     userInput: string,
-    recentStoryEntries: StoryEntry[]
+    recentStoryEntries: StoryEntry[],
+    signal?: AbortSignal
   ): Promise<RetrievedEntry[]> {
     if (!this.provider || availableEntries.length === 0) return [];
 
@@ -564,6 +566,7 @@ Return an empty array [] if none are relevant.`;
         model: this.config.tier3Model,
         temperature: this.config.temperature,
         maxTokens: 8192,
+        signal,
       });
 
       log('LLM selection response:', response.content);

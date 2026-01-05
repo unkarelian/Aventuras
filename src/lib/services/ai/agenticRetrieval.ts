@@ -205,7 +205,8 @@ export class AgenticRetrievalService {
   async runRetrieval(
     context: AgenticRetrievalContext,
     onQueryChapter?: (chapterNumber: number, question: string) => Promise<string>,
-    onQueryChapters?: (startChapter: number, endChapter: number, question: string) => Promise<string>
+    onQueryChapters?: (startChapter: number, endChapter: number, question: string) => Promise<string>,
+    signal?: AbortSignal
   ): Promise<AgenticRetrievalResult> {
     const sessionId = crypto.randomUUID();
     const queriedChapters: number[] = [];
@@ -233,6 +234,11 @@ export class AgenticRetrievalService {
     const MAX_NO_TOOL_CALL_RETRIES = 2;
 
     while (!complete && iterations < this.maxIterations) {
+      if (signal?.aborted) {
+        log('Agentic retrieval aborted before iteration');
+        break;
+      }
+
       iterations++;
       log(`Retrieval iteration ${iterations}/${this.maxIterations}`);
 
@@ -248,6 +254,7 @@ export class AgenticRetrievalService {
             reasoning: { effort: 'high' },
             provider: { only: ['Minimax'] },
           },
+          signal,
         });
 
         log('Retrieval agent response', {
@@ -324,6 +331,10 @@ export class AgenticRetrievalService {
           });
         }
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          log('Agentic retrieval aborted');
+          break;
+        }
         log('Error in retrieval iteration:', error);
         break;
       }

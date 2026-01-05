@@ -550,7 +550,8 @@ class AIService {
     userInput: string,
     recentStoryEntries: StoryEntry[],
     liveState?: { characters: Character[]; locations: Location[]; items: Item[] },
-    activationTracker?: ActivationTracker
+    activationTracker?: ActivationTracker,
+    signal?: AbortSignal
   ): Promise<EntryRetrievalResult> {
     log('getRelevantLorebookEntries called', {
       totalEntries: entries.length,
@@ -577,7 +578,8 @@ class AIService {
       userInput,
       recentStoryEntries,
       liveState,
-      activationTracker
+      activationTracker,
+      signal
     );
 
     log('getRelevantLorebookEntries complete', {
@@ -638,7 +640,8 @@ class AIService {
     chapters: Chapter[],
     entries: Entry[],
     onQueryChapter?: (chapterNumber: number, question: string) => Promise<string>,
-    onQueryChapters?: (startChapter: number, endChapter: number, question: string) => Promise<string>
+    onQueryChapters?: (startChapter: number, endChapter: number, question: string) => Promise<string>,
+    signal?: AbortSignal
   ): Promise<AgenticRetrievalResult> {
     log('runAgenticRetrieval called', {
       userInputLength: userInput.length,
@@ -653,7 +656,8 @@ class AIService {
     return await retrieval.runRetrieval(
       { userInput, recentEntries, chapters, entries },
       onQueryChapter,
-      onQueryChapters
+      onQueryChapters,
+      signal
     );
   }
 
@@ -694,7 +698,8 @@ class AIService {
     userInput: string,
     visibleEntries: StoryEntry[],
     chapters: Chapter[],
-    allEntries: StoryEntry[]
+    allEntries: StoryEntry[],
+    signal?: AbortSignal
   ): Promise<TimelineFillResult> {
     log('runTimelineFill called', {
       userInputLength: userInput.length,
@@ -710,7 +715,8 @@ class AIService {
       userInput,
       visibleEntries,
       chapters,
-      allEntries
+      allEntries,
+      signal
     );
   }
 
@@ -721,7 +727,8 @@ class AIService {
     chapterNumber: number,
     question: string,
     chapters: Chapter[],
-    allEntries: StoryEntry[]
+    allEntries: StoryEntry[],
+    signal?: AbortSignal
   ): Promise<string> {
     const provider = this.getProviderForProfile(settings.systemServicesSettings.timelineFill.profileId);
     const timelineFill = new TimelineFillService(provider);
@@ -729,7 +736,8 @@ class AIService {
       question,
       [chapterNumber],
       chapters,
-      allEntries
+      allEntries,
+      signal
     );
   }
 
@@ -741,7 +749,8 @@ class AIService {
     endChapter: number,
     question: string,
     chapters: Chapter[],
-    allEntries: StoryEntry[]
+    allEntries: StoryEntry[],
+    signal?: AbortSignal
   ): Promise<string> {
     const provider = this.getProviderForProfile(settings.systemServicesSettings.timelineFill.profileId);
     const timelineFill = new TimelineFillService(provider);
@@ -750,7 +759,8 @@ class AIService {
       startChapter,
       endChapter,
       chapters,
-      allEntries
+      allEntries,
+      signal
     );
   }
 
