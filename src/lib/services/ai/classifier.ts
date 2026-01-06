@@ -1,6 +1,7 @@
 import type { OpenAIProvider as OpenAIProvider } from './openrouter';
 import type { Character, Location, Item, StoryBeat } from '$lib/types';
 import { settings, type ClassifierSettings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
 
 const DEBUG = true;
 
@@ -151,8 +152,12 @@ export class ClassifierService {
     try {
       log('Sending classification request...');
 
-      // Use reasoning with max_tokens for mimo models
-      const isMimo = this.model.includes('mimo');
+      const extraBody = buildExtraBody({
+        manualMode: settings.advancedRequestSettings.manualMode,
+        manualBody: this.settingsOverride?.manualBody ?? settings.systemServicesSettings.classifier.manualBody,
+        reasoningEffort: this.settingsOverride?.reasoningEffort ?? settings.systemServicesSettings.classifier.reasoningEffort,
+        providerOnly: this.settingsOverride?.providerOnly ?? settings.systemServicesSettings.classifier.providerOnly,
+      });
 
       const response = await this.provider.generateResponse({
         model: this.model,
@@ -162,9 +167,7 @@ export class ClassifierService {
         ],
         temperature: this.temperature,
         maxTokens: this.maxTokens,
-        extraBody: {
-          reasoning: isMimo ? { max_tokens: 5000 } : { enabled: true },
-        },
+        extraBody,
       });
 
       log('Classification response received', {

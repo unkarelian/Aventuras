@@ -6,6 +6,7 @@ import {
   getDefaultAdvancedSettingsForProvider,
 } from '$lib/services/ai/scenario';
 import { OPENROUTER_API_URL } from '$lib/services/ai/openrouter';
+import type { ReasoningEffort } from '$lib/types';
 
 // Provider preset types
 // 'custom' uses OpenRouter defaults but allows user to configure their own API endpoint
@@ -346,6 +347,16 @@ Query based ONLY on the information visible in the chapter summaries or things t
   timelineFillAnswer: `You answer specific questions about story chapters. Be concise and factual. Only include information that directly answers the question. If the chapter doesn't contain relevant information, say "Not mentioned in this chapter."`,
 };
 
+export interface AdvancedRequestSettings {
+  manualMode: boolean;
+}
+
+export function getDefaultAdvancedRequestSettings(): AdvancedRequestSettings {
+  return {
+    manualMode: false,
+  };
+}
+
 // Classifier service settings (World State Classifier - extracts entities from narrative)
 export interface ClassifierSettings {
   profileId: string | null;  // API profile to use (null = use default profile)
@@ -353,6 +364,9 @@ export interface ClassifierSettings {
   temperature: number;
   maxTokens: number;
   systemPrompt: string;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultClassifierSettings(): ClassifierSettings {
@@ -362,6 +376,9 @@ export function getDefaultClassifierSettings(): ClassifierSettings {
     temperature: 0.3,
     maxTokens: 8192,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.classifier,
+    reasoningEffort: 'medium',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -375,6 +392,9 @@ export function getDefaultClassifierSettingsForProvider(provider: ProviderPreset
     temperature: 0.3,
     maxTokens: 8192,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.classifier,
+    reasoningEffort: 'medium',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -387,6 +407,9 @@ export interface LorebookClassifierSettings {
   systemPrompt: string;
   batchSize: number;         // Entries per batch for LLM classification
   maxConcurrent: number;     // Max concurrent batch requests
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export const DEFAULT_LOREBOOK_CLASSIFIER_PROMPT = `You are a precise classifier for fantasy/RPG lorebook entries. Analyze the name, content, and keywords to determine the most appropriate category. Be decisive - pick the single best category for each entry. Respond only with the JSON array.`;
@@ -400,6 +423,9 @@ export function getDefaultLorebookClassifierSettings(): LorebookClassifierSettin
     systemPrompt: DEFAULT_LOREBOOK_CLASSIFIER_PROMPT,
     batchSize: 50,
     maxConcurrent: 5,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -414,6 +440,9 @@ export function getDefaultLorebookClassifierSettingsForProvider(provider: Provid
     systemPrompt: DEFAULT_LOREBOOK_CLASSIFIER_PROMPT,
     batchSize: 50,
     maxConcurrent: 5,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -425,6 +454,9 @@ export interface MemorySettings {
   chapterAnalysisPrompt: string;
   chapterSummarizationPrompt: string;
   retrievalDecisionPrompt: string;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultMemorySettings(): MemorySettings {
@@ -435,12 +467,15 @@ export function getDefaultMemorySettings(): MemorySettings {
     chapterAnalysisPrompt: DEFAULT_SERVICE_PROMPTS.chapterAnalysis,
     chapterSummarizationPrompt: DEFAULT_SERVICE_PROMPTS.chapterSummarization,
     retrievalDecisionPrompt: DEFAULT_SERVICE_PROMPTS.retrievalDecision,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
 export function getDefaultMemorySettingsForProvider(provider: ProviderPreset): MemorySettings {
   const profileId = provider === 'nanogpt' ? DEFAULT_NANOGPT_PROFILE_ID : DEFAULT_OPENROUTER_PROFILE_ID;
-  // NanoGPT: Use Deepseek v3.2 without thinking (per user request)
+  // NanoGPT: Use Deepseek v3.2 for memory tasks
   const model = provider === 'nanogpt' ? 'deepseek/deepseek-v3.2' : 'x-ai/grok-4.1-fast';
   return {
     profileId,
@@ -449,6 +484,9 @@ export function getDefaultMemorySettingsForProvider(provider: ProviderPreset): M
     chapterAnalysisPrompt: DEFAULT_SERVICE_PROMPTS.chapterAnalysis,
     chapterSummarizationPrompt: DEFAULT_SERVICE_PROMPTS.chapterSummarization,
     retrievalDecisionPrompt: DEFAULT_SERVICE_PROMPTS.retrievalDecision,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -459,6 +497,9 @@ export interface SuggestionsSettings {
   temperature: number;
   maxTokens: number;
   systemPrompt: string;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultSuggestionsSettings(): SuggestionsSettings {
@@ -468,6 +509,9 @@ export function getDefaultSuggestionsSettings(): SuggestionsSettings {
     temperature: 0.7,
     maxTokens: 8192,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.suggestions,
+    reasoningEffort: 'off',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -480,6 +524,9 @@ export function getDefaultSuggestionsSettingsForProvider(provider: ProviderPrese
     temperature: 0.7,
     maxTokens: 8192,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.suggestions,
+    reasoningEffort: 'off',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -489,6 +536,9 @@ export interface ActionChoicesSettings {
   model: string;
   temperature: number;
   maxTokens: number;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultActionChoicesSettings(): ActionChoicesSettings {
@@ -497,6 +547,9 @@ export function getDefaultActionChoicesSettings(): ActionChoicesSettings {
     model: 'deepseek/deepseek-v3.2',
     temperature: 0.8,
     maxTokens: 8192,
+    reasoningEffort: 'off',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -507,6 +560,9 @@ export function getDefaultActionChoicesSettingsForProvider(provider: ProviderPre
     model: 'deepseek/deepseek-v3.2',
     temperature: 0.8,
     maxTokens: 8192,
+    reasoningEffort: 'off',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -519,6 +575,9 @@ export interface StyleReviewerSettings {
   maxTokens: number;
   triggerInterval: number;
   systemPrompt: string;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultStyleReviewerSettings(): StyleReviewerSettings {
@@ -530,6 +589,9 @@ export function getDefaultStyleReviewerSettings(): StyleReviewerSettings {
     maxTokens: 8192,
     triggerInterval: 5,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.styleReviewer,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -545,6 +607,9 @@ export function getDefaultStyleReviewerSettingsForProvider(provider: ProviderPre
     maxTokens: 8192,
     triggerInterval: 5,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.styleReviewer,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -555,6 +620,9 @@ export interface LoreManagementSettings {
   temperature: number;
   maxIterations: number;
   systemPrompt: string;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export const DEFAULT_LORE_MANAGEMENT_PROMPT = `You are a lore manager for an interactive story. Your job is to maintain a consistent, comprehensive database of story elements.
@@ -581,6 +649,9 @@ export function getDefaultLoreManagementSettings(): LoreManagementSettings {
     temperature: 0.3,
     maxIterations: 50,
     systemPrompt: DEFAULT_LORE_MANAGEMENT_PROMPT,
+    reasoningEffort: 'high',
+    providerOnly: ['minimax'],
+    manualBody: '',
   };
 }
 
@@ -593,6 +664,9 @@ export function getDefaultLoreManagementSettingsForProvider(provider: ProviderPr
     temperature: 0.3,
     maxIterations: 50,
     systemPrompt: DEFAULT_LORE_MANAGEMENT_PROMPT,
+    reasoningEffort: 'high',
+    providerOnly: ['minimax'],
+    manualBody: '',
   };
 }
 
@@ -605,6 +679,9 @@ export interface AgenticRetrievalSettings {
   maxIterations: number;
   systemPrompt: string;
   agenticThreshold: number; // Use agentic if chapters > N
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export const DEFAULT_AGENTIC_RETRIEVAL_PROMPT = `You are a context retrieval agent for an interactive story. Your job is to gather relevant past context that will help the narrator respond to the current situation.
@@ -632,6 +709,9 @@ export function getDefaultAgenticRetrievalSettings(): AgenticRetrievalSettings {
     maxIterations: 30,
     systemPrompt: DEFAULT_AGENTIC_RETRIEVAL_PROMPT,
     agenticThreshold: 30,
+    reasoningEffort: 'high',
+    providerOnly: ['minimax'],
+    manualBody: '',
   };
 }
 
@@ -646,6 +726,9 @@ export function getDefaultAgenticRetrievalSettingsForProvider(provider: Provider
     maxIterations: 30,
     systemPrompt: DEFAULT_AGENTIC_RETRIEVAL_PROMPT,
     agenticThreshold: 30,
+    reasoningEffort: 'high',
+    providerOnly: ['minimax'],
+    manualBody: '',
   };
 }
 
@@ -659,6 +742,9 @@ export interface TimelineFillSettings {
   maxQueries: number;
   systemPrompt: string;
   queryAnswerPrompt: string;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultTimelineFillSettings(): TimelineFillSettings {
@@ -671,6 +757,9 @@ export function getDefaultTimelineFillSettings(): TimelineFillSettings {
     maxQueries: 5,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.timelineFill,
     queryAnswerPrompt: DEFAULT_SERVICE_PROMPTS.timelineFillAnswer,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -688,6 +777,9 @@ export function getDefaultTimelineFillSettingsForProvider(provider: ProviderPres
     maxQueries: 5,
     systemPrompt: DEFAULT_SERVICE_PROMPTS.timelineFill,
     queryAnswerPrompt: DEFAULT_SERVICE_PROMPTS.timelineFillAnswer,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -699,6 +791,9 @@ export interface EntryRetrievalSettings {
   maxTier3Entries: number;  // 0 = unlimited
   maxWordsPerEntry: number; // 0 = unlimited
   enableLLMSelection: boolean;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultEntryRetrievalSettings(): EntryRetrievalSettings {
@@ -709,6 +804,9 @@ export function getDefaultEntryRetrievalSettings(): EntryRetrievalSettings {
     maxTier3Entries: 0,
     maxWordsPerEntry: 0,
     enableLLMSelection: true,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -724,6 +822,9 @@ export function getDefaultEntryRetrievalSettingsForProvider(provider: ProviderPr
     maxTier3Entries: 0,
     maxWordsPerEntry: 0,
     enableLLMSelection: true,
+    reasoningEffort: 'high',
+    providerOnly: [],
+    manualBody: '',
   };
 }
 
@@ -798,6 +899,9 @@ class SettingsStore {
     defaultModel: 'z-ai/glm-4.7',
     temperature: 0.8,
     maxTokens: 8192,
+    reasoningEffort: 'off',
+    providerOnly: [],
+    manualBody: '',
     enableThinking: false,
   });
 
@@ -808,6 +912,8 @@ class SettingsStore {
     autoSave: true,
     spellcheckEnabled: true,
   });
+
+  advancedRequestSettings = $state<AdvancedRequestSettings>(getDefaultAdvancedRequestSettings());
 
   // Advanced wizard settings for scenario generation
   wizardSettings = $state<AdvancedWizardSettings>(getDefaultAdvancedSettings());
@@ -851,6 +957,30 @@ class SettingsStore {
       // Load thinking toggle
       const enableThinking = await database.getSetting('enable_thinking');
       if (enableThinking) this.apiSettings.enableThinking = enableThinking === 'true';
+
+      const reasoningEffort = await database.getSetting('main_reasoning_effort');
+      if (reasoningEffort && ['off', 'low', 'medium', 'high'].includes(reasoningEffort)) {
+        this.apiSettings.reasoningEffort = reasoningEffort as ReasoningEffort;
+      } else if (this.apiSettings.enableThinking) {
+        this.apiSettings.reasoningEffort = 'high';
+      }
+
+      const providerOnlyJson = await database.getSetting('main_provider_only');
+      if (providerOnlyJson) {
+        try {
+          const parsed = JSON.parse(providerOnlyJson);
+          if (Array.isArray(parsed)) {
+            this.apiSettings.providerOnly = parsed.filter(item => typeof item === 'string');
+          }
+        } catch {
+          this.apiSettings.providerOnly = [];
+        }
+      }
+
+      const manualBody = await database.getSetting('main_manual_body');
+      if (manualBody !== null) {
+        this.apiSettings.manualBody = manualBody;
+      }
 
       // Load profiles
       const profilesJson = await database.getSetting('api_profiles');
@@ -912,6 +1042,11 @@ class SettingsStore {
       if (showWordCount) this.uiSettings.showWordCount = showWordCount === 'true';
       if (autoSave) this.uiSettings.autoSave = autoSave === 'true';
       if (spellcheckEnabled !== null) this.uiSettings.spellcheckEnabled = spellcheckEnabled === 'true';
+
+      const manualMode = await database.getSetting('advanced_manual_mode');
+      if (manualMode !== null) {
+        this.advancedRequestSettings.manualMode = manualMode === 'true';
+      }
 
       // Load wizard settings
       const wizardSettingsJson = await database.getSetting('wizard_settings');
@@ -1053,7 +1188,26 @@ class SettingsStore {
 
   async setEnableThinking(enabled: boolean) {
     this.apiSettings.enableThinking = enabled;
+    this.apiSettings.reasoningEffort = enabled ? 'high' : 'off';
     await database.setSetting('enable_thinking', enabled.toString());
+    await database.setSetting('main_reasoning_effort', this.apiSettings.reasoningEffort);
+  }
+
+  async setMainReasoningEffort(effort: ReasoningEffort) {
+    this.apiSettings.reasoningEffort = effort;
+    this.apiSettings.enableThinking = effort !== 'off';
+    await database.setSetting('main_reasoning_effort', effort);
+    await database.setSetting('enable_thinking', this.apiSettings.enableThinking.toString());
+  }
+
+  async setMainProviderOnly(providers: string[]) {
+    this.apiSettings.providerOnly = providers;
+    await database.setSetting('main_provider_only', JSON.stringify(providers));
+  }
+
+  async setMainManualBody(body: string) {
+    this.apiSettings.manualBody = body;
+    await database.setSetting('main_manual_body', body);
   }
 
   // ===== Profile Management Methods =====
@@ -1466,6 +1620,11 @@ class SettingsStore {
     await database.setSetting('spellcheck_enabled', enabled.toString());
   }
 
+  async setAdvancedManualMode(enabled: boolean) {
+    this.advancedRequestSettings.manualMode = enabled;
+    await database.setSetting('advanced_manual_mode', enabled.toString());
+  }
+
   //Return true if an API key is needed for main narrative generation.
   get needsApiKey(): boolean {
     const mainProfile = this.getMainNarrativeProfile() ?? this.getDefaultProfile();
@@ -1623,6 +1782,9 @@ class SettingsStore {
       defaultModel: defaultNarrativeModel,
       temperature: 0.8,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
       enableThinking: false,
     };
 
@@ -1634,6 +1796,8 @@ class SettingsStore {
       autoSave: true,
       spellcheckEnabled: true,
     };
+
+    this.advancedRequestSettings = getDefaultAdvancedRequestSettings();
 
     // Reset wizard settings based on provider
     this.wizardSettings = getDefaultAdvancedSettingsForProvider(effectiveProvider);
@@ -1652,11 +1816,15 @@ class SettingsStore {
     await database.setSetting('temperature', this.apiSettings.temperature.toString());
     await database.setSetting('max_tokens', this.apiSettings.maxTokens.toString());
     await database.setSetting('enable_thinking', this.apiSettings.enableThinking.toString());
+    await database.setSetting('main_reasoning_effort', this.apiSettings.reasoningEffort);
+    await database.setSetting('main_provider_only', JSON.stringify(this.apiSettings.providerOnly));
+    await database.setSetting('main_manual_body', this.apiSettings.manualBody);
     await database.setSetting('theme', this.uiSettings.theme);
     await database.setSetting('font_size', this.uiSettings.fontSize);
     await database.setSetting('show_word_count', this.uiSettings.showWordCount.toString());
     await database.setSetting('auto_save', this.uiSettings.autoSave.toString());
     await database.setSetting('spellcheck_enabled', this.uiSettings.spellcheckEnabled.toString());
+    await database.setSetting('advanced_manual_mode', this.advancedRequestSettings.manualMode.toString());
     await this.saveWizardSettings();
     await this.saveStoryGenerationSettings();
     await this.saveSystemServicesSettings();
@@ -1727,7 +1895,19 @@ class SettingsStore {
     // Set provider-specific default model (NanoGPT uses zai-org/ prefix)
     const defaultNarrativeModel = effectiveProvider === 'nanogpt' ? 'zai-org/glm-4.7' : 'z-ai/glm-4.7';
     this.apiSettings.defaultModel = defaultNarrativeModel;
+    this.apiSettings.temperature = 0.8;
+    this.apiSettings.maxTokens = 8192;
+    this.apiSettings.reasoningEffort = 'off';
+    this.apiSettings.providerOnly = [];
+    this.apiSettings.manualBody = '';
+    this.apiSettings.enableThinking = false;
     await database.setSetting('default_model', defaultNarrativeModel);
+    await database.setSetting('temperature', this.apiSettings.temperature.toString());
+    await database.setSetting('max_tokens', this.apiSettings.maxTokens.toString());
+    await database.setSetting('main_reasoning_effort', this.apiSettings.reasoningEffort);
+    await database.setSetting('main_provider_only', JSON.stringify(this.apiSettings.providerOnly));
+    await database.setSetting('main_manual_body', this.apiSettings.manualBody);
+    await database.setSetting('enable_thinking', this.apiSettings.enableThinking.toString());
 
     // Apply provider-specific defaults to system services (use effectiveProvider for defaults)
     this.systemServicesSettings = getDefaultSystemServicesSettingsForProvider(effectiveProvider);

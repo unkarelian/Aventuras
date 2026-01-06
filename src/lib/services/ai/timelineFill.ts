@@ -1,6 +1,7 @@
 import type { OpenAIProvider as OpenAIProvider } from './openrouter';
 import type { Chapter, StoryEntry } from '$lib/types';
 import { settings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
 
 const DEBUG = true;
 
@@ -197,6 +198,12 @@ Return ONLY the JSON array, no code fences or commentary.`;
         ],
         temperature: this.temperature,
         maxTokens: 8192,
+        extraBody: buildExtraBody({
+          manualMode: settings.advancedRequestSettings.manualMode,
+          manualBody: settings.systemServicesSettings.timelineFill.manualBody,
+          reasoningEffort: settings.systemServicesSettings.timelineFill.reasoningEffort,
+          providerOnly: settings.systemServicesSettings.timelineFill.providerOnly,
+        }),
         signal,
       });
 
@@ -371,6 +378,12 @@ Provide a concise, factual answer based only on the chapter content above. If th
         ],
         temperature: 0.2,
         maxTokens: 8192,
+        extraBody: buildExtraBody({
+          manualMode: settings.advancedRequestSettings.manualMode,
+          manualBody: settings.systemServicesSettings.timelineFill.manualBody,
+          reasoningEffort: settings.systemServicesSettings.timelineFill.reasoningEffort,
+          providerOnly: settings.systemServicesSettings.timelineFill.providerOnly,
+        }),
         signal,
       });
 

@@ -7,6 +7,7 @@
 import type { Entry, EntryType, EntryInjectionMode, EntryCreator } from '$lib/types';
 import { OpenAIProvider as OpenAIProvider } from './ai/openrouter';
 import { settings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from '$lib/services/ai/requestOverrides';
 
 const DEBUG = true;
 
@@ -260,9 +261,12 @@ Respond with ONLY valid JSON in this exact format:
         ],
         temperature: lorebookSettings.temperature,
         maxTokens: lorebookSettings.maxTokens,
-        extraBody: {
-          reasoning: { effort: 'high' },
-        },
+        extraBody: buildExtraBody({
+          manualMode: settings.advancedRequestSettings.manualMode,
+          manualBody: lorebookSettings.manualBody,
+          reasoningEffort: lorebookSettings.reasoningEffort,
+          providerOnly: lorebookSettings.providerOnly,
+        }),
       });
 
       // Parse the response

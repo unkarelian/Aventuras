@@ -23,6 +23,8 @@ import type {
   EventEntryState,
 } from '$lib/types';
 import { settings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
+import type { ReasoningEffort } from '$lib/types';
 
 const DEBUG = true;
 
@@ -466,16 +468,12 @@ export class LoreManagementService {
           maxTokens: 8192,
           tools: LORE_MANAGEMENT_TOOLS,
           tool_choice: 'auto',
-          extraBody: {
-            // Enable reasoning for better decision-making
-            reasoning: {
-              effort: 'high',
-            },
-            // Use Minimax provider for best tool calling support
-            provider: {
-              only: ['Minimax'],
-            },
-          },
+          extraBody: buildExtraBody({
+            manualMode: settings.advancedRequestSettings.manualMode,
+            manualBody: this.settingsOverride?.manualBody ?? settings.systemServicesSettings.loreManagement.manualBody,
+            reasoningEffort: this.settingsOverride?.reasoningEffort ?? settings.systemServicesSettings.loreManagement.reasoningEffort,
+            providerOnly: this.settingsOverride?.providerOnly ?? settings.systemServicesSettings.loreManagement.providerOnly,
+          }),
         });
 
         log('Agent response', {
@@ -997,6 +995,9 @@ export interface LoreManagementSettings {
   temperature: number;
   maxIterations: number;
   systemPrompt: string;
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultLoreManagementSettings(): LoreManagementSettings {
@@ -1005,5 +1006,8 @@ export function getDefaultLoreManagementSettings(): LoreManagementSettings {
     temperature: 0.3,
     maxIterations: 50,
     systemPrompt: DEFAULT_LORE_MANAGEMENT_PROMPT,
+    reasoningEffort: 'high',
+    providerOnly: ['minimax'],
+    manualBody: '',
   };
 }

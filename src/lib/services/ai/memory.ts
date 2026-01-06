@@ -1,6 +1,7 @@
 import type { OpenAIProvider } from './openrouter';
 import type { Chapter, StoryEntry, MemoryConfig } from '$lib/types';
 import { settings, type MemorySettings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
 
 const DEBUG = true;
 
@@ -76,6 +77,15 @@ export class MemoryService {
     return this.settingsOverride?.retrievalDecisionPrompt ?? settings.systemServicesSettings.memory.retrievalDecisionPrompt;
   }
 
+  private get extraBody(): Record<string, unknown> | undefined {
+    return buildExtraBody({
+      manualMode: settings.advancedRequestSettings.manualMode,
+      manualBody: this.settingsOverride?.manualBody ?? settings.systemServicesSettings.memory.manualBody,
+      reasoningEffort: this.settingsOverride?.reasoningEffort ?? settings.systemServicesSettings.memory.reasoningEffort,
+      providerOnly: this.settingsOverride?.providerOnly ?? settings.systemServicesSettings.memory.providerOnly,
+    });
+  }
+
   /**
    * Analyze if a new chapter should be created based on token count.
    * Triggered when tokens exceed threshold, excluding buffer messages.
@@ -148,6 +158,7 @@ export class MemoryService {
         ],
         temperature: this.temperature,
         maxTokens: 8192,
+        extraBody: this.extraBody,
       });
 
       const result = this.parseChapterAnalysis(response.content, startIndex, chapterEntries.length);
@@ -219,6 +230,7 @@ Respond with JSON:
         ],
         temperature: this.temperature,
         maxTokens: 8192,
+        extraBody: this.extraBody,
       });
 
       return this.parseChapterSummary(response.content);
@@ -325,6 +337,7 @@ Guidelines:
         ],
         temperature: this.temperature,
         maxTokens: 8192,
+        extraBody: this.extraBody,
       });
 
       return this.parseRetrievalDecision(response.content, config.maxChaptersPerRetrieval);

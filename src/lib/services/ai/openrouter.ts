@@ -5,6 +5,7 @@ import type {
   GenerationResponse,
   StreamChunk,
   ModelInfo,
+  ProviderInfo,
   Message,
   AgenticRequest,
   AgenticResponse,
@@ -373,6 +374,68 @@ export class OpenAIProvider implements AIProvider {
         throw new Error('Request timed out');
       }
       log('listModels error', error);
+      throw error;
+    }
+  }
+
+  async listProviders(): Promise<ProviderInfo[]> {
+    log('listProviders called');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      log('Request timeout triggered');
+      controller.abort();
+    }, 15000);
+
+    try {
+      log('Fetching providers from OpenRouter API...');
+
+      const baseUrl = this.settings.openaiApiURL.endsWith('/')
+        ? this.settings.openaiApiURL
+        : this.settings.openaiApiURL + '/';
+
+      const response = await fetch(baseUrl + 'providers', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${this.settings.openaiApiKey}`,
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      log('Providers response received', { status: response.status, ok: response.ok });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        log('Providers API error', { status: response.status, error: errorText });
+        throw new Error(`Failed to fetch providers: ${response.status}`);
+      }
+
+      const json = await response.json();
+
+      if (!json.data || !Array.isArray(json.data)) {
+        log('Unexpected providers API response structure', { keys: Object.keys(json) });
+        throw new Error('Invalid providers API response structure');
+      }
+
+      log('Providers fetched successfully', { count: json.data.length });
+
+      return json.data.map((provider: any) => ({
+        name: provider.name,
+        slug: provider.slug,
+        privacyPolicyUrl: provider.privacy_policy_url ?? null,
+        termsOfServiceUrl: provider.terms_of_service_url ?? null,
+        statusPageUrl: provider.status_page_url ?? null,
+      }));
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        log('Request timed out after 15 seconds');
+        throw new Error('Request timed out');
+      }
+      log('listProviders error', error);
       throw error;
     }
   }

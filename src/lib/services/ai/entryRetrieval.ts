@@ -11,6 +11,7 @@
 import type { Entry, EntryType, StoryEntry, Character, Location, Item } from '$lib/types';
 import type { OpenAIProvider as OpenAIProvider } from './openrouter';
 import { settings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
 
 /**
  * Live world state - the actively tracked entities that should always be Tier 1
@@ -582,6 +583,12 @@ Return an empty array [] if none are relevant.`;
         model: this.config.tier3Model,
         temperature: this.config.temperature,
         maxTokens: 8192,
+        extraBody: buildExtraBody({
+          manualMode: settings.advancedRequestSettings.manualMode,
+          manualBody: settings.systemServicesSettings.entryRetrieval.manualBody,
+          reasoningEffort: settings.systemServicesSettings.entryRetrieval.reasoningEffort,
+          providerOnly: settings.systemServicesSettings.entryRetrieval.providerOnly,
+        }),
         signal,
       });
 

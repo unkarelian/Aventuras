@@ -1,5 +1,7 @@
 import { settings, DEFAULT_OPENROUTER_PROFILE_ID, DEFAULT_NANOGPT_PROFILE_ID, type ProviderPreset } from '$lib/stores/settings.svelte';
+import type { ReasoningEffort } from '$lib/types';
 import { OpenAIProvider, OPENROUTER_API_URL } from './openrouter';
+import { buildExtraBody } from './requestOverrides';
 import type { Message } from './types';
 import type { StoryMode, POV, Character, Location, Item } from '$lib/types';
 
@@ -28,6 +30,9 @@ export interface ProcessSettings {
   temperature?: number;
   topP?: number;
   maxTokens?: number;
+  reasoningEffort?: ReasoningEffort;
+  providerOnly?: string[];
+  manualBody?: string;
 }
 
 export interface AdvancedWizardSettings {
@@ -151,6 +156,9 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
     },
     protagonistGeneration: {
       profileId: DEFAULT_OPENROUTER_PROFILE_ID,
@@ -159,6 +167,9 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
     },
     characterElaboration: {
       profileId: DEFAULT_OPENROUTER_PROFILE_ID,
@@ -167,6 +178,9 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
     },
     supportingCharacters: {
       profileId: DEFAULT_OPENROUTER_PROFILE_ID,
@@ -174,6 +188,9 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       systemPrompt: DEFAULT_PROMPTS.supportingCharacters,
       temperature: 0.3,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
     },
     openingGeneration: {
       profileId: DEFAULT_OPENROUTER_PROFILE_ID,
@@ -182,6 +199,9 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       temperature: 0.8,
       topP: 0.95,
       maxTokens: 8192,
+      reasoningEffort: 'high',
+      providerOnly: [],
+      manualBody: '',
     },
   };
 }
@@ -198,6 +218,9 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderPreset):
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
     },
     protagonistGeneration: {
       profileId,
@@ -206,6 +229,9 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderPreset):
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
     },
     characterElaboration: {
       profileId,
@@ -214,6 +240,9 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderPreset):
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
     },
     supportingCharacters: {
       profileId,
@@ -221,6 +250,9 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderPreset):
       systemPrompt: DEFAULT_PROMPTS.supportingCharacters,
       temperature: 0.3,
       maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
     },
     openingGeneration: {
       profileId,
@@ -229,6 +261,9 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderPreset):
       temperature: 0.8,
       topP: 0.95,
       maxTokens: 8192,
+      reasoningEffort: 'high',
+      providerOnly: [],
+      manualBody: '',
     },
   };
 }
@@ -301,6 +336,20 @@ class ScenarioService {
       throw new Error('No API key configured');
     }
     return new OpenAIProvider(apiSettings);
+  }
+
+  private buildProcessExtraBody(
+    overrides: ProcessSettings | undefined,
+    baseProvider: Record<string, unknown>,
+    defaultReasoningEffort: ReasoningEffort
+  ) {
+    return buildExtraBody({
+      manualMode: settings.advancedRequestSettings.manualMode,
+      manualBody: overrides?.manualBody,
+      reasoningEffort: overrides?.reasoningEffort ?? defaultReasoningEffort,
+      providerOnly: overrides?.providerOnly,
+      baseProvider,
+    });
   }
 
   /**
@@ -420,9 +469,7 @@ Expand this into a rich, detailed world suitable for interactive storytelling.${
       temperature: overrides?.temperature ?? 0.3,
       topP: overrides?.topP,
       maxTokens: overrides?.maxTokens ?? 8192,
-      extraBody: {
-        provider: SCENARIO_PROVIDER,
-      },
+      extraBody: this.buildProcessExtraBody(overrides, SCENARIO_PROVIDER, 'off'),
     });
 
     log('Setting expansion response received', { length: response.content.length });
@@ -514,9 +561,7 @@ Expand and enrich these details while staying true to what I've provided.`
       temperature: overrides?.temperature ?? 0.3,
       topP: overrides?.topP,
       maxTokens: overrides?.maxTokens ?? 8192,
-      extraBody: {
-        provider: SCENARIO_PROVIDER,
-      },
+      extraBody: this.buildProcessExtraBody(overrides, SCENARIO_PROVIDER, 'off'),
     });
 
     log('Character elaboration response received', { length: response.content.length });
@@ -607,9 +652,7 @@ Generate a compelling protagonist who would fit naturally into this world.`
       temperature: overrides?.temperature ?? 0.3,
       topP: overrides?.topP,
       maxTokens: overrides?.maxTokens ?? 8192,
-      extraBody: {
-        provider: SCENARIO_PROVIDER,
-      },
+      extraBody: this.buildProcessExtraBody(overrides, SCENARIO_PROVIDER, 'off'),
     });
 
     log('Protagonist response received', { length: response.content.length });
@@ -683,7 +726,7 @@ Generate ${count} interesting supporting characters who would create compelling 
       model: overrides?.model || SCENARIO_MODEL,
       temperature: overrides?.temperature ?? 0.3,
       maxTokens: overrides?.maxTokens ?? 8192,
-      extraBody: { provider: SCENARIO_PROVIDER },
+      extraBody: this.buildProcessExtraBody(overrides, SCENARIO_PROVIDER, 'off'),
     });
 
     log('Characters response received', { length: response.content.length });
@@ -974,10 +1017,11 @@ ${characters.map(c => `- ${c.name} (${c.role}): ${c.description}`).join('\n')}
       temperature: overrides?.temperature ?? 0.8,
       topP: overrides?.topP ?? (isGLM ? 0.95 : undefined),
       maxTokens: overrides?.maxTokens ?? 8192,
-      extraBody: {
-        provider: isZAI ? { order: ['z-ai'], require_parameters: true } : SCENARIO_PROVIDER,
-        reasoning: { max_tokens: 8000 },
-      },
+      extraBody: this.buildProcessExtraBody(
+        overrides,
+        isZAI ? { order: ['z-ai'], require_parameters: true } : SCENARIO_PROVIDER,
+        'high'
+      ),
     });
 
     log('Opening response received', { length: response.content.length });
@@ -1190,7 +1234,11 @@ Describe the environment and situation only. Do NOT write anything ${userName} d
       temperature: overrides?.temperature ?? 0.8,
       topP: overrides?.topP ?? (isGLM ? 0.95 : undefined),
       maxTokens: overrides?.maxTokens ?? 8192,
-      extraBody: isZAI ? { provider: { order: ['z-ai'], require_parameters: true } } : undefined,
+      extraBody: this.buildProcessExtraBody(
+        overrides,
+        isZAI ? { order: ['z-ai'], require_parameters: true } : SCENARIO_PROVIDER,
+        'high'
+      ),
     })) {
       yield chunk;
     }

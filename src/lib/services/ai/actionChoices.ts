@@ -1,6 +1,7 @@
 import type { OpenAIProvider as OpenAIProvider } from './openrouter';
 import type { StoryEntry, Character, Location, Item, StoryBeat, Entry } from '$lib/types';
 import { settings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
 
 const DEBUG = true;
 
@@ -199,6 +200,12 @@ Types:
         ],
         temperature: this.temperature,
         maxTokens: this.maxTokens,
+        extraBody: buildExtraBody({
+          manualMode: settings.advancedRequestSettings.manualMode,
+          manualBody: settings.systemServicesSettings.actionChoices.manualBody,
+          reasoningEffort: settings.systemServicesSettings.actionChoices.reasoningEffort,
+          providerOnly: settings.systemServicesSettings.actionChoices.providerOnly,
+        }),
       });
 
       const result = this.parseChoices(response.content);

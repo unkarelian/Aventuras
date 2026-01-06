@@ -10,6 +10,8 @@ import type {
   Entry,
 } from '$lib/types';
 import { settings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
+import type { ReasoningEffort } from '$lib/types';
 
 const DEBUG = true;
 
@@ -250,10 +252,12 @@ export class AgenticRetrievalService {
           maxTokens: 8192,
           tools: RETRIEVAL_TOOLS,
           tool_choice: 'auto',
-          extraBody: {
-            reasoning: { effort: 'high' },
-            provider: { only: ['Minimax'] },
-          },
+          extraBody: buildExtraBody({
+            manualMode: settings.advancedRequestSettings.manualMode,
+            manualBody: this.settingsOverride?.manualBody ?? settings.systemServicesSettings.agenticRetrieval.manualBody,
+            reasoningEffort: this.settingsOverride?.reasoningEffort ?? settings.systemServicesSettings.agenticRetrieval.reasoningEffort,
+            providerOnly: this.settingsOverride?.providerOnly ?? settings.systemServicesSettings.agenticRetrieval.providerOnly,
+          }),
           signal,
         });
 
@@ -541,6 +545,9 @@ export interface AgenticRetrievalSettings {
   systemPrompt: string;
   // Threshold for when to use agentic retrieval instead of static
   agenticThreshold: number; // Use agentic if chapters > N (default: 30)
+  reasoningEffort: ReasoningEffort;
+  providerOnly: string[];
+  manualBody: string;
 }
 
 export function getDefaultAgenticRetrievalSettings(): AgenticRetrievalSettings {
@@ -551,5 +558,8 @@ export function getDefaultAgenticRetrievalSettings(): AgenticRetrievalSettings {
     maxIterations: 10,
     systemPrompt: DEFAULT_AGENTIC_RETRIEVAL_PROMPT,
     agenticThreshold: 30,
+    reasoningEffort: 'high',
+    providerOnly: ['minimax'],
+    manualBody: '',
   };
 }

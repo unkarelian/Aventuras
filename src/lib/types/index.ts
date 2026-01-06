@@ -384,8 +384,13 @@ export interface APISettings {
   defaultModel: string;
   temperature: number;
   maxTokens: number;
-  enableThinking: boolean; // Enable extended thinking/reasoning for supported models
+  reasoningEffort: ReasoningEffort; // Reasoning effort for the main narrative model
+  providerOnly: string[]; // Allowed providers for the main narrative model
+  manualBody: string; // Manual request body JSON for the main narrative model
+  enableThinking: boolean; // Legacy toggle for reasoning (backward compatibility)
 }
+
+export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high';
 
 export type ThemeId = 'dark' | 'light' | 'retro-console';
 

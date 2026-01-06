@@ -165,6 +165,14 @@ export interface ModelInfo {
   };
 }
 
+export interface ProviderInfo {
+  name: string;
+  slug: string;
+  privacyPolicyUrl?: string | null;
+  termsOfServiceUrl?: string | null;
+  statusPageUrl?: string | null;
+}
+
 export interface AIProvider {
   id: string;
   name: string;
@@ -172,5 +180,6 @@ export interface AIProvider {
   generateResponse(request: GenerationRequest): Promise<GenerationResponse>;
   streamResponse(request: GenerationRequest): AsyncIterable<StreamChunk>;
   listModels(): Promise<ModelInfo[]>;
+  listProviders?(): Promise<ProviderInfo[]>;
   validateApiKey(): Promise<boolean>;
 }

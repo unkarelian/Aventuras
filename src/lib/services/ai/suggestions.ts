@@ -1,6 +1,7 @@
 import type { OpenAIProvider as OpenAIProvider } from './openrouter';
 import type { StoryEntry, StoryBeat, Entry } from '$lib/types';
 import { settings, type SuggestionsSettings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
 
 const DEBUG = true;
 
@@ -136,6 +137,12 @@ Respond with JSON only:
         ],
         temperature: this.temperature,
         maxTokens: this.maxTokens,
+        extraBody: buildExtraBody({
+          manualMode: settings.advancedRequestSettings.manualMode,
+          manualBody: this.settingsOverride?.manualBody ?? settings.systemServicesSettings.suggestions.manualBody,
+          reasoningEffort: this.settingsOverride?.reasoningEffort ?? settings.systemServicesSettings.suggestions.reasoningEffort,
+          providerOnly: this.settingsOverride?.providerOnly ?? settings.systemServicesSettings.suggestions.providerOnly,
+        }),
       });
 
       const result = this.parseSuggestions(response.content);

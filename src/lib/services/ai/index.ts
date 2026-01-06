@@ -11,6 +11,7 @@ import { AgenticRetrievalService, type AgenticRetrievalSettings, type AgenticRet
 import { TimelineFillService, type TimelineFillSettings, type TimelineFillResult } from './timelineFill';
 import { ContextBuilder, type ContextResult, type ContextConfig, DEFAULT_CONTEXT_CONFIG } from './context';
 import { EntryRetrievalService, getEntryRetrievalConfigFromSettings, type EntryRetrievalResult, type ActivationTracker } from './entryRetrieval';
+import { buildExtraBody } from './requestOverrides';
 import type { Message, GenerationResponse, StreamChunk } from './types';
 import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, MemoryConfig, Entry, LoreManagementResult } from '$lib/types';
 
@@ -113,25 +114,20 @@ class AIService {
       }
     }
 
-    // Build extra body for provider-specific options
-    const extraBody: Record<string, unknown> = {
-      provider: { order: ['z-ai'], require_parameters: true },
-    };
-    if (settings.apiSettings.enableThinking) {
-      // Enable extended thinking with a reasonable token budget
-      // Reasoning tokens are NOT included in responses, per user requirement
-      extraBody.reasoning = { max_tokens: 10000 };
-    } else {
-      // Explicitly disable reasoning for models that support it
-      extraBody.reasoning = { enabled: false };
-    }
+    const extraBody = buildExtraBody({
+      manualMode: settings.advancedRequestSettings.manualMode,
+      manualBody: settings.apiSettings.manualBody,
+      reasoningEffort: settings.apiSettings.reasoningEffort,
+      providerOnly: settings.apiSettings.providerOnly,
+      baseProvider: { order: ['z-ai'], require_parameters: true },
+    });
 
     log('Messages built:', {
       totalMessages: messages.length,
       model: settings.apiSettings.defaultModel,
       temperature: settings.apiSettings.temperature,
       maxTokens: settings.apiSettings.maxTokens,
-      enableThinking: settings.apiSettings.enableThinking,
+      reasoningEffort: settings.apiSettings.reasoningEffort,
     });
 
     const response = await provider.generateResponse({
@@ -139,7 +135,7 @@ class AIService {
       model: settings.apiSettings.defaultModel,
       temperature: settings.apiSettings.temperature,
       maxTokens: settings.apiSettings.maxTokens,
-      extraBody: Object.keys(extraBody).length > 0 ? extraBody : undefined,
+      extraBody,
     });
 
     log('Response received, length:', response.content.length);
@@ -264,25 +260,20 @@ class AIService {
     }
     log('Conversation history built', { visibleEntries: entries.length });
 
-    // Build extra body for provider-specific options
-    const extraBody: Record<string, unknown> = {
-      provider: { order: ['z-ai'], require_parameters: true },
-    };
-    if (settings.apiSettings.enableThinking) {
-      // Enable extended thinking with a reasonable token budget
-      // Reasoning tokens are NOT included in responses, per user requirement
-      extraBody.reasoning = { max_tokens: 10000 };
-    } else {
-      // Explicitly disable reasoning for models that support it
-      extraBody.reasoning = { enabled: false };
-    }
+    const extraBody = buildExtraBody({
+      manualMode: settings.advancedRequestSettings.manualMode,
+      manualBody: settings.apiSettings.manualBody,
+      reasoningEffort: settings.apiSettings.reasoningEffort,
+      providerOnly: settings.apiSettings.providerOnly,
+      baseProvider: { order: ['z-ai'], require_parameters: true },
+    });
 
     log('Starting stream with', {
       totalMessages: messages.length,
       model: settings.apiSettings.defaultModel,
       temperature: settings.apiSettings.temperature,
       maxTokens: settings.apiSettings.maxTokens,
-      enableThinking: settings.apiSettings.enableThinking,
+      reasoningEffort: settings.apiSettings.reasoningEffort,
     });
 
     // Debug: Log message roles to verify correct format
@@ -296,7 +287,7 @@ class AIService {
       model: settings.apiSettings.defaultModel,
       temperature: settings.apiSettings.temperature,
       maxTokens: settings.apiSettings.maxTokens,
-      extraBody: Object.keys(extraBody).length > 0 ? extraBody : undefined,
+      extraBody,
       signal,
     })) {
       chunkCount++;

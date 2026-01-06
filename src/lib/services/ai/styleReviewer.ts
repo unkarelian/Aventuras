@@ -1,6 +1,7 @@
 import type { OpenAIProvider } from './openrouter';
 import type { StoryEntry } from '$lib/types';
 import { settings } from '$lib/stores/settings.svelte';
+import { buildExtraBody } from './requestOverrides';
 
 const DEBUG = true;
 
@@ -90,9 +91,12 @@ export class StyleReviewerService {
         ],
         temperature: this.temperature,
         maxTokens: this.maxTokens,
-        extraBody: {
-          reasoning: { max_tokens: 5000 }, // Enable reasoning per requirements
-        },
+        extraBody: buildExtraBody({
+          manualMode: settings.advancedRequestSettings.manualMode,
+          manualBody: settings.systemServicesSettings.styleReviewer.manualBody,
+          reasoningEffort: settings.systemServicesSettings.styleReviewer.reasoningEffort,
+          providerOnly: settings.systemServicesSettings.styleReviewer.providerOnly,
+        }),
       });
 
       log('Style analysis response received', {

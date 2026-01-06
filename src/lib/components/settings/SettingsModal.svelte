@@ -1,16 +1,23 @@
 <script lang="ts">
   import { ui } from '$lib/stores/ui.svelte';
-  import { settings, DEFAULT_SERVICE_PROMPTS } from '$lib/stores/settings.svelte';
+  import { onMount } from 'svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import { OpenAIProvider, OPENROUTER_API_URL } from '$lib/services/ai/openrouter';
+  import type { ProviderInfo } from '$lib/services/ai/types';
+  import { DEFAULT_PROVIDERS } from '$lib/services/ai/providers';
   import type { ThemeId } from '$lib/types';
   import {
     type AdvancedWizardSettings,
     SCENARIO_MODEL,
+    SCENARIO_PROVIDER,
   } from '$lib/services/ai/scenario';
+  import { serializeManualBody } from '$lib/services/ai/requestOverrides';
+  import type { ReasoningEffort } from '$lib/types';
   import { X, Key, Cpu, Palette, RefreshCw, Search, Settings2, RotateCcw, ChevronDown, ChevronUp, Brain, BookOpen, Lightbulb, Sparkles, Clock, Download, Loader2, Save, FolderOpen, ListChecks } from 'lucide-svelte';
   import { ask } from '@tauri-apps/plugin-dialog';
   import ProfileModal from './ProfileModal.svelte';
   import ModelSelector from './ModelSelector.svelte';
+  import ProviderOnlySelector from './ProviderOnlySelector.svelte';
   import type { APIProfile } from '$lib/types';
   import { swipe } from '$lib/utils/swipe';
   import { updaterService, type UpdateInfo, type UpdateProgress } from '$lib/services/updater';
@@ -26,6 +33,7 @@
   let showActionChoicesSection = $state(false);
   let showStyleReviewerSection = $state(false);
   let showEntryRetrievalSection = $state(false);
+  let showLoreManagementSection = $state(false);
   let showTimelineFillSection = $state(false);
   let editingStoryPrompt = $state<'adventure' | 'creativeWriting' | null>(null);
   let editingProcess = $state<keyof AdvancedWizardSettings | null>(null);
@@ -35,6 +43,7 @@
   let editingMemoryPrompt = $state<'chapterAnalysis' | 'chapterSummarization' | 'retrievalDecision' | null>(null);
   let editingSuggestionsPrompt = $state(false);
   let editingStyleReviewerPrompt = $state(false);
+  let editingLoreManagementPrompt = $state(false);
   let editingTimelineFillPrompt = $state<'system' | 'answer' | null>(null);
   let editingAgenticRetrievalPrompt = $state(false);
 
@@ -62,6 +71,22 @@
   let isLoadingModels = $state(false);
   let modelError = $state<string | null>(null);
   let modelSearch = $state('');
+
+  let isLoadingProviders = $state(false);
+  let providerError = $state<string | null>(null);
+  let providerOptions = $state<ProviderInfo[]>(DEFAULT_PROVIDERS);
+  let manualBodyEditorOpen = $state(false);
+  let manualBodyEditorTitle = $state('Manual Request Body');
+  let manualBodyEditorValue = $state('');
+  let manualBodyEditorSave = $state<(value: string) => void>((_) => {});
+
+  const reasoningLevels: ReasoningEffort[] = ['off', 'low', 'medium', 'high'];
+  const reasoningLabels: Record<ReasoningEffort, string> = {
+    off: 'Off',
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+  };
 
   // Get models from main narrative profile
   let profileModels = $derived.by(() => {
@@ -144,6 +169,229 @@
     }
   }
 
+  async function fetchProviders() {
+    const profile = settings.getMainNarrativeProfile();
+    if (!profile) return;
+
+    if (isLoadingProviders) return;
+
+    isLoadingProviders = true;
+    providerError = null;
+
+    try {
+      const apiSettings = settings.getApiSettingsForProfile(profile.id);
+      const provider = new OpenAIProvider(apiSettings);
+      const fetched = await provider.listProviders?.();
+      if (fetched && fetched.length > 0) {
+        providerOptions = fetched;
+      } else {
+        providerOptions = DEFAULT_PROVIDERS;
+      }
+    } catch (error) {
+      console.error('[SettingsModal] Failed to fetch providers:', error);
+      providerError = error instanceof Error ? error.message : 'Failed to load providers.';
+      providerOptions = DEFAULT_PROVIDERS;
+    } finally {
+      isLoadingProviders = false;
+    }
+  }
+
+  function getReasoningIndex(value?: ReasoningEffort): number {
+    const index = reasoningLevels.indexOf(value ?? 'off');
+    return index === -1 ? 0 : index;
+  }
+
+  function getReasoningValue(index: number): ReasoningEffort {
+    const clamped = Math.min(Math.max(0, index), reasoningLevels.length - 1);
+    return reasoningLevels[clamped];
+  }
+
+  function getOpeningProvider(modelId: string): Record<string, unknown> {
+    const isZAI = modelId.startsWith('z-ai/') || modelId.startsWith('zai-org/');
+    return isZAI ? { order: ['z-ai'], require_parameters: true } : SCENARIO_PROVIDER;
+  }
+
+  function seedManualBody(target: { manualBody?: string }, defaults: Parameters<typeof serializeManualBody>[0]): boolean {
+    if (target.manualBody && target.manualBody.trim()) return false;
+    target.manualBody = serializeManualBody(defaults);
+    return true;
+  }
+
+  function openManualBodyEditor(title: string, value: string, onSave: (next: string) => void) {
+    manualBodyEditorTitle = title;
+    manualBodyEditorValue = value;
+    manualBodyEditorSave = onSave;
+    manualBodyEditorOpen = true;
+  }
+
+  function closeManualBodyEditor() {
+    manualBodyEditorOpen = false;
+    manualBodyEditorTitle = 'Manual Request Body';
+    manualBodyEditorValue = '';
+    manualBodyEditorSave = (_) => {};
+  }
+
+  function applyManualBodyEditor() {
+    manualBodyEditorSave(manualBodyEditorValue);
+    closeManualBodyEditor();
+  }
+
+  async function seedAllManualBodies() {
+    const baseNarrativeProvider = { order: ['z-ai'], require_parameters: true };
+    if (seedManualBody(settings.apiSettings, {
+      model: settings.apiSettings.defaultModel,
+      temperature: settings.apiSettings.temperature,
+      maxTokens: settings.apiSettings.maxTokens,
+      baseProvider: baseNarrativeProvider,
+      reasoningEffort: settings.apiSettings.reasoningEffort,
+      providerOnly: settings.apiSettings.providerOnly,
+    })) {
+      await settings.setMainManualBody(settings.apiSettings.manualBody);
+    }
+
+    let wizardChanged = false;
+    const processDefaults: Record<keyof AdvancedWizardSettings, { model: string; temperature: number; maxTokens: number; topP?: number }> = {
+      settingExpansion: {
+        model: 'deepseek/deepseek-v3.2',
+        temperature: 0.3,
+        maxTokens: 8192,
+        topP: 0.95,
+      },
+      protagonistGeneration: {
+        model: 'deepseek/deepseek-v3.2',
+        temperature: 0.3,
+        maxTokens: 8192,
+        topP: 0.95,
+      },
+      characterElaboration: {
+        model: 'deepseek/deepseek-v3.2',
+        temperature: 0.3,
+        maxTokens: 8192,
+        topP: 0.95,
+      },
+      supportingCharacters: {
+        model: SCENARIO_MODEL,
+        temperature: 0.3,
+        maxTokens: 8192,
+      },
+      openingGeneration: {
+        model: 'z-ai/glm-4.7',
+        temperature: 0.8,
+        maxTokens: 8192,
+        topP: 0.95,
+      },
+    };
+
+    for (const processKey of Object.keys(processLabels) as (keyof AdvancedWizardSettings)[]) {
+      const processSettings = settings.wizardSettings[processKey];
+      const defaults = processDefaults[processKey];
+      const model = processSettings.model ?? defaults.model;
+      if (seedManualBody(processSettings, {
+        model,
+        temperature: processSettings.temperature ?? defaults.temperature,
+        maxTokens: processSettings.maxTokens ?? defaults.maxTokens,
+        topP: processSettings.topP ?? defaults.topP,
+        baseProvider: processKey === 'openingGeneration'
+          ? getOpeningProvider(model)
+          : SCENARIO_PROVIDER,
+        reasoningEffort: processSettings.reasoningEffort,
+        providerOnly: processSettings.providerOnly,
+      })) {
+        wizardChanged = true;
+      }
+    }
+    if (wizardChanged) {
+      await settings.saveWizardSettings();
+    }
+
+    let servicesChanged = false;
+    const services = settings.systemServicesSettings;
+
+    servicesChanged = seedManualBody(services.lorebookClassifier, {
+      model: services.lorebookClassifier.model,
+      temperature: services.lorebookClassifier.temperature,
+      maxTokens: services.lorebookClassifier.maxTokens,
+      reasoningEffort: services.lorebookClassifier.reasoningEffort,
+      providerOnly: services.lorebookClassifier.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.classifier, {
+      model: services.classifier.model,
+      temperature: services.classifier.temperature,
+      maxTokens: services.classifier.maxTokens,
+      reasoningEffort: services.classifier.reasoningEffort,
+      providerOnly: services.classifier.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.memory, {
+      model: services.memory.model,
+      temperature: services.memory.temperature,
+      maxTokens: 8192,
+      reasoningEffort: services.memory.reasoningEffort,
+      providerOnly: services.memory.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.suggestions, {
+      model: services.suggestions.model,
+      temperature: services.suggestions.temperature,
+      maxTokens: services.suggestions.maxTokens,
+      reasoningEffort: services.suggestions.reasoningEffort,
+      providerOnly: services.suggestions.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.actionChoices, {
+      model: services.actionChoices.model,
+      temperature: services.actionChoices.temperature,
+      maxTokens: services.actionChoices.maxTokens,
+      reasoningEffort: services.actionChoices.reasoningEffort,
+      providerOnly: services.actionChoices.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.styleReviewer, {
+      model: services.styleReviewer.model,
+      temperature: services.styleReviewer.temperature,
+      maxTokens: services.styleReviewer.maxTokens,
+      reasoningEffort: services.styleReviewer.reasoningEffort,
+      providerOnly: services.styleReviewer.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.entryRetrieval, {
+      model: services.entryRetrieval.model,
+      temperature: services.entryRetrieval.temperature,
+      maxTokens: 8192,
+      reasoningEffort: services.entryRetrieval.reasoningEffort,
+      providerOnly: services.entryRetrieval.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.loreManagement, {
+      model: services.loreManagement.model,
+      temperature: services.loreManagement.temperature,
+      maxTokens: 8192,
+      reasoningEffort: services.loreManagement.reasoningEffort,
+      providerOnly: services.loreManagement.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.timelineFill, {
+      model: services.timelineFill.model,
+      temperature: services.timelineFill.temperature,
+      maxTokens: 8192,
+      reasoningEffort: services.timelineFill.reasoningEffort,
+      providerOnly: services.timelineFill.providerOnly,
+    }) || servicesChanged;
+
+    servicesChanged = seedManualBody(services.agenticRetrieval, {
+      model: services.agenticRetrieval.model,
+      temperature: services.agenticRetrieval.temperature,
+      maxTokens: 8192,
+      reasoningEffort: services.agenticRetrieval.reasoningEffort,
+      providerOnly: services.agenticRetrieval.providerOnly,
+    }) || servicesChanged;
+
+    if (servicesChanged) {
+      await settings.saveSystemServicesSettings();
+    }
+  }
+
   // Set the main narrative profile
   async function handleSetMainNarrativeProfile(profileId: string) {
     await settings.setMainNarrativeProfile(profileId);
@@ -172,6 +420,21 @@
   function handleRefreshModels() {
     fetchModelsToProfile();
   }
+
+  async function handleManualModeToggle() {
+    const next = !settings.advancedRequestSettings.manualMode;
+    await settings.setAdvancedManualMode(next);
+    if (next) {
+      await seedAllManualBodies();
+    }
+  }
+
+  onMount(() => {
+    fetchProviders();
+    if (settings.advancedRequestSettings.manualMode) {
+      seedAllManualBodies();
+    }
+  });
 
   async function handleResetAll() {
     const confirmed = confirm(
@@ -455,7 +718,7 @@
             {/if}
           </div>
 
-          <div>
+          <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
             <label class="mb-2 block text-sm font-medium text-surface-300">
               Temperature: {settings.apiSettings.temperature.toFixed(1)}
             </label>
@@ -466,6 +729,7 @@
               step="0.1"
               value={settings.apiSettings.temperature}
               oninput={(e) => settings.setTemperature(parseFloat(e.currentTarget.value))}
+              disabled={settings.advancedRequestSettings.manualMode}
               class="w-full"
             />
             <div class="flex justify-between text-xs text-surface-500">
@@ -474,7 +738,7 @@
             </div>
           </div>
 
-          <div>
+          <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
             <label class="mb-2 block text-sm font-medium text-surface-300">
               Max Tokens: {settings.apiSettings.maxTokens}
             </label>
@@ -485,6 +749,7 @@
               step="128"
               value={settings.apiSettings.maxTokens}
               oninput={(e) => settings.setMaxTokens(parseInt(e.currentTarget.value))}
+              disabled={settings.advancedRequestSettings.manualMode}
               class="w-full"
             />
             <div class="flex justify-between text-xs text-surface-500">
@@ -493,36 +758,64 @@
             </div>
           </div>
 
-          <!-- Extended Thinking Toggle -->
-          <div class="border-t border-surface-700 pt-4">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3">
-                <Sparkles class="h-5 w-5 text-amber-400" />
-                <div>
-                  <label class="text-sm font-medium text-surface-300">Extended Thinking</label>
-                  <p class="text-xs text-surface-500">
-                    Enable reasoning for supported models (e.g., GLM 4.7, DeepSeek v3.2)
-                  </p>
-                </div>
+          <div class="border-t border-surface-700 pt-4 space-y-3">
+            <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
+              <label class="mb-1 block text-sm font-medium text-surface-300">
+                Thinking: {reasoningLabels[settings.apiSettings.reasoningEffort]}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="3"
+                step="1"
+                value={getReasoningIndex(settings.apiSettings.reasoningEffort)}
+                onchange={(e) => settings.setMainReasoningEffort(getReasoningValue(parseInt(e.currentTarget.value)))}
+                disabled={settings.advancedRequestSettings.manualMode}
+                class="w-full"
+              />
+              <div class="flex justify-between text-xs text-surface-500">
+                <span>Off</span>
+                <span>Low</span>
+                <span>Medium</span>
+                <span>High</span>
               </div>
-              <button
-                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                class:bg-accent-600={settings.apiSettings.enableThinking}
-                class:bg-surface-600={!settings.apiSettings.enableThinking}
-                onclick={() => settings.setEnableThinking(!settings.apiSettings.enableThinking)}
-                aria-label="Toggle extended thinking"
-              >
-                <span
-                  class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-                  class:translate-x-6={settings.apiSettings.enableThinking}
-                  class:translate-x-1={!settings.apiSettings.enableThinking}
-                ></span>
-              </button>
             </div>
-            {#if settings.apiSettings.enableThinking}
-              <p class="mt-2 text-xs text-amber-400/80 ml-8">
-                The model will use internal reasoning to improve responses. Reasoning is not shown or stored.
-              </p>
+
+            <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
+              <ProviderOnlySelector
+                providers={providerOptions}
+                selected={settings.apiSettings.providerOnly}
+                disabled={settings.advancedRequestSettings.manualMode}
+                onChange={(next) => {
+                  settings.setMainProviderOnly(next);
+                }}
+              />
+            </div>
+
+            {#if settings.advancedRequestSettings.manualMode}
+              <div class="border-t border-surface-700 pt-3">
+                <div class="mb-1 flex items-center justify-between">
+                  <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                  <button
+                    class="text-xs text-accent-400 hover:text-accent-300"
+                    onclick={() => openManualBodyEditor('Main Narrative', settings.apiSettings.manualBody, (next) => {
+                      settings.apiSettings.manualBody = next;
+                      settings.setMainManualBody(next);
+                    })}
+                  >
+                    Pop out
+                  </button>
+                </div>
+                <textarea
+                  bind:value={settings.apiSettings.manualBody}
+                  onblur={() => settings.setMainManualBody(settings.apiSettings.manualBody)}
+                  class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                  rows="6"
+                ></textarea>
+                <p class="text-xs text-surface-500 mt-1">
+                  Overrides request parameters; messages and tools are managed by Aventura.
+                </p>
+              </div>
             {/if}
           </div>
         </div>
@@ -723,6 +1016,37 @@
         </div>
       {:else if activeTab === 'advanced'}
         <div class="space-y-4">
+          <div class="border-b border-surface-700 pb-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-medium text-surface-200">Manual Request Mode</h3>
+                <p class="text-xs text-surface-500">Edit full request body parameters for advanced models.</p>
+              </div>
+              <button
+                class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                class:bg-accent-600={settings.advancedRequestSettings.manualMode}
+                class:bg-surface-600={!settings.advancedRequestSettings.manualMode}
+                onclick={handleManualModeToggle}
+                aria-label="Toggle manual request mode"
+              >
+                <span
+                  class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                  class:translate-x-6={settings.advancedRequestSettings.manualMode}
+                  class:translate-x-1={!settings.advancedRequestSettings.manualMode}
+                ></span>
+              </button>
+            </div>
+            {#if settings.advancedRequestSettings.manualMode}
+              <p class="mt-2 text-xs text-amber-400/80">
+                Manual mode uses your JSON overrides. Reasoning, provider-only, temperature, and max token controls are locked.
+              </p>
+            {/if}
+            {#if isLoadingProviders}
+              <p class="mt-2 text-xs text-surface-500">Loading provider list...</p>
+            {:else if providerError}
+              <p class="mt-2 text-xs text-red-400">{providerError} Using fallback list.</p>
+            {/if}
+          </div>
           <!-- Story Generation Section -->
           <div class="border-b border-surface-700 pb-3">
             <div class="flex items-center justify-between">
@@ -881,7 +1205,7 @@
                         />
 
                         <!-- Temperature -->
-                        <div>
+                        <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
                           <label class="mb-1 block text-xs font-medium text-surface-400">
                             Temperature: {processSettings.temperature?.toFixed(2) ?? 0.8}
                           </label>
@@ -892,6 +1216,7 @@
                             step="0.05"
                             bind:value={settings.wizardSettings[process].temperature}
                             onchange={() => settings.saveWizardSettings()}
+                            disabled={settings.advancedRequestSettings.manualMode}
                             class="w-full h-2"
                           />
                           <div class="flex justify-between text-xs text-surface-500">
@@ -901,7 +1226,7 @@
                         </div>
 
                         <!-- Max Tokens -->
-                        <div>
+                        <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
                           <label class="mb-1 block text-xs font-medium text-surface-400">
                             Max Tokens: {processSettings.maxTokens ?? 1000}
                           </label>
@@ -912,6 +1237,7 @@
                             step="128"
                             bind:value={settings.wizardSettings[process].maxTokens}
                             onchange={() => settings.saveWizardSettings()}
+                            disabled={settings.advancedRequestSettings.manualMode}
                             class="w-full h-2"
                           />
                           <div class="flex justify-between text-xs text-surface-500">
@@ -919,6 +1245,71 @@
                             <span>8192</span>
                           </div>
                         </div>
+
+                        <!-- Thinking -->
+                        <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                          <label class="mb-1 block text-xs font-medium text-surface-400">
+                            Thinking: {reasoningLabels[processSettings.reasoningEffort ?? 'off']}
+                          </label>
+                          <input
+                            type="range"
+                            min="0"
+                            max="3"
+                            step="1"
+                            value={getReasoningIndex(processSettings.reasoningEffort)}
+                            onchange={(e) => {
+                              settings.wizardSettings[process].reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                              settings.saveWizardSettings();
+                            }}
+                            disabled={settings.advancedRequestSettings.manualMode}
+                            class="w-full h-2"
+                          />
+                          <div class="flex justify-between text-xs text-surface-500">
+                            <span>Off</span>
+                            <span>Low</span>
+                            <span>Medium</span>
+                            <span>High</span>
+                          </div>
+                        </div>
+
+                        <!-- Provider Only -->
+                        <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                          <ProviderOnlySelector
+                            providers={providerOptions}
+                            selected={processSettings.providerOnly ?? []}
+                            disabled={settings.advancedRequestSettings.manualMode}
+                            onChange={(next) => {
+                              settings.wizardSettings[process].providerOnly = next;
+                              settings.saveWizardSettings();
+                            }}
+                          />
+                        </div>
+
+                        {#if settings.advancedRequestSettings.manualMode}
+                          <div class="border-t border-surface-700 pt-3">
+                            <div class="mb-1 flex items-center justify-between">
+                              <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                              <button
+                                class="text-xs text-accent-400 hover:text-accent-300"
+                                onclick={() => openManualBodyEditor(`Wizard: ${processLabels[process]}`, settings.wizardSettings[process].manualBody ?? '', (next) => {
+                                  settings.wizardSettings[process].manualBody = next;
+                                  settings.saveWizardSettings();
+                                })}
+                              >
+                                Pop out
+                              </button>
+                            </div>
+                            <textarea
+                              bind:value={settings.wizardSettings[process].manualBody}
+                              onblur={() => settings.saveWizardSettings()}
+                              class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                              rows="6"
+                            ></textarea>
+                            <p class="text-xs text-surface-500 mt-1">
+                              Overrides request parameters; messages and tools are managed by Aventura.
+                            </p>
+                          </div>
+                        {/if}
 
                         <!-- System Prompt -->
                         <div>
@@ -992,7 +1383,7 @@
                       />
 
                       <!-- Temperature -->
-                      <div>
+                      <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
                         <label class="mb-1 block text-xs font-medium text-surface-400">
                           Temperature: {(settings.systemServicesSettings.lorebookClassifier?.temperature ?? 0.1).toFixed(2)}
                         </label>
@@ -1006,6 +1397,7 @@
                             settings.systemServicesSettings.lorebookClassifier.temperature = parseFloat(e.currentTarget.value);
                             settings.saveSystemServicesSettings();
                           }}
+                          disabled={settings.advancedRequestSettings.manualMode}
                           class="w-full h-2"
                         />
                       </div>
@@ -1055,6 +1447,74 @@
                           <span>Parallel</span>
                         </div>
                       </div>
+
+                      <!-- Thinking -->
+                      <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                        <label class="mb-1 block text-xs font-medium text-surface-400">
+                          Thinking: {reasoningLabels[settings.systemServicesSettings.lorebookClassifier.reasoningEffort]}
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="3"
+                          step="1"
+                          value={getReasoningIndex(settings.systemServicesSettings.lorebookClassifier.reasoningEffort)}
+                          onchange={(e) => {
+                            settings.systemServicesSettings.lorebookClassifier.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                            settings.saveSystemServicesSettings();
+                          }}
+                          disabled={settings.advancedRequestSettings.manualMode}
+                          class="w-full h-2"
+                        />
+                        <div class="flex justify-between text-xs text-surface-500">
+                          <span>Off</span>
+                          <span>Low</span>
+                          <span>Medium</span>
+                          <span>High</span>
+                        </div>
+                      </div>
+
+                      <!-- Provider Only -->
+                      <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                        <ProviderOnlySelector
+                          providers={providerOptions}
+                          selected={settings.systemServicesSettings.lorebookClassifier.providerOnly}
+                          disabled={settings.advancedRequestSettings.manualMode}
+                          onChange={(next) => {
+                            settings.systemServicesSettings.lorebookClassifier.providerOnly = next;
+                            settings.saveSystemServicesSettings();
+                          }}
+                        />
+                      </div>
+
+                      {#if settings.advancedRequestSettings.manualMode}
+                        <div class="border-t border-surface-700 pt-3">
+                          <div class="mb-1 flex items-center justify-between">
+                            <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                            <button
+                              class="text-xs text-accent-400 hover:text-accent-300"
+                              onclick={() => openManualBodyEditor('Lorebook Import Classification', settings.systemServicesSettings.lorebookClassifier.manualBody, (next) => {
+                                settings.systemServicesSettings.lorebookClassifier.manualBody = next;
+                                settings.saveSystemServicesSettings();
+                              })}
+                            >
+                              Pop out
+                            </button>
+                          </div>
+                          <textarea
+                            value={settings.systemServicesSettings.lorebookClassifier.manualBody}
+                            oninput={(e) => {
+                              settings.systemServicesSettings.lorebookClassifier.manualBody = e.currentTarget.value;
+                            }}
+                            onblur={() => settings.saveSystemServicesSettings()}
+                            class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                            rows="6"
+                          ></textarea>
+                          <p class="text-xs text-surface-500 mt-1">
+                            Overrides request parameters; messages and tools are managed by Aventura.
+                          </p>
+                        </div>
+                      {/if}
 
                       <!-- System Prompt -->
                       <div>
@@ -1136,7 +1596,7 @@
                   </div>
 
                   <!-- Temperature -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Temperature: {settings.systemServicesSettings.classifier.temperature.toFixed(2)}
                     </label>
@@ -1147,12 +1607,13 @@
                       step="0.05"
                       bind:value={settings.systemServicesSettings.classifier.temperature}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
 
                   <!-- Max Tokens -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Max Tokens: {settings.systemServicesSettings.classifier.maxTokens}
                     </label>
@@ -1163,9 +1624,75 @@
                       step="100"
                       bind:value={settings.systemServicesSettings.classifier.maxTokens}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
+
+                  <!-- Thinking -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Thinking: {reasoningLabels[settings.systemServicesSettings.classifier.reasoningEffort]}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="1"
+                      value={getReasoningIndex(settings.systemServicesSettings.classifier.reasoningEffort)}
+                      onchange={(e) => {
+                        settings.systemServicesSettings.classifier.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                        settings.saveSystemServicesSettings();
+                      }}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      class="w-full h-2"
+                    />
+                    <div class="flex justify-between text-xs text-surface-500">
+                      <span>Off</span>
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
+
+                  <!-- Provider Only -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <ProviderOnlySelector
+                      providers={providerOptions}
+                      selected={settings.systemServicesSettings.classifier.providerOnly}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      onChange={(next) => {
+                        settings.systemServicesSettings.classifier.providerOnly = next;
+                        settings.saveSystemServicesSettings();
+                      }}
+                    />
+                  </div>
+
+                  {#if settings.advancedRequestSettings.manualMode}
+                    <div class="border-t border-surface-700 pt-3 mb-3">
+                      <div class="mb-1 flex items-center justify-between">
+                        <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                        <button
+                          class="text-xs text-accent-400 hover:text-accent-300"
+                          onclick={() => openManualBodyEditor('World State Classifier', settings.systemServicesSettings.classifier.manualBody, (next) => {
+                            settings.systemServicesSettings.classifier.manualBody = next;
+                            settings.saveSystemServicesSettings();
+                          })}
+                        >
+                          Pop out
+                        </button>
+                      </div>
+                      <textarea
+                        bind:value={settings.systemServicesSettings.classifier.manualBody}
+                        onblur={() => settings.saveSystemServicesSettings()}
+                        class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                        rows="6"
+                      ></textarea>
+                      <p class="text-xs text-surface-500 mt-1">
+                        Overrides request parameters; messages and tools are managed by Aventura.
+                      </p>
+                    </div>
+                  {/if}
 
                   <!-- System Prompt -->
                   <div class="flex items-center justify-between mb-2">
@@ -1246,7 +1773,7 @@
                   </div>
 
                   <!-- Temperature -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Temperature: {settings.systemServicesSettings.memory.temperature.toFixed(2)}
                     </label>
@@ -1257,9 +1784,75 @@
                       step="0.05"
                       bind:value={settings.systemServicesSettings.memory.temperature}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
+
+                  <!-- Thinking -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Thinking: {reasoningLabels[settings.systemServicesSettings.memory.reasoningEffort]}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="1"
+                      value={getReasoningIndex(settings.systemServicesSettings.memory.reasoningEffort)}
+                      onchange={(e) => {
+                        settings.systemServicesSettings.memory.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                        settings.saveSystemServicesSettings();
+                      }}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      class="w-full h-2"
+                    />
+                    <div class="flex justify-between text-xs text-surface-500">
+                      <span>Off</span>
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
+
+                  <!-- Provider Only -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <ProviderOnlySelector
+                      providers={providerOptions}
+                      selected={settings.systemServicesSettings.memory.providerOnly}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      onChange={(next) => {
+                        settings.systemServicesSettings.memory.providerOnly = next;
+                        settings.saveSystemServicesSettings();
+                      }}
+                    />
+                  </div>
+
+                  {#if settings.advancedRequestSettings.manualMode}
+                    <div class="border-t border-surface-700 pt-3 mb-3">
+                      <div class="mb-1 flex items-center justify-between">
+                        <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                        <button
+                          class="text-xs text-accent-400 hover:text-accent-300"
+                          onclick={() => openManualBodyEditor('Memory & Chapters', settings.systemServicesSettings.memory.manualBody, (next) => {
+                            settings.systemServicesSettings.memory.manualBody = next;
+                            settings.saveSystemServicesSettings();
+                          })}
+                        >
+                          Pop out
+                        </button>
+                      </div>
+                      <textarea
+                        bind:value={settings.systemServicesSettings.memory.manualBody}
+                        onblur={() => settings.saveSystemServicesSettings()}
+                        class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                        rows="6"
+                      ></textarea>
+                      <p class="text-xs text-surface-500 mt-1">
+                        Overrides request parameters; messages and tools are managed by Aventura.
+                      </p>
+                    </div>
+                  {/if}
 
                   <!-- Chapter Analysis Prompt -->
                   <div class="mb-3 border-t border-surface-700 pt-3">
@@ -1392,7 +1985,7 @@
                   </div>
 
                   <!-- Temperature -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Temperature: {settings.systemServicesSettings.suggestions.temperature.toFixed(2)}
                     </label>
@@ -1403,12 +1996,13 @@
                       step="0.05"
                       bind:value={settings.systemServicesSettings.suggestions.temperature}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
 
                   <!-- Max Tokens -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Max Tokens: {settings.systemServicesSettings.suggestions.maxTokens}
                     </label>
@@ -1419,9 +2013,75 @@
                       step="100"
                       bind:value={settings.systemServicesSettings.suggestions.maxTokens}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
+
+                  <!-- Thinking -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Thinking: {reasoningLabels[settings.systemServicesSettings.suggestions.reasoningEffort]}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="1"
+                      value={getReasoningIndex(settings.systemServicesSettings.suggestions.reasoningEffort)}
+                      onchange={(e) => {
+                        settings.systemServicesSettings.suggestions.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                        settings.saveSystemServicesSettings();
+                      }}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      class="w-full h-2"
+                    />
+                    <div class="flex justify-between text-xs text-surface-500">
+                      <span>Off</span>
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
+
+                  <!-- Provider Only -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <ProviderOnlySelector
+                      providers={providerOptions}
+                      selected={settings.systemServicesSettings.suggestions.providerOnly}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      onChange={(next) => {
+                        settings.systemServicesSettings.suggestions.providerOnly = next;
+                        settings.saveSystemServicesSettings();
+                      }}
+                    />
+                  </div>
+
+                  {#if settings.advancedRequestSettings.manualMode}
+                    <div class="border-t border-surface-700 pt-3 mb-3">
+                      <div class="mb-1 flex items-center justify-between">
+                        <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                        <button
+                          class="text-xs text-accent-400 hover:text-accent-300"
+                          onclick={() => openManualBodyEditor('Story Suggestions', settings.systemServicesSettings.suggestions.manualBody, (next) => {
+                            settings.systemServicesSettings.suggestions.manualBody = next;
+                            settings.saveSystemServicesSettings();
+                          })}
+                        >
+                          Pop out
+                        </button>
+                      </div>
+                      <textarea
+                        bind:value={settings.systemServicesSettings.suggestions.manualBody}
+                        onblur={() => settings.saveSystemServicesSettings()}
+                        class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                        rows="6"
+                      ></textarea>
+                      <p class="text-xs text-surface-500 mt-1">
+                        Overrides request parameters; messages and tools are managed by Aventura.
+                      </p>
+                    </div>
+                  {/if}
 
                   <!-- System Prompt -->
                   <div class="flex items-center justify-between mb-2">
@@ -1502,7 +2162,7 @@
                   </div>
 
                   <!-- Temperature -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Temperature: {settings.systemServicesSettings.actionChoices.temperature.toFixed(2)}
                     </label>
@@ -1513,12 +2173,13 @@
                       step="0.05"
                       bind:value={settings.systemServicesSettings.actionChoices.temperature}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
 
                   <!-- Max Tokens -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Max Tokens: {settings.systemServicesSettings.actionChoices.maxTokens}
                     </label>
@@ -1529,9 +2190,75 @@
                       step="128"
                       bind:value={settings.systemServicesSettings.actionChoices.maxTokens}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
+
+                  <!-- Thinking -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Thinking: {reasoningLabels[settings.systemServicesSettings.actionChoices.reasoningEffort]}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="1"
+                      value={getReasoningIndex(settings.systemServicesSettings.actionChoices.reasoningEffort)}
+                      onchange={(e) => {
+                        settings.systemServicesSettings.actionChoices.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                        settings.saveSystemServicesSettings();
+                      }}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      class="w-full h-2"
+                    />
+                    <div class="flex justify-between text-xs text-surface-500">
+                      <span>Off</span>
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
+
+                  <!-- Provider Only -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <ProviderOnlySelector
+                      providers={providerOptions}
+                      selected={settings.systemServicesSettings.actionChoices.providerOnly}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      onChange={(next) => {
+                        settings.systemServicesSettings.actionChoices.providerOnly = next;
+                        settings.saveSystemServicesSettings();
+                      }}
+                    />
+                  </div>
+
+                  {#if settings.advancedRequestSettings.manualMode}
+                    <div class="border-t border-surface-700 pt-3">
+                      <div class="mb-1 flex items-center justify-between">
+                        <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                        <button
+                          class="text-xs text-accent-400 hover:text-accent-300"
+                          onclick={() => openManualBodyEditor('Action Choices', settings.systemServicesSettings.actionChoices.manualBody, (next) => {
+                            settings.systemServicesSettings.actionChoices.manualBody = next;
+                            settings.saveSystemServicesSettings();
+                          })}
+                        >
+                          Pop out
+                        </button>
+                      </div>
+                      <textarea
+                        bind:value={settings.systemServicesSettings.actionChoices.manualBody}
+                        onblur={() => settings.saveSystemServicesSettings()}
+                        class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                        rows="6"
+                      ></textarea>
+                      <p class="text-xs text-surface-500 mt-1">
+                        Overrides request parameters; messages and tools are managed by Aventura.
+                      </p>
+                    </div>
+                  {/if}
                 </div>
               </div>
             {/if}
@@ -1607,7 +2334,7 @@
                   </div>
 
                   <!-- Temperature -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Temperature: {settings.systemServicesSettings.styleReviewer.temperature.toFixed(2)}
                     </label>
@@ -1618,6 +2345,7 @@
                       step="0.05"
                       bind:value={settings.systemServicesSettings.styleReviewer.temperature}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
@@ -1643,7 +2371,7 @@
                   </div>
 
                   <!-- Max Tokens -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Max Tokens: {settings.systemServicesSettings.styleReviewer.maxTokens}
                     </label>
@@ -1654,9 +2382,75 @@
                       step="100"
                       bind:value={settings.systemServicesSettings.styleReviewer.maxTokens}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
+
+                  <!-- Thinking -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Thinking: {reasoningLabels[settings.systemServicesSettings.styleReviewer.reasoningEffort]}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="1"
+                      value={getReasoningIndex(settings.systemServicesSettings.styleReviewer.reasoningEffort)}
+                      onchange={(e) => {
+                        settings.systemServicesSettings.styleReviewer.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                        settings.saveSystemServicesSettings();
+                      }}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      class="w-full h-2"
+                    />
+                    <div class="flex justify-between text-xs text-surface-500">
+                      <span>Off</span>
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
+
+                  <!-- Provider Only -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <ProviderOnlySelector
+                      providers={providerOptions}
+                      selected={settings.systemServicesSettings.styleReviewer.providerOnly}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      onChange={(next) => {
+                        settings.systemServicesSettings.styleReviewer.providerOnly = next;
+                        settings.saveSystemServicesSettings();
+                      }}
+                    />
+                  </div>
+
+                  {#if settings.advancedRequestSettings.manualMode}
+                    <div class="border-t border-surface-700 pt-3 mb-3">
+                      <div class="mb-1 flex items-center justify-between">
+                        <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                        <button
+                          class="text-xs text-accent-400 hover:text-accent-300"
+                          onclick={() => openManualBodyEditor('Style Reviewer', settings.systemServicesSettings.styleReviewer.manualBody, (next) => {
+                            settings.systemServicesSettings.styleReviewer.manualBody = next;
+                            settings.saveSystemServicesSettings();
+                          })}
+                        >
+                          Pop out
+                        </button>
+                      </div>
+                      <textarea
+                        bind:value={settings.systemServicesSettings.styleReviewer.manualBody}
+                        onblur={() => settings.saveSystemServicesSettings()}
+                        class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                        rows="6"
+                      ></textarea>
+                      <p class="text-xs text-surface-500 mt-1">
+                        Overrides request parameters; messages and tools are managed by Aventura.
+                      </p>
+                    </div>
+                  {/if}
 
                   <!-- System Prompt -->
                   <div class="flex items-center justify-between mb-2">
@@ -1760,7 +2554,7 @@
                   </div>
 
                   <!-- Temperature -->
-                  <div class="mb-3">
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
                     <label class="mb-1 block text-xs font-medium text-surface-400">
                       Temperature: {settings.systemServicesSettings.entryRetrieval.temperature.toFixed(2)}
                     </label>
@@ -1771,9 +2565,75 @@
                       step="0.05"
                       bind:value={settings.systemServicesSettings.entryRetrieval.temperature}
                       onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
                       class="w-full h-2"
                     />
                   </div>
+
+                  <!-- Thinking -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Thinking: {reasoningLabels[settings.systemServicesSettings.entryRetrieval.reasoningEffort]}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="1"
+                      value={getReasoningIndex(settings.systemServicesSettings.entryRetrieval.reasoningEffort)}
+                      onchange={(e) => {
+                        settings.systemServicesSettings.entryRetrieval.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                        settings.saveSystemServicesSettings();
+                      }}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      class="w-full h-2"
+                    />
+                    <div class="flex justify-between text-xs text-surface-500">
+                      <span>Off</span>
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
+
+                  <!-- Provider Only -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <ProviderOnlySelector
+                      providers={providerOptions}
+                      selected={settings.systemServicesSettings.entryRetrieval.providerOnly}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      onChange={(next) => {
+                        settings.systemServicesSettings.entryRetrieval.providerOnly = next;
+                        settings.saveSystemServicesSettings();
+                      }}
+                    />
+                  </div>
+
+                  {#if settings.advancedRequestSettings.manualMode}
+                    <div class="border-t border-surface-700 pt-3 mb-3">
+                      <div class="mb-1 flex items-center justify-between">
+                        <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                        <button
+                          class="text-xs text-accent-400 hover:text-accent-300"
+                          onclick={() => openManualBodyEditor('Lorebook Retrieval', settings.systemServicesSettings.entryRetrieval.manualBody, (next) => {
+                            settings.systemServicesSettings.entryRetrieval.manualBody = next;
+                            settings.saveSystemServicesSettings();
+                          })}
+                        >
+                          Pop out
+                        </button>
+                      </div>
+                      <textarea
+                        bind:value={settings.systemServicesSettings.entryRetrieval.manualBody}
+                        onblur={() => settings.saveSystemServicesSettings()}
+                        class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                        rows="6"
+                      ></textarea>
+                      <p class="text-xs text-surface-500 mt-1">
+                        Overrides request parameters; messages and tools are managed by Aventura.
+                      </p>
+                    </div>
+                  {/if}
 
                   <!-- Max Tier 3 Entries -->
                   <div>
@@ -1813,6 +2673,192 @@
                       <span>0 = unlimited</span>
                       <span>500 max</span>
                     </div>
+                  </div>
+                </div>
+              </div>
+            {/if}
+          </div>
+
+          <!-- Lore Management Section -->
+          <div class="border-t border-surface-700 pt-3">
+            <div class="flex items-center justify-between">
+              <button
+                class="flex items-center gap-2 text-left flex-1"
+                onclick={() => showLoreManagementSection = !showLoreManagementSection}
+              >
+                <FolderOpen class="h-4 w-4 text-amber-400" />
+                <div>
+                  <h3 class="text-sm font-medium text-surface-200">Lorebook Management</h3>
+                  <p class="text-xs text-surface-500">Agentic updates to keep lore entries current</p>
+                </div>
+              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  class="text-xs text-accent-400 hover:text-accent-300 flex items-center gap-1"
+                  onclick={() => settings.resetLoreManagementSettings()}
+                >
+                  <RotateCcw class="h-3 w-3" />
+                  Reset
+                </button>
+                <button onclick={() => showLoreManagementSection = !showLoreManagementSection}>
+                  {#if showLoreManagementSection}
+                    <ChevronUp class="h-4 w-4 text-surface-400" />
+                  {:else}
+                    <ChevronDown class="h-4 w-4 text-surface-400" />
+                  {/if}
+                </button>
+              </div>
+            </div>
+
+            {#if showLoreManagementSection}
+              <div class="mt-3 space-y-3">
+                <div class="card bg-surface-900 p-3">
+                  <p class="text-xs text-surface-400 mb-3">
+                    Runs a tool-calling loop that scans story content and updates lore entries for consistency.
+                  </p>
+
+                  <!-- Profile and Model Selector -->
+                  <div class="mb-3">
+                    <ModelSelector
+                      profileId={settings.systemServicesSettings.loreManagement.profileId}
+                      model={settings.systemServicesSettings.loreManagement.model}
+                      onProfileChange={(id) => {
+                        settings.systemServicesSettings.loreManagement.profileId = id;
+                        settings.saveSystemServicesSettings();
+                      }}
+                      onModelChange={(m) => {
+                        settings.systemServicesSettings.loreManagement.model = m;
+                        settings.saveSystemServicesSettings();
+                      }}
+                      onManageProfiles={() => { showProfileModal = true; editingProfile = null; }}
+                    />
+                  </div>
+
+                  <!-- Temperature -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Temperature: {settings.systemServicesSettings.loreManagement.temperature.toFixed(2)}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      bind:value={settings.systemServicesSettings.loreManagement.temperature}
+                      onchange={() => settings.saveSystemServicesSettings()}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      class="w-full h-2"
+                    />
+                  </div>
+
+                  <!-- Max Iterations -->
+                  <div class="mb-3">
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Max Iterations: {settings.systemServicesSettings.loreManagement.maxIterations}
+                    </label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="75"
+                      step="1"
+                      bind:value={settings.systemServicesSettings.loreManagement.maxIterations}
+                      onchange={() => settings.saveSystemServicesSettings()}
+                      class="w-full h-2"
+                    />
+                    <div class="flex justify-between text-xs text-surface-500">
+                      <span>Fewer iterations</span>
+                      <span>More thorough</span>
+                    </div>
+                  </div>
+
+                  <!-- Thinking -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <label class="mb-1 block text-xs font-medium text-surface-400">
+                      Thinking: {reasoningLabels[settings.systemServicesSettings.loreManagement.reasoningEffort]}
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="3"
+                      step="1"
+                      value={getReasoningIndex(settings.systemServicesSettings.loreManagement.reasoningEffort)}
+                      onchange={(e) => {
+                        settings.systemServicesSettings.loreManagement.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                        settings.saveSystemServicesSettings();
+                      }}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      class="w-full h-2"
+                    />
+                    <div class="flex justify-between text-xs text-surface-500">
+                      <span>Off</span>
+                      <span>Low</span>
+                      <span>Medium</span>
+                      <span>High</span>
+                    </div>
+                  </div>
+
+                  <!-- Provider Only -->
+                  <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                    <ProviderOnlySelector
+                      providers={providerOptions}
+                      selected={settings.systemServicesSettings.loreManagement.providerOnly}
+                      disabled={settings.advancedRequestSettings.manualMode}
+                      onChange={(next) => {
+                        settings.systemServicesSettings.loreManagement.providerOnly = next;
+                        settings.saveSystemServicesSettings();
+                      }}
+                    />
+                  </div>
+
+                  {#if settings.advancedRequestSettings.manualMode}
+                    <div class="border-t border-surface-700 pt-3">
+                      <div class="mb-1 flex items-center justify-between">
+                        <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                        <button
+                          class="text-xs text-accent-400 hover:text-accent-300"
+                          onclick={() => openManualBodyEditor('Lorebook Management', settings.systemServicesSettings.loreManagement.manualBody, (next) => {
+                            settings.systemServicesSettings.loreManagement.manualBody = next;
+                            settings.saveSystemServicesSettings();
+                          })}
+                        >
+                          Pop out
+                        </button>
+                      </div>
+                      <textarea
+                        bind:value={settings.systemServicesSettings.loreManagement.manualBody}
+                        onblur={() => settings.saveSystemServicesSettings()}
+                        class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                        rows="6"
+                      ></textarea>
+                      <p class="text-xs text-surface-500 mt-1">
+                        Overrides request parameters; messages and tools are managed by Aventura.
+                      </p>
+                    </div>
+                  {/if}
+
+                  <!-- System Prompt -->
+                  <div class="border-t border-surface-700 pt-3">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-xs font-medium text-surface-400">Lore Management Prompt</span>
+                      <button
+                        class="text-xs text-accent-400 hover:text-accent-300"
+                        onclick={() => editingLoreManagementPrompt = !editingLoreManagementPrompt}
+                      >
+                        {editingLoreManagementPrompt ? 'Close' : 'Edit'}
+                      </button>
+                    </div>
+                    {#if editingLoreManagementPrompt}
+                      <textarea
+                        bind:value={settings.systemServicesSettings.loreManagement.systemPrompt}
+                        onblur={() => settings.saveSystemServicesSettings()}
+                        class="input text-xs min-h-[120px] resize-y font-mono w-full"
+                        rows="6"
+                      ></textarea>
+                    {:else}
+                      <p class="text-xs text-surface-400 line-clamp-2">
+                        {settings.systemServicesSettings.loreManagement.systemPrompt.slice(0, 100)}...
+                      </p>
+                    {/if}
                   </div>
                 </div>
               </div>
@@ -1936,7 +2982,7 @@
                       </div>
 
                       <!-- Temperature -->
-                      <div>
+                      <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
                         <label class="mb-1 block text-xs font-medium text-surface-400">
                           Temperature: {settings.systemServicesSettings.timelineFill.temperature.toFixed(2)}
                         </label>
@@ -1947,6 +2993,7 @@
                           step="0.05"
                           bind:value={settings.systemServicesSettings.timelineFill.temperature}
                           onchange={() => settings.saveSystemServicesSettings()}
+                          disabled={settings.advancedRequestSettings.manualMode}
                           class="w-full h-2"
                         />
                       </div>
@@ -1970,6 +3017,71 @@
                           <span>More (thorough)</span>
                         </div>
                       </div>
+
+                      <!-- Thinking -->
+                      <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                        <label class="mb-1 block text-xs font-medium text-surface-400">
+                          Thinking: {reasoningLabels[settings.systemServicesSettings.timelineFill.reasoningEffort]}
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="3"
+                          step="1"
+                          value={getReasoningIndex(settings.systemServicesSettings.timelineFill.reasoningEffort)}
+                          onchange={(e) => {
+                            settings.systemServicesSettings.timelineFill.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                            settings.saveSystemServicesSettings();
+                          }}
+                          disabled={settings.advancedRequestSettings.manualMode}
+                          class="w-full h-2"
+                        />
+                        <div class="flex justify-between text-xs text-surface-500">
+                          <span>Off</span>
+                          <span>Low</span>
+                          <span>Medium</span>
+                          <span>High</span>
+                        </div>
+                      </div>
+
+                      <!-- Provider Only -->
+                      <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                        <ProviderOnlySelector
+                          providers={providerOptions}
+                          selected={settings.systemServicesSettings.timelineFill.providerOnly}
+                          disabled={settings.advancedRequestSettings.manualMode}
+                          onChange={(next) => {
+                            settings.systemServicesSettings.timelineFill.providerOnly = next;
+                            settings.saveSystemServicesSettings();
+                          }}
+                        />
+                      </div>
+
+                      {#if settings.advancedRequestSettings.manualMode}
+                        <div class="border-t border-surface-700 pt-3">
+                          <div class="mb-1 flex items-center justify-between">
+                            <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                            <button
+                              class="text-xs text-accent-400 hover:text-accent-300"
+                              onclick={() => openManualBodyEditor('Timeline Fill', settings.systemServicesSettings.timelineFill.manualBody, (next) => {
+                                settings.systemServicesSettings.timelineFill.manualBody = next;
+                                settings.saveSystemServicesSettings();
+                              })}
+                            >
+                              Pop out
+                            </button>
+                          </div>
+                          <textarea
+                            bind:value={settings.systemServicesSettings.timelineFill.manualBody}
+                            onblur={() => settings.saveSystemServicesSettings()}
+                            class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                            rows="6"
+                          ></textarea>
+                          <p class="text-xs text-surface-500 mt-1">
+                            Overrides request parameters; messages and tools are managed by Aventura.
+                          </p>
+                        </div>
+                      {/if}
 
                       <!-- Query Generation Prompt -->
                       <div class="border-t border-surface-700 pt-3">
@@ -2042,7 +3154,7 @@
                       </div>
 
                       <!-- Temperature -->
-                      <div>
+                      <div class:opacity-50={settings.advancedRequestSettings.manualMode}>
                         <label class="mb-1 block text-xs font-medium text-surface-400">
                           Temperature: {settings.systemServicesSettings.agenticRetrieval.temperature.toFixed(2)}
                         </label>
@@ -2053,6 +3165,7 @@
                           step="0.05"
                           bind:value={settings.systemServicesSettings.agenticRetrieval.temperature}
                           onchange={() => settings.saveSystemServicesSettings()}
+                          disabled={settings.advancedRequestSettings.manualMode}
                           class="w-full h-2"
                         />
                       </div>
@@ -2075,6 +3188,71 @@
                           <span>More thorough</span>
                         </div>
                       </div>
+
+                      <!-- Thinking -->
+                      <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                        <label class="mb-1 block text-xs font-medium text-surface-400">
+                          Thinking: {reasoningLabels[settings.systemServicesSettings.agenticRetrieval.reasoningEffort]}
+                        </label>
+                        <input
+                          type="range"
+                          min="0"
+                          max="3"
+                          step="1"
+                          value={getReasoningIndex(settings.systemServicesSettings.agenticRetrieval.reasoningEffort)}
+                          onchange={(e) => {
+                            settings.systemServicesSettings.agenticRetrieval.reasoningEffort = getReasoningValue(parseInt(e.currentTarget.value));
+                            settings.saveSystemServicesSettings();
+                          }}
+                          disabled={settings.advancedRequestSettings.manualMode}
+                          class="w-full h-2"
+                        />
+                        <div class="flex justify-between text-xs text-surface-500">
+                          <span>Off</span>
+                          <span>Low</span>
+                          <span>Medium</span>
+                          <span>High</span>
+                        </div>
+                      </div>
+
+                      <!-- Provider Only -->
+                      <div class="mb-3" class:opacity-50={settings.advancedRequestSettings.manualMode}>
+                        <ProviderOnlySelector
+                          providers={providerOptions}
+                          selected={settings.systemServicesSettings.agenticRetrieval.providerOnly}
+                          disabled={settings.advancedRequestSettings.manualMode}
+                          onChange={(next) => {
+                            settings.systemServicesSettings.agenticRetrieval.providerOnly = next;
+                            settings.saveSystemServicesSettings();
+                          }}
+                        />
+                      </div>
+
+                      {#if settings.advancedRequestSettings.manualMode}
+                        <div class="border-t border-surface-700 pt-3">
+                          <div class="mb-1 flex items-center justify-between">
+                            <label class="text-xs font-medium text-surface-400">Manual Request Body (JSON)</label>
+                            <button
+                              class="text-xs text-accent-400 hover:text-accent-300"
+                              onclick={() => openManualBodyEditor('Agentic Retrieval', settings.systemServicesSettings.agenticRetrieval.manualBody, (next) => {
+                                settings.systemServicesSettings.agenticRetrieval.manualBody = next;
+                                settings.saveSystemServicesSettings();
+                              })}
+                            >
+                              Pop out
+                            </button>
+                          </div>
+                          <textarea
+                            bind:value={settings.systemServicesSettings.agenticRetrieval.manualBody}
+                            onblur={() => settings.saveSystemServicesSettings()}
+                            class="input text-xs min-h-[140px] resize-y font-mono w-full"
+                            rows="6"
+                          ></textarea>
+                          <p class="text-xs text-surface-500 mt-1">
+                            Overrides request parameters; messages and tools are managed by Aventura.
+                          </p>
+                        </div>
+                      {/if}
 
                       <div class="border-t border-surface-700 pt-3">
                         <div class="flex items-center justify-between mb-2">
@@ -2128,6 +3306,45 @@
       {/if}
     </div>
   </div>
+  {#if manualBodyEditorOpen}
+    <div
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70"
+      onclick={(e) => {
+        e.stopPropagation();
+        closeManualBodyEditor();
+      }}
+    >
+      <div
+        class="card w-full h-full sm:h-auto sm:max-w-3xl sm:max-h-[90vh] rounded-none sm:rounded-xl flex flex-col overflow-hidden"
+        onclick={(e) => e.stopPropagation()}
+      >
+        <div class="flex items-center justify-between border-b border-surface-700 px-4 py-3">
+          <h3 class="text-sm font-medium text-surface-200">{manualBodyEditorTitle}</h3>
+          <button
+            class="btn-ghost rounded-lg p-2 min-h-[40px] min-w-[40px] flex items-center justify-center"
+            onclick={closeManualBodyEditor}
+            aria-label="Close manual body editor"
+          >
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto p-4">
+          <textarea
+            bind:value={manualBodyEditorValue}
+            class="input text-xs min-h-[60vh] sm:min-h-[45vh] resize-y font-mono w-full"
+            rows="12"
+          ></textarea>
+          <p class="text-xs text-surface-500 mt-2">
+            Overrides request parameters; messages and tools are managed by Aventura.
+          </p>
+        </div>
+        <div class="border-t border-surface-700 px-4 py-3 flex items-center justify-end gap-2">
+          <button class="btn btn-secondary text-sm" onclick={closeManualBodyEditor}>Cancel</button>
+          <button class="btn btn-primary text-sm" onclick={applyManualBodyEditor}>Save</button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <!-- Profile Modal -->
