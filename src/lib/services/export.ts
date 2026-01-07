@@ -225,6 +225,7 @@ class ExportService {
         mode: data.story.mode || 'adventure',
         settings: data.story.settings,
         memoryConfig: data.story.memoryConfig || null,
+        retryState: null, // Clear retry state on import
       };
 
       await database.createStory(importedStory);

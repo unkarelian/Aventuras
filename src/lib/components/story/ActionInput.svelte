@@ -27,6 +27,7 @@
   let isRawActionChoice = $state(false); // True when submitting an AI-generated choice (no prefix/suffix)
   let stopRequested = false;
   let activeAbortController: AbortController | null = null;
+  let isRetryingLastMessage = $state(false); // Hide stop button during completed-message retries
 
   // In creative writing mode, show different input style
   const isCreativeMode = $derived(story.storyMode === 'creative-writing');
@@ -880,6 +881,10 @@
       log('Stop ignored (not generating)');
       return;
     }
+    if (isRetryingLastMessage) {
+      log('Stop ignored (retrying completed message)');
+      return;
+    }
 
     stopRequested = true;
     activeAbortController?.abort();
@@ -903,18 +908,42 @@
     ui.clearGenerationError();
     ui.clearSuggestions(story.currentStory?.id);
     ui.clearActionChoices(story.currentStory?.id);
-    ui.restoreActivationData(backup.activationData, backup.storyPosition);
+    if (backup.hasFullState) {
+      ui.restoreActivationData(backup.activationData, backup.storyPosition);
+    }
     ui.setLastLorebookRetrieval(null);
 
     try {
-      await story.restoreFromRetryBackup({
-        entries: backup.entries,
-        characters: backup.characters,
-        locations: backup.locations,
-        items: backup.items,
-        storyBeats: backup.storyBeats,
-        lorebookEntries: backup.lorebookEntries,
-      });
+      if (backup.hasFullState) {
+        await story.restoreFromRetryBackup({
+          entries: backup.entries,
+          characters: backup.characters,
+          locations: backup.locations,
+          items: backup.items,
+          storyBeats: backup.storyBeats,
+          lorebookEntries: backup.lorebookEntries,
+        });
+      } else {
+        // Persistent restore - delete entries and entities created after backup
+        // Clear activation data but don't save yet - let the next action rebuild it
+        ui.clearActivationData();
+
+        log('Persistent stop restore: deleting entries from position', backup.entryCountBeforeAction);
+        await story.deleteEntriesFromPosition(backup.entryCountBeforeAction);
+
+        if (backup.hasEntityIds) {
+          log('Persistent stop restore: deleting entities created after backup');
+          await story.deleteEntitiesCreatedAfterBackup({
+            characterIds: backup.characterIds,
+            locationIds: backup.locationIds,
+            itemIds: backup.itemIds,
+            storyBeatIds: backup.storyBeatIds,
+            lorebookEntryIds: backup.lorebookEntryIds,
+          });
+        } else {
+          log('Persistent stop restore: skipping entity cleanup (no ID snapshot)');
+        }
+      }
 
       await tick();
       actionType = backup.actionType;
@@ -924,7 +953,7 @@
       log('Stop restore failed', error);
       console.error('Stop restore failed:', error);
     } finally {
-      ui.clearRetryBackup();
+      ui.clearRetryBackup(true); // Clear from DB since user explicitly stopped
     }
   }
 
@@ -970,6 +999,7 @@
   /**
    * Retry the last user message by restoring to the backup state
    * and regenerating with the same user action.
+   * Supports both full state restore (in-memory backup) and entry-only restore (persistent backup).
    */
   async function handleRetryLastMessage() {
     log('handleRetryLastMessage called', {
@@ -987,12 +1017,14 @@
     // Verify backup is for current story
     if (backup.storyId !== story.currentStory.id) {
       log('Backup is for different story, clearing');
-      ui.clearRetryBackup();
+      ui.clearRetryBackup(false); // Just clear in-memory, don't touch DB
       return;
     }
 
     log('Restoring from backup and regenerating', {
+      hasFullState: backup.hasFullState,
       backupEntriesCount: backup.entries.length,
+      entryCountBeforeAction: backup.entryCountBeforeAction,
       currentEntriesCount: story.entries.length,
       userAction: backup.userActionContent.substring(0, 50),
     });
@@ -1004,23 +1036,46 @@
     ui.clearSuggestions(story.currentStory?.id);
     ui.clearActionChoices(story.currentStory?.id);
 
-    // Restore activation data from backup to preserve lorebook stickiness state
-    // This ensures entries that were "sticky" before the user action remain sticky
-    ui.restoreActivationData(backup.activationData, backup.storyPosition);
-
     // Clear lorebook retrieval debug state since it's now stale
     ui.setLastLorebookRetrieval(null);
 
     try {
-      // Restore story state from backup
-      await story.restoreFromRetryBackup({
-        entries: backup.entries,
-        characters: backup.characters,
-        locations: backup.locations,
-        items: backup.items,
-        storyBeats: backup.storyBeats,
-        lorebookEntries: backup.lorebookEntries,
-      });
+      if (backup.hasFullState) {
+        // Full state restore (in-memory backup with snapshots)
+        // Restore activation data from backup to preserve lorebook stickiness state
+        ui.restoreActivationData(backup.activationData, backup.storyPosition);
+
+        // Restore story state from backup
+        await story.restoreFromRetryBackup({
+          entries: backup.entries,
+          characters: backup.characters,
+          locations: backup.locations,
+          items: backup.items,
+          storyBeats: backup.storyBeats,
+          lorebookEntries: backup.lorebookEntries,
+        });
+      } else {
+        // Persistent restore (backup without full snapshots, but with entity IDs)
+        // Clear activation data but don't save yet - generation will rebuild it
+        ui.clearActivationData();
+
+        log('Persistent restore: deleting entries from position', backup.entryCountBeforeAction);
+        await story.deleteEntriesFromPosition(backup.entryCountBeforeAction);
+
+        if (backup.hasEntityIds) {
+          // Delete entities that were created after the backup (AI extractions)
+          log('Persistent restore: deleting entities created after backup');
+          await story.deleteEntitiesCreatedAfterBackup({
+            characterIds: backup.characterIds,
+            locationIds: backup.locationIds,
+            itemIds: backup.itemIds,
+            storyBeatIds: backup.storyBeatIds,
+            lorebookEntryIds: backup.lorebookEntryIds,
+          });
+        } else {
+          log('Persistent restore: skipping entity cleanup (no ID snapshot)');
+        }
+      }
 
       // Wait for state to sync
       await tick();
@@ -1037,7 +1092,12 @@
 
       // Regenerate
       if (!settings.needsApiKey) {
-        await generateResponse(userActionEntry.id, backup.userActionContent);
+        isRetryingLastMessage = true;
+        try {
+          await generateResponse(userActionEntry.id, backup.userActionContent);
+        } finally {
+          isRetryingLastMessage = false;
+        }
       }
     } catch (error) {
       log('Retry last message failed', error);
@@ -1049,7 +1109,7 @@
    * Dismiss the retry backup (user doesn't want to retry)
    */
   function dismissRetryBackup() {
-    ui.clearRetryBackup();
+    ui.clearRetryBackup(true); // Clear from DB since user explicitly dismissed
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -1112,13 +1172,23 @@
         ></textarea>
       </div>
       {#if ui.isGenerating}
-        <button
-          onclick={handleStopGeneration}
-          class="btn self-stretch px-3 sm:px-4 py-3 min-h-[44px] min-w-[44px] bg-red-500/20 text-red-400 hover:bg-red-500/30"
-          title="Stop generation"
-        >
-          <Square class="h-5 w-5" />
-        </button>
+        {#if !isRetryingLastMessage}
+          <button
+            onclick={handleStopGeneration}
+            class="btn self-stretch px-3 sm:px-4 py-3 min-h-[44px] min-w-[44px] bg-red-500/20 text-red-400 hover:bg-red-500/30"
+            title="Stop generation"
+          >
+            <Square class="h-5 w-5" />
+          </button>
+        {:else}
+          <button
+            disabled
+            class="btn self-stretch px-3 sm:px-4 py-3 min-h-[44px] min-w-[44px] bg-red-500/20 text-red-400 opacity-50 cursor-not-allowed"
+            title="Stop disabled during retry"
+          >
+            <Square class="h-5 w-5" />
+          </button>
+        {/if}
       {:else}
         <button
           onclick={handleSubmit}
@@ -1196,13 +1266,23 @@
         ></textarea>
       </div>
       {#if ui.isGenerating}
-        <button
-          onclick={handleStopGeneration}
-          class="btn self-stretch px-3 sm:px-4 py-3 min-h-[44px] min-w-[44px] bg-red-500/20 text-red-400 hover:bg-red-500/30"
-          title="Stop generation"
-        >
-          <Square class="h-5 w-5" />
-        </button>
+        {#if !isRetryingLastMessage}
+          <button
+            onclick={handleStopGeneration}
+            class="btn self-stretch px-3 sm:px-4 py-3 min-h-[44px] min-w-[44px] bg-red-500/20 text-red-400 hover:bg-red-500/30"
+            title="Stop generation"
+          >
+            <Square class="h-5 w-5" />
+          </button>
+        {:else}
+          <button
+            disabled
+            class="btn self-stretch px-3 sm:px-4 py-3 min-h-[44px] min-w-[44px] bg-red-500/20 text-red-400 opacity-50 cursor-not-allowed"
+            title="Stop disabled during retry"
+          >
+            <Square class="h-5 w-5" />
+          </button>
+        {/if}
       {:else}
         <button
           onclick={handleSubmit}

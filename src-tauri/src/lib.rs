@@ -40,6 +40,12 @@ pub fn run() {
             sql: include_str!("../migrations/005_story_beats_resolved_at.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 6,
+            description: "add_story_retry_state",
+            sql: include_str!("../migrations/006_story_retry_state.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

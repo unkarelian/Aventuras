@@ -1,4 +1,4 @@
-import type { ActivePanel, SidebarTab, UIState, EntryType, StoryEntry, Character, Location, Item, StoryBeat, Entry } from '$lib/types';
+import type { ActivePanel, SidebarTab, UIState, EntryType, StoryEntry, Character, Location, Item, StoryBeat, Entry, ActionInputType } from '$lib/types';
 import type { ActionChoice } from '$lib/services/ai/actionChoices';
 import type { StorySuggestion } from '$lib/services/ai/suggestions';
 import type { StyleReviewResult } from '$lib/services/ai/styleReviewer';
@@ -6,8 +6,7 @@ import type { EntryRetrievalResult, ActivationTracker } from '$lib/services/ai/e
 import type { SyncMode } from '$lib/types/sync';
 import { SimpleActivationTracker } from '$lib/services/ai/entryRetrieval';
 import { database } from '$lib/services/database';
-
-type ActionInputType = 'do' | 'say' | 'think' | 'story' | 'free';
+import { SvelteMap } from 'svelte/reactivity';
 
 // Debug log entry for request/response logging
 export interface DebugLogEntry {
@@ -25,6 +24,7 @@ export interface RetryBackup {
   storyId: string;
   timestamp: number;
   // State snapshots (captured BEFORE user action is added)
+  // These may be empty if loaded from persistent storage (entry-only restore)
   entries: StoryEntry[];
   characters: Character[];
   locations: Location[];
@@ -39,6 +39,18 @@ export interface RetryBackup {
   // Lorebook activation tracking data (for stickiness preservation)
   activationData: Record<string, number>;
   storyPosition: number;
+  // Next entry position at time of backup - used for entry-only restore
+  entryCountBeforeAction: number;
+  // Flag indicating if this has full state snapshots (in-memory) or just entry data (from DB)
+  hasFullState: boolean;
+  // Flag indicating if entity ID snapshots are present for safe cleanup
+  hasEntityIds: boolean;
+  // Entity IDs for persistent restore - delete any entities not in these lists
+  characterIds: string[];
+  locationIds: string[];
+  itemIds: string[];
+  storyBeatIds: string[];
+  lorebookEntryIds: string[];
 }
 
 // Error state for retry functionality
@@ -86,8 +98,25 @@ class UIStore {
   // Error state for retry
   lastGenerationError = $state<GenerationError | null>(null);
 
-  // Retry backup - captures state before each user message for "retry last message" feature
-  retryBackup = $state<RetryBackup | null>(null);
+  // Retry backups - per-story backups for "retry last message" feature
+  // Stored by storyId so they persist across story switches within a session
+  private retryBackups = new SvelteMap<string, RetryBackup>();
+  private currentRetryStoryId = $state<string | null>(null);
+  retryStateWrite = Promise.resolve();
+
+  // Computed getter for current story's retry backup
+  get retryBackup(): RetryBackup | null {
+    if (!this.currentRetryStoryId) return null;
+    return this.retryBackups.get(this.currentRetryStoryId) ?? null;
+  }
+
+  /**
+   * Set the current story ID for retry backup tracking.
+   * Called when switching stories to ensure the correct backup is returned.
+   */
+  setCurrentRetryStoryId(storyId: string | null) {
+    this.currentRetryStoryId = storyId;
+  }
 
   // RPG action choices (displayed after narration)
   actionChoices = $state<ActionChoice[]>([]);
@@ -231,6 +260,7 @@ class UIStore {
    * Create a backup of the current story state before a user message.
    * This captures the state BEFORE the user action is added, so we can restore to this point.
    * Also captures lorebook activation data for stickiness preservation.
+   * Persists a lightweight version to the database for cross-session retry.
    */
   createRetryBackup(
     storyId: string,
@@ -245,10 +275,20 @@ class UIStore {
     actionType: ActionInputType,
     wasRawActionChoice: boolean
   ) {
-    // Clear old backup and create new one
-    this.retryBackup = {
+    const timestamp = Date.now();
+    const nextEntryPosition = entries.reduce((max, entry) => Math.max(max, entry.position ?? -1), -1) + 1;
+
+    // Extract entity IDs for persistent restore
+    const characterIds = characters.map(c => c.id);
+    const locationIds = locations.map(l => l.id);
+    const itemIds = items.map(i => i.id);
+    const storyBeatIds = storyBeats.map(sb => sb.id);
+    const lorebookEntryIds = lorebookEntries.map(le => le.id);
+
+    // Create new backup and store by story ID
+    const backup: RetryBackup = {
       storyId,
-      timestamp: Date.now(),
+      timestamp,
       // Deep copy arrays to avoid mutation issues
       entries: [...entries],
       characters: [...characters],
@@ -263,7 +303,38 @@ class UIStore {
       // Capture activation data for lorebook stickiness preservation
       activationData: { ...this.activationData },
       storyPosition: this.currentStoryPosition,
+      // New fields for persistent retry
+      entryCountBeforeAction: nextEntryPosition,
+      hasFullState: true,
+      hasEntityIds: true,
+      // Entity IDs for persistent restore
+      characterIds,
+      locationIds,
+      itemIds,
+      storyBeatIds,
+      lorebookEntryIds,
     };
+    this.retryBackups.set(storyId, backup);
+    this.currentRetryStoryId = storyId;
+
+    // Persist lightweight version to database (includes entity IDs for full restore)
+    this.queueRetryStateWrite(
+      () => database.saveRetryState(storyId, {
+        timestamp,
+        entryCountBeforeAction: nextEntryPosition,
+        userActionContent,
+        rawInput,
+        actionType,
+        wasRawActionChoice,
+        characterIds,
+        locationIds,
+        itemIds,
+        storyBeatIds,
+        lorebookEntryIds,
+      }),
+      'persist'
+    );
+
     console.log('[UI] Retry backup created', {
       storyId,
       entriesCount: entries.length,
@@ -273,11 +344,122 @@ class UIStore {
   }
 
   /**
-   * Clear the retry backup (called when switching stories or if user doesn't want to retry).
+   * Clear the retry backup for a story.
+   * @param clearFromDb - If true, also clears from database (use for explicit dismissal/use).
+   * @param storyId - Optional story ID. If not provided, clears the current story's backup.
    */
-  clearRetryBackup() {
-    this.retryBackup = null;
-    console.log('[UI] Retry backup cleared');
+  clearRetryBackup(clearFromDb: boolean = false, storyId?: string) {
+    const targetStoryId = storyId ?? this.currentRetryStoryId;
+
+    if (targetStoryId) {
+      this.retryBackups.delete(targetStoryId);
+
+      // Only clear from database if explicitly requested (user dismissed or used retry)
+      if (clearFromDb) {
+        this.queueRetryStateWrite(
+          () => database.clearRetryState(targetStoryId),
+          'clear'
+        );
+      }
+    }
+
+    console.log('[UI] Retry backup cleared', { clearFromDb, storyId: targetStoryId });
+  }
+
+  private queueRetryStateWrite(task: () => Promise<void>, label: string) {
+    this.retryStateWrite = this.retryStateWrite
+      .catch(() => {})
+      .then(task)
+      .catch(err => {
+        console.warn(`[UI] Failed to ${label} retry state:`, err);
+      });
+  }
+
+  /**
+   * Load retry backup from persistent state (called when a story is loaded).
+   * Creates a partial RetryBackup with hasFullState=false for entity-aware restore.
+   * Only loads if there isn't already an in-memory backup for this story.
+   */
+  loadRetryBackupFromPersistent(storyId: string, retryState: {
+    timestamp: number;
+    entryCountBeforeAction: number;
+    userActionContent: string;
+    rawInput: string;
+    actionType: ActionInputType;
+    wasRawActionChoice: boolean;
+    characterIds?: string[];
+    locationIds?: string[];
+    itemIds?: string[];
+    storyBeatIds?: string[];
+    lorebookEntryIds?: string[];
+  }) {
+    // Skip if we already have an in-memory backup for this story (it's more complete)
+    if (this.retryBackups.has(storyId)) {
+      console.log('[UI] Skipping persistent retry state load - in-memory backup exists', { storyId });
+      return;
+    }
+
+    // Validate required fields exist
+    if (
+      typeof retryState.timestamp !== 'number' ||
+      typeof retryState.entryCountBeforeAction !== 'number' ||
+      typeof retryState.userActionContent !== 'string' ||
+      typeof retryState.rawInput !== 'string' ||
+      typeof retryState.actionType !== 'string' ||
+      typeof retryState.wasRawActionChoice !== 'boolean'
+    ) {
+      console.warn('[UI] Invalid persistent retry state, skipping load', { storyId, retryState });
+      return;
+    }
+
+    const hasEntityIds = Array.isArray(retryState.characterIds)
+      && Array.isArray(retryState.locationIds)
+      && Array.isArray(retryState.itemIds)
+      && Array.isArray(retryState.storyBeatIds)
+      && Array.isArray(retryState.lorebookEntryIds);
+
+    const backup: RetryBackup = {
+      storyId,
+      timestamp: retryState.timestamp,
+      // Empty state arrays - will use ID-based restore
+      entries: [],
+      characters: [],
+      locations: [],
+      items: [],
+      storyBeats: [],
+      lorebookEntries: [],
+      // User input data
+      userActionContent: retryState.userActionContent,
+      rawInput: retryState.rawInput,
+      actionType: retryState.actionType,
+      wasRawActionChoice: retryState.wasRawActionChoice,
+      // Empty activation data
+      activationData: {},
+      storyPosition: 0,
+      // Persistent retry fields
+      entryCountBeforeAction: retryState.entryCountBeforeAction,
+      hasFullState: false, // Indicates ID-based restore
+      hasEntityIds,
+      // Entity IDs for restore - delete any entities not in these lists
+      characterIds: retryState.characterIds ?? [],
+      locationIds: retryState.locationIds ?? [],
+      itemIds: retryState.itemIds ?? [],
+      storyBeatIds: retryState.storyBeatIds ?? [],
+      lorebookEntryIds: retryState.lorebookEntryIds ?? [],
+    };
+    this.retryBackups.set(storyId, backup);
+    console.log('[UI] Retry backup loaded from persistent state', {
+      storyId,
+      entryCountBeforeAction: retryState.entryCountBeforeAction,
+      userAction: retryState.userActionContent.substring(0, 50),
+      entityIds: {
+        characters: backup.characterIds.length,
+        locations: backup.locationIds.length,
+        items: backup.itemIds.length,
+        storyBeats: backup.storyBeatIds.length,
+        lorebookEntries: backup.lorebookEntryIds.length,
+      },
+    });
   }
 
   /**
@@ -305,12 +487,34 @@ class UIStore {
    * Used when editing the last user message to retry with new content.
    */
   updateRetryBackupContent(newContent: string) {
-    if (this.retryBackup) {
-      this.retryBackup = {
-        ...this.retryBackup,
+    const backup = this.retryBackup;
+    if (backup && this.currentRetryStoryId) {
+      const updatedBackup: RetryBackup = {
+        ...backup,
         userActionContent: newContent,
         rawInput: newContent,
       };
+      this.retryBackups.set(this.currentRetryStoryId, updatedBackup);
+
+      // Also persist the updated content to the database
+      const storyId = this.currentRetryStoryId;
+      this.queueRetryStateWrite(
+        () => database.saveRetryState(storyId, {
+          timestamp: backup.timestamp,
+          entryCountBeforeAction: backup.entryCountBeforeAction,
+          userActionContent: newContent,
+          rawInput: newContent,
+          actionType: backup.actionType,
+          wasRawActionChoice: backup.wasRawActionChoice,
+          characterIds: backup.characterIds,
+          locationIds: backup.locationIds,
+          itemIds: backup.itemIds,
+          storyBeatIds: backup.storyBeatIds,
+          lorebookEntryIds: backup.lorebookEntryIds,
+        }),
+        'update'
+      );
+
       console.log('[UI] Retry backup content updated', {
         newContent: newContent.substring(0, 50),
       });

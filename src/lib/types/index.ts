@@ -15,6 +15,28 @@ export interface Story {
   updatedAt: number;
   settings: StorySettings | null;
   memoryConfig: MemoryConfig | null;
+  retryState: PersistentRetryState | null;
+}
+
+// Persistent retry state - lightweight version saved to database
+export type ActionInputType = 'do' | 'say' | 'think' | 'story' | 'free';
+
+export interface PersistentRetryState {
+  timestamp: number;
+  // The next entry position before user action was added (max position + 1)
+  // On retry, delete entries from this position onward
+  entryCountBeforeAction: number;
+  // The user's input data
+  userActionContent: string;
+  rawInput: string;
+  actionType: ActionInputType;
+  wasRawActionChoice: boolean;
+  // Entity IDs that existed before the action - on restore, delete any not in these lists
+  characterIds: string[];
+  locationIds: string[];
+  itemIds: string[];
+  storyBeatIds: string[];
+  lorebookEntryIds: string[];
 }
 
 export interface MemoryConfig {

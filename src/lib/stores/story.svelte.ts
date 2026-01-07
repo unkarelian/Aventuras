@@ -301,8 +301,13 @@ class StoryStore {
     // Load persisted activation data for this story (stickiness tracking)
     await ui.loadActivationData(storyId);
 
-    // Clear retry backup from previous story
-    ui.clearRetryBackup();
+    // Set current story ID for retry backup tracking
+    ui.setCurrentRetryStoryId(storyId);
+
+    // Load retry state from DB if we don't have an in-memory backup for this story
+    if (story.retryState) {
+      ui.loadRetryBackupFromPersistent(storyId, story.retryState);
+    }
 
     // Validate and repair chapter integrity (handles orphaned references)
     await this.validateChapterIntegrity();
@@ -340,6 +345,7 @@ class StoryStore {
       mode,
       settings: null,
       memoryConfig: DEFAULT_MEMORY_CONFIG,
+      retryState: null,
     });
 
     this.allStories = [storyData, ...this.allStories];
@@ -370,6 +376,7 @@ class StoryStore {
       mode,
       settings: settings ?? null,
       memoryConfig: DEFAULT_MEMORY_CONFIG,
+      retryState: null,
     });
 
     this.allStories = [storyData, ...this.allStories];
@@ -498,6 +505,97 @@ class StoryStore {
 
     await database.deleteStoryEntry(entryId);
     this.entries = this.entries.filter(e => e.id !== entryId);
+
+    // Update story's updatedAt
+    await database.updateStory(this.currentStory.id, {});
+  }
+
+  /**
+   * Delete all entries from a given position onward.
+   * Used for entry-only retry restore (persistent retry).
+   */
+  async deleteEntriesFromPosition(position: number): Promise<void> {
+    if (!this.currentStory) throw new Error('No story loaded');
+
+    // Find entries to delete (position >= the given position)
+    const entriesToDelete = this.entries.filter(e => e.position >= position);
+
+    log('Deleting entries from position', {
+      position,
+      entriesToDelete: entriesToDelete.length,
+      totalEntries: this.entries.length,
+    });
+
+    // Delete from database
+    for (const entry of entriesToDelete) {
+      await database.deleteStoryEntry(entry.id);
+    }
+
+    // Update in-memory state
+    this.entries = this.entries.filter(e => e.position < position);
+
+    // Update story's updatedAt
+    await database.updateStory(this.currentStory.id, {});
+  }
+
+  /**
+   * Delete entities that were created after the backup.
+   * Used for persistent retry restore to remove AI-extracted entities.
+   * Compares current entity IDs against the saved ID lists and deletes any not in the lists.
+   */
+  async deleteEntitiesCreatedAfterBackup(savedIds: {
+    characterIds: string[];
+    locationIds: string[];
+    itemIds: string[];
+    storyBeatIds: string[];
+    lorebookEntryIds: string[];
+  }): Promise<void> {
+    if (!this.currentStory) throw new Error('No story loaded');
+
+    const characterIdsSet = new Set(savedIds.characterIds);
+    const locationIdsSet = new Set(savedIds.locationIds);
+    const itemIdsSet = new Set(savedIds.itemIds);
+    const storyBeatIdsSet = new Set(savedIds.storyBeatIds);
+    const lorebookEntryIdsSet = new Set(savedIds.lorebookEntryIds);
+
+    // Find entities to delete (not in saved lists)
+    const charactersToDelete = this.characters.filter(c => !characterIdsSet.has(c.id));
+    const locationsToDelete = this.locations.filter(l => !locationIdsSet.has(l.id));
+    const itemsToDelete = this.items.filter(i => !itemIdsSet.has(i.id));
+    const storyBeatsToDelete = this.storyBeats.filter(sb => !storyBeatIdsSet.has(sb.id));
+    const lorebookEntriesToDelete = this.lorebookEntries.filter(le => !lorebookEntryIdsSet.has(le.id));
+
+    log('Deleting entities created after backup', {
+      characters: charactersToDelete.length,
+      locations: locationsToDelete.length,
+      items: itemsToDelete.length,
+      storyBeats: storyBeatsToDelete.length,
+      lorebookEntries: lorebookEntriesToDelete.length,
+    });
+
+    // Delete from database
+    for (const character of charactersToDelete) {
+      await database.deleteCharacter(character.id);
+    }
+    for (const location of locationsToDelete) {
+      await database.deleteLocation(location.id);
+    }
+    for (const item of itemsToDelete) {
+      await database.deleteItem(item.id);
+    }
+    for (const storyBeat of storyBeatsToDelete) {
+      await database.deleteStoryBeat(storyBeat.id);
+    }
+    for (const lorebookEntry of lorebookEntriesToDelete) {
+      await database.deleteEntry(lorebookEntry.id);
+    }
+
+    // Update in-memory state
+    this.characters = this.characters.filter(c => characterIdsSet.has(c.id));
+    this.locations = this.locations.filter(l => locationIdsSet.has(l.id));
+    this.items = this.items.filter(i => itemIdsSet.has(i.id));
+    this.storyBeats = this.storyBeats.filter(sb => storyBeatIdsSet.has(sb.id));
+    this.lorebookEntries = this.lorebookEntries.filter(le => lorebookEntryIdsSet.has(le.id));
 
     // Update story's updatedAt
     await database.updateStory(this.currentStory.id, {});
@@ -1143,8 +1241,8 @@ class StoryStore {
     this.chapters = [];
     this.checkpoints = [];
 
-    // Clear retry backup since it belongs to the old story
-    ui.clearRetryBackup();
+    // Clear current retry story ID (backups are kept per-story)
+    ui.setCurrentRetryStoryId(null);
   }
 
   // Update story mode
@@ -1449,6 +1547,7 @@ class StoryStore {
         systemPromptOverride: data.systemPrompt,
       },
       memoryConfig: DEFAULT_MEMORY_CONFIG,
+      retryState: null,
     });
 
     this.allStories = [storyData, ...this.allStories];

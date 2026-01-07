@@ -14,6 +14,7 @@ import type {
   EntryType,
   EntryState,
   EntryPreview,
+  PersistentRetryState,
 } from '$lib/types';
 
 class DatabaseService {
@@ -119,11 +120,37 @@ class DatabaseService {
       setClauses.push('memory_config = ?');
       values.push(updates.memoryConfig ? JSON.stringify(updates.memoryConfig) : null);
     }
+    if (updates.retryState !== undefined) {
+      setClauses.push('retry_state = ?');
+      values.push(updates.retryState ? JSON.stringify(updates.retryState) : null);
+    }
 
     values.push(id);
     await db.execute(
       `UPDATE stories SET ${setClauses.join(', ')} WHERE id = ?`,
       values
+    );
+  }
+
+  /**
+   * Save retry state for a story.
+   */
+  async saveRetryState(storyId: string, retryState: PersistentRetryState): Promise<void> {
+    const db = await this.getDb();
+    await db.execute(
+      'UPDATE stories SET retry_state = ? WHERE id = ?',
+      [JSON.stringify(retryState), storyId]
+    );
+  }
+
+  /**
+   * Clear retry state for a story.
+   */
+  async clearRetryState(storyId: string): Promise<void> {
+    const db = await this.getDb();
+    await db.execute(
+      'UPDATE stories SET retry_state = NULL WHERE id = ?',
+      [storyId]
     );
   }
 
@@ -844,6 +871,7 @@ class DatabaseService {
       updatedAt: row.updated_at,
       settings: row.settings ? JSON.parse(row.settings) : null,
       memoryConfig: row.memory_config ? JSON.parse(row.memory_config) : null,
+      retryState: row.retry_state ? JSON.parse(row.retry_state) : null,
     };
   }
 
