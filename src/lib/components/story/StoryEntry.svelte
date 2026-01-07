@@ -2,7 +2,7 @@
   import type { StoryEntry } from '$lib/types';
   import { story } from '$lib/stores/story.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import { User, BookOpen, Info, Pencil, Trash2, Check, X, RefreshCw } from 'lucide-svelte';
+  import { User, BookOpen, Info, Pencil, Trash2, Check, X, RefreshCw, RotateCcw } from 'lucide-svelte';
   import { parseMarkdown } from '$lib/utils/markdown';
 
   let { entry }: { entry: StoryEntry } = $props();
@@ -15,6 +15,24 @@
       entry.content.toLowerCase().includes('failed to generate') ||
       entry.content.toLowerCase().includes('empty response')
     )
+  );
+
+  // Check if this is the latest narration entry (for retry button)
+  const isLatestNarration = $derived.by(() => {
+    if (entry.type !== 'narration') return false;
+    const narrations = story.entries.filter(e => e.type === 'narration');
+    if (narrations.length === 0) return false;
+    return narrations[narrations.length - 1].id === entry.id;
+  });
+
+  // Check if retry is available for this entry
+  const canRetry = $derived(
+    isLatestNarration &&
+    ui.retryBackup &&
+    story.currentStory &&
+    ui.retryBackup.storyId === story.currentStory.id &&
+    !ui.isGenerating &&
+    !ui.lastGenerationError
   );
 
   /**
@@ -242,6 +260,16 @@
             class="mt-3 btn flex items-center gap-1.5 text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50"
           >
             <RefreshCw class="h-4 w-4" />
+            Retry
+          </button>
+        {/if}
+        {#if canRetry}
+          <button
+            onclick={() => ui.triggerRetryLastMessage()}
+            class="mt-3 btn flex items-center gap-1.5 text-sm bg-primary-500/20 text-primary-400 hover:bg-primary-500/30"
+            title="Generate a different response"
+          >
+            <RotateCcw class="h-4 w-4" />
             Retry
           </button>
         {/if}

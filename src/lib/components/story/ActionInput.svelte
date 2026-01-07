@@ -5,7 +5,7 @@
   import { settings } from '$lib/stores/settings.svelte';
   import { aiService } from '$lib/services/ai';
   import { SimpleActivationTracker } from '$lib/services/ai/entryRetrieval';
-  import { Send, Wand2, MessageSquare, Brain, Sparkles, Feather, RefreshCw, X, PenLine, RotateCcw, Square } from 'lucide-svelte';
+  import { Send, Wand2, MessageSquare, Brain, Sparkles, Feather, RefreshCw, X, PenLine, Square } from 'lucide-svelte';
   import type { Chapter } from '$lib/types';
   import Suggestions from './Suggestions.svelte';
   import GrammarCheck from './GrammarCheck.svelte';
@@ -1086,31 +1086,6 @@
     </div>
   {/if}
 
-  <!-- Retry last message banner -->
-  {#if ui.retryBackup && story.currentStory && ui.retryBackup.storyId === story.currentStory.id && !ui.isGenerating && !ui.lastGenerationError}
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 rounded-lg bg-surface-700/50 border border-surface-600 p-3">
-      <div class="flex items-center gap-2 text-sm text-surface-300">
-        <RotateCcw class="h-4 w-4 text-primary-400 flex-shrink-0" />
-        <span>Want a different response?</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          onclick={handleRetryLastMessage}
-          class="btn flex-1 sm:flex-none flex items-center justify-center gap-1.5 text-sm bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 min-h-[40px] px-3"
-        >
-          <RotateCcw class="h-4 w-4" />
-          <span class="sm:inline">Retry</span>
-        </button>
-        <button
-          onclick={dismissRetryBackup}
-          class="p-2 rounded text-surface-400 hover:bg-surface-700 hover:text-surface-200 min-h-[40px] min-w-[40px] flex items-center justify-center"
-          title="Dismiss"
-        >
-          <X class="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  {/if}
 
   {#if isCreativeMode}
     <!-- Creative Writing Mode: Suggestions -->

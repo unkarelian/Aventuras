@@ -14,9 +14,8 @@
 
   let { suggestions, loading, onSelect, onRefresh }: Props = $props();
 
-  // Collapsed state - starts collapsed on mobile to reduce clutter
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-  let collapsed = $state(isMobile);
+  // Collapsed state - always starts collapsed to avoid interrupting the flow
+  let collapsed = $state(true);
 
   const typeColors: Record<string, string> = {
     action: 'text-blue-400',
@@ -101,7 +100,7 @@
             {#each suggestions as suggestion}
               <button
                 class="w-full text-left card p-3 hover:bg-surface-700/50 transition-colors group"
-                onclick={() => onSelect(suggestion.text)}
+                onclick={() => { onSelect(suggestion.text); collapsed = true; }}
               >
                 <div class="flex items-start gap-3">
                   <ArrowRight class="h-4 w-4 mt-0.5 text-surface-500 group-hover:text-primary-400 transition-colors shrink-0" />
