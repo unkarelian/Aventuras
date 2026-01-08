@@ -46,6 +46,12 @@ pub fn run() {
             sql: include_str!("../migrations/006_story_retry_state.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 7,
+            description: "add_story_style_review_state",
+            sql: include_str!("../migrations/007_story_style_review_state.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

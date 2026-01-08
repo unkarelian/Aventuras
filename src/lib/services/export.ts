@@ -226,6 +226,7 @@ class ExportService {
         settings: data.story.settings,
         memoryConfig: data.story.memoryConfig || null,
         retryState: null, // Clear retry state on import
+        styleReviewState: null, // Clear style review state on import
       };
 
       await database.createStory(importedStory);

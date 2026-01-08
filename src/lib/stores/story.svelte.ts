@@ -309,6 +309,9 @@ class StoryStore {
       ui.loadRetryBackupFromPersistent(storyId, story.retryState);
     }
 
+    // Load style review state from DB
+    ui.loadStyleReviewState(storyId, story.styleReviewState);
+
     // Validate and repair chapter integrity (handles orphaned references)
     await this.validateChapterIntegrity();
 
@@ -346,6 +349,7 @@ class StoryStore {
       settings: null,
       memoryConfig: DEFAULT_MEMORY_CONFIG,
       retryState: null,
+      styleReviewState: null,
     });
 
     this.allStories = [storyData, ...this.allStories];
@@ -377,6 +381,7 @@ class StoryStore {
       settings: settings ?? null,
       memoryConfig: DEFAULT_MEMORY_CONFIG,
       retryState: null,
+      styleReviewState: null,
     });
 
     this.allStories = [storyData, ...this.allStories];
@@ -1243,6 +1248,9 @@ class StoryStore {
 
     // Clear current retry story ID (backups are kept per-story)
     ui.setCurrentRetryStoryId(null);
+
+    // Clear style review state (will be loaded fresh for next story)
+    ui.clearStyleReviewState();
   }
 
   // Update story mode
@@ -1548,6 +1556,7 @@ class StoryStore {
       },
       memoryConfig: DEFAULT_MEMORY_CONFIG,
       retryState: null,
+      styleReviewState: null,
     });
 
     this.allStories = [storyData, ...this.allStories];

@@ -15,6 +15,7 @@ import type {
   EntryState,
   EntryPreview,
   PersistentRetryState,
+  PersistentStyleReviewState,
 } from '$lib/types';
 
 class DatabaseService {
@@ -124,6 +125,10 @@ class DatabaseService {
       setClauses.push('retry_state = ?');
       values.push(updates.retryState ? JSON.stringify(updates.retryState) : null);
     }
+    if (updates.styleReviewState !== undefined) {
+      setClauses.push('style_review_state = ?');
+      values.push(updates.styleReviewState ? JSON.stringify(updates.styleReviewState) : null);
+    }
 
     values.push(id);
     await db.execute(
@@ -150,6 +155,28 @@ class DatabaseService {
     const db = await this.getDb();
     await db.execute(
       'UPDATE stories SET retry_state = NULL WHERE id = ?',
+      [storyId]
+    );
+  }
+
+  /**
+   * Save style review state for a story.
+   */
+  async saveStyleReviewState(storyId: string, styleReviewState: PersistentStyleReviewState): Promise<void> {
+    const db = await this.getDb();
+    await db.execute(
+      'UPDATE stories SET style_review_state = ? WHERE id = ?',
+      [JSON.stringify(styleReviewState), storyId]
+    );
+  }
+
+  /**
+   * Clear style review state for a story.
+   */
+  async clearStyleReviewState(storyId: string): Promise<void> {
+    const db = await this.getDb();
+    await db.execute(
+      'UPDATE stories SET style_review_state = NULL WHERE id = ?',
       [storyId]
     );
   }
@@ -872,6 +899,7 @@ class DatabaseService {
       settings: row.settings ? JSON.parse(row.settings) : null,
       memoryConfig: row.memory_config ? JSON.parse(row.memory_config) : null,
       retryState: row.retry_state ? JSON.parse(row.retry_state) : null,
+      styleReviewState: row.style_review_state ? JSON.parse(row.style_review_state) : null,
     };
   }
 

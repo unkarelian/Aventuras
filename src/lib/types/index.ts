@@ -16,6 +16,7 @@ export interface Story {
   settings: StorySettings | null;
   memoryConfig: MemoryConfig | null;
   retryState: PersistentRetryState | null;
+  styleReviewState: PersistentStyleReviewState | null;
 }
 
 // Persistent retry state - lightweight version saved to database
@@ -37,6 +38,27 @@ export interface PersistentRetryState {
   itemIds: string[];
   storyBeatIds: string[];
   lorebookEntryIds: string[];
+}
+
+// Persistent style review state - saved per-story for style analysis tracking
+export interface PersistentPhraseAnalysis {
+  phrase: string;
+  frequency: number;
+  severity: 'low' | 'medium' | 'high';
+  alternatives: string[];
+  contexts: string[];
+}
+
+export interface PersistentStyleReviewResult {
+  phrases: PersistentPhraseAnalysis[];
+  overallAssessment: string;
+  reviewedEntryCount: number;
+  timestamp: number;
+}
+
+export interface PersistentStyleReviewState {
+  messagesSinceLastReview: number;
+  lastReview: PersistentStyleReviewResult | null;
 }
 
 export interface MemoryConfig {

@@ -114,35 +114,45 @@
    * Check if style review should run (every N messages).
    * Runs in background, non-blocking.
    */
-  async function checkStyleReview() {
+  async function checkStyleReview(shouldIncrement: boolean = true, source: string = 'new') {
     // Check if style reviewer is enabled
     if (!settings.systemServicesSettings.styleReviewer.enabled) {
       return;
     }
 
-    // Increment counter
-    ui.incrementStyleReviewCounter();
+    const storyId = story.currentStory?.id;
+    if (!storyId) {
+      return;
+    }
+
+    // Increment counter for new messages only
+    if (shouldIncrement) {
+      ui.incrementStyleReviewCounter();
+    }
 
     const triggerInterval = settings.systemServicesSettings.styleReviewer.triggerInterval;
 
-    log('checkStyleReview', {
+    log('Style review counter', {
+      source,
+      storyId,
       messagesSinceLastReview: ui.messagesSinceLastStyleReview,
       triggerInterval,
+      incremented: shouldIncrement,
     });
 
     // Check if we've hit the interval threshold
     if (ui.messagesSinceLastStyleReview >= triggerInterval) {
       log('Triggering style review...');
-      ui.setStyleReviewLoading(true);
+      ui.setStyleReviewLoading(true, storyId);
 
       try {
         const result = await aiService.analyzeStyle(story.entries);
-        ui.setStyleReview(result);
+        ui.setStyleReview(result, storyId);
         log('Style review complete', { phrasesFound: result.phrases.length });
       } catch (error) {
         log('Style review failed (non-fatal)', error);
       } finally {
-        ui.setStyleReviewLoading(false);
+        ui.setStyleReviewLoading(false, storyId);
       }
     }
   }
@@ -389,7 +399,13 @@
   /**
    * Core generation logic - used by both handleSubmit and retry
    */
-  async function generateResponse(userActionEntryId: string, userActionContent: string) {
+  async function generateResponse(
+    userActionEntryId: string,
+    userActionContent: string,
+    options?: { countStyleReview?: boolean; styleReviewSource?: string }
+  ) {
+    const countStyleReview = options?.countStyleReview ?? true;
+    const styleReviewSource = options?.styleReviewSource ?? (countStyleReview ? 'new' : 'regenerate');
     log('Starting AI generation...', { userActionEntryId, hasCurrentStory: !!story.currentStory });
 
     // Ensure we have a current story
@@ -752,7 +768,7 @@
         }
 
         // Phase 8: Check if style review should run (background, non-blocking)
-        checkStyleReview().catch(err => {
+        checkStyleReview(countStyleReview, styleReviewSource).catch(err => {
           log('Style review check failed (non-fatal)', err);
         });
       } else {
@@ -985,7 +1001,10 @@
 
     // Retry generation with the same user action
     if (!settings.needsApiKey) {
-      await generateResponse(userActionEntry.id, userActionEntry.content);
+      await generateResponse(userActionEntry.id, userActionEntry.content, {
+        countStyleReview: false,
+        styleReviewSource: 'retry-error',
+      });
     }
   }
 
@@ -1094,7 +1113,10 @@
       if (!settings.needsApiKey) {
         isRetryingLastMessage = true;
         try {
-          await generateResponse(userActionEntry.id, backup.userActionContent);
+          await generateResponse(userActionEntry.id, backup.userActionContent, {
+            countStyleReview: false,
+            styleReviewSource: 'retry-last-message',
+          });
         } finally {
           isRetryingLastMessage = false;
         }

@@ -1,4 +1,4 @@
-import type { ActivePanel, SidebarTab, UIState, EntryType, StoryEntry, Character, Location, Item, StoryBeat, Entry, ActionInputType } from '$lib/types';
+import type { ActivePanel, SidebarTab, UIState, EntryType, StoryEntry, Character, Location, Item, StoryBeat, Entry, ActionInputType, PersistentStyleReviewState, PersistentStyleReviewResult } from '$lib/types';
 import type { ActionChoice } from '$lib/services/ai/actionChoices';
 import type { StorySuggestion } from '$lib/services/ai/suggestions';
 import type { StyleReviewResult } from '$lib/services/ai/styleReviewer';
@@ -131,6 +131,8 @@ class UIStore {
   messagesSinceLastStyleReview = $state(0);
   lastStyleReview = $state<StyleReviewResult | null>(null);
   styleReviewLoading = $state(false);
+  private currentStyleReviewStoryId = $state<string | null>(null);
+  styleReviewStateWrite = Promise.resolve();
 
   // Lorebook debug state
   lastLorebookRetrieval = $state<EntryRetrievalResult | null>(null);
@@ -709,24 +711,108 @@ class UIStore {
   }
 
   // Style reviewer methods
+
+  /**
+   * Set the current story ID for style review state tracking.
+   * Called when switching stories.
+   */
+  setCurrentStyleReviewStoryId(storyId: string | null) {
+    this.currentStyleReviewStoryId = storyId;
+  }
+
+  /**
+   * Load style review state from persistent storage.
+   * Called when a story is loaded.
+   */
+  loadStyleReviewState(storyId: string, state: PersistentStyleReviewState | null) {
+    this.currentStyleReviewStoryId = storyId;
+    this.styleReviewLoading = false;
+    if (state) {
+      this.messagesSinceLastStyleReview = state.messagesSinceLastReview;
+      // Convert persistent format to StyleReviewResult (they're compatible)
+      this.lastStyleReview = state.lastReview as StyleReviewResult | null;
+      console.log('[UI] Restored style review state', {
+        storyId,
+        messagesSinceLastReview: state.messagesSinceLastReview,
+        hasLastReview: !!state.lastReview,
+      });
+    } else {
+      // Reset to defaults for new stories or stories without style review data
+      this.messagesSinceLastStyleReview = 0;
+      this.lastStyleReview = null;
+    }
+  }
+
+  /**
+   * Clear style review state (when switching stories).
+   * Only clears in-memory state, does not affect DB.
+   */
+  clearStyleReviewState() {
+    this.messagesSinceLastStyleReview = 0;
+    this.lastStyleReview = null;
+    this.styleReviewLoading = false;
+    this.currentStyleReviewStoryId = null;
+  }
+
+  /**
+   * Persist current style review state to database.
+   */
+  private persistStyleReviewState() {
+    const storyId = this.currentStyleReviewStoryId;
+    if (!storyId) return;
+
+    const state: PersistentStyleReviewState = {
+      messagesSinceLastReview: this.messagesSinceLastStyleReview,
+      lastReview: this.lastStyleReview as PersistentStyleReviewResult | null,
+    };
+
+    this.persistStyleReviewStateForStory(storyId, state);
+  }
+
+  /**
+   * Persist style review state for a specific story without changing in-memory state.
+   */
+  private persistStyleReviewStateForStory(storyId: string, state: PersistentStyleReviewState) {
+    this.styleReviewStateWrite = this.styleReviewStateWrite
+      .catch(() => {})
+      .then(() => database.saveStyleReviewState(storyId, state))
+      .catch(err => {
+        console.warn('[UI] Failed to persist style review state:', err);
+      });
+  }
+
   incrementStyleReviewCounter() {
     this.messagesSinceLastStyleReview++;
+    this.persistStyleReviewState();
   }
 
   resetStyleReviewCounter() {
     this.messagesSinceLastStyleReview = 0;
+    this.persistStyleReviewState();
   }
 
-  setStyleReview(result: StyleReviewResult) {
+  setStyleReview(result: StyleReviewResult, storyId?: string | null) {
+    if (storyId && storyId !== this.currentStyleReviewStoryId) {
+      const state: PersistentStyleReviewState = {
+        messagesSinceLastReview: 0,
+        lastReview: result as PersistentStyleReviewResult,
+      };
+      this.persistStyleReviewStateForStory(storyId, state);
+      return;
+    }
+
     this.lastStyleReview = result;
     this.messagesSinceLastStyleReview = 0;
+    this.persistStyleReviewState();
   }
 
   clearStyleReview() {
     this.lastStyleReview = null;
+    this.persistStyleReviewState();
   }
 
-  setStyleReviewLoading(loading: boolean) {
+  setStyleReviewLoading(loading: boolean, storyId?: string | null) {
+    if (storyId && storyId !== this.currentStyleReviewStoryId) return;
     this.styleReviewLoading = loading;
   }
 
