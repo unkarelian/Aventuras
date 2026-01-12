@@ -891,7 +891,8 @@ class ScenarioService {
       : 'Use past tense.';
 
     const tone = writingStyle.tone || 'immersive and engaging';
-    const outputFormat = this.getOpeningOutputFormat(mode, protagonistName, outputMode);
+    const outputFormat = this.getOpeningOutputFormat(mode, protagonistName, outputMode, writingStyle.pov);
+    const povInfo = this.getOpeningPovInstruction(writingStyle.pov);
 
     // Use custom system prompt if provided, otherwise use the template
     const systemPrompt = customSystemPrompt || promptService.renderPrompt(templateId, promptContext, {
@@ -900,6 +901,7 @@ class ScenarioService {
       tenseInstruction,
       tone,
       outputFormat,
+      povInstruction: povInfo.instruction,
     });
 
     const atmosphereSection = expandedSetting?.atmosphere
@@ -916,7 +918,6 @@ class ScenarioService {
     const openingInstruction = mode === 'creative-writing'
       ? ''
       : `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`;
-    const povInstruction = this.getOpeningPovInstruction(writingStyle.pov);
 
     const userPrompt = promptService.renderUserPrompt(templateId, promptContext, {
       title: title || '(suggest one)',
@@ -928,7 +929,9 @@ class ScenarioService {
       protagonistName,
       protagonistDescription,
       supportingCharactersSection,
-      povInstruction,
+      povInstruction: povInfo.instruction,
+      povPerspective: povInfo.perspective,
+      povPerspectiveInstructions: povInfo.perspectiveInstructions,
       guidanceSection,
       lorebookContext,
       openingInstruction,
@@ -971,30 +974,57 @@ class ScenarioService {
     return lorebookContext;
   }
 
-  private getOpeningPovInstruction(pov: POV): string {
+  private getOpeningPovInstruction(pov: POV): { instruction: string; perspective: string; perspectiveInstructions: string } {
     switch (pov) {
       case 'first':
-        return 'POV: First person (I...).';
+        return {
+          instruction: 'POV: First person (I/me/my).',
+          perspective: 'the protagonist\'s first-person perspective ("I see...", "I feel...")',
+          perspectiveInstructions: 'Use "I/me/my" for the protagonist. Write from their internal perspective.',
+        };
       case 'second':
-        return 'POV: Second person (You...).';
+        return {
+          instruction: 'POV: Second person (You/your).',
+          perspective: 'the protagonist\'s second-person perspective ("You see...", "You feel...")',
+          perspectiveInstructions: 'Use "you/your" for the protagonist. Address the reader/protagonist directly.',
+        };
       case 'third':
       default:
-        return 'POV: Third person (he/she/they).';
+        return {
+          instruction: 'POV: Third person (he/she/they).',
+          perspective: 'through {{protagonistName}}\'s perspective',
+          perspectiveInstructions: 'NEVER use second person ("you"). Always use "{{protagonistName}}" or "he/she/they".',
+        };
     }
   }
 
   private getOpeningOutputFormat(
     mode: StoryMode,
     protagonistName: string,
-    outputMode: 'json' | 'stream'
+    outputMode: 'json' | 'stream',
+    pov?: POV
   ): string {
     if (outputMode === 'stream') {
       return 'Write ONLY prose. No JSON, no metadata.';
     }
 
-    const sceneInstruction = mode === 'creative-writing'
-      ? `string - the opening (2-3 paragraphs of third-person narrative featuring ${protagonistName})`
-      : `string - the opening (2-3 paragraphs describing environment/situation, NOT ${protagonistName}'s actions)`;
+    let sceneInstruction: string;
+    if (mode === 'creative-writing') {
+      switch (pov) {
+        case 'first':
+          sceneInstruction = `string - the opening (2-3 paragraphs of first-person narrative featuring ${protagonistName})`;
+          break;
+        case 'second':
+          sceneInstruction = `string - the opening (2-3 paragraphs of second-person narrative featuring ${protagonistName})`;
+          break;
+        case 'third':
+        default:
+          sceneInstruction = `string - the opening (2-3 paragraphs of third-person narrative featuring ${protagonistName})`;
+          break;
+      }
+    } else {
+      sceneInstruction = `string - the opening (2-3 paragraphs describing environment/situation, NOT ${protagonistName}'s actions)`;
+    }
 
     return `Respond with valid JSON:
 {

@@ -64,13 +64,16 @@ class StoryStore {
   get pov(): 'first' | 'second' | 'third' {
     const mode = this.currentStory?.mode ?? 'adventure';
     const stored = this.currentStory?.settings?.pov ?? null;
+    // For creative-writing mode, respect the user's stored POV choice
+    // (wizard allows selecting first, second, or third person)
+    if (stored) {
+      return stored;
+    }
+    // Default based on mode
     if (mode === 'creative-writing') {
       return 'third';
     }
-    if (!stored || stored === 'second') {
-      return 'first';
-    }
-    return stored;
+    return 'first';
   }
 
   get tense(): 'past' | 'present' {

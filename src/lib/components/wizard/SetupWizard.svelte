@@ -167,13 +167,9 @@ import {
 
   // POV options
   const povOptions = $derived.by((): { id: POV; label: string; example: string }[] => {
-    if (selectedMode === 'creative-writing') {
-      return [
-        { id: 'third', label: '3rd Person', example: 'They walk into the room...' },
-      ];
-    }
     return [
       { id: 'first', label: '1st Person', example: 'I walk into the room...' },
+      { id: 'second', label: '2nd Person', example: 'You walk into the room...' },
       { id: 'third', label: '3rd Person', example: 'They walk into the room...' },
     ];
   });
@@ -195,12 +191,19 @@ import {
   ];
 
   // Update default POV and tense when mode changes
-  // Creative writing: third person, past tense (literary standard)
+  // Creative writing: third person, past tense (literary standard) - but user can override POV
   // Adventure: first person, present tense (immersive)
   $effect(() => {
     if (selectedMode === 'creative-writing') {
-      selectedPOV = 'third';
-      selectedTense = 'past';
+      // Only set defaults if not already set (allow user to override POV)
+      if (selectedPOV === 'first' || selectedPOV === 'second') {
+        // Keep user's POV choice, only set tense
+        selectedTense = 'past';
+      } else {
+        // First time or was third, set both defaults
+        selectedPOV = 'third';
+        selectedTense = 'past';
+      }
     } else {
       selectedPOV = 'first';
       selectedTense = 'present';
@@ -2097,7 +2100,7 @@ function clearImport() {
           <!-- POV Selection -->
           <div>
             <label class="mb-2 block text-sm font-medium text-surface-300">Point of View</label>
-            <div class="grid gap-2 {selectedMode === 'creative-writing' ? 'grid-cols-1' : 'grid-cols-2'}">
+            <div class="grid gap-2 grid-cols-3">
               {#each povOptions as option}
                 <button
                   class="card p-3 text-center transition-all"

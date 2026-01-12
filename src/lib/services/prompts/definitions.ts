@@ -158,13 +158,42 @@ Refer to the protagonist as "{{protagonistName}}" or "they/them".
 Example: "{{protagonistName}} stepped forward..." or "They examined the door..."
 Do NOT use "you" to refer to the protagonist.`,
     },
-    // Creative writing mode (always third person)
+    // Creative writing mode - First person, present
+    {
+      key: { mode: 'creative-writing', pov: 'first', tense: 'present' },
+      content: `Write in PRESENT TENSE, FIRST PERSON.
+Use "I/me/my" for the protagonist's perspective.
+Example: "I step forward..." or "I examine the door..."`,
+    },
+    // Creative writing mode - First person, past
+    {
+      key: { mode: 'creative-writing', pov: 'first', tense: 'past' },
+      content: `Write in PAST TENSE, FIRST PERSON.
+Use "I/me/my" for the protagonist's perspective.
+Example: "I stepped forward..." or "I examined the door..."`,
+    },
+    // Creative writing mode - Second person, present
+    {
+      key: { mode: 'creative-writing', pov: 'second', tense: 'present' },
+      content: `Write in PRESENT TENSE, SECOND PERSON.
+Use "you/your" for the protagonist.
+Example: "You step forward..." or "You examine the door..."`,
+    },
+    // Creative writing mode - Second person, past
+    {
+      key: { mode: 'creative-writing', pov: 'second', tense: 'past' },
+      content: `Write in PAST TENSE, SECOND PERSON.
+Use "you/your" for the protagonist.
+Example: "You stepped forward..." or "You examined the door..."`,
+    },
+    // Creative writing mode - Third person, present
     {
       key: { mode: 'creative-writing', pov: 'third', tense: 'present' },
       content: `Write in PRESENT TENSE, THIRD PERSON.
 Refer to the protagonist as "{{protagonistName}}" or "they/them".
 Example: "{{protagonistName}} steps forward..." or "They examine the door..."`,
     },
+    // Creative writing mode - Third person, past
     {
       key: { mode: 'creative-writing', pov: 'third', tense: 'past' },
       content: `Write in PAST TENSE, THIRD PERSON.
@@ -236,7 +265,37 @@ CRITICAL VOICE RULES:
 
 End with a natural opening for action, not a direct question.`,
     },
-    // Creative writing mode
+    // Creative writing mode - First person
+    {
+      key: { mode: 'creative-writing', pov: 'first' },
+      content: `Write prose based on the author's direction:
+1. Bring the scene to life with sensory detail
+2. Write dialogue, actions, and thoughts for any character as directed
+3. Maintain consistent characterization
+
+STYLE:
+- Use FIRST PERSON for the protagonist ("I/me/my"). Write from their internal perspective.
+- Write vivid, engaging prose from the protagonist's point of view
+- Follow the author's lead on what happens
+
+End at a natural narrative beat.`,
+    },
+    // Creative writing mode - Second person
+    {
+      key: { mode: 'creative-writing', pov: 'second' },
+      content: `Write prose based on the author's direction:
+1. Bring the scene to life with sensory detail
+2. Write dialogue, actions, and thoughts for any character as directed
+3. Maintain consistent characterization
+
+STYLE:
+- Use SECOND PERSON for the protagonist ("you/your"). Write from their perspective.
+- Write vivid, engaging prose addressing the reader/ protagonist directly
+- Follow the author's lead on what happens
+
+End at a natural narrative beat.`,
+    },
+    // Creative writing mode - Third person
     {
       key: { mode: 'creative-writing', pov: 'third' },
       content: `Write prose based on the author's direction:
@@ -344,6 +403,58 @@ Your role:
 - When I say "I do X", describe the results in third person (e.g., "I open the door" → "The protagonist pushed open the heavy door..." or use their name)
 
 I am the player controlling the protagonist. You narrate what happens. Begin when I take my first action.`,
+    },
+    // Creative writing mode - First person, present
+    {
+      key: { mode: 'creative-writing', pov: 'first', tense: 'present' },
+      content: `You are a skilled fiction writer. Write in present tense, first person (I/me/my).
+
+Your role:
+- Write prose based on my directions from the protagonist's internal perspective
+- Bring scenes to life with vivid detail and internal monologue
+- Write for any character I direct you to, including dialogue, actions, and thoughts
+- Maintain consistent characterization throughout
+
+I am the author directing the story. Write what I ask for.`,
+    },
+    // Creative writing mode - First person, past
+    {
+      key: { mode: 'creative-writing', pov: 'first', tense: 'past' },
+      content: `You are a skilled fiction writer. Write in past tense, first person (I/me/my).
+
+Your role:
+- Write prose based on my directions from the protagonist's internal perspective
+- Bring scenes to life with vivid detail and internal monologue
+- Write for any character I direct you to, including dialogue, actions, and thoughts
+- Maintain consistent characterization throughout
+
+I am the author directing the story. Write what I ask for.`,
+    },
+    // Creative writing mode - Second person, present
+    {
+      key: { mode: 'creative-writing', pov: 'second', tense: 'present' },
+      content: `You are a skilled fiction writer. Write in present tense, second person (you/your).
+
+Your role:
+- Write prose based on my directions, addressing the protagonist directly
+- Bring scenes to life with vivid detail
+- Write for any character I direct you to, including dialogue, actions, and thoughts
+- Maintain consistent characterization throughout
+
+I am the author directing the story. Write what I ask for.`,
+    },
+    // Creative writing mode - Second person, past
+    {
+      key: { mode: 'creative-writing', pov: 'second', tense: 'past' },
+      content: `You are a skilled fiction writer. Write in past tense, second person (you/your).
+
+Your role:
+- Write prose based on my directions, addressing the protagonist directly
+- Bring scenes to life with vivid detail
+- Write for any character I direct you to, including dialogue, actions, and thoughts
+- Maintain consistent characterization throughout
+
+I am the author directing the story. Write what I ask for.`,
     },
     // Creative writing mode - Third person, present
     {
@@ -458,6 +569,8 @@ export const CONTEXT_PLACEHOLDERS: ContextPlaceholder[] = [
   { id: 'setting-name', name: 'Setting Name', token: 'settingName', category: 'wizard', description: 'Name of the generated setting/world' },
   { id: 'setting-description', name: 'Setting Description', token: 'settingDescription', category: 'wizard', description: 'Description of the setting/world' },
   { id: 'pov-instruction', name: 'POV Instruction', token: 'povInstruction', category: 'wizard', description: 'Instructions about point of view for generation' },
+  { id: 'pov-perspective', name: 'POV Perspective', token: 'povPerspective', category: 'wizard', description: 'How to refer to the protagonist based on POV (e.g., "through {{protagonistName}}\'s perspective" or "from the protagonist\'s first-person view")' },
+  { id: 'pov-perspective-instructions', name: 'POV Perspective Instructions', token: 'povPerspectiveInstructions', category: 'wizard', description: 'Instructions on pronoun usage based on POV (e.g., "Use \\"I/me/my\\" for first person" or "NEVER use second person")' },
   { id: 'setting-context', name: 'Setting Context', token: 'settingContext', category: 'wizard', description: 'Setting context block for character elaboration' },
   { id: 'tone-instruction', name: 'Tone Instruction', token: 'toneInstruction', category: 'wizard', description: 'Additional tone guidance for character elaboration' },
   { id: 'setting-instruction', name: 'Setting Instruction', token: 'settingInstruction', category: 'wizard', description: 'Additional setting guidance for character elaboration' },
@@ -1538,7 +1651,7 @@ The person reading this opening is the AUTHOR, not a character. They sit outside
 </critical_understanding>
 
 <style>
-- POV: Third person limited (through {{protagonistName}}'s perspective)
+- POV: {{povInstruction}}
 - {{tenseInstruction}}
 - Tone: {{tone}}
 - 2-3 paragraphs of literary prose
@@ -1548,8 +1661,8 @@ The person reading this opening is the AUTHOR, not a character. They sit outside
 
 <what_to_write>
 Write a compelling opening that:
-- Establishes the scene through {{protagonistName}}'s perspective and actions
-- Shows {{protagonistName}} engaged in the world—what they're doing, thinking, noticing
+- Establishes the scene through {{povPerspective}}
+- Engages the reader with vivid, immersive prose
 - Introduces tension, stakes, or interesting elements
 - Includes other characters if appropriate, with their own actions and dialogue
 - Builds toward one crystallizing moment—the image or line the reader remembers
@@ -1563,7 +1676,7 @@ Write a compelling opening that:
 - Thoughts and perceptions
 - Reactions to the environment and other characters
 
-NEVER use second person ("you"). Always use "{{protagonistName}}" or "he/she/they".
+{{povPerspectiveInstructions}}
 </protagonist_as_character>
 
 <dialogue_craft>
