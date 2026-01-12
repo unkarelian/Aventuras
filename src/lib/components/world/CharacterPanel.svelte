@@ -1,7 +1,7 @@
 <script lang="ts">
   import { story } from '$lib/stores/story.svelte';
   import { settings } from '$lib/stores/settings.svelte';
-  import { Plus, User, Skull, UserX, Pencil, Trash2, Star, ImageUp, Wand2, X, Loader2 } from 'lucide-svelte';
+  import { Plus, User, Skull, UserX, Pencil, Trash2, Star, ImageUp, Wand2, X, Loader2, ChevronDown, ChevronUp } from 'lucide-svelte';
   import type { Character } from '$lib/types';
   import { NanoGPTImageProvider } from '$lib/services/ai/nanoGPTImageProvider';
   import { promptService } from '$lib/services/prompts';
@@ -22,6 +22,7 @@
   let pendingProtagonistId = $state<string | null>(null);
   let previousRelationshipLabel = $state('');
   let swapError = $state<string | null>(null);
+  let collapsedCharacters = $state<Set<string>>(new Set());
 
   // Portrait state
   let uploadingPortraitId = $state<string | null>(null);
@@ -269,6 +270,27 @@
     editPortrait = null;
     portraitError = null;
   }
+
+  function toggleCollapse(characterId: string) {
+    if (collapsedCharacters.has(characterId)) {
+      collapsedCharacters.delete(characterId);
+    } else {
+      collapsedCharacters.add(characterId);
+    }
+    collapsedCharacters = new Set(collapsedCharacters);
+  }
+
+  function getSectionLineCount(character: Character): number {
+    let lines = 0;
+    if (character.traits.length > 0) lines++;
+    if (character.visualDescriptors && character.visualDescriptors.length > 0) lines++;
+    if (character.description) {
+      // Estimate description lines based on length
+      const words = character.description.split(/\s+/).length;
+      lines += Math.ceil(words / 8); // ~8 words per line
+    }
+    return lines;
+  }
 </script>
 
 <div class="space-y-3">
@@ -323,9 +345,13 @@
       {#each story.characters as character (character.id)}
         {@const StatusIcon = getStatusIcon(character.status)}
         {@const isProtagonist = character.relationship === 'self'}
+        {@const isCollapsed = collapsedCharacters.has(character.id)}
+        {@const sectionLineCount = getSectionLineCount(character)}
+        {@const needsCollapse = sectionLineCount > 8}
         <div class="card p-3">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="flex min-w-0 items-start gap-2">
+          <!-- Section 1: Portrait, Name, and Relationship -->
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div class="flex min-w-0 items-start gap-2 flex-1">
               {#if character.portrait}
                 <button
                   class="flex-shrink-0 cursor-pointer"
@@ -338,7 +364,7 @@
                   />
                 </button>
               {:else}
-                <div class="rounded-full bg-surface-700 p-1.5 {getStatusColor(character.status)}">
+                <div class="rounded-full bg-surface-700 p-1.5 {getStatusColor(character.status)} flex-shrink-0">
                   <StatusIcon class="h-4 w-4" />
                 </div>
               {/if}
@@ -355,22 +381,32 @@
                     </span>
                   {/if}
                 </div>
-                {#if character.traits.length > 0}
-                  <p class="mt-1 break-words text-xs text-surface-500">
-                    Traits: {character.traits.join(', ')}
-                  </p>
-                {/if}
-                {#if character.visualDescriptors && character.visualDescriptors.length > 0}
-                  <p class="mt-1 break-words text-xs text-pink-400/80">
-                    Appearance: {character.visualDescriptors.join(', ')}
-                  </p>
-                {/if}
-                {#if character.description}
-                  <p class="mt-1 break-words text-sm text-surface-400">{character.description}</p>
-                {/if}
               </div>
             </div>
-            <div class="flex items-center gap-1 self-end sm:self-auto">
+          </div>
+
+          <!-- Section 2: Traits, Visual Descriptors, and Description -->
+          <div class="mt-3 space-y-2 rounded-md bg-surface-800/40" class:max-h-32={isCollapsed && needsCollapse} class:overflow-hidden={isCollapsed && needsCollapse}>
+            {#if character.traits.length > 0}
+              <div class="break-words text-xs">
+                <span class="font-medium text-surface-400">Traits:</span>
+                <span class="text-surface-500">{character.traits.join(', ')}</span>
+              </div>
+            {/if}
+            {#if character.visualDescriptors && character.visualDescriptors.length > 0}
+              <div class="break-words text-xs">
+                <span class="font-medium text-pink-400/80">Appearance:</span>
+                <span class="text-pink-400/60">{character.visualDescriptors.join(', ')}</span>
+              </div>
+            {/if}
+            {#if character.description}
+              <p class="break-words text-sm text-surface-400">{character.description}</p>
+            {/if}
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center justify-between gap-1 self-end sm:self-auto mt-3">
+            <div class="flex items-center gap-1">
               {#if confirmingDeleteId === character.id}
                 <button
                   class="btn-ghost rounded px-2 py-1 text-xs text-red-400 hover:bg-red-500/20"
@@ -411,8 +447,22 @@
                 </button>
               {/if}
             </div>
+            {#if needsCollapse}
+              <button
+                class="btn-ghost rounded p-1.5 text-surface-500 hover:text-surface-200 sm:p-1"
+                onclick={() => toggleCollapse(character.id)}
+                title={isCollapsed ? 'Expand' : 'Collapse'}
+              >
+                {#if isCollapsed}
+                  <ChevronDown class="h-3.5 w-3.5" />
+                {:else}
+                  <ChevronUp class="h-3.5 w-3.5" />
+                {/if}
+              </button>
+            {/if}
           </div>
 
+          <!-- Protagonist Swap Modal -->
           {#if pendingProtagonistId === character.id}
             <div class="mt-3 space-y-2 rounded-md border border-surface-700/60 bg-surface-800/40 p-2">
               <p class="text-xs text-surface-400">
