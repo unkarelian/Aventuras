@@ -6,8 +6,12 @@
   import { User, BookOpen, Info, Pencil, Trash2, Check, X, RefreshCw, RotateCcw, Loader2, GitBranch, Bookmark, Volume2 } from 'lucide-svelte';
 import { parseMarkdown } from '$lib/utils/markdown';
   import { sanitizeVisualProse } from '$lib/utils/htmlSanitize';
+  import { replacePicTagsWithImages, type ImageReplacementInfo } from '$lib/utils/inlineImageParser';
   import { database } from '$lib/services/database';
   import { eventBus, type ImageReadyEvent, type TTSQueuedEvent } from '$lib/services/events';
+  import { NanoGPTImageProvider } from '$lib/services/ai/nanoGPTImageProvider';
+  import { ChutesImageProvider } from '$lib/services/ai/chutesImageProvider';
+  import { promptService } from '$lib/services/prompts';
   import { onMount } from 'svelte';
 
   let { entry }: { entry: StoryEntry } = $props();
@@ -29,6 +33,9 @@ import { parseMarkdown } from '$lib/utils/markdown';
 
 // Check if Visual Prose mode is enabled for this story
   const visualProseMode = $derived(story.currentStory?.settings?.visualProseMode ?? false);
+
+  // Check if Inline Image mode is enabled for this story
+  const inlineImageMode = $derived(story.currentStory?.settings?.inlineImageMode ?? false);
 
   // Check if this is the latest narration entry (for retry button)
   const isLatestNarration = $derived.by(() => {
@@ -114,9 +121,14 @@ import { parseMarkdown } from '$lib/utils/markdown';
   let expandedImageId = $state<string | null>(null);
   let clickedElement = $state<HTMLElement | null>(null);
 
-  // Branching state
+// Branching state
   let isBranching = $state(false);
   let branchName = $state('');
+
+  // Inline image edit state
+  let isEditingImage = $state(false);
+  let editingImageId = $state<string | null>(null);
+  let editingImagePrompt = $state('');
 
   // Helper to get which branch a checkpoint belongs to (by checking its last entry's branchId)
   function getCheckpointBranchId(checkpoint: { entriesSnapshot: { id: string; branchId?: string | null }[]; lastEntryId: string }): string | null {
@@ -299,12 +311,74 @@ import { parseMarkdown } from '$lib/utils/markdown';
       processed = processed.slice(0, marker.start) + replacement + processed.slice(marker.end);
     }
 
-    return sanitizeVisualProse(processed, entryId);
+return sanitizeVisualProse(processed, entryId);
   }
 
-  // Handle click on embedded image link
+  // Process content with inline <pic> tags - replaces tags with images
+  function processContentWithInlineImages(content: string, images: EmbeddedImage[]): string {
+    // Build map of original tag text -> image info for inline mode images
+    const imageMap = new Map<string, ImageReplacementInfo>();
+    
+    const inlineImages = images.filter(img => img.generationMode === 'inline');
+    
+    for (const img of inlineImages) {
+      imageMap.set(img.sourceText, {
+        imageData: img.imageData,
+        status: img.status,
+        id: img.id,
+        errorMessage: img.errorMessage,
+      });
+    }
+    
+    // Replace <pic> tags with actual images
+    const processedContent = replacePicTagsWithImages(content, imageMap);
+    
+    // Parse markdown for any remaining content
+    return parseMarkdown(processedContent);
+  }
+
+  // Process Visual Prose content with inline <pic> tags
+  function processVisualProseWithInlineImages(content: string, images: EmbeddedImage[], entryId: string): string {
+    // Build map of original tag text -> image info for inline mode images
+    const imageMap = new Map<string, ImageReplacementInfo>();
+    
+    for (const img of images) {
+      if (img.generationMode === 'inline') {
+        imageMap.set(img.sourceText, {
+          imageData: img.imageData,
+          status: img.status,
+          id: img.id,
+          errorMessage: img.errorMessage,
+        });
+      }
+    }
+    
+    // Replace <pic> tags with actual images first
+    const processedContent = replacePicTagsWithImages(content, imageMap);
+    
+    // Then sanitize as Visual Prose
+    return sanitizeVisualProse(processedContent, entryId);
+  }
+
+// Handle click on embedded image link
   function handleContentClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
+    
+    // Check for inline image action buttons
+    const actionBtn = target.closest('.inline-image-btn') as HTMLElement | null;
+    if (actionBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      const action = actionBtn.getAttribute('data-action');
+      const imageId = actionBtn.getAttribute('data-image-id');
+      
+      if (action && imageId) {
+        handleInlineImageAction(action, imageId);
+      }
+      return;
+    }
+    
+    // Check for embedded image link (analyzed mode)
     const imageLink = target.closest('.embedded-image-link') as HTMLElement | null;
     if (imageLink) {
       const imageId = imageLink.getAttribute('data-image-id');
@@ -319,6 +393,120 @@ import { parseMarkdown } from '$lib/utils/markdown';
         }
       }
     }
+  }
+
+  // Handle inline image actions (edit, regenerate)
+  async function handleInlineImageAction(action: string, imageId: string) {
+    const image = embeddedImages.find(img => img.id === imageId);
+    if (!image) return;
+
+    if (action === 'edit') {
+      // Open edit modal with current prompt
+      editingImageId = imageId;
+      // Extract the original prompt from the stored prompt (remove style suffix)
+      editingImagePrompt = image.prompt.split('. ').slice(0, -1).join('. ') || image.prompt;
+      isEditingImage = true;
+    } else if (action === 'regenerate') {
+      // Regenerate with same prompt
+      await regenerateInlineImage(imageId, image.prompt);
+    }
+  }
+
+  // Regenerate an inline image with a new or existing prompt
+  async function regenerateInlineImage(imageId: string, prompt: string) {
+    const image = embeddedImages.find(img => img.id === imageId);
+    if (!image) return;
+
+    try {
+      // Update status to generating
+      await database.updateEmbeddedImage(imageId, { status: 'generating', errorMessage: undefined });
+      
+      // Reload images to show generating state
+      await loadEmbeddedImages();
+
+      // Get image settings
+      const imageSettings = settings.systemServicesSettings.imageGeneration;
+      const apiKey = imageSettings.imageProvider === 'chutes' 
+        ? imageSettings.chutesApiKey 
+        : imageSettings.nanoGptApiKey;
+
+      if (!apiKey) {
+        throw new Error('No API key configured');
+      }
+
+      // Create provider
+      const provider = imageSettings.imageProvider === 'chutes'
+        ? new ChutesImageProvider(apiKey, false)
+        : new NanoGPTImageProvider(apiKey, false);
+
+      // Generate new image
+      const response = await provider.generateImage({
+        prompt,
+        model: image.model || imageSettings.model,
+        size: imageSettings.size,
+        response_format: 'b64_json',
+      });
+
+      if (response.images.length === 0 || !response.images[0].b64_json) {
+        throw new Error('No image data returned');
+      }
+
+      // Update with new image data
+      await database.updateEmbeddedImage(imageId, {
+        imageData: response.images[0].b64_json,
+        prompt,
+        status: 'complete',
+      });
+
+      // Reload to show new image
+      await loadEmbeddedImages();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Regeneration failed';
+      await database.updateEmbeddedImage(imageId, {
+        status: 'failed',
+        errorMessage,
+      });
+      await loadEmbeddedImages();
+    }
+  }
+
+  // Handle edit modal submission
+  async function handleEditImageSubmit() {
+    if (!editingImageId || !editingImagePrompt.trim()) return;
+
+    const image = embeddedImages.find(img => img.id === editingImageId);
+    if (!image) return;
+
+    // Get style prompt and append it
+    const imageSettings = settings.systemServicesSettings.imageGeneration;
+    const styleId = imageSettings.styleId;
+    let stylePrompt = '';
+    try {
+      const promptContext = {
+        mode: 'adventure' as const,
+        pov: 'second' as const,
+        tense: 'present' as const,
+        protagonistName: '',
+      };
+      stylePrompt = promptService.getPrompt(styleId, promptContext) || '';
+    } catch {
+      stylePrompt = 'Soft cel-shaded anime illustration.';
+    }
+
+    const fullPrompt = `${editingImagePrompt.trim()}. ${stylePrompt}`;
+
+    // Close modal and regenerate
+    isEditingImage = false;
+    await regenerateInlineImage(editingImageId, fullPrompt);
+    editingImageId = null;
+    editingImagePrompt = '';
+  }
+
+  // Cancel edit modal
+  function handleEditImageCancel() {
+    isEditingImage = false;
+    editingImageId = null;
+    editingImagePrompt = '';
   }
 
   // Manage inline image display
@@ -756,12 +944,20 @@ import { parseMarkdown } from '$lib/utils/markdown';
           <p class="text-xs text-surface-500">Checkpoints save the current story state and allow branching from this point.</p>
         </div>
 {:else}
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
         <div class="story-text prose-content" class:visual-prose-container={visualProseMode && entry.type === 'narration'} onclick={handleContentClick}>
           {#if entry.type === 'narration'}
-            {#if visualProseMode}
+            {#if visualProseMode && inlineImageMode}
+              <!-- Both Visual Prose and Inline Image mode -->
+              {@html processVisualProseWithInlineImages(entry.content, embeddedImages, entry.id)}
+            {:else if visualProseMode}
+              <!-- Visual Prose mode only -->
               {@html processVisualProseWithImages(entry.content, embeddedImages, entry.id)}
+            {:else if inlineImageMode}
+              <!-- Inline Image mode only -->
+              {@html processContentWithInlineImages(entry.content, embeddedImages)}
             {:else}
+              <!-- Standard mode with analyzed images -->
               {@html processContentWithImages(entry.content, embeddedImages)}
             {/if}
           {:else}
@@ -797,6 +993,29 @@ import { parseMarkdown } from '$lib/utils/markdown';
     </div>
   </div>
 </div>
+
+{#if isEditingImage}
+<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+<div class="inline-image-edit-overlay" onclick={handleEditImageCancel}>
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="inline-image-edit-modal" onclick={(e) => e.stopPropagation()}>
+    <h3>Edit Image Prompt</h3>
+    <textarea
+      bind:value={editingImagePrompt}
+      placeholder="Describe the image you want to generate..."
+      onkeydown={(e) => {
+        if (e.key === 'Escape') handleEditImageCancel();
+      }}
+    ></textarea>
+    <div class="inline-image-edit-actions">
+      <button class="cancel-btn" onclick={handleEditImageCancel}>Cancel</button>
+      <button class="generate-btn" onclick={handleEditImageSubmit} disabled={!editingImagePrompt.trim()}>
+        Generate
+      </button>
+    </div>
+  </div>
+</div>
+{/if}
 
 <style>
   /* Embedded image link styles */

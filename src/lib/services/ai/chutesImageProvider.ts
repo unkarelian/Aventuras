@@ -72,8 +72,8 @@ export class ChutesImageProvider implements ImageProvider {
       );
     }
 
-    try {
-      const response = await this.makeRequest(model, request, hasReferenceImages);
+try {
+      const response = await this.makeRequest(model, request, hasReferenceImages ?? false);
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error');

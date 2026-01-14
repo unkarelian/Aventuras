@@ -2613,7 +2613,7 @@ async createStoryFromWizard(data: {
     title: string;
     genre: string;
     mode: StoryMode;
-    settings: { pov: 'first' | 'second' | 'third'; tense: 'past' | 'present'; visualProseMode?: boolean };
+    settings: { pov: 'first' | 'second' | 'third'; tense: 'past' | 'present'; visualProseMode?: boolean; inlineImageMode?: boolean };
     protagonist: Partial<Character>;
     startingLocation: Partial<Location>;
     initialItems: Partial<Item>[];
@@ -2622,11 +2622,13 @@ async createStoryFromWizard(data: {
     characters: Partial<Character>[];
     importedEntries?: ImportedEntry[];
   }): Promise<Story> {
-    log('createStoryFromWizard called', {
+log('createStoryFromWizard called', {
       title: data.title,
       genre: data.genre,
       mode: data.mode,
       pov: data.settings.pov,
+      visualProseMode: data.settings.visualProseMode,
+      inlineImageMode: data.settings.inlineImageMode,
     });
 
     // Create the base story with custom system prompt stored in settings
@@ -2637,11 +2639,12 @@ async createStoryFromWizard(data: {
       genre: data.genre,
       templateId: 'wizard-generated',
       mode: data.mode,
-      settings: {
+settings: {
         pov: data.settings.pov,
         tense: data.settings.tense,
         systemPromptOverride: data.systemPrompt,
         visualProseMode: data.settings.visualProseMode,
+        inlineImageMode: data.settings.inlineImageMode,
       },
       memoryConfig: DEFAULT_MEMORY_CONFIG,
       retryState: null,

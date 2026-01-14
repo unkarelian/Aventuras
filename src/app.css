@@ -820,10 +820,16 @@
     @apply font-semibold;
   }
 
-  /* Images */
+/* Images */
   img {
     @apply max-w-full h-auto rounded my-4;
   }
+
+  /* Remove margin from inline generated images */
+  .inline-generated-image img {
+    @apply my-0 rounded-xl;
+  }
+
 
   /* Strikethrough */
   del {
@@ -2076,3 +2082,294 @@ body {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
 }
+
+/* ==========================================
+   INLINE IMAGE GENERATION STYLES
+   ========================================== */
+
+/* Inline image placeholder (loading/pending state) */
+.inline-image-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem 2rem;
+  background: linear-gradient(135deg, var(--color-surface-800) 0%, var(--color-surface-900) 100%);
+  border: 2px solid var(--color-surface-600);
+  border-radius: 0.75rem;
+  min-height: 250px;
+  width: 100%;
+  text-align: center;
+}
+
+.inline-image-placeholder.pending {
+  border-color: var(--color-accent-500);
+}
+
+.inline-image-placeholder.generating {
+  border-color: var(--color-amber-500);
+}
+
+.inline-image-placeholder.failed {
+  border-color: var(--color-red-500);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, var(--color-surface-900) 100%);
+}
+
+/* Placeholder spinner */
+.inline-image-placeholder .placeholder-spinner {
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid var(--color-surface-600);
+  border-top-color: var(--color-accent-500);
+  border-radius: 50%;
+  animation: inline-spin 1s linear infinite;
+}
+
+.inline-image-placeholder.pending .placeholder-spinner {
+  border-top-color: var(--color-accent-500);
+}
+
+.inline-image-placeholder.generating .placeholder-spinner {
+  border-top-color: var(--color-amber-500);
+}
+
+@keyframes inline-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Placeholder icon (for failed state) */
+.inline-image-placeholder .placeholder-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+/* Placeholder text (prompt preview) */
+.inline-image-placeholder .placeholder-text {
+  font-size: 0.875rem;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-surface-400);
+}
+
+/* Placeholder status */
+.inline-image-placeholder .placeholder-status {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-surface-300);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inline-image-placeholder.pending .placeholder-status {
+  color: var(--color-accent-400);
+}
+
+.inline-image-placeholder.generating .placeholder-status {
+  color: var(--color-amber-400);
+  animation: status-pulse 1.5s ease-in-out infinite;
+}
+
+.inline-image-placeholder.failed .placeholder-status {
+  color: var(--color-red-400);
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Generated inline image container */
+.inline-generated-image {
+  position: relative;
+  border-radius: 0.75rem;
+  overflow: visible;
+  width: 100%;
+  border: 2px solid var(--color-surface-600);
+  background: var(--color-surface-900);
+  line-height: 0;
+  font-size: 0;
+}
+
+.inline-generated-image img {
+  width: 100%;
+  display: block;
+  vertical-align: bottom;
+  margin: 0;
+  border-radius: 0.75rem;
+}
+
+/* In Visual Prose mode, center inline images */
+.visual-prose-entry .inline-generated-image {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.visual-prose-entry .inline-image-placeholder {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Inline image action buttons - overlay on bottom right */
+.inline-image-actions {
+  position: absolute;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  font-size: 1rem;
+  line-height: normal;
+  z-index: 10;
+}
+
+.inline-generated-image:hover .inline-image-actions,
+.prose-content .inline-generated-image:hover .inline-image-actions {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Action button base styles */
+.inline-image-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  color: var(--color-surface-100);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.inline-image-btn:hover {
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+}
+
+.inline-image-btn svg {
+  flex-shrink: 0;
+}
+
+/* Edit button */
+.inline-image-btn.edit-btn:hover {
+  background: var(--color-blue-600);
+  color: white;
+}
+
+/* Regenerate button */
+.inline-image-btn.regenerate-btn:hover {
+  background: var(--color-accent-600);
+  color: white;
+}
+
+/* Retry button (in failed state) */
+.inline-image-btn.retry-btn {
+  margin-top: 0.75rem;
+  background: var(--color-surface-700);
+}
+
+.inline-image-btn.retry-btn:hover {
+  background: var(--color-amber-600);
+  color: white;
+}
+
+/* Hide actions by default, show on hover */
+.inline-generated-image .inline-image-actions {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.inline-generated-image:hover .inline-image-actions {
+  opacity: 1;
+}
+
+/* Prompt edit modal overlay */
+.inline-image-edit-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.inline-image-edit-modal {
+  background: var(--color-surface-800);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  max-width: 600px;
+  width: 100%;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.inline-image-edit-modal h3 {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-surface-100);
+}
+
+.inline-image-edit-modal textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 0.75rem;
+  border: 1px solid var(--color-surface-600);
+  border-radius: 0.5rem;
+  background: var(--color-surface-900);
+  color: var(--color-surface-100);
+  font-size: 0.875rem;
+  resize: vertical;
+}
+
+.inline-image-edit-modal textarea:focus {
+  outline: none;
+  border-color: var(--color-accent-500);
+}
+
+.inline-image-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.inline-image-edit-actions button {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.inline-image-edit-actions .cancel-btn {
+  background: var(--color-surface-700);
+  color: var(--color-surface-200);
+}
+
+.inline-image-edit-actions .cancel-btn:hover {
+  background: var(--color-surface-600);
+}
+
+.inline-image-edit-actions .generate-btn {
+  background: var(--color-accent-600);
+  color: white;
+}
+
+.inline-image-edit-actions .generate-btn:hover {
+  background: var(--color-accent-500);
+}
+

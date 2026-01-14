@@ -1,4 +1,5 @@
 import { settings } from '$lib/stores/settings.svelte';
+import { story } from '$lib/stores/story.svelte';
 import { OpenAIProvider as OpenAIProvider } from './openrouter';
 import { BUILTIN_TEMPLATES } from '$lib/services/templates';
 import { promptService, type PromptContext, type StoryMode, type POV, type Tense } from '$lib/services/prompts';
@@ -13,6 +14,7 @@ import { TimelineFillService, type TimelineFillSettings, type TimelineFillResult
 import { ContextBuilder, type ContextResult, type ContextConfig, DEFAULT_CONTEXT_CONFIG } from './context';
 import { EntryRetrievalService, getEntryRetrievalConfigFromSettings, type EntryRetrievalResult, type ActivationTracker } from './entryRetrieval';
 import { ImageGenerationService, type ImageGenerationContext } from './imageGeneration';
+import { inlineImageService, type InlineImageContext } from './inlineImageGeneration';
 import { buildExtraBody } from './requestOverrides';
 import type { Message, GenerationResponse, StreamChunk } from './types';
 import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, MemoryConfig, Entry, LoreManagementResult, TimeTracker } from '$lib/types';
@@ -930,9 +932,9 @@ class AIService {
     return ImageGenerationService.isEnabled();
   }
 
-  /**
+/**
    * Generate images for a narrative response.
-   * Identifies imageable scenes and queues async image generation.
+   * Uses either inline image mode (AI-placed <pic> tags) or analyzed mode (LLM scene analysis).
    * This runs in background and doesn't block the main flow.
    *
    * @param context - The narrative context for image generation
@@ -949,10 +951,27 @@ class AIService {
       return;
     }
 
+    // Check if inline image mode is enabled for this story
+    const inlineImageMode = story.currentStory?.settings?.inlineImageMode ?? false;
+
     try {
-      const provider = this.getProviderForProfile(settings.systemServicesSettings.imageGeneration.promptProfileId);
-      const imageService = new ImageGenerationService(provider);
-      await imageService.generateForNarrative(context);
+      if (inlineImageMode) {
+        // Use inline image generation (process <pic> tags from AI response)
+        log('Using inline image mode');
+        const inlineContext: InlineImageContext = {
+          storyId: context.storyId,
+          entryId: context.entryId,
+          narrativeContent: context.narrativeResponse,
+          presentCharacters: context.presentCharacters,
+        };
+        await inlineImageService.processNarrativeForInlineImages(inlineContext);
+      } else {
+        // Use analyzed image generation (LLM scene analysis)
+        log('Using analyzed image mode');
+        const provider = this.getProviderForProfile(settings.systemServicesSettings.imageGeneration.promptProfileId);
+        const imageService = new ImageGenerationService(provider);
+        await imageService.generateForNarrative(context);
+      }
     } catch (error) {
       log('Image generation failed (non-fatal)', error);
       // Don't throw - image generation failure shouldn't break the main flow
@@ -1230,13 +1249,26 @@ class AIService {
       basePrompt += '\n───────────────────────────────────────';
     }
 
-    // Replace {{visualProseBlock}} placeholder with visual prose instructions if enabled
+// Replace {{visualProseBlock}} placeholder with visual prose instructions if enabled
     if (visualProseMode) {
       const visualProseInstructions = promptService.resolveMacro('visualProseInstructions', promptContext);
       basePrompt = basePrompt.replace(/\{\{visualProseBlock\}\}/g, visualProseInstructions);
     } else {
       // Remove the placeholder when Visual Prose mode is disabled
       basePrompt = basePrompt.replace(/\{\{visualProseBlock\}\}/g, '');
+    }
+
+    // Replace {{inlineImageBlock}} placeholder with inline image instructions if enabled
+    const inlineImageMode = story.currentStory?.settings?.inlineImageMode ?? false;
+    const imageGenEnabled = ImageGenerationService.isEnabled();
+    log('Inline image mode check:', { inlineImageMode, imageGenEnabled, storySettings: story.currentStory?.settings });
+    if (inlineImageMode && imageGenEnabled) {
+      const inlineImageInstructions = promptService.resolveMacro('inlineImageInstructions', promptContext);
+      log('Injecting inline image instructions, length:', inlineImageInstructions.length);
+      basePrompt = basePrompt.replace(/\{\{inlineImageBlock\}\}/g, inlineImageInstructions);
+    } else {
+      // Remove the placeholder when Inline Image mode is disabled
+      basePrompt = basePrompt.replace(/\{\{inlineImageBlock\}\}/g, '');
     }
 
     return basePrompt;

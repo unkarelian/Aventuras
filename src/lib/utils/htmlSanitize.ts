@@ -24,11 +24,21 @@ export function sanitizeVisualProse(html: string, entryId: string): string {
 
   const fragment = template.content;
 
-  // Remove dangerous elements
+// Remove dangerous elements (but preserve inline image action buttons)
   const dangerousElements = fragment.querySelectorAll(
-    'script, iframe, object, embed, form, input, button, textarea, select, meta, link, base'
+    'script, iframe, object, embed, form, input, textarea, select, meta, link, base'
   );
   dangerousElements.forEach((el) => el.remove());
+
+  // Remove buttons except inline image action buttons
+  const buttons = fragment.querySelectorAll('button');
+  buttons.forEach((btn) => {
+    const isInlineImageBtn = btn.classList.contains('inline-image-btn') || 
+                              btn.hasAttribute('data-action');
+    if (!isInlineImageBtn) {
+      btn.remove();
+    }
+  });
 
   // Process all elements
   const allElements = fragment.querySelectorAll('*');

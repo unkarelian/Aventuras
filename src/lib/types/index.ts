@@ -102,6 +102,7 @@ export interface StorySettings {
   tone?: string;
   themes?: string[];
   visualProseMode?: boolean;  // Enable HTML/CSS visual output mode
+  inlineImageMode?: boolean;  // Enable <pic> tag inline image generation
 }
 
 export interface StoryEntry {
@@ -536,6 +537,30 @@ export interface EmbeddedImage {
   status: EmbeddedImageStatus;
   errorMessage?: string;
   createdAt: number;
+  generationMode?: 'analyzed' | 'inline';  // How image was triggered (analyzed = LLM scene analysis, inline = <pic> tag)
+}
+
+// ===== Inline Image Generation System =====
+
+/**
+ * Parsed <pic> tag from narrative content.
+ * Used for inline image generation mode where AI embeds image tags directly in narrative.
+ */
+export interface InlineImageTag {
+  /** Full original tag text (e.g., '<pic prompt="..." characters="..."></pic>') */
+  originalTag: string;
+  /** Start position in content */
+  startIndex: number;
+  /** End position in content */
+  endIndex: number;
+  /** Image generation prompt */
+  prompt: string;
+  /** Character names for portrait reference */
+  characters: string[];
+  /** Generated image ID (assigned during processing) */
+  imageId?: string;
+  /** Processing status */
+  status: 'pending' | 'generating' | 'complete' | 'failed';
 }
 
 export type ImageSize = '512x512' | '1024x1024';

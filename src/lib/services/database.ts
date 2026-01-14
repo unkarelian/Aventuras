@@ -1352,7 +1352,7 @@ class DatabaseService {
     return results.map(this.mapEmbeddedImage);
   }
 
-  async createEmbeddedImage(image: Omit<EmbeddedImage, 'createdAt'>): Promise<EmbeddedImage> {
+async createEmbeddedImage(image: Omit<EmbeddedImage, 'createdAt'>): Promise<EmbeddedImage> {
     const db = await this.getDb();
     const now = Date.now();
     await db.execute(
@@ -1424,12 +1424,16 @@ class DatabaseService {
     return deleted;
   }
 
-  private mapEmbeddedImage(row: any): EmbeddedImage {
+private mapEmbeddedImage(row: any): EmbeddedImage {
+    const sourceText = row.source_text;
+    // Detect inline images by checking if sourceText is a <pic> tag
+    const isInline = sourceText && sourceText.trim().startsWith('<pic ');
+    
     return {
       id: row.id,
       storyId: row.story_id,
       entryId: row.entry_id,
-      sourceText: row.source_text,
+      sourceText: sourceText,
       prompt: row.prompt,
       styleId: row.style_id,
       model: row.model,
@@ -1438,6 +1442,7 @@ class DatabaseService {
       height: row.height ?? undefined,
       status: row.status as EmbeddedImageStatus,
       errorMessage: row.error_message ?? undefined,
+      generationMode: isInline ? 'inline' : 'analyzed',
       createdAt: row.created_at,
     };
   }

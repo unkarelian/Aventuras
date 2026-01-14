@@ -144,6 +144,7 @@ import {
   let selectedTense = $state<Tense>('present');
   let tone = $state('immersive and engaging');
   let visualProseMode = $state(false);
+  let inlineImageMode = $state(false);
 
   // Step 7: Generate Opening
   let storyTitle = $state('');
@@ -594,11 +595,12 @@ const wizardData: WizardData = {
       expandedSetting: expandedSetting || undefined,
       protagonist: protagonist || undefined,
       characters: supportingCharacters.length > 0 ? supportingCharacters : undefined,
-      writingStyle: {
+writingStyle: {
         pov: selectedPOV,
         tense: selectedTense,
         tone,
         visualProseMode,
+        inlineImageMode,
       },
       title: storyTitle,
       openingGuidance: selectedMode === 'creative-writing' && openingGuidance.trim() ? openingGuidance.trim() : undefined,
@@ -2187,8 +2189,41 @@ function clearImport() {
                     ></span>
                   </button>
                 </div>
-                <p class="mt-1 text-xs text-surface-400">
+<p class="mt-1 text-xs text-surface-400">
                   Enable rich HTML/CSS visual output. The AI can create styled layouts, dialogue boxes, and atmospheric effects. Best for immersive, cinematic storytelling.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inline Image Mode Toggle -->
+          <div class="card bg-surface-800/50 p-4">
+            <div class="flex items-start gap-3">
+              <div class="rounded-full bg-surface-700 p-2">
+                <ImageIcon class="h-5 w-5 text-blue-400" />
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <div class="text-sm font-medium text-surface-200">Inline Image Mode</div>
+                  <button
+                    type="button"
+                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-800"
+                    class:bg-accent-600={inlineImageMode}
+                    class:bg-surface-600={!inlineImageMode}
+                    onclick={() => inlineImageMode = !inlineImageMode}
+                    role="switch"
+                    aria-checked={inlineImageMode}
+                    aria-label="Toggle Inline Image Mode"
+                  >
+                    <span
+                      class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                      class:translate-x-5={inlineImageMode}
+                      class:translate-x-0={!inlineImageMode}
+                    ></span>
+                  </button>
+                </div>
+                <p class="mt-1 text-xs text-surface-400">
+                  AI places image tags directly in the narrative. Images are generated inline where the AI decides they fit best. Requires image generation to be configured.
                 </p>
               </div>
             </div>

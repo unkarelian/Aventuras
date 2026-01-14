@@ -278,10 +278,11 @@ export interface WizardData {
   protagonist?: GeneratedProtagonist;
   characters?: GeneratedCharacter[];
   writingStyle: {
-    pov: POV;
+pov: POV;
     tense: Tense;
     tone: string;
     visualProseMode?: boolean;
+    inlineImageMode?: boolean;
   };
   title: string;
   openingGuidance?: string; // Creative writing mode: user guidance for the opening scene
@@ -1059,7 +1060,7 @@ prepareStoryData(wizardData: WizardData, opening: GeneratedOpening): {
     title: string;
     genre: string;
     mode: StoryMode;
-    settings: { pov: POV; tense: Tense; tone?: string; themes?: string[]; visualProseMode?: boolean };
+    settings: { pov: POV; tense: Tense; tone?: string; themes?: string[]; visualProseMode?: boolean; inlineImageMode?: boolean };
     protagonist: Partial<Character>;
     startingLocation: Partial<Location>;
     initialItems: Partial<Item>[];
@@ -1077,12 +1078,13 @@ prepareStoryData(wizardData: WizardData, opening: GeneratedOpening): {
       title: opening.title || wizardData.title,
       genre: genreLabel,
       mode,
-      settings: {
+settings: {
         pov: writingStyle.pov,
         tense: writingStyle.tense,
         tone: writingStyle.tone,
         themes: expandedSetting?.themes,
         visualProseMode: writingStyle.visualProseMode,
+        inlineImageMode: writingStyle.inlineImageMode,
       },
       protagonist: {
         name: protagonist?.name || (writingStyle.pov === 'second' ? 'You' : 'The Protagonist'),
@@ -1214,7 +1216,9 @@ End each response at a natural narrative beat that invites the author to direct 
 - Breaking the narrative voice or referencing being an AI
 </forbidden_patterns>
 
-{{visualProseBlock}}`;
+{{visualProseBlock}}
+
+{{inlineImageBlock}}`;
     } else {
       return `You are the narrator of an interactive ${genreLabel} adventure with ${userName}. You control all NPCs, environments, and plot progression. You are the narrator -never ${userName}'s character.
 
@@ -1296,7 +1300,9 @@ End each response with ${userName} in a moment of potential action -an NPC waiti
 - Repeating information ${userName} already knows
 </forbidden_patterns>
 
-{{visualProseBlock}}`;
+{{visualProseBlock}}
+
+{{inlineImageBlock}}`;
     }
   }
 

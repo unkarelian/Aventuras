@@ -1,7 +1,9 @@
 import { scopeCssSelectors } from './cssScope';
+import { hasIncompletePicTag } from './inlineImageParser';
 
 /**
  * StreamingHtmlRenderer - Handles incremental HTML parsing for Visual Prose Mode.
+
 
  *
  * Features:
@@ -54,8 +56,15 @@ export class StreamingHtmlRenderer {
     }
   }
 
-  private findSafeRenderPoint(): number {
+private findSafeRenderPoint(): number {
     const html = this.buffer;
+
+    // Check for incomplete <pic> tags (inline image mode)
+    const picResult = hasIncompletePicTag(html);
+    if (picResult.incomplete) {
+      // If we have an incomplete <pic> tag, only render up to that point
+      return Math.min(this.findHtmlSafePoint(html), picResult.safeEnd);
+    }
 
     // Check if we're inside an incomplete <style> block
     const styleOpenIndex = html.lastIndexOf('<style');
@@ -65,6 +74,10 @@ export class StreamingHtmlRenderer {
       return styleOpenIndex;
     }
 
+    return this.findHtmlSafePoint(html);
+  }
+
+  private findHtmlSafePoint(html: string): number {
     // Find last complete tag (last '>' not inside an incomplete tag or comment)
     let lastSafeIndex = 0;
     let inTag = false;

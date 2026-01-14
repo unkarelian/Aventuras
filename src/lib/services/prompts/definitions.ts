@@ -551,6 +551,50 @@ Create atmospheric layouts, styled dialogue, themed visual elements. Match visua
 </VisualProse>`,
 };
 
+/**
+ * Inline Image instructions macro - <pic> tag instructions
+ * Injected when Inline Image Mode is enabled for a story
+ */
+const inlineImageInstructionsMacro: SimpleMacro = {
+  id: 'inline-image-instructions',
+  name: 'Inline Image Instructions',
+  token: 'inlineImageInstructions',
+  type: 'simple',
+  builtin: true,
+  dynamic: false,
+  description: 'Instructions for embedding <pic> image tags directly in narrative',
+  defaultValue: `<InlineImages>
+You can embed images directly in your narrative using the <pic> tag. Images will be generated automatically where you place these tags.
+
+**TAG FORMAT:**
+<pic prompt="[detailed visual description]" characters="[character names]"></pic>
+
+**ATTRIBUTES:**
+- \`prompt\` (REQUIRED): A detailed visual description for image generation. Write as a complete scene description, NOT a reference to the text.
+- \`characters\` (optional): Comma-separated names of characters appearing in the image (for portrait reference).
+
+**USAGE GUIDELINES:**
+- Place <pic> tags AFTER the prose that describes the scene they illustrate
+- Write prompts as detailed visual descriptions: subject, action, setting, mood, lighting, art style
+- Include character names in the "characters" attribute if they appear in the image
+- Use sparingly: 1-3 images per response maximum, reserved for impactful visual moments
+- Best used for: dramatic reveals, emotional peaks, action climaxes, new locations, important character moments
+
+**EXAMPLE:**
+The dragon descended from the storm clouds, its obsidian scales gleaming with each flash of lightning.
+<pic prompt="A massive black dragon descending from dark storm clouds, scales gleaming with rain, lightning illuminating the scene, dramatic low angle shot, dark fantasy art style" characters=""></pic>
+
+Elena drew her blade, firelight dancing along the steel edge as she faced the creature.
+<pic prompt="Young woman warrior with determined expression drawing a glowing sword, firelight reflecting on blade and face, medieval interior background, dramatic lighting, fantasy art" characters="Elena"></pic>
+
+**CRITICAL RULES:**
+- The prompt must be a COMPLETE visual description - do not write "the dragon from the scene" or "as described above"
+- Never place <pic> tags in the middle of a sentence - always after the descriptive prose
+- Do not use <pic> for every scene - reserve for truly striking visual moments
+- Keep prompts between 50-150 words for best results
+</InlineImages>`,
+};
+
 // ============================================================================
 // COMBINED BUILTIN MACROS
 // ============================================================================
@@ -566,6 +610,7 @@ export const BUILTIN_MACROS: Macro[] = [
   themesMacro,
   storyContextBlockMacro,
   visualProseInstructionsMacro,
+  inlineImageInstructionsMacro,
   // Complex macros
   styleInstructionMacro,
   responseInstructionMacro,
@@ -591,6 +636,7 @@ export const CONTEXT_PLACEHOLDERS: ContextPlaceholder[] = [
   { id: 'active-threads', name: 'Active Threads', token: 'activeThreads', category: 'story', description: 'Currently active story threads and plot points' },
   { id: 'lorebook-context', name: 'Lorebook Context', token: 'lorebookContext', category: 'story', description: 'Relevant lorebook entries for the current context' },
   { id: 'visual-prose-block', name: 'Visual Prose Block', token: 'visualProseBlock', category: 'story', description: 'Visual Prose instructions (empty if disabled, full instructions if enabled)' },
+  { id: 'inline-image-block', name: 'Inline Image Block', token: 'inlineImageBlock', category: 'story', description: 'Inline image instructions (empty if disabled, full instructions if enabled)' },
 
   // Entity tracking
   { id: 'entity-counts', name: 'Entity Counts', token: 'entityCounts', category: 'entities', description: 'Count of tracked characters, locations, items, etc.' },
@@ -764,7 +810,8 @@ When [LOREBOOK CONTEXT] is provided, treat it as canonical:
 {{responseInstruction}}
 </response_instruction>
 
-{{visualProseBlock}}`,
+{{visualProseBlock}}
+{{inlineImageBlock}}`,
 };
 
 /**
@@ -881,7 +928,8 @@ When [LOREBOOK CONTEXT] is provided, treat it as canonical:
 {{responseInstruction}}
 </response_instruction>
 
-{{visualProseBlock}}`,
+{{visualProseBlock}}
+{{inlineImageBlock}}`,
 };
 
 // ============================================================================
