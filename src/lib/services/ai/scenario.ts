@@ -38,10 +38,13 @@ export interface ProcessSettings {
 
 export interface AdvancedWizardSettings {
   settingExpansion: ProcessSettings;
+  settingRefinement: ProcessSettings;
   protagonistGeneration: ProcessSettings;
   characterElaboration: ProcessSettings;
+  characterRefinement: ProcessSettings;
   supportingCharacters: ProcessSettings;
   openingGeneration: ProcessSettings;
+  openingRefinement: ProcessSettings;
 }
 
 // Legacy default prompts - kept for backwards compatibility with stored settings
@@ -162,6 +165,17 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       providerOnly: [],
       manualBody: '',
     },
+    settingRefinement: {
+      profileId: DEFAULT_OPENROUTER_PROFILE_ID,
+      model: 'deepseek/deepseek-v3.2',
+      systemPrompt: '',
+      temperature: 0.3,
+      topP: 0.95,
+      maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
+    },
     protagonistGeneration: {
       profileId: DEFAULT_OPENROUTER_PROFILE_ID,
       model: 'deepseek/deepseek-v3.2', // deepseek for protagonist generation
@@ -177,6 +191,17 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       profileId: DEFAULT_OPENROUTER_PROFILE_ID,
       model: 'deepseek/deepseek-v3.2', // deepseek for character elaboration
       systemPrompt: DEFAULT_PROMPTS.characterElaboration,
+      temperature: 0.3,
+      topP: 0.95,
+      maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
+    },
+    characterRefinement: {
+      profileId: DEFAULT_OPENROUTER_PROFILE_ID,
+      model: 'deepseek/deepseek-v3.2',
+      systemPrompt: '',
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 8192,
@@ -205,6 +230,17 @@ export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
       providerOnly: [],
       manualBody: '',
     },
+    openingRefinement: {
+      profileId: DEFAULT_OPENROUTER_PROFILE_ID,
+      model: 'z-ai/glm-4.7',
+      systemPrompt: '',
+      temperature: 0.8,
+      topP: 0.95,
+      maxTokens: 8192,
+      reasoningEffort: 'high',
+      providerOnly: [],
+      manualBody: '',
+    },
   };
 }
 
@@ -217,6 +253,17 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderPreset):
       profileId,
       model: 'deepseek/deepseek-v3.2',
       systemPrompt: DEFAULT_PROMPTS.settingExpansion,
+      temperature: 0.3,
+      topP: 0.95,
+      maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
+    },
+    settingRefinement: {
+      profileId,
+      model: 'deepseek/deepseek-v3.2',
+      systemPrompt: '',
       temperature: 0.3,
       topP: 0.95,
       maxTokens: 8192,
@@ -246,6 +293,17 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderPreset):
       providerOnly: [],
       manualBody: '',
     },
+    characterRefinement: {
+      profileId,
+      model: 'deepseek/deepseek-v3.2',
+      systemPrompt: '',
+      temperature: 0.3,
+      topP: 0.95,
+      maxTokens: 8192,
+      reasoningEffort: 'off',
+      providerOnly: [],
+      manualBody: '',
+    },
     supportingCharacters: {
       profileId,
       model: SCENARIO_MODEL,
@@ -257,6 +315,17 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderPreset):
       manualBody: '',
     },
     openingGeneration: {
+      profileId,
+      model: openingModel,
+      systemPrompt: '',
+      temperature: 0.8,
+      topP: 0.95,
+      maxTokens: 8192,
+      reasoningEffort: 'high',
+      providerOnly: [],
+      manualBody: '',
+    },
+    openingRefinement: {
       profileId,
       model: openingModel,
       systemPrompt: '',
@@ -481,7 +550,7 @@ class ScenarioService {
       }
     ];
 
-    const model = overrides?.model || 'deepseek/deepseek-v3.2';
+    const model = overrides?.model || 'z-ai/glm-4.7';
 
     const response = await provider.generateResponse({
       messages,
@@ -978,7 +1047,7 @@ class ScenarioService {
     ];
 
     // Use z-ai provider for GLM models
-    const model = overrides?.model || 'z-ai/glm-4.7';
+    const model = overrides?.model || 'deepseek/deepseek-v3.2';
     const isZAI = model.startsWith('z-ai/');
     const isGLM = model.includes('glm');
 

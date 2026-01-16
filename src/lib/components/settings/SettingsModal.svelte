@@ -152,10 +152,13 @@
   // Process labels for UI
   const processLabels: Record<keyof AdvancedWizardSettings, string> = {
     settingExpansion: 'Setting Expansion',
+    settingRefinement: 'Setting Refinement',
     protagonistGeneration: 'Protagonist Generation',
     characterElaboration: 'Character Elaboration',
+    characterRefinement: 'Character Refinement',
     supportingCharacters: 'Supporting Characters',
     openingGeneration: 'Opening Generation',
+    openingRefinement: 'Opening Refinement',
   };
 
   // Profile state
@@ -362,6 +365,12 @@
         maxTokens: 8192,
         topP: 0.95,
       },
+      settingRefinement: {
+        model: 'deepseek/deepseek-v3.2',
+        temperature: 0.3,
+        maxTokens: 8192,
+        topP: 0.95,
+      },
       protagonistGeneration: {
         model: 'deepseek/deepseek-v3.2',
         temperature: 0.3,
@@ -369,6 +378,12 @@
         topP: 0.95,
       },
       characterElaboration: {
+        model: 'deepseek/deepseek-v3.2',
+        temperature: 0.3,
+        maxTokens: 8192,
+        topP: 0.95,
+      },
+      characterRefinement: {
         model: 'deepseek/deepseek-v3.2',
         temperature: 0.3,
         maxTokens: 8192,
@@ -385,6 +400,12 @@
         maxTokens: 8192,
         topP: 0.95,
       },
+      openingRefinement: {
+        model: 'z-ai/glm-4.7',
+        temperature: 0.8,
+        maxTokens: 8192,
+        topP: 0.95,
+      },
     };
 
     for (const processKey of Object.keys(processLabels) as (keyof AdvancedWizardSettings)[]) {
@@ -396,7 +417,7 @@
         temperature: processSettings.temperature ?? defaults.temperature,
         maxTokens: processSettings.maxTokens ?? defaults.maxTokens,
         topP: processSettings.topP ?? defaults.topP,
-        baseProvider: processKey === 'openingGeneration'
+        baseProvider: (processKey === 'openingGeneration' || processKey === 'openingRefinement')
           ? getOpeningProvider(model)
           : SCENARIO_PROVIDER,
         reasoningEffort: processSettings.reasoningEffort,

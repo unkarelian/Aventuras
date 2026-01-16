@@ -1360,10 +1360,13 @@ class SettingsStore {
           const defaults = getDefaultAdvancedSettings();
           this.wizardSettings = {
             settingExpansion: { ...defaults.settingExpansion, ...loaded.settingExpansion },
+            settingRefinement: { ...defaults.settingRefinement, ...loaded.settingRefinement },
             protagonistGeneration: { ...defaults.protagonistGeneration, ...loaded.protagonistGeneration },
             characterElaboration: { ...defaults.characterElaboration, ...loaded.characterElaboration },
+            characterRefinement: { ...defaults.characterRefinement, ...loaded.characterRefinement },
             supportingCharacters: { ...defaults.supportingCharacters, ...loaded.supportingCharacters },
             openingGeneration: { ...defaults.openingGeneration, ...loaded.openingGeneration },
+            openingRefinement: { ...defaults.openingRefinement, ...loaded.openingRefinement },
           };
         } catch {
           // If parsing fails, use defaults

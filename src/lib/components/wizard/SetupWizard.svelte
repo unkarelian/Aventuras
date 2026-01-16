@@ -463,7 +463,7 @@
         expandedSetting,
         selectedGenre,
         customGenre || undefined,
-        settings.wizardSettings.settingExpansion,
+        settings.wizardSettings.settingRefinement,
         lorebookContext,
         settingElaborationGuidance.trim() || undefined,
       );
@@ -678,7 +678,7 @@
         expandedSetting,
         selectedGenre,
         customGenre || undefined,
-        settings.wizardSettings.characterElaboration,
+        settings.wizardSettings.characterRefinement,
         characterElaborationGuidance.trim() || undefined,
       );
       characterElaborationGuidance = "";
@@ -981,7 +981,7 @@
       generatedOpening = await scenarioService.refineOpening(
         wizardData,
         currentOpening,
-        settings.wizardSettings.openingGeneration,
+        settings.wizardSettings.openingRefinement,
         lorebookContext,
       );
       clearOpeningEditState();
