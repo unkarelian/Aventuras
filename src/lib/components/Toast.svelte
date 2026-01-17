@@ -33,20 +33,20 @@
 
 {#if ui.toastVisible}
   <div
-    class="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] flex items-start gap-3 px-5 py-4 rounded-xl shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 {getBackgroundColor()} max-w-lg sm:cursor-default cursor-pointer"
+    class="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] flex items-start gap-3 px-4 py-3 rounded-lg shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 {getBackgroundColor()} w-[calc(100vw-2rem)] max-w-2xl sm:top-4 sm:px-5 sm:py-4 sm:rounded-xl sm:max-w-lg sm:cursor-default cursor-pointer"
     role="alert"
     onmouseenter={() => ui.setToastHovering(true)}
     onmouseleave={() => ui.setToastHovering(false)}
     onclick={handleClick}
   >
-    <svelte:component this={getIcon()} class="h-6 w-6 text-white shrink-0 mt-0.5" />
-    <span class="text-base font-medium text-white leading-snug flex-1">{ui.toastMessage}</span>
+    <svelte:component this={getIcon()} class="h-5 w-5 text-white shrink-0 mt-0.5 sm:h-6 sm:w-6" />
+    <span class="text-sm font-medium text-white leading-snug flex-1 sm:text-base">{ui.toastMessage}</span>
     <button
       class="hidden sm:flex text-white/70 hover:text-white transition-colors shrink-0 ml-2"
       onclick={(e) => { e.stopPropagation(); handleClick(); }}
       aria-label="Close notification"
     >
-      <X class="h-5 w-5" />
+      <X class="h-4 w-4 sm:h-5 sm:w-5" />
     </button>
   </div>
 {/if}
