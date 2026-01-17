@@ -425,7 +425,7 @@
         seed,
         selectedGenre,
         customGenre || undefined,
-        settings.wizardSettings.settingExpansion,
+        settings.servicePresetAssignments['wizard:settingExpansion'],
         lorebookContext,
         settingElaborationGuidance.trim() || undefined,
       );
@@ -463,7 +463,7 @@
         expandedSetting,
         selectedGenre,
         customGenre || undefined,
-        settings.wizardSettings.settingRefinement,
+        settings.servicePresetAssignments['wizard:settingRefinement'],
         lorebookContext,
         settingElaborationGuidance.trim() || undefined,
       );
@@ -502,7 +502,7 @@
         selectedMode,
         selectedPOV,
         customGenre || undefined,
-        settings.wizardSettings.protagonistGeneration,
+        settings.servicePresetAssignments['wizard:protagonistGeneration'],
       );
     } catch (error) {
       console.error("Failed to generate protagonist:", error);
@@ -648,7 +648,7 @@
         expandedSetting,
         selectedGenre,
         customGenre || undefined,
-        settings.wizardSettings.characterElaboration,
+        settings.servicePresetAssignments['wizard:characterElaboration'],
         characterElaborationGuidance.trim() || undefined,
       );
       showManualInput = false;
@@ -678,7 +678,7 @@
         expandedSetting,
         selectedGenre,
         customGenre || undefined,
-        settings.wizardSettings.characterRefinement,
+        settings.servicePresetAssignments['wizard:characterRefinement'],
         characterElaborationGuidance.trim() || undefined,
       );
       characterElaborationGuidance = "";
@@ -717,7 +717,7 @@
         selectedGenre,
         3,
         customGenre || undefined,
-        settings.wizardSettings.supportingCharacters,
+        settings.servicePresetAssignments['wizard:supportingCharacters'],
       );
     } catch (error) {
       console.error("Failed to generate characters:", error);
@@ -815,7 +815,7 @@
         expandedSetting,
         selectedGenre,
         customGenre || undefined,
-        settings.wizardSettings.characterElaboration,
+        settings.servicePresetAssignments['wizard:characterElaboration'],
         supportingCharacterGuidance.trim() || undefined,
       );
 
@@ -894,7 +894,7 @@
     try {
       generatedOpening = await scenarioService.generateOpening(
         wizardData,
-        settings.wizardSettings.openingGeneration,
+        settings.servicePresetAssignments['wizard:openingGeneration'],
         lorebookContext,
       );
     } catch (error) {
@@ -981,7 +981,7 @@
       generatedOpening = await scenarioService.refineOpening(
         wizardData,
         currentOpening,
-        settings.wizardSettings.openingRefinement,
+        settings.servicePresetAssignments['wizard:openingRefinement'],
         lorebookContext,
       );
       clearOpeningEditState();
