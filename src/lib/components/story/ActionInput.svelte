@@ -1211,7 +1211,6 @@
         story.locations,
         story.items,
         story.storyBeats,
-        story.lorebookEntries,
         embeddedImages,
         content,
         rawInput,
@@ -1303,7 +1302,6 @@
           locations: backup.locations,
           items: backup.items,
           storyBeats: backup.storyBeats,
-          lorebookEntries: backup.lorebookEntries,
           embeddedImages: backup.embeddedImages,
           timeTracker: backup.timeTracker,
         });
@@ -1327,7 +1325,6 @@
             locationIds: backup.locationIds,
             itemIds: backup.itemIds,
             storyBeatIds: backup.storyBeatIds,
-            lorebookEntryIds: backup.lorebookEntryIds,
             embeddedImageIds: backup.embeddedImageIds,
           });
         } else {
@@ -1481,7 +1478,6 @@
           locations: backup.locations,
           items: backup.items,
           storyBeats: backup.storyBeats,
-          lorebookEntries: backup.lorebookEntries,
           embeddedImages: backup.embeddedImages,
           timeTracker: backup.timeTracker,
         });
@@ -1504,7 +1500,6 @@
             locationIds: backup.locationIds,
             itemIds: backup.itemIds,
             storyBeatIds: backup.storyBeatIds,
-            lorebookEntryIds: backup.lorebookEntryIds,
             embeddedImageIds: backup.embeddedImageIds,
           });
         } else {

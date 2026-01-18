@@ -996,7 +996,7 @@ class DatabaseService {
   /**
    * Restore story state from a retry backup.
    * Similar to restoreCheckpoint but designed for the "retry last message" feature.
-   * Does NOT touch chapters (those are more permanent).
+   * Does NOT touch chapters or lorebook entries (those are more permanent).
    */
   async restoreRetryBackup(
     storyId: string,
@@ -1005,19 +1005,17 @@ class DatabaseService {
     locations: Location[],
     items: Item[],
     storyBeats: StoryBeat[],
-    lorebookEntries: Entry[],
     embeddedImages: EmbeddedImage[] = []
   ): Promise<void> {
     const db = await this.getDb();
 
-    // Delete current state (except chapters which are more permanent)
+    // Delete current state (except chapters and lorebook entries which are more permanent)
     // Note: embedded_images will be cascade-deleted when story_entries are deleted
     await db.execute('DELETE FROM story_entries WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM characters WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM locations WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM items WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM story_beats WHERE story_id = ?', [storyId]);
-    await db.execute('DELETE FROM entries WHERE story_id = ?', [storyId]);
 
     // Restore entries
     for (const entry of entries) {
@@ -1042,11 +1040,6 @@ class DatabaseService {
     // Restore story beats
     for (const beat of storyBeats) {
       await this.addStoryBeat(beat);
-    }
-
-    // Restore lorebook entries
-    for (const entry of lorebookEntries) {
-      await this.addEntry(entry);
     }
 
     // Restore embedded images

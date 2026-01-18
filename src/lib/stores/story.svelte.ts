@@ -835,13 +835,14 @@ class StoryStore {
    * Delete entities that were created after the backup.
    * Used for persistent retry restore to remove AI-extracted entities.
    * Compares current entity IDs against the saved ID lists and deletes any not in the lists.
+   * NOTE: Lorebook entries are NOT included as they are independent of retry operations
+   * (they are based on permanent chapters, not current chat).
    */
   async deleteEntitiesCreatedAfterBackup(savedIds: {
     characterIds: string[];
     locationIds: string[];
     itemIds: string[];
     storyBeatIds: string[];
-    lorebookEntryIds: string[];
     embeddedImageIds?: string[];
   }): Promise<void> {
     if (!this.currentStory) throw new Error('No story loaded');
@@ -850,7 +851,6 @@ class StoryStore {
     const locationIdsSet = new Set(savedIds.locationIds);
     const itemIdsSet = new Set(savedIds.itemIds);
     const storyBeatIdsSet = new Set(savedIds.storyBeatIds);
-    const lorebookEntryIdsSet = new Set(savedIds.lorebookEntryIds);
     const embeddedImageIdsSet = new Set(savedIds.embeddedImageIds ?? []);
 
     // Find entities to delete (not in saved lists)
@@ -858,7 +858,6 @@ class StoryStore {
     const locationsToDelete = this.locations.filter(l => !locationIdsSet.has(l.id));
     const itemsToDelete = this.items.filter(i => !itemIdsSet.has(i.id));
     const storyBeatsToDelete = this.storyBeats.filter(sb => !storyBeatIdsSet.has(sb.id));
-    const lorebookEntriesToDelete = this.lorebookEntries.filter(le => !lorebookEntryIdsSet.has(le.id));
 
     // Embedded images are not in memory - fetch from database to find ones to delete
     // Note: Many embedded images may already be deleted via CASCADE when entries are deleted
@@ -872,7 +871,6 @@ class StoryStore {
       locations: locationsToDelete.length,
       items: itemsToDelete.length,
       storyBeats: storyBeatsToDelete.length,
-      lorebookEntries: lorebookEntriesToDelete.length,
       embeddedImages: embeddedImagesToDelete.length,
     });
 
@@ -889,9 +887,6 @@ class StoryStore {
     for (const storyBeat of storyBeatsToDelete) {
       await database.deleteStoryBeat(storyBeat.id);
     }
-    for (const lorebookEntry of lorebookEntriesToDelete) {
-      await database.deleteEntry(lorebookEntry.id);
-    }
     for (const embeddedImage of embeddedImagesToDelete) {
       await database.deleteEmbeddedImage(embeddedImage.id);
     }
@@ -901,7 +896,6 @@ class StoryStore {
     this.locations = this.locations.filter(l => locationIdsSet.has(l.id));
     this.items = this.items.filter(i => itemIdsSet.has(i.id));
     this.storyBeats = this.storyBeats.filter(sb => storyBeatIdsSet.has(sb.id));
-    this.lorebookEntries = this.lorebookEntries.filter(le => lorebookEntryIdsSet.has(le.id));
 
     // Update story's updatedAt
     await database.updateStory(this.currentStory.id, {});
@@ -2503,18 +2497,17 @@ const newConfig = { ...this.memoryConfig, ...updates };
       backup.locations,
       backup.items,
       backup.storyBeats,
-      backup.lorebookEntries,
       backup.embeddedImages
     );
 
     // Reload from database to ensure a clean, fully restored state
-    const [entries, characters, locations, items, storyBeats, lorebookEntries] = await Promise.all([
+    // Note: Lorebook entries are NOT reloaded as they persist across retry operations
+    const [entries, characters, locations, items, storyBeats] = await Promise.all([
       database.getStoryEntries(this.currentStory.id),
       database.getCharacters(this.currentStory.id),
       database.getLocations(this.currentStory.id),
       database.getItems(this.currentStory.id),
       database.getStoryBeats(this.currentStory.id),
-      database.getEntries(this.currentStory.id),
     ]);
 
     // Debug: Log what we got back from database
@@ -2527,12 +2520,12 @@ const newConfig = { ...this.memoryConfig, ...updates };
     });
 
     // Update local state
+    // Note: Lorebook entries are NOT updated as they persist across retry operations
     this.entries = entries;
     this.characters = characters;
     this.locations = locations;
     this.items = items;
     this.storyBeats = storyBeats;
-    this.lorebookEntries = lorebookEntries;
 
     // Invalidate caches after state restore
     this.invalidateWordCountCache();

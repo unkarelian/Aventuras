@@ -32,7 +32,6 @@ export interface RetryBackup {
   locations: Location[];
   items: Item[];
   storyBeats: StoryBeat[];
-  lorebookEntries: Entry[];
   embeddedImages: EmbeddedImage[];
   // The user's input to re-trigger
   userActionContent: string;
@@ -53,7 +52,6 @@ export interface RetryBackup {
   locationIds: string[];
   itemIds: string[];
   storyBeatIds: string[];
-  lorebookEntryIds: string[];
   embeddedImageIds?: string[];
   characterSnapshots?: PersistentCharacterSnapshot[];
   // Time tracker snapshot (undefined means "don't restore", null means "clear it")
@@ -445,7 +443,6 @@ class UIStore {
     locations: Location[],
     items: Item[],
     storyBeats: StoryBeat[],
-    lorebookEntries: Entry[],
     embeddedImages: EmbeddedImage[],
     userActionContent: string,
     rawInput: string,
@@ -461,7 +458,6 @@ class UIStore {
     const locationIds = locations.map(l => l.id);
     const itemIds = items.map(i => i.id);
     const storyBeatIds = storyBeats.map(sb => sb.id);
-    const lorebookEntryIds = lorebookEntries.map(le => le.id);
     const embeddedImageIds = embeddedImages.map(ei => ei.id);
     const characterSnapshots: PersistentCharacterSnapshot[] = characters.map(c => ({
       id: c.id,
@@ -504,17 +500,6 @@ class UIStore {
         connections: [...(l.connections || [])],
       }));
 
-    // For lorebook entries, copy nested arrays (aliases, injection.keywords)
-    const copyLorebookEntries = (entries: Entry[]): Entry[] =>
-      entries.map(e => ({
-        ...e,
-        aliases: [...(e.aliases || [])],
-        injection: e.injection ? {
-          ...e.injection,
-          keywords: [...(e.injection.keywords || [])],
-        } : e.injection,
-      }));
-
     const backup: RetryBackup = {
       storyId,
       timestamp,
@@ -526,7 +511,6 @@ class UIStore {
       locations: copyLocations(locations),
       items: shallowCopyArray(items),
       storyBeats: shallowCopyArray(storyBeats),
-      lorebookEntries: copyLorebookEntries(lorebookEntries),
       characterSnapshots,
       userActionContent,
       rawInput,
@@ -544,7 +528,6 @@ class UIStore {
       locationIds,
       itemIds,
       storyBeatIds,
-      lorebookEntryIds,
       embeddedImageIds,
       // Time tracker snapshot
       timeTracker: timeTracker ? { ...timeTracker } : null,
@@ -593,7 +576,6 @@ class UIStore {
         locationIds,
         itemIds,
         storyBeatIds,
-        lorebookEntryIds,
         embeddedImageIds,
         characterSnapshots,
         timeTracker: timeTracker ? { ...timeTracker } : null,
@@ -693,8 +675,7 @@ class UIStore {
     const hasEntityIds = Array.isArray(retryState.characterIds)
       && Array.isArray(retryState.locationIds)
       && Array.isArray(retryState.itemIds)
-      && Array.isArray(retryState.storyBeatIds)
-      && Array.isArray(retryState.lorebookEntryIds);
+      && Array.isArray(retryState.storyBeatIds);
 
     const backup: RetryBackup = {
       storyId,
@@ -705,7 +686,6 @@ class UIStore {
       locations: [],
       items: [],
       storyBeats: [],
-      lorebookEntries: [],
       embeddedImages: [],
       // User input data
       userActionContent: retryState.userActionContent,
@@ -724,7 +704,6 @@ class UIStore {
       locationIds: retryState.locationIds ?? [],
       itemIds: retryState.itemIds ?? [],
       storyBeatIds: retryState.storyBeatIds ?? [],
-      lorebookEntryIds: retryState.lorebookEntryIds ?? [],
       embeddedImageIds: retryState.embeddedImageIds,
       characterSnapshots: retryState.characterSnapshots,
       // Time tracker snapshot (undefined means "skip restore", null means "clear")
@@ -793,7 +772,6 @@ class UIStore {
           locationIds: backup.locationIds,
           itemIds: backup.itemIds,
           storyBeatIds: backup.storyBeatIds,
-          lorebookEntryIds: backup.lorebookEntryIds,
           embeddedImageIds: backup.embeddedImageIds,
           characterSnapshots: backup.characterSnapshots,
           timeTracker: backup.timeTracker,

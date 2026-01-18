@@ -47,7 +47,6 @@ export interface PersistentRetryState {
   locationIds: string[];
   itemIds: string[];
   storyBeatIds: string[];
-  lorebookEntryIds: string[];
   embeddedImageIds?: string[];  // Added in v1.4.0 for image generation
   characterSnapshots?: PersistentCharacterSnapshot[]; // Added in v1.4.1 for retry state restoration
   // Story time snapshot captured before the user action (optional for backwards compatibility)
