@@ -6,7 +6,6 @@ import type {
   Location,
   Item,
   StoryBeat,
-  Template,
   Chapter,
   Checkpoint,
   Branch,
@@ -728,31 +727,6 @@ class DatabaseService {
   async deleteStoryBeat(id: string): Promise<void> {
     const db = await this.getDb();
     await db.execute('DELETE FROM story_beats WHERE id = ?', [id]);
-  }
-
-  // Template operations
-  async getTemplates(): Promise<Template[]> {
-    const db = await this.getDb();
-    const results = await db.select<any[]>('SELECT * FROM templates ORDER BY is_builtin DESC, name ASC');
-    return results.map(this.mapTemplate);
-  }
-
-  async addTemplate(template: Template): Promise<void> {
-    const db = await this.getDb();
-    await db.execute(
-      `INSERT INTO templates (id, name, description, genre, system_prompt, initial_state, is_builtin, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        template.id,
-        template.name,
-        template.description,
-        template.genre,
-        template.systemPrompt,
-        template.initialState ? JSON.stringify(template.initialState) : null,
-        template.isBuiltin ? 1 : 0,
-        template.createdAt,
-      ]
-    );
   }
 
   // Chapter operations
@@ -1558,19 +1532,6 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
       resolvedAt: row.resolved_at ?? null,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
       branchId: row.branch_id || null,
-    };
-  }
-
-  private mapTemplate(row: any): Template {
-    return {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      genre: row.genre,
-      systemPrompt: row.system_prompt,
-      initialState: row.initial_state ? JSON.parse(row.initial_state) : null,
-      isBuiltin: row.is_builtin === 1,
-      createdAt: row.created_at,
     };
   }
 

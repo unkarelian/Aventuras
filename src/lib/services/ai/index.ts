@@ -1,7 +1,6 @@
 import { settings } from '$lib/stores/settings.svelte';
 import { story } from '$lib/stores/story.svelte';
 import { OpenAIProvider as OpenAIProvider } from './openrouter';
-import { BUILTIN_TEMPLATES } from '$lib/services/templates';
 import { promptService, type PromptContext, type StoryMode, type POV, type Tense } from '$lib/services/prompts';
 import { ClassifierService, type ClassificationResult, type ClassificationContext, type ClassificationChatEntry } from './classifier';
 import { MemoryService, type ChapterAnalysis, type ChapterSummary, type RetrievalDecision, DEFAULT_MEMORY_CONFIG } from './memory';
@@ -102,7 +101,6 @@ class AIService {
     const mode = story?.mode || 'adventure';
 
     // Build the system prompt with world state context
-    const systemPromptOverride = story?.settings?.systemPromptOverride;
     const pov = story?.settings?.pov ?? (mode === 'creative-writing' ? 'third' : 'first');
     // For creative-writing mode, respect the user's POV selection directly
     // For adventure mode, remap first->second (player as "you"), keep third as third
@@ -113,7 +111,7 @@ class AIService {
     const protagonist = worldState.characters.find(c => c.relationship === 'self');
     const protagonistName = protagonist?.name || 'the protagonist';
     const visualProseMode = story?.settings?.visualProseMode ?? false;
-    const systemPrompt = this.buildSystemPrompt(worldState, story?.templateId, undefined, mode, undefined, systemPromptOverride, promptPov, tense, story?.timeTracker, story?.genre, story?.description, story?.settings?.tone, story?.settings?.themes, visualProseMode);
+    const systemPrompt = this.buildSystemPrompt(worldState, story?.templateId, undefined, mode, undefined, promptPov, tense, story?.timeTracker, story?.genre, story?.description, story?.settings?.tone, story?.settings?.themes, visualProseMode);
     log('System prompt built, length:', systemPrompt.length, 'mode:', mode, 'pov:', promptPov, 'tense:', tense, 'genre:', story?.genre, 'tone:', story?.settings?.tone, 'visualProseMode:', visualProseMode);
 
     // Build conversation history
@@ -227,7 +225,6 @@ class AIService {
     }
 
     // Build the system prompt with world state context
-    const systemPromptOverride = story?.settings?.systemPromptOverride;
     const pov = story?.settings?.pov ?? (mode === 'creative-writing' ? 'third' : 'first');
     // For creative-writing mode, respect the user's POV selection directly
     // For adventure mode, remap first->second (player as "you"), keep third as third
@@ -244,7 +241,6 @@ class AIService {
       undefined,
       mode,
       tieredContextBlock,
-      systemPromptOverride,
       promptPov,
       tense,
       story?.timeTracker,
@@ -1118,7 +1114,6 @@ class AIService {
     retrievedContext?: string,
     mode: 'adventure' | 'creative-writing' = 'adventure',
     tieredContextBlock?: string,
-    systemPromptOverride?: string,
     pov?: 'first' | 'second' | 'third',
     tense: 'past' | 'present' = 'present',
     timeTracker?: TimeTracker | null,
@@ -1146,44 +1141,16 @@ class AIService {
       visualProseMode: visualProseMode ?? false,
     };
 
-    // Determine the base prompt source
-    let basePrompt = '';
-    let useLegacyInjection = false;
-    let promptSource = 'none';
-
-    // Check if user has customized the global template for this mode
+    // Determine the base prompt source using the centralized prompt service
     const globalTemplateId = mode === 'creative-writing' ? 'creative-writing' : 'adventure';
     const hasGlobalTemplateOverride = promptService.hasTemplateOverride(globalTemplateId);
 
-    if (hasGlobalTemplateOverride) {
-      // User customized the global template - always prefer that over per-story overrides
-      basePrompt = promptService.getPrompt(globalTemplateId, promptContext);
-      useLegacyInjection = false;
-      promptSource = `promptService:${globalTemplateId} (global override)`;
-    } else if (systemPromptOverride) {
-      // User/wizard-provided per-story override - check if it has macros
-      basePrompt = systemPromptOverride;
-      useLegacyInjection = !this.promptHasMacros(basePrompt);
-      promptSource = 'systemPromptOverride';
-    } else if (templateId && mode === 'adventure') {
-      // Template-specific system prompt
-      const template = BUILTIN_TEMPLATES.find(t => t.id === templateId);
-      if (template?.systemPrompt) {
-        basePrompt = template.systemPrompt;
-        useLegacyInjection = !this.promptHasMacros(basePrompt);
-        promptSource = `BUILTIN_TEMPLATE:${templateId}`;
-      }
-    }
-
-    // If still no prompt, use the centralized prompt service defaults
-    if (!basePrompt) {
-      basePrompt = promptService.getPrompt(globalTemplateId, promptContext);
-      useLegacyInjection = false;
-      promptSource = `promptService:${globalTemplateId} (default)`;
-    } else if (useLegacyInjection) {
-      // Only expand macros if we're using a legacy prompt (systemPromptOverride or BUILTIN_TEMPLATE)
-      basePrompt = promptService.expandMacros(basePrompt, promptContext);
-    }
+    // All stories now use the centralized prompt service
+    // Legacy systemPromptOverride and BUILTIN_TEMPLATES have been migrated out
+    let basePrompt = promptService.getPrompt(globalTemplateId, promptContext);
+    const promptSource = hasGlobalTemplateOverride
+      ? `promptService:${globalTemplateId} (user customized)`
+      : `promptService:${globalTemplateId} (default)`;
 
     log('buildSystemPrompt', {
       mode,
@@ -1193,15 +1160,9 @@ class AIService {
       themes,
       settingDescription: settingDescription?.substring(0, 50),
       hasGlobalTemplateOverride,
-      hasSystemPromptOverride: !!systemPromptOverride,
       promptSource,
       basePromptLength: basePrompt.length,
     });
-
-    // Legacy injection: add style and response instructions if not present
-    if (useLegacyInjection) {
-      basePrompt = this.injectLegacyInstructions(basePrompt, mode, pov, tense, protagonistName);
-    }
 
     // Build world state context block
     let contextBlock = '';
@@ -1311,104 +1272,6 @@ class AIService {
     } else {
       // Remove the placeholder when Inline Image mode is disabled
       basePrompt = basePrompt.replace(/\{\{inlineImageBlock\}\}/g, '');
-    }
-
-    return basePrompt;
-  }
-
-  /**
-   * Check if a prompt contains macro syntax (for determining legacy vs new mode)
-   */
-  private promptHasMacros(prompt: string): boolean {
-    return prompt.includes('{{styleInstruction}}') ||
-           prompt.includes('{{responseInstruction}}') ||
-           prompt.includes('{{primingMessage}}');
-  }
-
-  /**
-   * Inject legacy style and response instructions for prompts without macros
-   * (backward compatibility for systemPromptOverride and template prompts)
-   */
-  private injectLegacyInstructions(
-    basePrompt: string,
-    mode: 'adventure' | 'creative-writing',
-    pov: 'first' | 'second' | 'third' | undefined,
-    tense: 'past' | 'present',
-    protagonistName: string
-  ): string {
-    const tenseInstruction = tense === 'past' ? 'PAST TENSE' : 'PRESENT TENSE';
-    const tenseRule = tense === 'past' ? 'Use PAST TENSE consistently.' : 'Use PRESENT TENSE consistently.';
-
-    // Add style instruction
-    if (mode === 'creative-writing') {
-      basePrompt += `\n\n<style_instruction>
-Write in ${tenseInstruction}, THIRD PERSON.
-Refer to the protagonist as "${protagonistName}" or "they/them".
-Example: "${protagonistName} ${tense === 'past' ? 'stepped' : 'steps'} forward..." or "They ${tense === 'past' ? 'examined' : 'examine'} the door..."
-</style_instruction>`;
-    } else if (pov === 'third') {
-      basePrompt += `\n\n<style_instruction>
-Write in ${tenseInstruction}, THIRD PERSON.
-Refer to the protagonist as "${protagonistName}" or "they/them".
-Example: "${protagonistName} ${tense === 'past' ? 'stepped' : 'steps'} forward..." or "They ${tense === 'past' ? 'examined' : 'examine'} the door..."
-Do NOT use "you" to refer to the protagonist.
-</style_instruction>`;
-    } else {
-      basePrompt += `\n\n<style_instruction>
-Write in ${tenseInstruction}, SECOND PERSON.
-Use "you/your" for the protagonist.
-Example: "You ${tense === 'past' ? 'stepped' : 'step'} forward..." or "You ${tense === 'past' ? 'examined' : 'examine'} the door..."
-</style_instruction>`;
-    }
-
-    // Add response instruction
-    if (mode === 'creative-writing') {
-      basePrompt += `\n\n<response_instruction>
-Write prose based on the author's direction:
-1. Bring the scene to life with sensory detail
-2. Write dialogue, actions, and thoughts for any character as directed
-3. Maintain consistent characterization
-
-STYLE:
-- ${tenseRule}
-- Use THIRD PERSON for all characters. Refer to the protagonist as "${protagonistName}".
-- Write vivid, engaging prose
-- Follow the author's lead on what happens
-
-End at a natural narrative beat.
-</response_instruction>`;
-    } else if (pov === 'third') {
-      basePrompt += `\n\n<response_instruction>
-Respond to the player's action with an engaging narrative continuation:
-1. Show the immediate results of their action through sensory detail
-2. Bring NPCs and environment to life with their own reactions
-3. Create new tension, opportunity, or discovery
-
-CRITICAL VOICE RULES:
-- ${tenseRule}
-- Use THIRD PERSON. Refer to the protagonist as "${protagonistName}" or "they/them".
-- Do NOT use "you" to address the protagonist.
-- You are the NARRATOR describing what happens, not the protagonist themselves.
-- NEVER write the protagonist's dialogue, thoughts, or decisions.
-
-End with a natural opening for action, not a direct question.
-</response_instruction>`;
-    } else {
-      basePrompt += `\n\n<response_instruction>
-Respond to the player's action with an engaging narrative continuation:
-1. Show the immediate results of their action through sensory detail
-2. Bring NPCs and environment to life with their own reactions
-3. Create new tension, opportunity, or discovery
-
-CRITICAL VOICE RULES:
-- ${tenseRule}
-- Use SECOND PERSON (you/your). When the player writes "I do X", respond with "You do X".
-- You are the NARRATOR describing what happens TO the player, not the player themselves.
-- NEVER use "I/me/my" as if you are the player character.
-- NEVER write the player's dialogue, thoughts, or decisions.
-
-End with a natural opening for action, not a direct question.
-</response_instruction>`;
     }
 
     return basePrompt;

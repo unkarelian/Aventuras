@@ -95,7 +95,6 @@ export interface StorySettings {
   model?: string;
   temperature?: number;
   maxTokens?: number;
-  systemPromptOverride?: string;
   pov?: POV;
   tense?: Tense;
   tone?: string;
@@ -330,22 +329,9 @@ export interface StoryBeat {
   branchId: string | null;  // Branch this beat belongs to (null = main/inherited)
 }
 
-export interface Template {
-  id: string;
-  name: string;
-  description: string | null;
-  genre: string | null;
-  systemPrompt: string;
-  initialState: TemplateInitialState | null;
-  isBuiltin: boolean;
-  createdAt: number;
-}
-
 export interface TemplateInitialState {
   protagonist?: Partial<Character>;
   startingLocation?: Partial<Location>;
-  initialItems?: Partial<Item>[];
-  openingScene?: string;
 }
 
 // Chapter for memory system

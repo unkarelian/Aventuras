@@ -1,11 +1,11 @@
 <script lang="ts">
   import { story } from '$lib/stores/story.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import { templateService, BUILTIN_TEMPLATES } from '$lib/services/templates';
+  import { QUICK_START_SEEDS, type QuickStartSeed } from '$lib/services/templates';
   import { exportService } from '$lib/services/export';
   import { ask } from '@tauri-apps/plugin-dialog';
   import { Plus, BookOpen, Trash2, Clock, Sparkles, Wand2, Rocket, Search, Skull, Heart, FileText, Upload, Sword, Feather, User, RefreshCw, Archive } from 'lucide-svelte';
-  import type { Template, StoryMode, POV } from '$lib/types';
+  import type { StoryMode, POV } from '$lib/types';
   import SetupWizard from '../wizard/SetupWizard.svelte';
 
   // File input for import (HTML-based for mobile compatibility)
@@ -14,15 +14,18 @@
   let showNewStoryModal = $state(false);
   let showSetupWizard = $state(false);
   let setupWizardKey = $state(0);
-  let newStoryTitle = $state('');
-  let selectedTemplateId = $state<string | null>(null);
+  let selectedSeedId = $state<string | null>(null);
   let selectedMode = $state<StoryMode>('adventure');
   let selectedPOV = $state<POV>('first');
-  let step = $state<'template' | 'details'>('template');
 
-  // Derived template based on selection
-  let selectedTemplate = $derived(
-    selectedTemplateId ? BUILTIN_TEMPLATES.find(t => t.id === selectedTemplateId) : null
+  // Wizard seed data (passed when opening wizard from Quick Start)
+  let wizardSeed = $state<QuickStartSeed | null>(null);
+  let wizardInitialMode = $state<StoryMode | undefined>(undefined);
+  let wizardInitialPov = $state<POV | undefined>(undefined);
+
+  // Derived seed based on selection
+  let selectedSeed = $derived(
+    selectedSeedId ? QUICK_START_SEEDS.find(t => t.id === selectedSeedId) : null
   );
 
   const templateIcons: Record<string, typeof Wand2> = {
@@ -48,51 +51,41 @@
     }
   });
 
-  function selectTemplate(templateId: string) {
-    selectedTemplateId = templateId;
-    step = 'details';
-
-    // Set default title based on template
-    const template = BUILTIN_TEMPLATES.find(t => t.id === templateId);
-    if (template && template.id !== 'custom') {
-      newStoryTitle = `My ${template.genre} Adventure`;
-    }
+  function selectSeed(seedId: string) {
+    selectedSeedId = seedId;
   }
 
-  async function createNewStory() {
-    if (!newStoryTitle.trim() || !selectedTemplateId) return;
+  function openWizardWithSeed() {
+    if (!selectedSeedId) return;
 
-    const template = BUILTIN_TEMPLATES.find(t => t.id === selectedTemplateId);
-    const newStoryData = await story.createStoryFromTemplate(
-      newStoryTitle.trim(),
-      selectedTemplateId,
-      template?.genre ?? undefined,
-      selectedMode,
-      { pov: selectedPOV, tense: selectedMode === 'creative-writing' ? 'past' : 'present' }
-    );
+    const seed = QUICK_START_SEEDS.find(s => s.id === selectedSeedId);
+    if (!seed) return;
 
-    await story.loadStory(newStoryData.id);
-    ui.setActivePanel('story');
+    // Set wizard initialization data
+    wizardSeed = seed;
+    wizardInitialMode = selectedMode;
+    wizardInitialPov = selectedMode === 'creative-writing' ? 'third' : selectedPOV;
+
+    // Close modal and open wizard
     closeModal();
-  }
-
-  function closeModal() {
-    showNewStoryModal = false;
-    newStoryTitle = '';
-    selectedTemplateId = null;
-    selectedMode = 'adventure';
-    selectedPOV = 'first';
-    step = 'template';
-  }
-
-  function openSetupWizard() {
     setupWizardKey += 1;
     showSetupWizard = true;
   }
 
-  function goBackToTemplates() {
-    step = 'template';
-    newStoryTitle = '';
+  function closeModal() {
+    showNewStoryModal = false;
+    selectedSeedId = null;
+    selectedMode = 'adventure';
+    selectedPOV = 'first';
+  }
+
+  function openSetupWizard() {
+    // Clear any seed data for a fresh wizard
+    wizardSeed = null;
+    wizardInitialMode = undefined;
+    wizardInitialPov = undefined;
+    setupWizardKey += 1;
+    showSetupWizard = true;
   }
 
   async function openStory(storyId: string) {
@@ -310,7 +303,7 @@
   </a>
 </div>
 
-<!-- New Story Modal -->
+<!-- Quick Start Modal - Select a seed to pre-populate the wizard -->
 {#if showNewStoryModal}
   <div
     class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
@@ -318,187 +311,119 @@
     aria-modal="true"
   >
     <div class="card w-full sm:max-w-2xl max-h-[90vh] sm:max-h-[80vh] overflow-hidden rounded-b-none sm:rounded-b-xl">
-      {#if step === 'template'}
-        <!-- Template Selection Step -->
-        <div class="flex items-center justify-between border-b border-surface-700 pb-4 p-4 sm:p-4 -mx-4 -mt-4 sm:mx-0 sm:mt-0">
-          <div>
-            <h2 class="text-lg sm:text-xl font-semibold text-surface-100">Choose Your Adventure</h2>
-            <p class="text-xs sm:text-sm text-surface-400">Select a genre template to get started</p>
-          </div>
-          <button
-            class="btn-ghost rounded-lg p-2 text-surface-400 hover:text-surface-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
-            onclick={closeModal}
-          >
-            ✕
-          </button>
+      <!-- Header -->
+      <div class="flex items-center justify-between border-b border-surface-700 pb-4 p-4 sm:p-4 -mx-4 -mt-4 sm:mx-0 sm:mt-0">
+        <div>
+          <h2 class="text-lg sm:text-xl font-semibold text-surface-100">Quick Start</h2>
+          <p class="text-xs sm:text-sm text-surface-400">Choose a scenario to pre-populate the wizard</p>
         </div>
+        <button
+          class="btn-ghost rounded-lg p-2 text-surface-400 hover:text-surface-100 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          onclick={closeModal}
+        >
+          ✕
+        </button>
+      </div>
 
-        <div class="grid gap-2 sm:gap-3 py-4 grid-cols-1 xs:grid-cols-2 max-h-[60vh] sm:max-h-96 overflow-y-auto">
-          {#each BUILTIN_TEMPLATES as template}
-            {@const Icon = templateIcons[template.id] ?? Sparkles}
+      <!-- Seed Selection -->
+      <div class="py-4 space-y-4">
+        <!-- Mode Selection -->
+        <div>
+          <span class="mb-2 block text-sm font-medium text-surface-300">
+            Story Mode
+          </span>
+          <div class="grid grid-cols-2 gap-3">
             <button
-              onclick={() => selectTemplate(template.id)}
-              class="card flex items-start gap-3 p-4 text-left transition-all hover:border-accent-500/50 hover:bg-surface-700/50"
-              class:border-accent-500={selectedTemplateId === template.id}
+              class="card p-3 text-left transition-all"
+              class:ring-2={selectedMode === 'adventure'}
+              class:ring-primary-500={selectedMode === 'adventure'}
+              onclick={() => selectedMode = 'adventure'}
             >
-              <div class="rounded-lg bg-surface-700 p-2">
-                <Icon class="h-5 w-5 text-accent-400" />
-              </div>
-              <div class="flex-1">
-                <h3 class="font-medium text-surface-100">{template.name}</h3>
-                <p class="mt-1 text-sm text-surface-400 line-clamp-2">{template.description}</p>
+              <div class="flex items-center gap-2">
+                <Sword class="h-4 w-4 text-primary-400" />
+                <span class="font-medium text-surface-100">Adventure</span>
               </div>
             </button>
-          {/each}
-        </div>
-      {:else}
-        <!-- Story Details Step -->
-        <div class="flex items-center justify-between border-b border-surface-700 pb-4">
-          <div class="flex items-center gap-3">
             <button
-              class="btn-ghost rounded-lg p-2 text-surface-400 hover:text-surface-100"
-              onclick={goBackToTemplates}
+              class="card p-3 text-left transition-all"
+              class:ring-2={selectedMode === 'creative-writing'}
+              class:ring-primary-500={selectedMode === 'creative-writing'}
+              onclick={() => selectedMode = 'creative-writing'}
             >
-              ←
+              <div class="flex items-center gap-2">
+                <Feather class="h-4 w-4 text-secondary-400" />
+                <span class="font-medium text-surface-100">Creative Writing</span>
+              </div>
             </button>
-            <div>
-              <h2 class="text-xl font-semibold text-surface-100">Name Your Story</h2>
-              {#if selectedTemplate}
-                <p class="text-sm text-surface-400">Template: {selectedTemplate.name}</p>
-              {/if}
-            </div>
           </div>
-          <button
-            class="btn-ghost rounded-lg p-2 text-surface-400 hover:text-surface-100"
-            onclick={closeModal}
-          >
-            ✕
-          </button>
         </div>
 
-        <div class="py-4 space-y-4">
-          <!-- Mode Selection -->
+        <!-- POV Selection (Adventure only) -->
+        {#if selectedMode === 'adventure'}
           <div>
-            <label class="mb-2 block text-sm font-medium text-surface-300">
-              Story Mode
-            </label>
-            <div class="grid grid-cols-2 gap-3">
-              <button
-                class="card p-4 text-left transition-all"
-                class:ring-2={selectedMode === 'adventure'}
-                class:ring-primary-500={selectedMode === 'adventure'}
-                onclick={() => selectedMode = 'adventure'}
-              >
-                <div class="flex items-center gap-3 mb-2">
-                  <div class="rounded-lg bg-primary-900/50 p-2">
-                    <Sword class="h-5 w-5 text-primary-400" />
-                  </div>
-                  <span class="font-medium text-surface-100">Adventure</span>
-                </div>
-                <p class="text-xs text-surface-400">
-                  You are the protagonist. Explore, interact, and make choices.
-                </p>
-              </button>
-              <button
-                class="card p-4 text-left transition-all"
-                class:ring-2={selectedMode === 'creative-writing'}
-                class:ring-primary-500={selectedMode === 'creative-writing'}
-                onclick={() => selectedMode = 'creative-writing'}
-              >
-                <div class="flex items-center gap-3 mb-2">
-                  <div class="rounded-lg bg-secondary-900/50 p-2">
-                    <Feather class="h-5 w-5 text-secondary-400" />
-                  </div>
-                  <span class="font-medium text-surface-100">Creative Writing</span>
-                </div>
-                <p class="text-xs text-surface-400">
-                  You are the author. Direct the story and craft the narrative.
-                </p>
-              </button>
-            </div>
-          </div>
-
-          <!-- POV Selection -->
-          <div>
-            <label class="mb-2 block text-sm font-medium text-surface-300">
+            <span class="mb-2 block text-sm font-medium text-surface-300">
               Point of View
-            </label>
-            {#if selectedMode === 'creative-writing'}
-              <div class="grid grid-cols-1 gap-2">
-                <button class="card p-3 text-center opacity-70 cursor-not-allowed" disabled>
-                  <span class="block font-medium text-surface-100">3rd Person</span>
-                  <span class="text-xs text-surface-400">Required for creative writing</span>
-                </button>
-              </div>
-            {:else}
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  class="card p-3 text-center transition-all"
-                  class:ring-2={selectedPOV === 'first'}
-                  class:ring-accent-500={selectedPOV === 'first'}
-                  onclick={() => selectedPOV = 'first'}
-                >
-                  <span class="block font-medium text-surface-100">1st Person</span>
-                  <span class="text-xs text-surface-400">I say...</span>
-                </button>
-                <button
-                  class="card p-3 text-center transition-all"
-                  class:ring-2={selectedPOV === 'third'}
-                  class:ring-accent-500={selectedPOV === 'third'}
-                  onclick={() => selectedPOV = 'third'}
-                >
-                  <span class="block font-medium text-surface-100">3rd Person</span>
-                  <span class="text-xs text-surface-400">Name says...</span>
-                </button>
-              </div>
-            {/if}
-          </div>
-
-          <!-- Story Title -->
-          <div>
-            <label class="mb-2 block text-sm font-medium text-surface-300">
-              Story Title
-            </label>
-            <input
-              type="text"
-              bind:value={newStoryTitle}
-              placeholder={selectedMode === 'adventure' ? 'Enter a title for your adventure...' : 'Enter a title for your story...'}
-              class="input"
-              onkeydown={(e) => e.key === 'Enter' && newStoryTitle.trim() && createNewStory()}
-            />
-          </div>
-
-          {#if selectedTemplate?.initialState?.openingScene}
-            <div class="mt-4">
-              <label class="mb-2 block text-sm font-medium text-surface-300">
-                Opening Scene Preview
-              </label>
-              <div class="rounded-lg bg-surface-900 p-4 text-sm text-surface-400 max-h-32 overflow-y-auto">
-                {selectedTemplate.initialState.openingScene}
-              </div>
+            </span>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                class="card p-2 text-center transition-all"
+                class:ring-2={selectedPOV === 'first'}
+                class:ring-accent-500={selectedPOV === 'first'}
+                onclick={() => selectedPOV = 'first'}
+              >
+                <span class="text-sm font-medium text-surface-100">1st Person</span>
+              </button>
+              <button
+                class="card p-2 text-center transition-all"
+                class:ring-2={selectedPOV === 'third'}
+                class:ring-accent-500={selectedPOV === 'third'}
+                onclick={() => selectedPOV = 'third'}
+              >
+                <span class="text-sm font-medium text-surface-100">3rd Person</span>
+              </button>
             </div>
-          {/if}
-        </div>
+          </div>
+        {/if}
 
-        <div class="flex justify-end gap-2 border-t border-surface-700 pt-4 pb-modal-safe">
-          <button class="btn btn-secondary" onclick={goBackToTemplates}>
-            Back
-          </button>
-          <button
-            class="btn btn-primary flex items-center gap-2"
-            onclick={createNewStory}
-            disabled={!newStoryTitle.trim()}
-          >
-            {#if selectedMode === 'adventure'}
-              <Sword class="h-4 w-4" />
-              Begin Adventure
-            {:else}
-              <Feather class="h-4 w-4" />
-              Start Writing
-            {/if}
-          </button>
+        <!-- Scenario Seeds -->
+        <div>
+          <span class="mb-2 block text-sm font-medium text-surface-300">
+            Choose a Scenario
+          </span>
+          <div class="grid gap-2 sm:gap-3 grid-cols-1 xs:grid-cols-2 max-h-[40vh] sm:max-h-64 overflow-y-auto">
+            {#each QUICK_START_SEEDS as seed}
+              {@const Icon = templateIcons[seed.id] ?? Sparkles}
+              <button
+                onclick={() => selectSeed(seed.id)}
+                class="card flex items-start gap-3 p-3 text-left transition-all hover:border-accent-500/50 hover:bg-surface-700/50 {selectedSeedId === seed.id ? 'border-accent-500 bg-accent-500/10' : ''}"
+              >
+                <div class="rounded-lg bg-surface-700 p-2 shrink-0">
+                  <Icon class="h-4 w-4 text-accent-400" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-medium text-surface-100 text-sm">{seed.name}</h3>
+                  <p class="mt-0.5 text-xs text-surface-400 line-clamp-2">{seed.description}</p>
+                </div>
+              </button>
+            {/each}
+          </div>
         </div>
-      {/if}
+      </div>
+
+      <!-- Footer -->
+      <div class="flex justify-end gap-2 border-t border-surface-700 pt-4 pb-modal-safe">
+        <button class="btn btn-secondary" onclick={closeModal}>
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary flex items-center gap-2"
+          onclick={openWizardWithSeed}
+          disabled={!selectedSeedId}
+        >
+          <Sparkles class="h-4 w-4" />
+          Continue to Wizard
+        </button>
+      </div>
     </div>
   </div>
 {/if}
@@ -506,6 +431,11 @@
 <!-- Setup Wizard -->
 {#if showSetupWizard}
   {#key setupWizardKey}
-    <SetupWizard onClose={() => showSetupWizard = false} />
+    <SetupWizard
+      onClose={() => showSetupWizard = false}
+      initialSeed={wizardSeed}
+      initialMode={wizardInitialMode}
+      initialPov={wizardInitialPov}
+    />
   {/key}
 {/if}

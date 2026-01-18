@@ -1,6 +1,5 @@
 import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, Checkpoint, Branch, MemoryConfig, StoryMode, StorySettings, Entry, TimeTracker, EmbeddedImage, PersistentCharacterSnapshot } from '$lib/types';
 import { database } from '$lib/services/database';
-import { BUILTIN_TEMPLATES } from '$lib/services/templates';
 import { ui } from './ui.svelte';
 import type { ClassificationResult } from '$lib/services/ai/classifier';
 import { DEFAULT_MEMORY_CONFIG } from '$lib/services/ai/memory';
@@ -510,113 +509,6 @@ class StoryStore {
     });
 
     this.allStories = [storyData, ...this.allStories];
-
-    // Emit event
-    eventBus.emit<StoryCreatedEvent>({ type: 'StoryCreated', storyId: storyData.id, mode });
-
-    return storyData;
-  }
-
-  // Create a new story from a template with initialization
-  async createStoryFromTemplate(
-    title: string,
-    templateId: string,
-    genre?: string,
-    mode: StoryMode = 'adventure',
-    settings?: StorySettings
-  ): Promise<Story> {
-    const template = BUILTIN_TEMPLATES.find(t => t.id === templateId);
-
-    // Create the base story
-    const storyData = await database.createStory({
-      id: crypto.randomUUID(),
-      title,
-      description: template?.description ?? null,
-      genre: genre ?? null,
-      templateId,
-      mode,
-      settings: settings ?? null,
-      memoryConfig: DEFAULT_MEMORY_CONFIG,
-      retryState: null,
-      styleReviewState: null,
-      timeTracker: null,
-      currentBranchId: null,
-    });
-
-    this.allStories = [storyData, ...this.allStories];
-
-    // Initialize with template data if available
-    if (template?.initialState) {
-      const state = template.initialState;
-
-      // Add protagonist as a character if defined
-      if (state.protagonist) {
-        const protagonist: Character = {
-          id: crypto.randomUUID(),
-          storyId: storyData.id,
-          name: state.protagonist.name ?? 'Protagonist',
-          description: state.protagonist.description ?? null,
-          relationship: 'self',
-          traits: state.protagonist.traits ?? [],
-          status: 'active',
-          metadata: null,
-          visualDescriptors: [],
-          portrait: null,
-          branchId: null, // New stories start on main branch
-        };
-        await database.addCharacter(protagonist);
-      }
-
-      // Add starting location if defined
-      if (state.startingLocation) {
-        const location: Location = {
-          id: crypto.randomUUID(),
-          storyId: storyData.id,
-          name: state.startingLocation.name ?? 'Starting Location',
-          description: state.startingLocation.description ?? null,
-          visited: true,
-          current: true,
-          connections: [],
-          metadata: null,
-          branchId: null, // New stories start on main branch
-        };
-        await database.addLocation(location);
-      }
-
-      // Add initial items if defined
-      if (state.initialItems) {
-        for (const itemData of state.initialItems) {
-          const item: Item = {
-            id: crypto.randomUUID(),
-            storyId: storyData.id,
-            name: itemData.name ?? 'Item',
-            description: itemData.description ?? null,
-            quantity: itemData.quantity ?? 1,
-            equipped: false,
-            location: 'inventory',
-            metadata: null,
-            branchId: null, // New stories start on main branch
-          };
-          await database.addItem(item);
-        }
-      }
-
-      // Add opening scene as first narration entry
-      if (state.openingScene) {
-        const tokenCount = countTokens(state.openingScene);
-        const baseTime = storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 };
-        await database.addStoryEntry({
-          id: crypto.randomUUID(),
-          storyId: storyData.id,
-          type: 'narration',
-          content: state.openingScene,
-          parentId: null,
-          position: 0,
-          metadata: { source: 'template', tokenCount, timeStart: { ...baseTime }, timeEnd: { ...baseTime } },
-          branchId: null,
-        });
-      }
-    }
 
     // Emit event
     eventBus.emit<StoryCreatedEvent>({ type: 'StoryCreated', storyId: storyData.id, mode });
@@ -1202,21 +1094,6 @@ class StoryStore {
       }
       return c;
     });
-
-    const promptOverride = this.currentStory.settings?.systemPromptOverride;
-    const protagonistToken = '{{protagonistName}}';
-    if (promptOverride && currentProtagonist?.name) {
-      let updatedPrompt = promptOverride;
-      if (!promptOverride.includes(protagonistToken)) {
-        const safeName = currentProtagonist.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        updatedPrompt = promptOverride.replace(new RegExp(safeName, 'g'), protagonistToken);
-      }
-      if (updatedPrompt !== promptOverride) {
-        const newSettings = { ...this.currentStory.settings, systemPromptOverride: updatedPrompt };
-        await database.updateStory(this.currentStory.id, { settings: newSettings });
-        this.currentStory = { ...this.currentStory, settings: newSettings };
-      }
-    }
   }
 
   // ===== Lorebook Entry CRUD Methods =====
