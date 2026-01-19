@@ -449,24 +449,9 @@ class ScenarioService {
 
     log('Setting expansion response received', { length: response.content.length });
 
-    try {
-      // Extract JSON from response (handle markdown code blocks)
-      let jsonStr = response.content.trim();
-      const jsonMatch = jsonStr.match(/```(?:json|JSON)?\s*\n?([\s\S]*?)\n?```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-      } else {
-        const jsonObjectMatch = jsonStr.match(/\{[\s\S]*\}/);
-        if (jsonObjectMatch) {
-          jsonStr = jsonObjectMatch[0];
-        }
-      }
-
-      const result = JSON.parse(jsonStr) as ExpandedSetting;
-      log('Setting parsed successfully', { name: result.name });
-      return result;
-    } catch (error) {
-      log('Failed to parse setting response', error);
+    const result = tryParseJsonWithHealing<ExpandedSetting>(response.content);
+    if (!result) {
+      log('Failed to parse setting response');
       // Return a fallback based on the seed
       return {
         name: 'Unnamed World',
@@ -477,6 +462,8 @@ class ScenarioService {
         potentialConflicts: ['Unknown dangers lurk ahead.'],
       };
     }
+    log('Setting parsed successfully', { name: result.name });
+    return result;
   }
 
   /**
@@ -638,23 +625,9 @@ class ScenarioService {
 
     log('Character elaboration response received', { length: response.content.length });
 
-    try {
-      let jsonStr = response.content.trim();
-      const jsonMatch = jsonStr.match(/```(?:json|JSON)?\s*\n?([\s\S]*?)\n?```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-      } else {
-        const jsonObjectMatch = jsonStr.match(/\{[\s\S]*\}/);
-        if (jsonObjectMatch) {
-          jsonStr = jsonObjectMatch[0];
-        }
-      }
-
-      const result = JSON.parse(jsonStr) as GeneratedProtagonist;
-      log('Character elaboration parsed successfully', { name: result.name });
-      return result;
-    } catch (error) {
-      log('Failed to parse character elaboration response', error);
+    const result = tryParseJsonWithHealing<GeneratedProtagonist>(response.content);
+    if (!result) {
+      log('Failed to parse character elaboration response');
       // Return what the user provided with minimal defaults
       return {
         name: userInput.name || 'The Protagonist',
@@ -664,6 +637,8 @@ class ScenarioService {
         traits: userInput.traits || ['Determined', 'Resourceful'],
       };
     }
+    log('Character elaboration parsed successfully', { name: result.name });
+    return result;
   }
 
   /**
@@ -807,23 +782,9 @@ class ScenarioService {
 
     log('Protagonist response received', { length: response.content.length });
 
-    try {
-      let jsonStr = response.content.trim();
-      const jsonMatch = jsonStr.match(/```(?:json|JSON)?\s*\n?([\s\S]*?)\n?```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-      } else {
-        const jsonObjectMatch = jsonStr.match(/\{[\s\S]*\}/);
-        if (jsonObjectMatch) {
-          jsonStr = jsonObjectMatch[0];
-        }
-      }
-
-      const result = JSON.parse(jsonStr) as GeneratedProtagonist;
-      log('Protagonist parsed successfully', { name: result.name });
-      return result;
-    } catch (error) {
-      log('Failed to parse protagonist response', error);
+    const result = tryParseJsonWithHealing<GeneratedProtagonist>(response.content);
+    if (!result) {
+      log('Failed to parse protagonist response');
       return {
         name: pov === 'second' ? 'You' : 'The Protagonist',
         description: 'A wanderer seeking adventure.',
@@ -832,6 +793,8 @@ class ScenarioService {
         traits: ['Curious', 'Determined', 'Resourceful'],
       };
     }
+    log('Protagonist parsed successfully', { name: result.name });
+    return result;
   }
 
   /**
@@ -881,26 +844,13 @@ class ScenarioService {
 
     log('Characters response received', { length: response.content.length });
 
-    try {
-      let jsonStr = response.content.trim();
-      const jsonMatch = jsonStr.match(/```(?:json|JSON)?\s*\n?([\s\S]*?)\n?```/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[1].trim();
-      } else {
-        // For arrays, look for [...] pattern
-        const jsonArrayMatch = jsonStr.match(/\[[\s\S]*\]/);
-        if (jsonArrayMatch) {
-          jsonStr = jsonArrayMatch[0];
-        }
-      }
-
-      const result = JSON.parse(jsonStr) as GeneratedCharacter[];
-      log('Characters parsed successfully', { count: result.length });
-      return result;
-    } catch (error) {
-      log('Failed to parse characters response', error);
+    const result = tryParseJsonWithHealing<GeneratedCharacter[]>(response.content);
+    if (!result) {
+      log('Failed to parse characters response');
       return [];
     }
+    log('Characters parsed successfully', { count: result.length });
+    return result;
   }
 
   /**

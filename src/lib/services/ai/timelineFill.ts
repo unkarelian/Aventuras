@@ -3,6 +3,7 @@ import type { Chapter, StoryEntry, TimeTracker, Location, GenerationPreset } fro
 import { settings } from '$lib/stores/settings.svelte';
 import { buildExtraBody } from './requestOverrides';
 import { promptService, type PromptContext, type StoryMode, type POV, type Tense } from '$lib/services/prompts';
+import { tryParseJsonWithHealing } from './jsonHealing';
 
 // Format time tracker for timeline display (always shows full format)
 function formatTime(time: TimeTracker | null): string {
@@ -436,14 +437,10 @@ export class TimelineFillService {
    */
   private parseQueriesResponse(content: string, chapters: Chapter[]): ResolvedTimelineQuery[] {
     try {
-      let jsonStr = content.trim();
-      // Remove markdown code blocks if present
-      if (jsonStr.startsWith('```json')) jsonStr = jsonStr.slice(7);
-      if (jsonStr.startsWith('```')) jsonStr = jsonStr.slice(3);
-      if (jsonStr.endsWith('```')) jsonStr = jsonStr.slice(0, -3);
-      jsonStr = jsonStr.trim();
-
-      const parsed = JSON.parse(jsonStr);
+      const parsed = tryParseJsonWithHealing<any>(content);
+      if (!parsed) {
+        return [];
+      }
       const resolvedQueries: ResolvedTimelineQuery[] = [];
 
       // Handle both array format (direct array) and object with queries property

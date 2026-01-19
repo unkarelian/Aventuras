@@ -9,6 +9,7 @@ import { OpenAIProvider as OpenAIProvider } from './ai/openrouter';
 import { settings } from '$lib/stores/settings.svelte';
 import { buildExtraBody } from '$lib/services/ai/requestOverrides';
 import { promptService, type PromptContext, type StoryMode } from '$lib/services/prompts';
+import { tryParseJsonWithHealing } from './ai/jsonHealing';
 
 const DEBUG = true;
 
@@ -272,14 +273,10 @@ export async function classifyEntriesWithLLM(
       });
 
       // Parse the response
-      try {
-        let jsonStr = response.content.trim();
-        if (jsonStr.startsWith('```')) {
-          jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```/g, '').trim();
-        }
-
-        const classifications = JSON.parse(jsonStr) as { index: number; type: string }[];
-
+      const classifications = tryParseJsonWithHealing<{ index: number; type: string }[]>(response.content);
+      if (!classifications) {
+        log('Failed to parse LLM classification response');
+      } else {
         for (const classification of classifications) {
           const validTypes: EntryType[] = ['character', 'location', 'item', 'faction', 'concept', 'event'];
           if (
@@ -299,8 +296,6 @@ export async function classifyEntriesWithLLM(
           batchSize: batch.length,
           classified: classifications.length
         });
-      } catch (parseError) {
-        log('Failed to parse LLM classification response:', parseError);
       }
     } catch (error) {
       log('LLM classification batch failed:', error);

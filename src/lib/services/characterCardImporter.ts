@@ -12,6 +12,7 @@ import { OpenAIProvider } from './ai/openrouter';
 import { settings } from '$lib/stores/settings.svelte';
 import { buildExtraBody } from '$lib/services/ai/requestOverrides';
 import { promptService, type PromptContext } from './prompts';
+import { tryParseJsonWithHealing } from './ai/jsonHealing';
 
 const DEBUG = true;
 
@@ -449,20 +450,6 @@ export async function convertCardToScenario(
 
     log('LLM response received, parsing...');
 
-    // Parse the JSON response
-    let jsonStr = response.content.trim();
-
-    // Strip markdown code blocks if present
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/^```(?:json|JSON)?\s*\n?/, '').replace(/\n?```\s*$/, '').trim();
-    }
-
-    // Try to extract JSON object
-    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[0];
-    }
-
     interface LLMNpc {
       name: string;
       role: string;
@@ -477,7 +464,10 @@ export async function convertCardToScenario(
       npcs: LLMNpc[];
     }
 
-    const result = JSON.parse(jsonStr) as ConversionResult;
+    const result = tryParseJsonWithHealing<ConversionResult>(response.content);
+    if (!result) {
+      throw new Error('Failed to parse LLM conversion response');
+    }
 
     // Get the primary character name for replacing {{char}} in first_mes
     const primaryName = result.primaryCharacterName || cardTitle;
@@ -616,16 +606,6 @@ export async function sanitizeCharacterCard(
     });
 
     log('LLM response received');
-    let jsonStr = response.content.trim();
-
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/^```(?:json|JSON)?\s*\n?/, '').replace(/\n?```\s*$/, '').trim();
-    }
-
-    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[0];
-    }
 
     interface VaultImportResult {
       name: string;
@@ -637,7 +617,10 @@ export async function sanitizeCharacterCard(
       visualDescriptors: string[];
     }
 
-    const result = JSON.parse(jsonStr) as VaultImportResult;
+    const result = tryParseJsonWithHealing<VaultImportResult>(response.content);
+    if (!result) {
+      throw new Error('Failed to parse LLM vault import response');
+    }
 
     // Validate and normalize the result
     return {
