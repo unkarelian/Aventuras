@@ -19,6 +19,7 @@ export interface AventuraExport {
   checkpoints?: Checkpoint[]; // Added in v1.6.0
   branches?: Branch[]; // Added in v1.6.0
   chapters?: Chapter[]; // Added in v1.7.0
+  currentBackgroundImage?: string; // Added in v1.8.0
 }
 
 // Version history for import compatibility
@@ -30,9 +31,10 @@ export interface AventuraExport {
 // v1.5.0 - Added character portraits
 // v1.6.0 - Added checkpoints and branches
 // v1.7.0 - Added chapters (memory system)
+// v1.8.0 - Added currentBackgroundImage
 
 class ExportService {
-  private readonly VERSION = '1.7.0';
+  private readonly VERSION = '1.8.0';
 
   /**
    * Compare semantic versions. Returns:
@@ -76,6 +78,9 @@ class ExportService {
     if (this.compareVersions(importVersion, '1.7.0') < 0) {
       console.warn(`[Import] File from v${importVersion} predates chapters (v1.7.0). Chapter summaries (memory) will not be restored.`);
     }
+    if (this.compareVersions(importVersion, '1.8.0') < 0) {
+      console.warn(`[Import] File from v${importVersion} predates background image (v1.8.0). Background image will not be restored.`);
+    }
   }
 
   // Export to Aventura format (.avt - JSON)
@@ -90,7 +95,8 @@ class ExportService {
     embeddedImages: EmbeddedImage[] = [],
     checkpoints: Checkpoint[] = [],
     branches: Branch[] = [],
-    chapters: Chapter[] = []
+    chapters: Chapter[] = [],
+    currentBackgroundImage?: string
   ): Promise<boolean> {
     const exportData: AventuraExport = {
       version: this.VERSION,
@@ -107,6 +113,7 @@ class ExportService {
       checkpoints,
       branches,
       chapters,
+      currentBackgroundImage,
     };
 
     const filePath = await save({
@@ -320,6 +327,7 @@ class ExportService {
         styleReviewState: data.styleReviewState ?? null, // Restore style review state from export (v1.2.0+)
         timeTracker: data.story.timeTracker ?? null, // Restore time tracker from export
         currentBranchId: null, // Set after branch import (if available)
+        currentBackgroundImage: data.currentBackgroundImage ?? null,
       };
 
       await database.createStory(importedStory);

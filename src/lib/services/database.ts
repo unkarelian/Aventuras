@@ -98,9 +98,10 @@ class DatabaseService {
         memory_config,
         retry_state,
         style_review_state,
-        time_tracker
+        time_tracker,
+        current_background_image
       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         story.id,
         story.title,
@@ -115,6 +116,7 @@ class DatabaseService {
         story.retryState ? JSON.stringify(story.retryState) : null,
         story.styleReviewState ? JSON.stringify(story.styleReviewState) : null,
         story.timeTracker ? JSON.stringify(story.timeTracker) : null,
+        story.currentBackgroundImage || null,
       ]
     );
     return { ...story, createdAt: now, updatedAt: now };
@@ -161,6 +163,10 @@ class DatabaseService {
     if (updates.timeTracker !== undefined) {
       setClauses.push('time_tracker = ?');
       values.push(updates.timeTracker ? JSON.stringify(updates.timeTracker) : null);
+    }
+    if (updates.currentBackgroundImage !== undefined) {
+      setClauses.push('current_background_image = ?');
+      values.push(updates.currentBackgroundImage || null);
     }
 
     values.push(id);
@@ -232,6 +238,17 @@ class DatabaseService {
     await db.execute(
       'UPDATE stories SET time_tracker = ? WHERE id = ?',
       [JSON.stringify(timeTracker), storyId]
+    );
+  }
+  
+  /**
+   * Save the current background image for a story.
+   */
+  async saveCurrentBackgroundImage(storyId: string, imageData: string | null): Promise<void> {
+    const db = await this.getDb();
+    await db.execute(
+      'UPDATE stories SET current_background_image = ? WHERE id = ?',
+      [imageData, storyId]
     );
   }
 
@@ -1458,6 +1475,7 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
       styleReviewState: row.style_review_state ? JSON.parse(row.style_review_state) : null,
       timeTracker: row.time_tracker ? JSON.parse(row.time_tracker) : null,
       currentBranchId: row.current_branch_id || null,
+      currentBackgroundImage: row.current_background_image || null,
     };
   }
 

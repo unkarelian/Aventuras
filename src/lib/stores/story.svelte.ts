@@ -30,6 +30,7 @@ class StoryStore {
   // Current active story
   currentStory = $state<Story | null>(null);
   entries = $state<StoryEntry[]>([]);
+  currentBackgroundImage = $state<string | null>(null);
 
   // Lorebook entries (per design doc section 3.2)
   lorebookEntries = $state<Entry[]>([]);
@@ -392,6 +393,7 @@ class StoryStore {
     this.checkpoints = [];
     this.lorebookEntries = [];
     this.branches = [];
+    this.currentBackgroundImage = null;
     this.invalidateWordCountCache();
     this.invalidateChapterCache();
     log('Story closed');
@@ -433,6 +435,7 @@ class StoryStore {
     this.checkpoints = checkpoints;
     this.lorebookEntries = lorebookEntries;
     this.branches = branches;
+    this.currentBackgroundImage = story.currentBackgroundImage || null;
 
     // Load entries and chapters based on current branch
     await this.reloadEntriesForCurrentBranch();
@@ -506,6 +509,7 @@ class StoryStore {
       styleReviewState: null,
       timeTracker: null,
       currentBranchId: null,
+      currentBackgroundImage: null,
     });
 
     this.allStories = [storyData, ...this.allStories];
@@ -813,6 +817,17 @@ class StoryStore {
 
     // Update story's updatedAt
     await database.updateStory(this.currentStory.id, {});
+  }
+
+  /**
+   * Update the current background image for the story and persist to database.
+   */
+  async updateCurrentBackgroundImage(imageData: string | null): Promise<void> {
+    if (!this.currentStory) return;
+
+    this.currentBackgroundImage = imageData;
+    await database.saveCurrentBackgroundImage(this.currentStory.id, imageData);
+    log('Background image updated and persisted');
   }
 
   // Add a character

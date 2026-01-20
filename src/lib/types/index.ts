@@ -27,6 +27,7 @@ export interface Story {
   styleReviewState: PersistentStyleReviewState | null;
   timeTracker: TimeTracker | null;
   currentBranchId: string | null;  // Active branch (null = main branch for legacy stories)
+  currentBackgroundImage: string | null; // Data URL of the last generated background image
 }
 
 // Persistent retry state - lightweight version saved to database

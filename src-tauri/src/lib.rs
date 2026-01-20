@@ -123,6 +123,18 @@ pub fn run() {
             description: "entry_reasoning",
             sql: include_str!("../migrations/019_entry_reasoning.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 20,
+            description: "migrate_legacy_prompts",
+            sql: include_str!("../migrations/020_migrate_legacy_prompts.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 21,
+            description: "story_background_image",
+            sql: include_str!("../migrations/021_story_background_image.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 

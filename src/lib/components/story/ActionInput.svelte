@@ -980,7 +980,7 @@
               const imageData =
                 await aiService.generateBackgroundImage(backgroundPrompt);
               if (imageData) {
-                ui.currentBackgroundImage = imageData;
+                await story.updateCurrentBackgroundImage(imageData);
                 log("Background image updated");
               }
             }
