@@ -256,6 +256,44 @@ export class ImageGenerationService {
     }
   }
 
+  async generateBackgroundImage(
+    prompt: string
+  ): Promise<string | null> {
+    try {
+      const imageSettings = settings.systemServicesSettings.imageGeneration;
+
+      // Get API key from settings
+      const apiKey = ImageGenerationService.getApiKey();
+      if (!apiKey) {
+        throw new Error('No API key configured for image generation');
+      }
+
+      // Create provider if needed
+      if (!this.imageProvider) {
+        this.imageProvider = this.createImageProvider();
+      }
+
+      // Generate image
+      const response = await this.imageProvider.generateImage({
+        prompt,
+        model: imageSettings.model || 'z-image-turbo',
+        size: imageSettings.backgroundSize,
+        response_format: 'b64_json',
+      });
+
+      if (response.images.length === 0 || !response.images[0].b64_json) {
+        throw new Error('No image data returned');
+      }
+
+      log('Background image generated successfully');
+
+      return response.images[0].b64_json;
+    } catch (error) {
+      log('Background image generation failed', error);
+      return null;
+    }
+  }
+
   /**
    * Get the style prompt for the selected style ID
    */

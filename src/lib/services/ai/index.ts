@@ -461,33 +461,15 @@ class AIService {
     }
 
     try {
-      const imageSettings = settings.systemServicesSettings.imageGeneration;
-      const providerType = imageSettings.imageProvider ?? 'nanogpt';
-      
-      // Get API key
-      const apiKey = providerType === 'chutes' 
-        ? imageSettings.chutesApiKey 
-        : imageSettings.nanoGptApiKey;
 
-      if (!apiKey) {
-        log('No API key for background generation');
-        return null;
-      }
+      const preset = settings.getPresetConfig(settings.getServicePresetId('imageGeneration'), 'Image Generation');
+      const provider = this.getProviderForProfile(preset.profileId);
+      const imageService = new ImageGenerationService(provider, settings.getServicePresetId('imageGeneration'));
 
-      // Create provider
-      const imageProvider = providerType === 'chutes'
-        ? new ChutesImageProvider(apiKey, DEBUG)
-        : new NanoGPTImageProvider(apiKey, DEBUG);
+      const response = await imageService.generateBackgroundImage(prompt);
 
-      const response = await imageProvider.generateImage({
-        prompt: prompt,
-        model: imageSettings.model || 'z-image-turbo',
-        size: '1024x1024',
-        response_format: 'b64_json',
-      });
-
-      if (response.images.length > 0 && response.images[0].b64_json) {
-        return `data:image/png;base64,${response.images[0].b64_json}`;
+      if (response) {
+        return `data:image/png;base64,${response}`;
       }
     } catch (error) {
       log('Background image generation failed', error);
