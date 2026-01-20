@@ -436,7 +436,7 @@ class AIService {
       });
 
       const result = response.content.trim();
-      // Template returns empty string or short response if no change, otherwise the prompt
+      // Ai returns empty string or short response if no change, otherwise the image prompt
       if (result && result.length > 50) {
         log('Background change detected, prompt:', result);
         return result;
