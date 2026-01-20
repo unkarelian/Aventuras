@@ -14,6 +14,8 @@ import { ContextBuilder, type ContextResult, type ContextConfig, DEFAULT_CONTEXT
 import { EntryRetrievalService, getEntryRetrievalConfigFromSettings, type EntryRetrievalResult, type ActivationTracker } from './entryRetrieval';
 import { ImageGenerationService, type ImageGenerationContext } from './imageGeneration';
 import { inlineImageService, type InlineImageContext } from './inlineImageGeneration';
+import { NanoGPTImageProvider } from './nanoGPTImageProvider';
+import { ChutesImageProvider } from './chutesImageProvider';
 import { buildExtraBody } from './requestOverrides';
 import type { Message, GenerationResponse, StreamChunk } from './types';
 import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, MemoryConfig, Entry, LoreManagementResult, TimeTracker } from '$lib/types';
@@ -395,6 +397,103 @@ class AIService {
     });
 
     return result;
+  }
+
+  /**
+   * Analyze if the background image should change based on the last message.
+   * Returns a prompt for background image generation if a change is needed.
+   * Otherwise should return an empty string, this is not reliable, typically returns a short string.
+   */
+  async analyzeBackgroundImageChange(
+    previousResponse: string,
+    currentResponse: string,
+  ): Promise<string | null> {
+    log('analyzeBackgroundImageChange called');
+
+    try {
+      const preset = settings.getPresetConfig(settings.getServicePresetId('backgroundImageGeneration'), 'Background Image Generation');
+      const provider = this.getProviderForProfile(preset.profileId);
+      
+      const promptContext: PromptContext = {
+      mode: 'adventure' as const,
+      pov: 'second' as const,
+      tense: 'present' as const,
+      protagonistName: '',
+      };
+
+      const systemPrompt = promptService.renderPrompt('background-image-prompt-analysis', promptContext, {});
+      const userPrompt = promptService.renderUserPrompt('background-image-prompt-analysis', promptContext, {
+        previousResponse,
+        currentResponse
+      });
+
+      const response = await provider.generateResponse({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        ...preset
+      });
+
+      const result = response.content.trim();
+      // Template returns empty string if no change, otherwise the prompt
+      if (result && result.length > 5 && !result.toLowerCase().includes('no change')) {
+        log('Background change detected, prompt:', result.substring(0, 50) + '...');
+        return result;
+      }
+    } catch (error) {
+      log('Background image analysis failed', error);
+    }
+    
+    return null;
+  }
+
+  /**
+   * Generate a background image based on a prompt.
+   * Returns the base64 encoded image data.
+   */
+  async generateBackgroundImage(prompt: string): Promise<string | null> {
+    log('generateBackgroundImage called', { prompt: prompt.substring(0, 50) + '...' });
+
+    if (!ImageGenerationService.isEnabled()) {
+      log('Image generation not enabled');
+      return null;
+    }
+
+    try {
+      const imageSettings = settings.systemServicesSettings.imageGeneration;
+      const providerType = imageSettings.imageProvider ?? 'nanogpt';
+      
+      // Get API key
+      const apiKey = providerType === 'chutes' 
+        ? imageSettings.chutesApiKey 
+        : imageSettings.nanoGptApiKey;
+
+      if (!apiKey) {
+        log('No API key for background generation');
+        return null;
+      }
+
+      // Create provider
+      const imageProvider = providerType === 'chutes'
+        ? new ChutesImageProvider(apiKey, DEBUG)
+        : new NanoGPTImageProvider(apiKey, DEBUG);
+
+      const response = await imageProvider.generateImage({
+        prompt: prompt,
+        model: imageSettings.model || 'z-image-turbo',
+        size: '1024x1024',
+        response_format: 'b64_json',
+      });
+
+      if (response.images.length > 0 && response.images[0].b64_json) {
+        return `data:image/png;base64,${response.images[0].b64_json}`;
+      }
+    } catch (error) {
+      log('Background image generation failed', error);
+    }
+
+    return null;
   }
 
   /**

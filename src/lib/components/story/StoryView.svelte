@@ -110,8 +110,9 @@
   <!-- Story entries container -->
   <div
     bind:this={storyContainer}
-    class="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4"
+    class="story-entries-container flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4"
     onscroll={handleScroll}
+    style="--bg-image: url('{ui.currentBackgroundImage || '/background.png'}');"
   >
     <div class="mx-auto max-w-3xl space-y-3 sm:space-y-4">
       {#if story.entries.length === 0 && !ui.isStreaming}
@@ -177,3 +178,22 @@
     </div>
   </div>
 </div>
+
+<style>
+  .story-entries-container {
+    background-image: linear-gradient(rgba(15, 23, 42, 0.85), rgba(15, 23, 42, 0.85)), var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+
+  /* Adjust overlay for different themes if needed */
+  :global([data-theme="light"]) .story-entries-container {
+    background-image: linear-gradient(rgba(250, 249, 247, 0.85), rgba(250, 249, 247, 0.85)), var(--bg-image);
+  }
+
+  :global([data-theme="light-solarized"]) .story-entries-container {
+    background-image: linear-gradient(rgba(253, 246, 227, 0.85), rgba(253, 246, 227, 0.85)), var(--bg-image);
+  }
+</style>

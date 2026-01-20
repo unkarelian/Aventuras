@@ -96,6 +96,7 @@ class UIStore {
   isGenerating = $state(false);
   isRetryingLastMessage = $state(false); // Hide stop button during completed-message retries
   vaultTab = $state<VaultTab>('characters');
+  currentBackgroundImage = $state<string | null>(null);
 
   // Image generation state
   imageAnalysisInProgress = $state(false);  // LLM analyzing narrative for imageable scenes

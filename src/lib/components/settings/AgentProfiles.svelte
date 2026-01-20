@@ -107,6 +107,12 @@
       icon: Wand2,
       description: "Generates image prompts",
     },
+    {
+      id: "backgroundImageGeneration",
+      label: "Background Image Gen",
+      icon: Wand2,
+      description: "Generates background image prompts",
+    },
     // Agentic tasks
     {
       id: "loreManagement",
@@ -198,6 +204,7 @@
     actionChoices: "suggestions",
     styleReviewer: "suggestions",
     imageGeneration: "suggestions",
+    backgroundImageGeneration: "suggestions",
     // Agentic
     loreManagement: "agentic",
     agenticRetrieval: "agentic",

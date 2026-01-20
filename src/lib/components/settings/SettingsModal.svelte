@@ -1984,10 +1984,47 @@
                       </div>
                     {/if}
 
+                    <!-- Background image generation enabled -->
+                    <div class="border-t border-surface-700 pt-4 mt-4">
+                      <div class="flex items-center justify-between">
+                        <div>
+                          <h3 class="text-sm font-medium text-surface-200">
+                            Background image generation enabled
+                          </h3>
+                          <p class="text-xs text-surface-500">
+                            Generate background images on location changes.
+                          </p>
+                        </div>
+                        <button
+                          class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
+                          class:bg-accent-600={settings.systemServicesSettings
+                            .imageGeneration.backgroundImagesEnabled}
+                          class:bg-surface-600={!settings.systemServicesSettings
+                            .imageGeneration.backgroundImagesEnabled}
+                          onclick={() => {
+                            settings.systemServicesSettings.imageGeneration.backgroundImagesEnabled =
+                              !settings.systemServicesSettings.imageGeneration
+                                .backgroundImagesEnabled;
+                            settings.saveSystemServicesSettings();
+                          }}
+                          aria-label="Toggle background image generation"
+                        >
+                          <span
+                            class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                            class:translate-x-6={settings.systemServicesSettings
+                              .imageGeneration.backgroundImagesEnabled}
+                            class:translate-x-1={!settings
+                              .systemServicesSettings.imageGeneration
+                              .backgroundImagesEnabled}
+                          ></span>
+                        </button>
+                      </div>
+                    </div>
+
                     <!-- Reset Button -->
                     <div class="border-t border-surface-700 pt-4 mt-4">
                       <button
-                        class="btn btn-secondary text-xs"
+                        class="btn btn-secondary text-xs flex items-center gap-1"
                         onclick={() => settings.resetImageGenerationSettings()}
                       >
                         <RotateCcw class="h-3 w-3 mr-1" />

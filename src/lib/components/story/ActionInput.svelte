@@ -962,6 +962,36 @@
         // Emit NarrativeResponse event
         emitNarrativeResponse(narrationEntry.id, fullResponse);
 
+        // Phase 2.4: Asynchronous Background Image Analysis
+        const analyzeBackground = async () => {
+          try {
+            const entries = story.visibleEntries;
+            const previousEntry = entries[entries.length - 3];
+            const previousContent = previousEntry?.content || "";
+
+            const backgroundPrompt =
+              await aiService.analyzeBackgroundImageChange(
+                previousContent,
+                fullResponse,
+              );
+
+            if (backgroundPrompt && backgroundPrompt.length > 50) {
+              log("Background change required, generating image...");
+              const imageData =
+                await aiService.generateBackgroundImage(backgroundPrompt);
+              if (imageData) {
+                ui.currentBackgroundImage = imageData;
+                log("Background image updated");
+              }
+            }
+          } catch (err) {
+            log("Background image analysis failed (non-fatal)", err);
+          }
+        };
+        if(settings.systemServicesSettings.imageGeneration.backgroundImagesEnabled) {
+          analyzeBackground();
+        }
+        
         // Phase 2.5: Trigger TTS for auto-play if enabled (background, non-blocking)
         // Do this IMMEDIATELY after text generation is complete, before classification
         const ttsSettings = settings.systemServicesSettings.tts;

@@ -510,15 +510,17 @@ export function getDefaultUpdateSettings(): UpdateSettings {
 export type ImageProviderType = 'nanogpt' | 'chutes';
 
 export interface ImageGenerationServiceSettings {
-  enabled: boolean;               // Toggle for image generation (default: false)
-  imageProvider: ImageProviderType; // Selected image provider (default: 'nanogpt')
-  nanoGptApiKey: string;          // NanoGPT API key for image generation
-  chutesApiKey: string;           // Chutes API key for image generation
-  model: string;                  // Image model (default: 'z-image-turbo')
-  styleId: string;                // Selected image style template
-  size: '512x512' | '1024x1024';  // Image size
-  maxImagesPerMessage: number;    // Max images per narrative (0 = unlimited, default: 3)
-  autoGenerate: boolean;          // Generate automatically after narration
+  enabled: boolean;                   // Toggle for image generation (default: false)
+  imageProvider: ImageProviderType;   // Selected image provider (default: 'nanogpt')
+  nanoGptApiKey: string;              // NanoGPT API key for image generation
+  chutesApiKey: string;               // Chutes API key for image generation
+  model: string;                      // Image model (default: 'z-image-turbo')
+  styleId: string;                    // Selected image style template
+  size: '512x512' | '1024x1024';      // Image size
+  maxImagesPerMessage: number;        // Max images per narrative (0 = unlimited, default: 3)
+  autoGenerate: boolean;              // Generate automatically after narration
+  backgroundImagesEnabled: boolean;   // Enable background image generation (default: false)
+  backgroundSize: '1280x720'          // Background image size (default: '1280x720')
 
   // Portrait mode settings (character reference images)
   portraitMode: boolean;          // Enable portrait reference mode (default: false)
@@ -546,6 +548,8 @@ export function getDefaultImageGenerationSettings(): ImageGenerationServiceSetti
     size: '1024x1024',
     maxImagesPerMessage: 3,
     autoGenerate: true,
+    backgroundImagesEnabled: false,
+    backgroundSize: '1280x720',
     portraitMode: false,
     portraitModel: 'z-image-turbo',
     referenceModel: 'qwen-image',
@@ -582,6 +586,8 @@ export function getDefaultImageGenerationSettingsForProvider(provider: ProviderP
     autoGenerate: true,
     portraitMode: false,
     portraitModel: 'z-image-turbo',
+    backgroundImagesEnabled: false,
+    backgroundSize: '1280x720',
     referenceModel: 'qwen-image',
     promptProfileId: provider === 'custom' ? null : promptProfileId,
     promptModel,
@@ -1195,6 +1201,7 @@ class SettingsStore {
     agenticRetrieval: 'agentic',
     interactiveLorebook: 'agentic',
     imageGeneration: 'suggestions',
+    backgroundImageGeneration: "suggestions",
     'wizard:settingExpansion': 'wizard',
     'wizard:settingRefinement': 'wizard',
     'wizard:protagonistGeneration': 'wizard',
