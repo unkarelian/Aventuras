@@ -2487,7 +2487,13 @@ Analyze the narrative and identify 0-{{maxImages}} key visual moments (0 = unlim
 - Portrait generation: 300-450 characters
 - Environment only: 150-250 characters
 
-IMPORTANT: In portrait mode, ONLY characters with portraits can be depicted. Characters without portraits CANNOT appear until they have one.
+**MANDATORY: Portrait Requirements**
+- ALL characters MUST have a portrait before they can appear in any scene image. This is NOT optional.
+- Characters WITHOUT portraits CANNOT be depicted in any scene - they will be invisible/absent from all visuals.
+- If a character appears in the narrative but is NOT in the "Characters With Portraits" list below, you MUST generate a portrait for them FIRST (generatePortrait: true).
+- You CAN and SHOULD include both portrait generation AND scene images in the same response - the portrait enables the character to appear in subsequent scene images.
+- ALWAYS check the portraits list: if a character you want to depict is missing, add a portrait generation entry BEFORE any scene that includes them.
+- Think of portraits as "unlocking" a character for visual representation - no portrait = character cannot exist in images.
 
 ## Style Keywords (pick 2-3 relevant ones per prompt)
 {{imageStylePrompt}}
@@ -2617,6 +2623,7 @@ Match the angle to the emotional tone: action scenes benefit from low/dutch angl
 6. **Include 2-3 style keywords** - not the entire style description
 7. **sourceText** MUST be VERBATIM from the narrative
 8. Return empty array [] if no suitable moments exist
+9. **MANDATORY: Generate portraits for ALL characters without them** - if ANY character you want to include is not in the portraits list, you MUST add a portrait generation entry BEFORE including them in scenes. No exceptions.
 
 ## Priority Guidelines
 - 8-10: Combat, pivotal moments, dramatic multi-character interactions

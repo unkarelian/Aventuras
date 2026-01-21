@@ -1076,7 +1076,7 @@
             (async () => {
               try {
                 // Collect items to translate from classification result
-                const itemsToTranslate: { id: string; text: string; type: 'name' | 'description' | 'title'; entityType: string; field: string }[] = [];
+                const itemsToTranslate: { id: string; text: string; type: 'name' | 'description' | 'title'; entityType: string; field: string; isArray?: boolean }[] = [];
 
                 // New characters
                 for (const char of classificationResult.entryUpdates.newCharacters) {
@@ -1085,6 +1085,15 @@
                     itemsToTranslate.push({ id: `${dbChar.id}:name`, text: char.name, type: 'name', entityType: 'character', field: 'translatedName' });
                     if (char.description) {
                       itemsToTranslate.push({ id: `${dbChar.id}:desc`, text: char.description, type: 'description', entityType: 'character', field: 'translatedDescription' });
+                    }
+                    if (char.relationship) {
+                      itemsToTranslate.push({ id: `${dbChar.id}:rel`, text: char.relationship, type: 'description', entityType: 'character', field: 'translatedRelationship' });
+                    }
+                    if (char.traits && char.traits.length > 0) {
+                      itemsToTranslate.push({ id: `${dbChar.id}:traits`, text: char.traits.join(', '), type: 'description', entityType: 'character', field: 'translatedTraits', isArray: true });
+                    }
+                    if (char.visualDescriptors && char.visualDescriptors.length > 0) {
+                      itemsToTranslate.push({ id: `${dbChar.id}:visual`, text: char.visualDescriptors.join(', '), type: 'description', entityType: 'character', field: 'translatedVisualDescriptors', isArray: true });
                     }
                   }
                 }
@@ -1133,8 +1142,13 @@
                     const originalItem = itemsToTranslate.find(i => i.id === translatedItem.id);
                     if (!originalItem) continue;
 
-                    const updateData: Record<string, string | null> = {
-                      [originalItem.field]: translatedItem.text,
+                    // Handle array fields (traits, visualDescriptors) by splitting the translated comma-separated string
+                    const translatedValue = originalItem.isArray
+                      ? translatedItem.text.split(',').map(s => s.trim()).filter(Boolean)
+                      : translatedItem.text;
+
+                    const updateData: Record<string, string | string[] | null> = {
+                      [originalItem.field]: translatedValue,
                       translationLanguage: targetLangForUI,
                     };
 
@@ -1708,14 +1722,46 @@
         postRestoreCharDescriptors,
       });
 
-      // Re-add the user action
+      // Translate user input if enabled (same logic as handleSubmit)
+      let promptContent = backup.userActionContent;
+      let originalInput: string | undefined;
+
+      const translationSettings = settings.translationSettings;
+      if (TranslationService.shouldTranslateInput(translationSettings)) {
+        try {
+          log("Retry: Translating user input", {
+            sourceLanguage: translationSettings.sourceLanguage,
+          });
+          const result = await aiService.translateInput(
+            backup.userActionContent,
+            translationSettings.sourceLanguage
+          );
+          originalInput = backup.userActionContent;  // Save original for display
+          promptContent = result.translatedContent;  // Use English for prompt
+          log("Retry: Input translated", {
+            originalLength: backup.userActionContent.length,
+            translatedLength: promptContent.length,
+          });
+        } catch (error) {
+          log("Retry: Input translation failed (non-fatal), using original", error);
+          // Continue with original content if translation fails
+        }
+      }
+
+      // Re-add the user action with translated content
       const userActionEntry = await story.addEntry(
         "user_action",
-        backup.userActionContent,
+        promptContent,
       );
       log("User action re-added", { entryId: userActionEntry.id });
 
-      // Emit UserInput event
+      // If translated, store original input for display
+      if (originalInput) {
+        await database.updateStoryEntry(userActionEntry.id, { originalInput });
+        await story.refreshEntry(userActionEntry.id);
+      }
+
+      // Emit UserInput event (use original content for event)
       emitUserInput(
         backup.userActionContent,
         isCreativeMode ? "direction" : backup.actionType,
@@ -1728,7 +1774,7 @@
       if (!settings.needsApiKey) {
         ui.setRetryingLastMessage(true);
         try {
-          await generateResponse(userActionEntry.id, backup.userActionContent, {
+          await generateResponse(userActionEntry.id, promptContent, {
             countStyleReview: false,
             styleReviewSource: "retry-last-message",
           });

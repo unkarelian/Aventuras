@@ -149,6 +149,7 @@ export interface Character {
   translatedDescription?: string | null;
   translatedRelationship?: string | null;
   translatedTraits?: string[] | null;
+  translatedVisualDescriptors?: string[] | null;
   translationLanguage?: string | null;
 }
 

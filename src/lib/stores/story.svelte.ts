@@ -2622,9 +2622,9 @@ async createStoryFromWizard(data: {
     translations?: {
       language: string;
       openingScene?: string;
-      protagonist?: { name?: string; description?: string; traits?: string[] };
+      protagonist?: { name?: string; description?: string; traits?: string[]; visualDescriptors?: string[] };
       startingLocation?: { name?: string; description?: string };
-      characters?: { [originalName: string]: { name?: string; description?: string; relationship?: string; traits?: string[] } };
+      characters?: { [originalName: string]: { name?: string; description?: string; relationship?: string; traits?: string[]; visualDescriptors?: string[] } };
     };
   }): Promise<Story> {
 log('createStoryFromWizard called', {
@@ -2682,6 +2682,7 @@ settings: {
         translatedName: protagonistTranslation?.name ?? null,
         translatedDescription: protagonistTranslation?.description ?? null,
         translatedTraits: protagonistTranslation?.traits ?? null,
+        translatedVisualDescriptors: protagonistTranslation?.visualDescriptors ?? null,
         translationLanguage: protagonistTranslation ? data.translations?.language ?? null : null,
       };
       await database.addCharacter(protagonist);
@@ -2758,6 +2759,7 @@ settings: {
         translatedDescription: charTranslation?.description ?? null,
         translatedRelationship: charTranslation?.relationship ?? null,
         translatedTraits: charTranslation?.traits ?? null,
+        translatedVisualDescriptors: charTranslation?.visualDescriptors ?? null,
         translationLanguage: charTranslation ? data.translations?.language ?? null : null,
       };
       await database.addCharacter(character);

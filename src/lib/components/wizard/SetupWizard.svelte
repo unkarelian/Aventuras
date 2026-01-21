@@ -1236,9 +1236,9 @@
     let translations: {
       language: string;
       openingScene?: string;
-      protagonist?: { name?: string; description?: string; traits?: string[] };
+      protagonist?: { name?: string; description?: string; traits?: string[]; visualDescriptors?: string[] };
       startingLocation?: { name?: string; description?: string };
-      characters?: { [originalName: string]: { name?: string; description?: string; relationship?: string; traits?: string[] } };
+      characters?: { [originalName: string]: { name?: string; description?: string; relationship?: string; traits?: string[]; visualDescriptors?: string[] } };
     } | undefined;
 
     if (TranslationService.shouldTranslate(translationSettings)) {
@@ -1252,10 +1252,29 @@
 
       // Protagonist translation
       if (protagonistTranslated) {
+        // Translate visual descriptors if present
+        let protagonistVisualDescriptorsTranslated: string[] | undefined;
+        if (protagonistVisualDescriptors?.trim()) {
+          try {
+            const visualDescriptorsArray = protagonistVisualDescriptors.split(",").map(d => d.trim()).filter(Boolean);
+            if (visualDescriptorsArray.length > 0) {
+              const translated = await aiService.translateWizardBatch(
+                { visualDescriptors: visualDescriptorsArray.join(", ") },
+                targetLanguage
+              );
+              if (translated.visualDescriptors) {
+                protagonistVisualDescriptorsTranslated = translated.visualDescriptors.split(",").map(d => d.trim()).filter(Boolean);
+              }
+            }
+          } catch (e) {
+            console.error("[Wizard] Failed to translate protagonist visual descriptors:", e);
+          }
+        }
         translations.protagonist = {
           name: protagonistTranslated.name,
           description: protagonistTranslated.description,
           traits: protagonistTranslated.traits,
+          visualDescriptors: protagonistVisualDescriptorsTranslated,
         };
       }
 
@@ -1275,11 +1294,31 @@
           const translated = supportingCharactersTranslated[i];
           // Use processed name as key since createStoryFromWizard looks up by processed name
           if (processed?.name && translated) {
+            // Translate visual descriptors if present for this character
+            let charVisualDescriptorsTranslated: string[] | undefined;
+            const charVisualDescriptors = supportingCharacterVisualDescriptors[processed.name];
+            if (charVisualDescriptors?.trim()) {
+              try {
+                const visualDescriptorsArray = charVisualDescriptors.split(",").map(d => d.trim()).filter(Boolean);
+                if (visualDescriptorsArray.length > 0) {
+                  const translatedVD = await aiService.translateWizardBatch(
+                    { visualDescriptors: visualDescriptorsArray.join(", ") },
+                    targetLanguage
+                  );
+                  if (translatedVD.visualDescriptors) {
+                    charVisualDescriptorsTranslated = translatedVD.visualDescriptors.split(",").map(d => d.trim()).filter(Boolean);
+                  }
+                }
+              } catch (e) {
+                console.error("[Wizard] Failed to translate character visual descriptors:", e);
+              }
+            }
             translations.characters[processed.name] = {
               name: translated.name,
               description: translated.description,
               relationship: translated.relationship,
               traits: translated.traits,
+              visualDescriptors: charVisualDescriptorsTranslated,
             };
           }
         }

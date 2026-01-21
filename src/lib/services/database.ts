@@ -499,8 +499,8 @@ class DatabaseService {
   async addCharacter(character: Character): Promise<void> {
     const db = await this.getDb();
     await db.execute(
-      `INSERT INTO characters (id, story_id, name, description, relationship, traits, visual_descriptors, portrait, status, metadata, branch_id, translated_name, translated_description, translated_relationship, translated_traits, translation_language)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO characters (id, story_id, name, description, relationship, traits, visual_descriptors, portrait, status, metadata, branch_id, translated_name, translated_description, translated_relationship, translated_traits, translated_visual_descriptors, translation_language)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         character.id,
         character.storyId,
@@ -517,6 +517,7 @@ class DatabaseService {
         character.translatedDescription || null,
         character.translatedRelationship || null,
         character.translatedTraits ? JSON.stringify(character.translatedTraits) : null,
+        character.translatedVisualDescriptors ? JSON.stringify(character.translatedVisualDescriptors) : null,
         character.translationLanguage || null,
       ]
     );
@@ -538,6 +539,9 @@ class DatabaseService {
     // Translation fields
     if (updates.translatedName !== undefined) { setClauses.push('translated_name = ?'); values.push(updates.translatedName || null); }
     if (updates.translatedDescription !== undefined) { setClauses.push('translated_description = ?'); values.push(updates.translatedDescription || null); }
+    if (updates.translatedRelationship !== undefined) { setClauses.push('translated_relationship = ?'); values.push(updates.translatedRelationship || null); }
+    if (updates.translatedTraits !== undefined) { setClauses.push('translated_traits = ?'); values.push(updates.translatedTraits ? JSON.stringify(updates.translatedTraits) : null); }
+    if (updates.translatedVisualDescriptors !== undefined) { setClauses.push('translated_visual_descriptors = ?'); values.push(updates.translatedVisualDescriptors ? JSON.stringify(updates.translatedVisualDescriptors) : null); }
     if (updates.translationLanguage !== undefined) { setClauses.push('translation_language = ?'); values.push(updates.translationLanguage || null); }
 
     if (setClauses.length === 0) return;
@@ -1540,6 +1544,7 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
       translatedDescription: row.translated_description || null,
       translatedRelationship: row.translated_relationship || null,
       translatedTraits: row.translated_traits ? JSON.parse(row.translated_traits) : null,
+      translatedVisualDescriptors: row.translated_visual_descriptors ? JSON.parse(row.translated_visual_descriptors) : null,
       translationLanguage: row.translation_language || null,
     };
   }

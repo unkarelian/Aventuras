@@ -203,39 +203,54 @@ export class ImageGenerationService {
         regular: regularScenes.length,
       });
 
-      // PHASE 1: Generate portraits first (synchronously) so they can be used immediately
+      // PHASE 1: Generate ALL portraits in PARALLEL first
       // This allows the LLM to request both a portrait AND a scene for the same character
       const updatedCharacters = [...context.presentCharacters];
       const updatedCharactersWithPortraits = [...charactersWithPortraits];
 
-      for (const scene of portraitScenes) {
-        const characterName = scene.characters[0];
-        const result = await this.generateCharacterPortrait(
-          context.storyId,
-          characterName,
-          scene.prompt,
-          imageSettings,
-          updatedCharacters
-        );
+      if (portraitScenes.length > 0) {
+        log('Generating portraits in parallel', { count: portraitScenes.length });
 
-        // Update our local tracking if portrait was generated
-        if (result) {
-          // Update the character in our local array
-          const charIndex = updatedCharacters.findIndex(
-            c => c.name.toLowerCase() === characterName.toLowerCase()
-          );
-          if (charIndex !== -1) {
-            updatedCharacters[charIndex] = {
-              ...updatedCharacters[charIndex],
-              portrait: result.portraitDataUrl,
-            };
-            // Add to characters with portraits list
-            if (!updatedCharactersWithPortraits.includes(updatedCharacters[charIndex].name)) {
-              updatedCharactersWithPortraits.push(updatedCharacters[charIndex].name);
+        // Launch all portrait generations in parallel
+        const portraitPromises = portraitScenes.map(scene => {
+          const characterName = scene.characters[0];
+          return this.generateCharacterPortrait(
+            context.storyId,
+            characterName,
+            scene.prompt,
+            imageSettings,
+            updatedCharacters
+          ).then(result => ({ characterName, result }));
+        });
+
+        // Wait for ALL portraits to complete before proceeding
+        const portraitResults = await Promise.all(portraitPromises);
+
+        // Update our local tracking for all successfully generated portraits
+        for (const { characterName, result } of portraitResults) {
+          if (result) {
+            // Update the character in our local array
+            const charIndex = updatedCharacters.findIndex(
+              c => c.name.toLowerCase() === characterName.toLowerCase()
+            );
+            if (charIndex !== -1) {
+              updatedCharacters[charIndex] = {
+                ...updatedCharacters[charIndex],
+                portrait: result.portraitDataUrl,
+              };
+              // Add to characters with portraits list
+              if (!updatedCharactersWithPortraits.includes(updatedCharacters[charIndex].name)) {
+                updatedCharactersWithPortraits.push(updatedCharacters[charIndex].name);
+              }
             }
+            log('Portrait ready for immediate use', { character: characterName });
           }
-          log('Portrait ready for immediate use', { character: characterName });
         }
+
+        log('All portraits generated', {
+          requested: portraitScenes.length,
+          successful: portraitResults.filter(r => r.result).length
+        });
       }
 
       // PHASE 2: Generate regular scene images (can now use freshly generated portraits)

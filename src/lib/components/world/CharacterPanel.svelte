@@ -573,9 +573,9 @@
                   {/each}
                 </div>
               {/if}
-              {#if character.visualDescriptors && character.visualDescriptors.length > 0}
+              {#if character.visualDescriptors.length > 0 || (character.translatedVisualDescriptors && character.translatedVisualDescriptors.length > 0)}
                 <div class="flex flex-wrap gap-1">
-                  {#each character.visualDescriptors as descriptor}
+                  {#each character.translatedVisualDescriptors ?? character.visualDescriptors as descriptor}
                     <span
                       class="rounded bg-pink-500/10 px-1.5 py-0.5 text-pink-400/70"
                       >{descriptor}</span

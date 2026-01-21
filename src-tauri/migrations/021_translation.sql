@@ -8,6 +8,7 @@ ALTER TABLE characters ADD COLUMN translated_name TEXT;
 ALTER TABLE characters ADD COLUMN translated_description TEXT;
 ALTER TABLE characters ADD COLUMN translated_relationship TEXT;
 ALTER TABLE characters ADD COLUMN translated_traits TEXT;
+ALTER TABLE characters ADD COLUMN translated_visual_descriptors TEXT;
 ALTER TABLE characters ADD COLUMN translation_language TEXT;
 
 -- Add translation columns to locations
