@@ -41,6 +41,10 @@ export interface ImageGenerationContext {
   chatHistory?: string;
   /** Activated lorebook entries context */
   lorebookContext?: string;
+  /** Translated narrative (if translation enabled) - used for sourceText matching */
+  translatedNarrative?: string;
+  /** Target language for translation (e.g., "Spanish", "Japanese") */
+  translationLanguage?: string;
 }
 
 export class ImageGenerationService {
@@ -159,6 +163,8 @@ export class ImageGenerationService {
         lorebookContext: context.lorebookContext,
         charactersWithPortraits,
         portraitMode,
+        translatedNarrative: context.translatedNarrative,
+        translationLanguage: context.translationLanguage,
       };
 
       // Emit event: starting image analysis

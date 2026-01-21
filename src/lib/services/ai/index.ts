@@ -969,6 +969,10 @@ class AIService {
    * Uses either inline image mode (AI-placed <pic> tags) or analyzed mode (LLM scene analysis).
    * This runs in background and doesn't block the main flow.
    *
+   * When translation is enabled:
+   * - Inline mode: processes the translated narrative (which should preserve <pic> tags)
+   * - Analyzed mode: uses translated narrative for sourceText, but prompts are always in English
+   *
    * @param context - The narrative context for image generation
    */
   async generateImagesForNarrative(context: ImageGenerationContext): Promise<void> {
@@ -976,6 +980,8 @@ class AIService {
       storyId: context.storyId,
       entryId: context.entryId,
       narrativeLength: context.narrativeResponse.length,
+      hasTranslation: !!context.translatedNarrative,
+      translationLanguage: context.translationLanguage,
     });
 
     if (!this.isImageGenerationEnabled()) {
@@ -989,17 +995,24 @@ class AIService {
     try {
       if (inlineImageMode) {
         // Use inline image generation (process <pic> tags from AI response)
-        log('Using inline image mode');
+        // If translation is enabled, process the translated narrative which should preserve <pic> tags
+        const narrativeToProcess = context.translatedNarrative || context.narrativeResponse;
+        log('Using inline image mode', {
+          usingTranslated: !!context.translatedNarrative,
+        });
         const inlineContext: InlineImageContext = {
           storyId: context.storyId,
           entryId: context.entryId,
-          narrativeContent: context.narrativeResponse,
+          narrativeContent: narrativeToProcess,
           presentCharacters: context.presentCharacters,
         };
         await inlineImageService.processNarrativeForInlineImages(inlineContext);
       } else {
         // Use analyzed image generation (LLM scene analysis)
-        log('Using analyzed image mode');
+        // The context already includes translatedNarrative for sourceText extraction
+        log('Using analyzed image mode', {
+          hasTranslation: !!context.translatedNarrative,
+        });
         const preset = settings.getPresetConfig(settings.getServicePresetId('imageGeneration'), 'Image Generation');
         const provider = this.getProviderForProfile(preset.profileId);
         const imageService = new ImageGenerationService(provider, settings.getServicePresetId('imageGeneration'));

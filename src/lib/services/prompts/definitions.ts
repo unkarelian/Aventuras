@@ -630,7 +630,7 @@ You can embed images directly in your narrative using the <pic> tag. Images will
 <pic prompt="[detailed visual description]" characters="[character names]"></pic>
 
 **ATTRIBUTES:**
-- \`prompt\` (REQUIRED): A detailed visual description for image generation. Write as a complete scene description, NOT a reference to the text.
+- \`prompt\` (REQUIRED): A detailed visual description for image generation. Write as a complete scene description, NOT a reference to the text. **MUST ALWAYS BE IN ENGLISH** regardless of the narrative language.
 - \`characters\` (optional): Comma-separated names of characters appearing in the image (for portrait reference).
 
 **USAGE GUIDELINES:**
@@ -648,6 +648,7 @@ Elena drew her blade, firelight dancing along the steel edge as she faced the cr
 <pic prompt="Young woman warrior with determined expression drawing a glowing sword, firelight reflecting on blade and face, medieval interior background, dramatic lighting, fantasy art" characters="Elena"></pic>
 
 **CRITICAL RULES:**
+- **PROMPTS MUST BE IN ENGLISH** - Image generation models only understand English prompts. Always write the prompt attribute in English, even if the surrounding narrative is in another language.
 - The prompt must be a COMPLETE visual description - do not write "the dragon from the scene" or "as described above"
 - Never place <pic> tags in the middle of a sentence - always after the descriptive prose
 - Do not use <pic> for every scene - reserve for truly striking visual moments
@@ -2442,14 +2443,17 @@ Return a JSON array (no markdown, just raw JSON):
 2. **NEVER use character names** - the image model doesn't know who "Elena" is. Describe appearance only!
 3. **ALWAYS include the full style** - copy style keywords directly from the Style section
 4. **Stay under 800 characters** - prompts over 800 chars will ERROR and fail. Aim for 500-800.
-5. **sourceText** MUST be COPY-PASTED EXACTLY from the narrative - this is used for text matching and WILL FAIL if not exact.
-   - Copy the EXACT characters from the narrative, including punctuation and any *asterisks* or **markup**
+5. **sourceText** MUST be COPY-PASTED EXACTLY from the DISPLAY NARRATIVE - this is used for text matching and WILL FAIL if not exact.
+   - If a "Display Narrative" is provided (translated text), copy sourceText from THAT version
+   - Copy the EXACT characters, including punctuation and any *asterisks* or **markup**
    - Do NOT paraphrase, rephrase, or reword - copy EXACTLY as written
    - Do NOT add asterisks or markup that isn't in the original
    - Do NOT change words (e.g., "her" to "your")
-   - Example: If narrative says "her light-form flickering erratically" then sourceText MUST be "her light-form flickering erratically" - NOT "Your light-form flickering erratically"
-6. Return empty array [] if no suitable visual moments exist
-7. Skip: mundane actions, dialogue-only scenes, abstract concepts
+6. **ALWAYS write prompts in ENGLISH** - image generation models work best with English prompts
+   - Even if the narrative is in another language, your prompts MUST be in English
+   - Use the English narrative context to understand the scene, write English prompts
+7. Return empty array [] if no suitable visual moments exist
+8. Skip: mundane actions, dialogue-only scenes, abstract concepts
 
 ## Priority Guidelines
 - 8-10: Dramatic actions, combat, pivotal moments
@@ -2464,10 +2468,12 @@ Return a JSON array (no markdown, just raw JSON):
 ## User Action
 {{userAction}}
 
-## Narrative to Analyze
+## English Narrative (use for understanding context)
 {{narrativeResponse}}
 
-Identify the most visually striking moments and return the JSON array.`,
+{{translatedNarrativeBlock}}
+
+Identify the most visually striking moments and return the JSON array. Remember: sourceText must come from the Display Narrative (translated if provided), but prompts must ALWAYS be in English.`,
 };
 
 // Image prompt analysis with reference images (portrait mode - simplified prompts)
@@ -2621,9 +2627,10 @@ Match the angle to the emotional tone: action scenes benefit from low/dutch angl
 4. **Describe characters by distinguishing visual traits** - hair color/style, one key feature
 5. **generatePortrait scenes are single-character only**
 6. **Include 2-3 style keywords** - not the entire style description
-7. **sourceText** MUST be VERBATIM from the narrative
-8. Return empty array [] if no suitable moments exist
-9. **MANDATORY: Generate portraits for ALL characters without them** - if ANY character you want to include is not in the portraits list, you MUST add a portrait generation entry BEFORE including them in scenes. No exceptions.
+7. **sourceText** MUST be VERBATIM from the DISPLAY NARRATIVE - if a translated version is provided, copy from THAT
+8. **ALWAYS write prompts in ENGLISH** - image models work best with English prompts, regardless of narrative language
+9. Return empty array [] if no suitable moments exist
+10. **MANDATORY: Generate portraits for ALL characters without them** - if ANY character you want to include is not in the portraits list, you MUST add a portrait generation entry BEFORE including them in scenes. No exceptions.
 
 ## Priority Guidelines
 - 8-10: Combat, pivotal moments, dramatic multi-character interactions
@@ -2638,10 +2645,12 @@ Match the angle to the emotional tone: action scenes benefit from low/dutch angl
 ## User Action
 {{userAction}}
 
-## Narrative to Analyze
+## English Narrative (use for understanding context)
 {{narrativeResponse}}
 
-Identify visually striking moments. Return JSON array. Remember: NEVER use character names in prompts - describe by visual traits only. Keep prompts concise.`,
+{{translatedNarrativeBlock}}
+
+Identify visually striking moments. Return JSON array. Remember: NEVER use character names in prompts - describe by visual traits only. Keep prompts concise. sourceText must come from the Display Narrative (translated if provided), but prompts must ALWAYS be in English.`,
 };
 
 // Portrait generation template - direct image prompt (not LLM instructions)
@@ -2730,7 +2739,9 @@ Rules:
 2. Keep proper nouns and character names unchanged
 3. Maintain the narrative voice (POV, tense)
 4. Do not add, remove, or interpret content
-5. If the text contains HTML tags, translate ONLY the text content while preserving ALL HTML structure, attributes, and styling exactly as-is
+5. If the text contains HTML tags or <pic> tags, preserve them EXACTLY as-is including all attributes. Only translate the text content OUTSIDE of tags.
+   - <pic prompt="..." characters="..."></pic> tags must be copied EXACTLY without any changes to the tag, attributes, or attribute values
+   - These tags contain English image prompts that must NOT be translated
 
 Respond with ONLY the translated text, no explanations or notes.`,
   userContent: `{{content}}`,

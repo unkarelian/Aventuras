@@ -996,14 +996,17 @@
         emitNarrativeResponse(narrationEntry.id, fullResponse);
 
         // Phase 2.4: Translate narration if enabled (background, non-blocking)
+        // Store promise so image generation can wait for it
         const translationSettingsRef = settings.translationSettings;
+        let translationPromise: Promise<{ translatedContent: string; targetLanguage: string } | null> | null = null;
+
         if (TranslationService.shouldTranslateNarration(translationSettingsRef)) {
           const isVisualProse = story.currentStory?.settings?.visualProseMode ?? false;
           const targetLang = translationSettingsRef.targetLanguage;
           const entryIdForTranslation = narrationEntry.id;
 
-          // Run translation async (non-blocking) - don't await
-          (async () => {
+          // Run translation async - store promise so image gen can wait for it
+          translationPromise = (async () => {
             try {
               log("Translating narration", { entryId: entryIdForTranslation, isVisualProse, targetLang });
               const result = await aiService.translateNarration(fullResponse, targetLang, isVisualProse);
@@ -1014,8 +1017,10 @@
               // Refresh the entry in the store to show translated content
               await story.refreshEntry(entryIdForTranslation);
               log("Narration translated", { entryId: entryIdForTranslation });
+              return { translatedContent: result.translatedContent, targetLanguage: targetLang };
             } catch (error) {
               log("Narration translation failed (non-fatal)", error);
+              return null;
             }
           })();
         }
@@ -1175,6 +1180,7 @@
 
           // Phase 9: Generate images for imageable scenes (background, non-blocking)
           // This runs inside the classification try block because we need the presentCharacterNames
+          // If translation is enabled, wait for it so we can embed images in translated text
           if (
             currentStoryRef &&
             settings.systemServicesSettings.imageGeneration.enabled
@@ -1196,6 +1202,22 @@
               )
               .join("\n\n");
 
+            // Wait for translation if enabled, so image analyzer can embed in translated text
+            let translatedNarrative: string | undefined;
+            let translationLanguage: string | undefined;
+
+            if (translationPromise) {
+              log("Waiting for translation to complete for image generation...");
+              const translationResult = await translationPromise;
+              if (translationResult) {
+                translatedNarrative = translationResult.translatedContent;
+                translationLanguage = translationResult.targetLanguage;
+                log("Translation complete, will embed images in translated text", {
+                  targetLanguage: translationLanguage,
+                });
+              }
+            }
+
             const imageGenContext: ImageGenerationContext = {
               storyId: currentStoryRef.id,
               entryId: narrationEntry.id,
@@ -1207,6 +1229,8 @@
                 worldState.currentLocation?.name,
               chatHistory: imageGenChatHistory,
               lorebookContext: lorebookContext ?? undefined,
+              translatedNarrative,
+              translationLanguage,
             };
 
             // Store for manual generation if auto-generate is disabled

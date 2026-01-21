@@ -34,7 +34,7 @@ export interface ImageableScene {
  * Context needed to analyze narrative for imageable scenes.
  */
 export interface ImagePromptContext {
-  /** The narrative text to analyze */
+  /** The narrative text to analyze (English original) */
   narrativeResponse: string;
   /** The user action that triggered this narrative */
   userAction: string;
@@ -57,6 +57,10 @@ export interface ImagePromptContext {
   charactersWithPortraits: string[];
   /** Whether to use portrait reference mode (simplified prompts for characters with portraits) */
   portraitMode: boolean;
+  /** Translated narrative text - use this for sourceText extraction when available */
+  translatedNarrative?: string;
+  /** Target language for translation (e.g., "Spanish", "Japanese") */
+  translationLanguage?: string;
 }
 
 /**
@@ -135,12 +139,20 @@ export class ImagePromptService {
       maxImages: context.maxImages === 0 ? '0 (unlimited)' : String(context.maxImages),
     });
 
+    // Build the translated narrative block (only if translation is provided)
+    let translatedNarrativeBlock = '';
+    if (context.translatedNarrative && context.translationLanguage) {
+      translatedNarrativeBlock = `## Display Narrative (${context.translationLanguage} - copy sourceText from THIS version)
+${context.translatedNarrative}`;
+    }
+
     // Build the user prompt with full context
     const userPrompt = promptService.renderUserPrompt(templateId, promptContext, {
       narrativeResponse: context.narrativeResponse,
       userAction: context.userAction,
       chatHistory: context.chatHistory || '',
       lorebookContext: context.lorebookContext || '',
+      translatedNarrativeBlock,
     });
 
     try {
