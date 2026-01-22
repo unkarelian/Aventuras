@@ -460,7 +460,7 @@
           icon={Star}
           label="Favorites"
           variant="outline"
-          size="sm"
+          size="default"
           class={cn(
             "transition-all",
             showFavoritesOnly &&

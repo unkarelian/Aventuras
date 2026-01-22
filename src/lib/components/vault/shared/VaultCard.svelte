@@ -140,15 +140,15 @@
           {#if !selectable && (onEdit || onDelete || onToggleFavorite)}
             <div class="flex items-center gap-0.5 -mt-1 -mr-1 shrink-0">
               {#if confirmingDelete}
-                <div class="flex items-center gap-1 mr-1">
-                  <span class="text-[10px] font-medium text-muted-foreground"
+                <div class="flex items-center">
+                  <span class="text-xs font-medium text-muted-foreground"
                     >Delete?</span
                   >
                   <Button
                     icon={X}
                     variant="ghost"
                     size="icon"
-                    class="h-6 w-6 hover:bg-transparent text-muted-foreground hover:text-foreground"
+                    class="h-7 w-7 hover:bg-transparent text-muted-foreground hover:text-foreground"
                     iconClass="h-3.5 w-3.5"
                     onclick={handleCancelDelete}
                     title="Cancel"
@@ -157,7 +157,7 @@
                     icon={Check}
                     variant="ghost"
                     size="icon"
-                    class="h-6 w-6 hover:bg-transparent text-muted-foreground hover:text-foreground"
+                    class="h-7 w-7 hover:bg-transparent text-muted-foreground hover:text-foreground"
                     iconClass="h-3.5 w-3.5"
                     onclick={handleDelete}
                     title="Confirm Delete"
