@@ -418,6 +418,10 @@ class ExportService {
           position: entry.position,
           metadata: entry.metadata,
           branchId: mapBranchId(entry.branchId ?? null),
+          // Translation fields
+          translatedContent: entry.translatedContent ?? null,
+          translationLanguage: entry.translationLanguage ?? null,
+          originalInput: entry.originalInput ?? null,
         });
       }
 
@@ -439,6 +443,13 @@ class ExportService {
             visualDescriptors: char.visualDescriptors ?? [],
             portrait: char.portrait ?? null,
             branchId: mapBranchId(char.branchId ?? null),
+            // Translation fields
+            translatedName: char.translatedName ?? null,
+            translatedDescription: char.translatedDescription ?? null,
+            translatedRelationship: char.translatedRelationship ?? null,
+            translatedTraits: char.translatedTraits ?? null,
+            translatedVisualDescriptors: char.translatedVisualDescriptors ?? null,
+            translationLanguage: char.translationLanguage ?? null,
           });
         }
       }
@@ -459,6 +470,10 @@ class ExportService {
             connections: loc.connections.map(c => oldToNewId.get(c) ?? c),
             metadata: loc.metadata,
             branchId: mapBranchId(loc.branchId ?? null),
+            // Translation fields
+            translatedName: loc.translatedName ?? null,
+            translatedDescription: loc.translatedDescription ?? null,
+            translationLanguage: loc.translationLanguage ?? null,
           });
         }
       }
@@ -483,6 +498,10 @@ class ExportService {
             location: mappedLocation,
             metadata: item.metadata,
             branchId: mapBranchId(item.branchId ?? null),
+            // Translation fields
+            translatedName: item.translatedName ?? null,
+            translatedDescription: item.translatedDescription ?? null,
+            translationLanguage: item.translationLanguage ?? null,
           });
         }
       }
@@ -504,6 +523,10 @@ class ExportService {
             resolvedAt: beat.resolvedAt ?? null,
             metadata: beat.metadata,
             branchId: mapBranchId(beat.branchId ?? null),
+            // Translation fields
+            translatedTitle: beat.translatedTitle ?? null,
+            translatedDescription: beat.translatedDescription ?? null,
+            translationLanguage: beat.translationLanguage ?? null,
           });
         }
       }
