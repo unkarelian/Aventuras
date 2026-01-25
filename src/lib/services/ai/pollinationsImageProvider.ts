@@ -120,8 +120,8 @@ export class PollinationsImageProvider implements ImageProvider {
         size?: string,
         referenceImageUrls?: string[]
     ): string {
-        // Encode prompt for URL path
-        const encodedPrompt = encodeURIComponent(prompt);
+        // Encode prompt for URL path and ensure specialized characters are handled
+        const encodedPrompt = this.sanitizePrompt(prompt);
         const url = new URL(`${POLLINATIONS_IMAGE_ENDPOINT}/${encodedPrompt}`);
 
         // Add model
@@ -150,6 +150,22 @@ export class PollinationsImageProvider implements ImageProvider {
         }
 
         return url.toString();
+    }
+
+    /**
+     * Sanitize prompt for URL path usage.
+     * Standard encodeURIComponent leaves some characters like '.' which can confuse
+     * the API routing (treating it as a file extension).
+     */
+    private sanitizePrompt(prompt: string): string {
+        // First do standard encoding
+        let encoded = encodeURIComponent(prompt);
+
+        // Manually encode characters that encodeURIComponent misses but might cause issues in path
+        // . -> %2E (Crucial for trailing dots or dots interpreted as extensions)
+        encoded = encoded.replace(/\./g, '%2E');
+
+        return encoded;
     }
 
     /**
