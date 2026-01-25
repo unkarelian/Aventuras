@@ -34,6 +34,7 @@
     type ResponseStreamingEvent,
     type ClassificationCompleteEvent,
   } from "$lib/services/events";
+  import { isTouchDevice } from "$lib/utils/swipe";
 
   function log(...args: any[]) {
     console.log("[ActionInput]", ...args);
@@ -61,6 +62,11 @@
 
   // In creative writing mode, show different input style
   const isCreativeMode = $derived(story.storyMode === "creative-writing");
+
+  // Keyboard shortcut hint
+  const sendKeyHint = $derived(
+    isTouchDevice() ? "Shift+Enter to send" : "Enter to send, Shift+Enter for new line"
+  );
 
   // Action type configuration for the redesigned input
   type ActionType = "do" | "say" | "think" | "story" | "free";
@@ -1842,7 +1848,15 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === "Enter" && !event.shiftKey) {
+    const isMobile = isTouchDevice();
+    
+    // On mobile: Enter = new line, Shift+Enter = send
+    // On desktop: Enter = send, Shift+Enter = new line
+    const shouldSubmit = isMobile 
+      ? (event.key === "Enter" && event.shiftKey)
+      : (event.key === "Enter" && !event.shiftKey);
+    
+    if (shouldSubmit) {
       event.preventDefault();
       handleSubmit();
     }
@@ -1953,28 +1967,28 @@
           {#if !ui.isRetryingLastMessage}
             <button
               onclick={handleStopGeneration}
-              class="h-9 w-9 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse"
+              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse"
               title="Stop generation"
             >
-              <Square class="h-5 w-5" />
+              <Square class="h-6 w-6" />
             </button>
           {:else}
             <button
               disabled
-              class="h-9 w-9 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed flex-shrink-0"
+              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed flex-shrink-0"
               title="Stop disabled during retry"
             >
-              <Square class="h-5 w-5" />
+              <Square class="h-6 w-6" />
             </button>
           {/if}
         {:else}
           <button
             onclick={handleSubmit}
             disabled={!inputValue.trim()}
-            class="h-9 w-9 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 text-accent-400 hover:text-accent-300 hover:bg-accent-500/10"
-            title="Send direction"
+            class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 text-accent-400 hover:text-accent-300 hover:bg-accent-500/10"
+            title="Send direction ({sendKeyHint})"
           >
-            <Send class="h-5 w-5" />
+            <Send class="h-6 w-6" />
           </button>
         {/if}
       </div>
@@ -2053,29 +2067,30 @@
           {#if !ui.isRetryingLastMessage}
             <button
               onclick={handleStopGeneration}
-              class="h-9 w-9 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse"
+              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse"
               title="Stop generation"
             >
-              <Square class="h-5 w-5" />
+              <Square class="h-6 w-6" />
             </button>
           {:else}
             <button
               disabled
-              class="h-9 w-9 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed flex-shrink-0"
+              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed flex-shrink-0"
               title="Stop disabled during retry"
             >
-              <Square class="h-5 w-5" />
+              <Square class="h-6 w-6" />
             </button>
           {/if}
         {:else}
           <button
             onclick={handleSubmit}
             disabled={!inputValue.trim()}
-            class="h-9 w-9 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 {actionButtonStyles[
+            class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 {actionButtonStyles[
               actionType
             ]}"
+            title="Send ({sendKeyHint})"
           >
-            <Send class="h-5 w-5" />
+            <Send class="h-6 w-6" />
           </button>
         {/if}
       </div>

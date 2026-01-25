@@ -17,6 +17,7 @@
   import { fade, slide } from 'svelte/transition';
   import { onMount, onDestroy, tick } from 'svelte';
   import { parseMarkdown } from '$lib/utils/markdown';
+  import { isTouchDevice } from '$lib/utils/swipe';
 
   // AbortController for cancelling ongoing requests
   let abortController: AbortController | null = null;
@@ -335,7 +336,15 @@
   }
 
   function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    const isMobile = isTouchDevice();
+    
+    // On mobile: Enter = new line, Shift+Enter = send
+    // On desktop: Enter = send, Shift+Enter = new line
+    const shouldSubmit = isMobile 
+      ? (e.key === 'Enter' && e.shiftKey)
+      : (e.key === 'Enter' && !e.shiftKey);
+    
+    if (shouldSubmit) {
       e.preventDefault();
       handleSend();
     }
@@ -590,20 +599,20 @@
         disabled={isGenerating || !service}
       ></textarea>
       <button
-        class="flex items-center justify-center h-12 w-12 md:h-10 md:w-10 rounded-lg bg-purple-600 text-white hover:bg-purple-500 active:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        class="flex items-center justify-center h-12 w-12 md:h-11 md:w-11 rounded-lg bg-purple-600 text-white hover:bg-purple-500 active:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         onclick={handleSend}
         disabled={!inputValue.trim() || isGenerating || !service}
         title="Send message"
       >
         {#if isGenerating}
-          <Loader2 class="h-5 w-5 animate-spin" />
+          <Loader2 class="h-6 w-6 animate-spin" />
         {:else}
-          <Send class="h-5 w-5" />
+          <Send class="h-6 w-6" />
         {/if}
       </button>
     </div>
     <div class="mt-2 text-xs text-surface-500 hidden md:block">
-      Press Enter to send, Shift+Enter for new line
+      Press {isTouchDevice() ? 'Shift+Enter to send, Enter for new line' : 'Enter to send, Shift+Enter for new line'}
     </div>
   </div>
 </div>
