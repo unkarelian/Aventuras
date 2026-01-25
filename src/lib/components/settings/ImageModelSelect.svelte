@@ -43,11 +43,11 @@
       cost += (model.costPerImageToken || 0) * AVG_IMAGE_TOKENS;
     }
     if (cost <= 0) return null;
-    const perPollen = Math.round(1 / cost);
-    if (perPollen >= 1000) {
-      return `${(perPollen / 1000).toFixed(perPollen >= 10000 ? 0 : 1).replace(/\.0$/, "")}k`;
+    const imagesPerPollen = Math.round(1 / cost);
+    if (imagesPerPollen >= 1000) {
+      return `${(imagesPerPollen / 1000).toFixed(imagesPerPollen >= 10000 ? 0 : 1).replace(/\.0$/, "")}k`;
     }
-    return String(perPollen);
+    return String(imagesPerPollen);
   }
 
   const selectedModel = $derived(models.find((m) => m.id === value));
@@ -65,11 +65,11 @@
         <option {value}>{value || placeholder}</option>
       {:else}
         {#each models as model}
-          {@const cost = showCost ? formatCost(model) : null}
+          {@const dailyGenerations = showCost ? formatCost(model) : null}
           <option value={model.id}>
             {model.name}{showImg2Img && model.supportsImg2Img
               ? " (+img2img)"
-              : ""}{cost ? ` ~${cost}/day` : ""}
+              : ""}{dailyGenerations ? ` ~${dailyGenerations}/day` : ""}
           </option>
         {/each}
       {/if}

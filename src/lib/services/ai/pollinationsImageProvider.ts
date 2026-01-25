@@ -17,6 +17,7 @@ import type {
     ImageModelInfo,
 } from './imageProvider';
 import { ImageGenerationError } from './imageProvider';
+import { dev } from '$app/environment';
 
 const POLLINATIONS_BASE_URL = 'https://gen.pollinations.ai';
 const POLLINATIONS_IMAGE_ENDPOINT = `${POLLINATIONS_BASE_URL}/image`;
@@ -28,7 +29,7 @@ const DEFAULT_MODEL = 'zimage';
 // Cache for models list (avoid repeated API calls)
 let modelsCache: ImageModelInfo[] | null = null;
 let modelsCacheTime = 0;
-const MODELS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MODELS_CACHE_TTL = 30 * 60 * 1000; // 5 minutes
 
 export class PollinationsImageProvider implements ImageProvider {
     id = 'pollinations';
@@ -144,12 +145,14 @@ export class PollinationsImageProvider implements ImageProvider {
         // Add seed for reproducibility (random by default)
         url.searchParams.set('seed', '-1');
 
-        // Add API key as query param (backup, header is preferred)
-        if (this.apiKey) {
-            url.searchParams.set('key', this.apiKey);
+        // Note: API key is sent via Authorization header for security
+
+        const urlString = url.toString();
+        if (urlString.length > 2000 && this.debug) {
+            console.warn(`[Pollinations] URL length (${urlString.length}) approaches browser limits. Consider shortening the prompt.`);
         }
 
-        return url.toString();
+        return urlString;
     }
 
     /**
@@ -334,6 +337,6 @@ export class PollinationsImageProvider implements ImageProvider {
  * @param apiKey - The Pollinations.ai API key
  * @param debug - Enable debug logging
  */
-export function createPollinationsProvider(apiKey: string, debug = false): ImageProvider {
+export function createPollinationsProvider(apiKey: string, debug = dev): ImageProvider {
     return new PollinationsImageProvider(apiKey, debug);
 }
