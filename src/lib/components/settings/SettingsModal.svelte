@@ -66,6 +66,9 @@
     type UpdateProgress,
   } from "$lib/services/updater";
   import { getSupportedLanguages } from "$lib/services/ai/translation";
+  import { PollinationsImageProvider } from "$lib/services/ai/pollinationsImageProvider";
+  import type { ImageModelInfo } from "$lib/services/ai/imageProvider";
+  import ImageModelSelect from "./ImageModelSelect.svelte";
 
   const baseTabs = [
     { id: "api", label: "API Connection", icon: Key },
@@ -123,6 +126,60 @@
 
   let isExporting = $state(false);
   let promptImportModalOpen = $state(false);
+
+  // Pollinations models state
+  let pollinationsModels = $state<ImageModelInfo[]>([]);
+  let isLoadingPollinationsModels = $state(false);
+  let pollinationsModelsError = $state<string | null>(null);
+
+  // Filtered models: only include models that output images (exclude video models)
+  const filteredPollinationsModels = $derived(
+    pollinationsModels.filter(model => model.outputModalities?.includes('image'))
+  );
+
+  // Models that support img2img (for reference image generation)
+  const pollinationsImg2ImgModels = $derived(
+    filteredPollinationsModels.filter(model => model.supportsImg2Img)
+  );
+
+  // Load Pollinations models when provider is selected
+  async function loadPollinationsModels() {
+    const apiKey = settings.systemServicesSettings.imageGeneration.pollinationsApiKey;
+    isLoadingPollinationsModels = true;
+    pollinationsModelsError = null;
+
+    try {
+      const provider = new PollinationsImageProvider(apiKey, false);
+      pollinationsModels = await provider.listModels();
+    } catch (error) {
+      pollinationsModelsError = error instanceof Error ? error.message : 'Failed to load models';
+      console.error('[Settings] Failed to load Pollinations models:', error);
+    } finally {
+      isLoadingPollinationsModels = false;
+    }
+  }
+
+  // Ensure selected model is valid for current filtered list
+  $effect(() => {
+    if (settings.systemServicesSettings.imageGeneration.imageProvider !== 'pollinations') return;
+    if (filteredPollinationsModels.length === 0) return;
+
+    const currentModel = settings.systemServicesSettings.imageGeneration.model;
+    const modelExists = filteredPollinationsModels.some(m => m.id === currentModel);
+    if (!modelExists) {
+      // Prefer "zimage" if available, otherwise use first model
+      const zimageModel = filteredPollinationsModels.find(m => m.id === 'zimage');
+      settings.systemServicesSettings.imageGeneration.model = zimageModel ? 'zimage' : filteredPollinationsModels[0].id;
+      settings.saveSystemServicesSettings();
+    }
+  });
+
+  // Auto-load models when Pollinations is selected
+  $effect(() => {
+    if (settings.systemServicesSettings.imageGeneration.imageProvider === 'pollinations') {
+      loadPollinationsModels();
+    }
+  });
 
   // Get all templates grouped by category
   const allTemplates = $derived(promptService.getAllTemplates());
@@ -1788,13 +1845,19 @@
                         onchange={(e) => {
                           const provider = e.currentTarget.value as
                             | "nanogpt"
-                            | "chutes";
+                            | "chutes"
+                            | "pollinations";
                           settings.systemServicesSettings.imageGeneration.imageProvider =
                             provider;
                           // Update default models based on provider
                           if (provider === "chutes") {
                             settings.systemServicesSettings.imageGeneration.referenceModel =
                               "qwen-image-edit-2511";
+                          } else if (provider === "pollinations") {
+                            settings.systemServicesSettings.imageGeneration.referenceModel =
+                              "kontext";
+                            settings.systemServicesSettings.imageGeneration.model =
+                              "zimage";
                           } else {
                             settings.systemServicesSettings.imageGeneration.referenceModel =
                               "qwen-image";
@@ -1804,6 +1867,7 @@
                       >
                         <option value="nanogpt">NanoGPT</option>
                         <option value="chutes">Chutes</option>
+                        <option value="pollinations">Pollinations.ai</option>
                       </select>
                     </div>
 
@@ -1877,6 +1941,30 @@
                       </div>
                     {/if}
 
+                    <!-- Pollinations API Key (shown when Pollinations is selected) -->
+                    {#if settings.systemServicesSettings.imageGeneration.imageProvider === "pollinations"}
+                      <div class="space-y-2">
+                        <label class="text-sm font-medium text-surface-300">
+                          Pollinations.ai API Key
+                        </label>
+                        <p class="text-xs text-surface-500">
+                          API key for Pollinations.ai image generation. Get one at <a href="https://enter.pollinations.ai" target="_blank" class="text-accent-400 hover:underline">enter.pollinations.ai</a>
+                        </p>
+                        <input
+                          type="password"
+                          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+                          value={settings.systemServicesSettings.imageGeneration
+                            .pollinationsApiKey}
+                          oninput={(e) => {
+                            settings.systemServicesSettings.imageGeneration.pollinationsApiKey =
+                              e.currentTarget.value;
+                            settings.saveSystemServicesSettings();
+                          }}
+                          placeholder="sk_..."
+                        />
+                      </div>
+                    {/if}
+
                     <!-- Image Model (hidden when portrait mode is enabled) -->
                     {#if !settings.systemServicesSettings.imageGeneration.portraitMode}
                       <div class="space-y-2">
@@ -1886,18 +1974,33 @@
                         <p class="text-xs text-surface-500">
                           The image model to use for generation.
                         </p>
-                        <input
-                          type="text"
-                          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
-                          value={settings.systemServicesSettings.imageGeneration
-                            .model}
-                          oninput={(e) => {
-                            settings.systemServicesSettings.imageGeneration.model =
-                              e.currentTarget.value;
-                            settings.saveSystemServicesSettings();
-                          }}
-                          placeholder="z-image-turbo"
-                        />
+                        {#if settings.systemServicesSettings.imageGeneration.imageProvider === 'pollinations'}
+                          <!-- Pollinations: Dynamic dropdown -->
+                          <ImageModelSelect
+                            models={filteredPollinationsModels}
+                            value={settings.systemServicesSettings.imageGeneration.model}
+                            onchange={(v) => {
+                              settings.systemServicesSettings.imageGeneration.model = v;
+                              settings.saveSystemServicesSettings();
+                            }}
+                            loading={isLoadingPollinationsModels}
+                            error={pollinationsModelsError}
+                            onRefresh={loadPollinationsModels}
+                          />
+                        {:else}
+                          <!-- Other providers: Text input -->
+                          <input
+                            type="text"
+                            class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+                            value={settings.systemServicesSettings.imageGeneration.model}
+                            oninput={(e) => {
+                              settings.systemServicesSettings.imageGeneration.model =
+                                e.currentTarget.value;
+                              settings.saveSystemServicesSettings();
+                            }}
+                            placeholder="z-image-turbo"
+                          />
+                        {/if}
                       </div>
                     {/if}
 
@@ -2067,18 +2170,29 @@
                           Model used when generating character portraits from
                           visual descriptors.
                         </p>
-                        <input
-                          type="text"
-                          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
-                          value={settings.systemServicesSettings.imageGeneration
-                            .portraitModel}
-                          oninput={(e) => {
-                            settings.systemServicesSettings.imageGeneration.portraitModel =
-                              e.currentTarget.value;
-                            settings.saveSystemServicesSettings();
-                          }}
-                          placeholder="z-image-turbo"
-                        />
+                        {#if settings.systemServicesSettings.imageGeneration.imageProvider === 'pollinations'}
+                          <ImageModelSelect
+                            models={filteredPollinationsModels}
+                            value={settings.systemServicesSettings.imageGeneration.portraitModel}
+                            onchange={(v) => {
+                              settings.systemServicesSettings.imageGeneration.portraitModel = v;
+                              settings.saveSystemServicesSettings();
+                            }}
+                            loading={isLoadingPollinationsModels}
+                          />
+                        {:else}
+                          <input
+                            type="text"
+                            class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+                            value={settings.systemServicesSettings.imageGeneration.portraitModel}
+                            oninput={(e) => {
+                              settings.systemServicesSettings.imageGeneration.portraitModel =
+                                e.currentTarget.value;
+                              settings.saveSystemServicesSettings();
+                            }}
+                            placeholder="z-image-turbo"
+                          />
+                        {/if}
                       </div>
 
                       <!-- Reference Image Model -->
@@ -2088,20 +2202,33 @@
                         </label>
                         <p class="text-xs text-surface-500">
                           Model used for story images when a character portrait
-                          is attached as reference.
+                          is attached as reference. Must support image-to-image.
                         </p>
-                        <input
-                          type="text"
-                          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
-                          value={settings.systemServicesSettings.imageGeneration
-                            .referenceModel}
-                          oninput={(e) => {
-                            settings.systemServicesSettings.imageGeneration.referenceModel =
-                              e.currentTarget.value;
-                            settings.saveSystemServicesSettings();
-                          }}
-                          placeholder="qwen-image"
-                        />
+                        {#if settings.systemServicesSettings.imageGeneration.imageProvider === 'pollinations'}
+                          <ImageModelSelect
+                            models={pollinationsImg2ImgModels}
+                            value={settings.systemServicesSettings.imageGeneration.referenceModel}
+                            onchange={(v) => {
+                              settings.systemServicesSettings.imageGeneration.referenceModel = v;
+                              settings.saveSystemServicesSettings();
+                            }}
+                            loading={isLoadingPollinationsModels}
+                            placeholder="Select img2img model..."
+                            includeImageInputCost={true}
+                          />
+                        {:else}
+                          <input
+                            type="text"
+                            class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+                            value={settings.systemServicesSettings.imageGeneration.referenceModel}
+                            oninput={(e) => {
+                              settings.systemServicesSettings.imageGeneration.referenceModel =
+                                e.currentTarget.value;
+                              settings.saveSystemServicesSettings();
+                            }}
+                            placeholder="qwen-image"
+                          />
+                        {/if}
                       </div>
                     {/if}
 

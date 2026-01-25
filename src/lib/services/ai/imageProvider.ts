@@ -33,7 +33,16 @@ export interface ImageModelInfo {
   description?: string;
   supportsSizes: string[];
   supportsImg2Img: boolean;
+  /** Cost per generated image in pollen */
   costPerImage?: number;
+  /** Cost per text token in prompt */
+  costPerTextToken?: number;
+  /** Cost per image token (for reference images) */
+  costPerImageToken?: number;
+  /** Input modalities supported by this model (e.g., ["text", "image"]) */
+  inputModalities?: string[];
+  /** Output modalities supported by this model (e.g., ["image"] or ["video"]) */
+  outputModalities?: string[];
 }
 
 /**

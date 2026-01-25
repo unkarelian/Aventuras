@@ -15,6 +15,7 @@ import type { ImageProvider } from './imageProvider';
 import { ImagePromptService, type ImagePromptContext, type ImageableScene } from './imagePrompt';
 import { NanoGPTImageProvider } from './nanoGPTImageProvider';
 import { ChutesImageProvider } from './chutesImageProvider';
+import { PollinationsImageProvider } from './pollinationsImageProvider';
 import { database } from '$lib/services/database';
 import { promptService } from '$lib/services/prompts';
 import { settings } from '$lib/stores/settings.svelte';
@@ -76,6 +77,9 @@ export class ImageGenerationService {
     if (provider === 'chutes') {
       return !!imageSettings.chutesApiKey;
     }
+    if (provider === 'pollinations') {
+      return !!imageSettings.pollinationsApiKey;
+    }
     return !!imageSettings.nanoGptApiKey;
   }
 
@@ -87,6 +91,9 @@ export class ImageGenerationService {
     const provider = imageSettings.imageProvider ?? 'nanogpt';
     if (provider === 'chutes') {
       return imageSettings.chutesApiKey;
+    }
+    if (provider === 'pollinations') {
+      return imageSettings.pollinationsApiKey;
     }
     return imageSettings.nanoGptApiKey;
   }
@@ -101,6 +108,9 @@ export class ImageGenerationService {
 
     if (provider === 'chutes') {
       return new ChutesImageProvider(apiKey, DEBUG);
+    }
+    if (provider === 'pollinations') {
+      return new PollinationsImageProvider(apiKey, DEBUG);
     }
     return new NanoGPTImageProvider(apiKey, DEBUG);
   }
