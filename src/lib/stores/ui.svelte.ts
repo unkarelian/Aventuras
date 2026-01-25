@@ -101,6 +101,9 @@ class UIStore {
   imageAnalysisInProgress = $state(false);  // LLM analyzing narrative for imageable scenes
   imagesGenerating = $state(0);              // Count of images currently being generated
 
+  // Gallery image cache - persists across component unmounts
+  private galleryImageCache = new SvelteMap<string, EmbeddedImage[]>();
+
   // Streaming state
   streamingContent = $state('');
   streamingReasoning = $state('');
@@ -146,6 +149,23 @@ class UIStore {
    */
   setCurrentRetryStoryId(storyId: string | null) {
     this.currentRetryStoryId = storyId;
+  }
+
+  // Gallery image cache methods
+  getGalleryImages(storyId: string): EmbeddedImage[] | undefined {
+    return this.galleryImageCache.get(storyId);
+  }
+
+  setGalleryImages(storyId: string, images: EmbeddedImage[]): void {
+    this.galleryImageCache.set(storyId, images);
+  }
+
+  hasGalleryImages(storyId: string): boolean {
+    return this.galleryImageCache.has(storyId);
+  }
+
+  clearGalleryImages(storyId: string): void {
+    this.galleryImageCache.delete(storyId);
   }
 
   // RPG action choices (displayed after narration)

@@ -32,7 +32,10 @@
   }
 
   async function resetTime() {
-    const confirmed = confirm('Reset time to zero? This cannot be undone.');
+    const confirmed = await new Promise<boolean>((resolve) => {
+      const result = confirm('Reset time to zero? This cannot be undone.');
+      resolve(result);
+    });
     if (!confirmed) return;
     await story.setTimeTracker({ years: 0, days: 0, hours: 0, minutes: 0 });
   }

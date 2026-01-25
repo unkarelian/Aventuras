@@ -6,6 +6,7 @@
   import Header from './Header.svelte';
   import StoryView from '$lib/components/story/StoryView.svelte';
   import LibraryView from '$lib/components/story/LibraryView.svelte';
+  import GalleryTab from '$lib/components/story/GalleryTab.svelte';
   import LorebookView from '$lib/components/lorebook/LorebookView.svelte';
   import MemoryView from '$lib/components/memory/MemoryView.svelte';
   import VaultPanel from '$lib/components/vault/VaultPanel.svelte';
@@ -61,6 +62,8 @@
     <main class="flex-1 overflow-hidden">
       {#if ui.activePanel === 'story' && story.currentStory}
         <StoryView />
+      {:else if ui.activePanel === 'gallery' && story.currentStory}
+        <GalleryTab />
       {:else if ui.activePanel === 'lorebook' && story.currentStory}
         <LorebookView />
       {:else if ui.activePanel === 'memory' && story.currentStory}

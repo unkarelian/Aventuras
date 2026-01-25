@@ -13,6 +13,7 @@
   let { entry, isMobile = false }: Props = $props();
 
   let deleting = $state(false);
+  let confirmingDelete = $state(false);
 
   const typeIcons: Record<EntryType, typeof Users> = {
     character: Users,
@@ -55,9 +56,6 @@
   }
 
   async function handleDelete() {
-    const confirmed = confirm(`Delete "${entry.name}"? This cannot be undone.`);
-    if (!confirmed) return;
-
     deleting = true;
     try {
       await story.deleteLorebookEntry(entry.id);
@@ -66,9 +64,21 @@
       } else {
         ui.selectLorebookEntry(null);
       }
+    } catch (error) {
+      console.error('[LorebookDetail] Failed to delete entry:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete entry');
     } finally {
       deleting = false;
+      confirmingDelete = false;
     }
+  }
+
+  function handleConfirmDelete() {
+    confirmingDelete = true;
+  }
+
+  function handleCancelDelete() {
+    confirmingDelete = false;
   }
 
   function handleBack() {
@@ -109,22 +119,39 @@
 
     {#if !ui.lorebookEditMode}
       <div class="flex items-center gap-2">
-        <button
-          class="btn-ghost p-2 rounded-lg"
-          onclick={() => ui.setLorebookEditMode(true)}
-          disabled={isLoreManagementActive}
-          title={isLoreManagementActive ? 'Editing disabled during lore management' : 'Edit'}
-        >
-          <Pencil class="h-4 w-4" />
-        </button>
-        <button
-          class="btn-ghost p-2 rounded-lg text-red-400 hover:text-red-300"
-          onclick={handleDelete}
-          disabled={deleting || isLoreManagementActive}
-          title={isLoreManagementActive ? 'Deletion disabled during lore management' : 'Delete'}
-        >
-          <Trash2 class="h-4 w-4" />
-        </button>
+        {#if confirmingDelete}
+          <button
+            class="rounded px-2 py-1 text-xs bg-surface-700 text-surface-300 hover:bg-surface-600"
+            onclick={handleCancelDelete}
+            disabled={deleting}
+          >
+            Cancel
+          </button>
+          <button
+            class="rounded px-2 py-1 text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50"
+            onclick={handleDelete}
+            disabled={deleting}
+          >
+            Confirm Delete
+          </button>
+        {:else}
+          <button
+            class="btn-ghost p-2 rounded-lg"
+            onclick={() => ui.setLorebookEditMode(true)}
+            disabled={isLoreManagementActive}
+            title={isLoreManagementActive ? 'Editing disabled during lore management' : 'Edit'}
+          >
+            <Pencil class="h-4 w-4" />
+          </button>
+          <button
+            class="btn-ghost p-2 rounded-lg text-red-400 hover:text-red-300"
+            onclick={handleConfirmDelete}
+            disabled={isLoreManagementActive}
+            title={isLoreManagementActive ? 'Deletion disabled during lore management' : 'Delete'}
+          >
+            <Trash2 class="h-4 w-4" />
+          </button>
+        {/if}
       </div>
     {/if}
   </div>

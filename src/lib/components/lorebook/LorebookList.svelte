@@ -22,6 +22,8 @@
   let searchDebounceTimer: ReturnType<typeof setTimeout>;
   let showTypeFilter = $state(false);
   let showSortMenu = $state(false);
+  let confirmingBulkDelete = $state(false);
+  let isDeleting = $state(false);
 
   const entryTypes: Array<EntryType | "all"> = [
     "all",
@@ -113,16 +115,30 @@
   }
 
   async function handleBulkDelete() {
-    if (ui.lorebookBulkSelection.size === 0) return;
-
-    const count = ui.lorebookBulkSelection.size;
-    const confirmed = confirm(
-      `Delete ${count} entr${count === 1 ? "y" : "ies"}? This cannot be undone.`,
-    );
-    if (!confirmed) return;
-
     const ids = Array.from(ui.lorebookBulkSelection);
-    await story.deleteLorebookEntries(ids);
+    isDeleting = true;
+    try {
+      await story.deleteLorebookEntries(ids);
+      ui.clearBulkSelection();
+    } catch (error) {
+      console.error('[LorebookList] Failed to delete entries:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete entries');
+    } finally {
+      isDeleting = false;
+      confirmingBulkDelete = false;
+    }
+  }
+
+  function handleConfirmBulkDelete() {
+    if (ui.lorebookBulkSelection.size === 0) return;
+    confirmingBulkDelete = true;
+  }
+
+  function handleCancelBulkDelete() {
+    confirmingBulkDelete = false;
+  }
+
+  function handleClearSelection() {
     ui.clearBulkSelection();
   }
 
@@ -277,19 +293,36 @@
         >
       </div>
       <div class="flex items-center gap-2">
-        <button
-          class="btn-ghost flex items-center gap-1.5 px-2 py-1 text-sm text-red-400 hover:text-red-300"
-          onclick={handleBulkDelete}
-        >
-          <Trash2 class="h-4 w-4" />
-          <span class="hidden xs:inline">Delete</span>
-        </button>
-        <button
-          class="btn-ghost px-2 py-1 text-sm text-surface-400 hover:text-surface-300"
-          onclick={() => ui.clearBulkSelection()}
-        >
-          Cancel
-        </button>
+        {#if confirmingBulkDelete}
+          <button
+            class="rounded px-2 py-1 text-xs bg-surface-700 text-surface-300 hover:bg-surface-600"
+            onclick={handleCancelBulkDelete}
+            disabled={isDeleting}
+          >
+            Cancel
+          </button>
+          <button
+            class="rounded px-2 py-1 text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50"
+            onclick={handleBulkDelete}
+            disabled={isDeleting}
+          >
+            Confirm Delete {ui.lorebookBulkSelection.size} entr{ui.lorebookBulkSelection.size === 1 ? "y" : "ies"}
+          </button>
+        {:else}
+          <button
+            class="btn-ghost flex items-center gap-1.5 px-2 py-1 text-sm text-red-400 hover:text-red-300"
+            onclick={handleConfirmBulkDelete}
+          >
+            <Trash2 class="h-4 w-4" />
+            <span class="hidden xs:inline">Delete</span>
+          </button>
+          <button
+            class="btn-ghost px-2 py-1 text-sm text-surface-400 hover:text-surface-300"
+            onclick={handleClearSelection}
+          >
+            Cancel
+          </button>
+        {/if}
       </div>
     </div>
   {/if}
@@ -305,7 +338,7 @@
   </div>
 
   <!-- Entry list -->
-  <div class="flex-1 overflow-y-auto p-3 pb-safe space-y-2">
+  <div class="flex-1 overflow-y-auto p-3 space-y-2 pb-16 sm:pb-20">
     {#if filteredEntries.length === 0}
       {#if story.lorebookEntries.length === 0}
         <div class="text-center py-8 text-surface-500">

@@ -104,6 +104,17 @@
       scrollRAF = null;
     });
   });
+
+  // Scroll to bottom when returning from gallery or other panels
+  $effect(() => {
+    if (ui.activePanel === 'story' && storyContainer) {
+      requestAnimationFrame(() => {
+        if (storyContainer) {
+          storyContainer.scrollTop = storyContainer.scrollHeight;
+        }
+      });
+    }
+  });
 </script>
 
 <div class="flex h-full flex-col">

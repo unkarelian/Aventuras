@@ -226,6 +226,17 @@
     {/if}
 
     {#if story.currentStory}
+      <!-- Gallery Button -->
+      <button
+        class="btn-ghost flex items-center gap-1 rounded-lg p-2 sm:px-2 sm:py-1.5 text-sm min-h-[44px] min-w-[44px] justify-center"
+        onclick={() => ui.setActivePanel(ui.activePanel === 'gallery' ? 'story' : 'gallery')}
+        title="View generated images"
+      >
+        <ImageIcon class="h-4 w-4" />
+        <span class="hidden sm:inline">Gallery</span>
+      </button>
+
+      <!-- Export Button -->
       <div class="relative">
         <button
           class="btn-ghost flex items-center gap-1 rounded-lg p-2 sm:px-2 sm:py-1.5 text-sm min-h-[44px] min-w-[44px] justify-center"

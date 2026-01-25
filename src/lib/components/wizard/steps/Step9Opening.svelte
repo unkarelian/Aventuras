@@ -7,6 +7,7 @@
     Sparkles,
     PenTool,
     Book,
+    X,
   } from "lucide-svelte";
   import type {
     StoryMode,
@@ -32,6 +33,7 @@
     isEditingOpening: boolean;
     openingDraft: string;
     openingError: string | null;
+    manualOpeningText: string;
     
     // Card import
     cardImportedFirstMessage: string | null;
@@ -60,6 +62,8 @@
     onDraftChange: (value: string) => void;
     onUseCardOpening: () => void;
     onClearCardOpening: () => void;
+    onManualOpeningChange: (value: string) => void;
+    onClearGenerated: () => void;
   }
 
   let {
@@ -71,6 +75,7 @@
     isEditingOpening,
     openingDraft,
     openingError,
+    manualOpeningText,
     cardImportedFirstMessage,
     cardImportedAlternateGreetings,
     selectedGreetingIndex,
@@ -93,6 +98,8 @@
     onDraftChange,
     onUseCardOpening,
     onClearCardOpening,
+    onClearGenerated,
+    onManualOpeningChange,
   }: Props = $props();
 
   // POV options for summary
@@ -105,7 +112,7 @@
 
 <div class="space-y-4">
   <p class="text-surface-400">
-    Give your story a title and generate the opening scene.
+    Give your story a title and either write your own opening scene or generate one with AI.
   </p>
 
   <div>
@@ -227,36 +234,83 @@
     </div>
   {/if}
 
+  <!-- Manual Opening Entry or AI Generation -->
   {#if storyTitle.trim()}
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <button
-        class="btn btn-secondary flex w-full items-center justify-center gap-2 sm:w-auto"
-        onclick={onGenerateOpening}
-        disabled={isGeneratingOpening || isRefiningOpening}
-      >
-        {#if isGeneratingOpening}
-          <Loader2 class="h-4 w-4 animate-spin" />
-          Generating Opening...
-        {:else}
-          <PenTool class="h-4 w-4" />
-          {generatedOpening
-            ? "Regenerate Opening"
-            : "Generate Opening Scene"}
+    <div class="card bg-surface-900 p-4 space-y-3">
+      <h4 class="font-medium text-surface-200">Opening Scene</h4>
+      <p class="text-sm text-surface-400">
+        Write your own opening scene or generate one with AI
+      </p>
+      
+      <!-- Manual Text Entry -->
+      <div>
+        <label class="mb-2 block text-sm font-medium text-surface-300">
+          Write Your Own Opening
+        </label>
+        <textarea
+          value={manualOpeningText}
+          oninput={(e) => onManualOpeningChange(e.currentTarget.value)}
+          placeholder="Write the opening scene of your story here... Describe the setting, introduce your character, set the mood. This will be the first entry in your adventure."
+          class="input min-h-[140px] resize-y text-sm"
+          rows="6"
+          disabled={isGeneratingOpening || isRefiningOpening || generatedOpening !== null}
+        ></textarea>
+        {#if generatedOpening}
+          <p class="mt-2 text-xs text-amber-400">
+            AI-generated opening active. Clear it below to write your own.
+          </p>
+        {:else if manualOpeningText.trim()}
+          <p class="mt-2 text-xs text-green-400">
+            ✓ Custom opening ready
+          </p>
         {/if}
-      </button>
-      {#if !generatedOpening && !isGeneratingOpening && !cardImportedFirstMessage}
-        <span class="text-sm text-amber-400"
-          >Required to begin story</span
-        >
-      {:else if !generatedOpening && !isGeneratingOpening && cardImportedFirstMessage}
-        <span class="text-sm text-surface-400"
-          >Or use the imported opening above</span
-        >
-      {/if}
+      </div>
+
+      <!-- Divider -->
+      <div class="flex items-center gap-3">
+        <div class="flex-1 border-t border-surface-700"></div>
+        <span class="text-xs text-surface-500">OR</span>
+        <div class="flex-1 border-t border-surface-700"></div>
+      </div>
+
+      <!-- AI Generation Button -->
+      <div class="flex flex-col gap-3">
+        <div class="flex gap-2">
+          <button
+            class="btn btn-secondary flex-1 flex items-center justify-center gap-2"
+            onclick={onGenerateOpening}
+            disabled={isGeneratingOpening || isRefiningOpening}
+          >
+            {#if isGeneratingOpening}
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Generating Opening...
+            {:else}
+              <PenTool class="h-4 w-4" />
+              {generatedOpening
+                ? "Regenerate with AI"
+                : "Generate Opening with AI"}
+            {/if}
+          </button>
+          {#if generatedOpening}
+            <button
+              class="btn btn-secondary px-3"
+              onclick={onClearGenerated}
+              title="Clear AI-generated opening"
+            >
+              <X class="h-4 w-4" />
+            </button>
+          {/if}
+        </div>
+        {#if !generatedOpening && !isGeneratingOpening && !manualOpeningText.trim() && !cardImportedFirstMessage}
+          <span class="text-sm text-amber-400 text-center">
+            Either write your own opening or generate one with AI
+          </span>
+        {/if}
+      </div>
     </div>
   {:else}
     <p class="text-sm text-surface-500">
-      Enter a title to generate the opening scene
+      Enter a title to continue
     </p>
   {/if}
 
