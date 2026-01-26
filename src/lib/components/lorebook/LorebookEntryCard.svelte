@@ -2,6 +2,9 @@
   import type { Entry, EntryType } from '$lib/types';
   import { Users, MapPin, Package, Shield, Lightbulb, Calendar, BookOpen, ChevronRight } from 'lucide-svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import { Checkbox } from '$lib/components/ui/checkbox';
+  import { Badge } from '$lib/components/ui/badge';
+  import { cn } from '$lib/utils/cn';
 
   interface Props {
     entry: Entry;
@@ -38,7 +41,7 @@
   };
 
   const Icon = $derived(typeIcons[entry.type] || BookOpen);
-  const colorClass = $derived(typeColors[entry.type] || 'text-surface-400');
+  const colorClass = $derived(typeColors[entry.type] || 'text-muted-foreground');
   const isSelected = $derived(ui.lorebookBulkSelection.has(entry.id));
   const keywordCount = $derived(entry.injection.keywords.length);
 
@@ -50,46 +53,48 @@
     }
   }
 
-  function handleCheckboxClick(e: Event) {
-    e.stopPropagation();
+  function handleCheckboxClick(checked: boolean) {
     ui.toggleBulkSelection(entry.id);
   }
 </script>
 
 <button
-  class="w-full text-left p-3 rounded-lg border transition-colors min-h-[56px]
-    {selected ? 'bg-accent-500/20 border-accent-500/50' : 'bg-surface-800/50 border-surface-700 hover:bg-surface-700/50'}"
+  class={cn(
+    "w-full text-left p-3 rounded-lg border transition-colors min-h-[56px]",
+    selected ? "bg-primary/10 border-primary/50" : "bg-card hover:bg-muted/50 border-border"
+  )}
   onclick={handleClick}
 >
   <div class="flex items-center gap-3">
     {#if showCheckbox}
-      <input
-        type="checkbox"
+      <Checkbox
         checked={isSelected}
-        onclick={handleCheckboxClick}
-        class="h-4 w-4 rounded border-surface-600 bg-surface-800 text-accent-500 focus:ring-accent-500 focus:ring-offset-0"
+        onCheckedChange={handleCheckboxClick}
+        class="h-4 w-4"
+        onclick={(e) => e.stopPropagation()}
       />
     {/if}
 
-    <div class="flex-shrink-0 {colorClass}">
+    <div class={cn("flex-shrink-0", colorClass)}>
       <Icon class="h-5 w-5" />
     </div>
 
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2">
-        <span class="font-medium text-surface-100 truncate">{entry.name}</span>
+        <span class="font-medium text-foreground truncate">{entry.name}</span>
       </div>
-      <div class="flex items-center gap-2 mt-0.5 text-xs text-surface-500">
+      <div class="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
         <span class="capitalize">{entry.type}</span>
         {#if keywordCount > 0}
-          <span class="text-surface-600">|</span>
+          <span class="opacity-50">|</span>
           <span>{keywordCount} keyword{keywordCount !== 1 ? 's' : ''}</span>
         {/if}
-        <span class="text-surface-600">|</span>
+        <span class="opacity-50">|</span>
         <span class="capitalize">{injectionLabels[entry.injection.mode]}</span>
       </div>
     </div>
 
-    <ChevronRight class="h-4 w-4 text-surface-500 flex-shrink-0 hidden sm:block" />
+    <ChevronRight class="h-4 w-4 text-muted-foreground flex-shrink-0 hidden sm:block" />
   </div>
 </button>
+

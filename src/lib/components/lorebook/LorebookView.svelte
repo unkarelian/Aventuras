@@ -1,14 +1,19 @@
 <script lang="ts">
-  import type { Entry, EntryType } from "$lib/types";
+  import type { Entry } from "$lib/types";
   import { ui } from "$lib/stores/ui.svelte";
   import { story } from "$lib/stores/story.svelte";
-  import { onMount, untrack } from "svelte";
+  import { onMount } from "svelte";
   import LorebookList from "./LorebookList.svelte";
   import LorebookDetail from "./LorebookDetail.svelte";
   import LorebookEntryForm from "./LorebookEntryForm.svelte";
   import LorebookImportModal from "./LorebookImportModal.svelte";
   import LorebookExportModal from "./LorebookExportModal.svelte";
   import { BookOpen, Plus, ArrowLeft, Loader2, Bot } from "lucide-svelte";
+  
+  import { Button } from "$lib/components/ui/button";
+  import { Alert, AlertDescription, AlertTitle } from "$lib/components/ui/alert";
+  import { EmptyState } from "$lib/components/ui/empty-state";
+  import { cn } from "$lib/utils/cn";
 
   // Lore management active state
   const isLoreManagementActive = $derived(ui.loreManagementActive);
@@ -19,7 +24,7 @@
   // Breakpoint for mobile/desktop
   let isMobile = $state(false);
 
-  // Get selected entry - use untrack to avoid reactivity issues
+  // Get selected entry
   const selectedEntry = $derived.by(() => {
     const id = ui.selectedLorebookEntryId;
     if (!id) return null;
@@ -90,27 +95,29 @@
   }
 </script>
 
-<div class="flex flex-col h-full bg-surface-900">
+<div class="flex flex-col h-full bg-background">
   <!-- Lore Management Active Banner -->
   {#if isLoreManagementActive}
-    <div
-      class="flex items-center gap-3 px-4 py-3 bg-accent-500/20 border-b border-accent-500/30"
-    >
-      <div class="flex items-center gap-2 text-accent-400">
-        <Bot class="h-5 w-5" />
-        <Loader2 class="h-4 w-4 animate-spin" />
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="text-sm font-medium text-accent-300">
-          AI Lore Management Active
-        </div>
-        <div class="text-xs text-accent-400/80 truncate">
-          {ui.loreManagementProgress || "Reviewing story content..."}
-          {#if ui.loreManagementChanges > 0}
-            <span class="ml-2">({ui.loreManagementChanges} changes)</span>
+    <div class="p-4 border-b bg-accent/20">
+      <Alert variant="default" class="bg-transparent border-none p-0">
+        <div class="flex items-center gap-2 text-primary">
+          <Bot class="h-5 w-5" />
+          {#if ui.loreManagementProgress}
+            <Loader2 class="h-4 w-4 animate-spin" />
           {/if}
+          <AlertTitle class="mb-0">AI Lore Management Active</AlertTitle>
         </div>
-      </div>
+        <AlertDescription class="mt-1 text-muted-foreground flex items-center gap-2">
+          <span class="truncate">
+            {ui.loreManagementProgress || "Reviewing story content..."}
+          </span>
+          {#if ui.loreManagementChanges > 0}
+            <span class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">
+              {ui.loreManagementChanges} changes
+            </span>
+          {/if}
+        </AlertDescription>
+      </Alert>
     </div>
   {/if}
 
@@ -118,18 +125,21 @@
     <!-- List panel -->
     {#if showList}
       <div
-        class="flex flex-col border-r border-surface-700
-        {isMobile ? 'w-full' : 'w-72 lg:w-80 flex-shrink-0'}"
+        class={cn(
+          "flex flex-col border-r",
+          isMobile ? "w-full" : "w-72 lg:w-80 flex-shrink-0"
+        )}
       >
         <!-- Back to Story Header -->
         <div class="px-2 pt-0 sm:pt-3">
-          <button
-            class="btn-ghost flex items-center gap-2 rounded-lg py-1 px-2 text-xs text-surface-400 hover:text-surface-200 transition-colors"
+          <Button
+            variant="ghost"
+            class="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground pl-2 h-8"
             onclick={() => ui.setActivePanel("story")}
           >
             <ArrowLeft class="h-3.5 w-3.5" />
             <span>Back to Story</span>
-          </button>
+          </Button>
         </div>
 
         <LorebookList onNewEntry={handleNewEntry} />
@@ -139,31 +149,31 @@
     <!-- Detail panel -->
     {#if showDetail}
       <div
-        class="flex-1 flex flex-col
-        {isMobile
-          ? 'w-full absolute top-0 left-0 right-0 bottom-0 bg-surface-900 z-10'
-          : ''}"
+        class={cn(
+          "flex-1 flex flex-col bg-background",
+          isMobile && "w-full absolute top-0 left-0 right-0 bottom-0 z-10"
+        )}
       >
         {#if creatingNew}
           <!-- New entry form -->
           <div class="flex flex-col h-full">
-            <div
-              class="flex items-center gap-3 p-3 sm:p-4 border-b border-surface-700"
-            >
+            <div class="flex items-center gap-3 p-3 sm:p-4 border-b">
               {#if isMobile}
-                <button
-                  class="btn-ghost rounded-lg p-3 min-h-[48px] min-w-[48px] flex items-center justify-center -ml-1"
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  class="-ml-2"
                   onclick={handleMobileBack}
                 >
                   <ArrowLeft class="h-5 w-5" />
-                </button>
+                </Button>
               {/if}
-              <div class="p-2 rounded-lg bg-accent-500/20 text-accent-400">
+              <div class="p-2 rounded-lg bg-primary/10 text-primary">
                 <Plus class="h-5 w-5" />
               </div>
-              <h2 class="font-semibold text-surface-100">New Entry</h2>
+              <h2 class="font-semibold text-foreground">New Entry</h2>
             </div>
-            <div class="flex-1 overflow-y-auto p-3 sm:p-4 pb-safe">
+            <div class="flex-1 overflow-y-auto p-4 pb-safe">
               <LorebookEntryForm
                 onSave={handleSaveNew}
                 onCancel={handleCancelNew}
@@ -174,17 +184,12 @@
           <LorebookDetail entry={selectedEntry} {isMobile} />
         {:else}
           <!-- Empty state for desktop when no entry selected -->
-          <div class="flex-1 flex items-center justify-center text-center p-8">
-            <div>
-              <BookOpen class="h-12 w-12 text-surface-600 mx-auto mb-4" />
-              <h3 class="text-lg font-medium text-surface-400 mb-2">
-                Select an Entry
-              </h3>
-              <p class="text-sm text-surface-500 max-w-xs mx-auto">
-                Choose an entry from the list to view or edit its details, or
-                create a new one.
-              </p>
-            </div>
+          <div class="flex-1 flex items-center justify-center p-8">
+            <EmptyState
+              icon={BookOpen}
+              title="Select an Entry"
+              description="Choose an entry from the list to view or edit its details, or create a new one."
+            />
           </div>
         {/if}
       </div>
@@ -201,3 +206,4 @@
 {#if ui.lorebookExportModalOpen}
   <LorebookExportModal />
 {/if}
+

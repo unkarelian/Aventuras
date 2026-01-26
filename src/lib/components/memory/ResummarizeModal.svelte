@@ -1,9 +1,11 @@
 <script lang="ts">
   import { story } from '$lib/stores/story.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import { X, RefreshCw, AlertTriangle } from 'lucide-svelte';
-  import { fade, fly } from 'svelte/transition';
-  import { swipe } from '$lib/utils/swipe';
+  import { RefreshCw, AlertTriangle } from 'lucide-svelte';
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal';
+  import { Button } from '$lib/components/ui/button';
+  import { ScrollArea } from '$lib/components/ui/scroll-area';
+  import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert';
 
   interface Props {
     chapterId: string | null;
@@ -25,123 +27,80 @@
           .sort((a, b) => a.number - b.number)
       : []
   );
-
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && !ui.memoryLoading) {
-      onClose();
-    }
-  }
-
-  // Swipe down to dismiss modal on mobile (only when not loading)
-  function handleSwipeDown() {
-    if (!ui.memoryLoading) {
-      onClose();
-    }
-  }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
-<!-- Backdrop -->
-<div
-  class="fixed inset-0 bg-black/60 z-50"
-  transition:fade={{ duration: 150 }}
-  onclick={() => !ui.memoryLoading && onClose()}
-  onkeydown={(e) => e.key === 'Enter' && !ui.memoryLoading && onClose()}
-  role="button"
-  tabindex="-1"
-></div>
-
-<!-- Modal -->
-<div
-  class="fixed inset-x-0 sm:inset-x-4 bottom-0 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 z-50 max-w-md mx-auto max-h-[90vh] flex flex-col"
-  transition:fly={{ y: 20, duration: 200 }}
-  use:swipe={{ onSwipeDown: handleSwipeDown, threshold: 50 }}
->
-  <div class="bg-surface-800 rounded-t-xl sm:rounded-xl shadow-xl overflow-hidden">
-    <!-- Mobile swipe handle indicator -->
-    <div class="sm:hidden flex justify-center pt-2 pb-1">
-      <div class="w-10 h-1 rounded-full bg-surface-600"></div>
-    </div>
-
-    <!-- Header -->
-    <div class="flex items-center justify-between p-4 pt-2 sm:pt-4 border-b border-surface-700">
+<ResponsiveModal.Root open={true} onOpenChange={(open) => !open && !ui.memoryLoading && onClose()}>
+  <ResponsiveModal.Content class="max-w-md max-h-[85vh] flex flex-col p-0 gap-0">
+    <ResponsiveModal.Header class="px-4 py-4 border-b">
       <div class="flex items-center gap-2">
-        <RefreshCw class="h-5 w-5 text-primary-400" />
-        <h2 class="text-lg font-semibold text-surface-100">Resummarize Chapter</h2>
+        <RefreshCw class="h-5 w-5 text-primary" />
+        <ResponsiveModal.Title>Resummarize Chapter</ResponsiveModal.Title>
       </div>
-      {#if !ui.memoryLoading}
-        <button
-          class="p-1 rounded hover:bg-surface-700 text-surface-400 hover:text-surface-200"
-          onclick={onClose}
-        >
-          <X class="h-5 w-5" />
-        </button>
-      {/if}
-    </div>
+      <ResponsiveModal.Description>
+        Update the summary for this chapter.
+      </ResponsiveModal.Description>
+    </ResponsiveModal.Header>
 
-    <!-- Content -->
-    <div class="p-4 space-y-4">
-      {#if chapter}
-        <div class="p-3 rounded-lg bg-surface-900">
-          <div class="text-sm font-medium text-surface-200">
-            Chapter {chapter.number}{chapter.title ? `: ${chapter.title}` : ''}
-          </div>
-          <p class="text-xs text-surface-400 mt-1 line-clamp-2">
-            {chapter.summary}
-          </p>
-        </div>
-
-        {#if previousChapters.length > 0}
-          <div class="space-y-2">
-            <p class="text-sm text-surface-300">
-              The following {previousChapters.length} chapter{previousChapters.length === 1 ? '' : 's'} will be used as context:
-            </p>
-            <div class="space-y-1 max-h-32 overflow-y-auto">
-              {#each previousChapters as prevChapter}
-                <div class="text-xs text-surface-500 p-2 rounded bg-surface-900/50">
-                  <span class="font-medium text-surface-400">Ch {prevChapter.number}</span>
-                  {#if prevChapter.title}
-                    <span>: {prevChapter.title}</span>
-                  {/if}
-                </div>
-              {/each}
+    <ScrollArea class="flex-1 p-4">
+      <div class="space-y-4">
+        {#if chapter}
+          <div class="p-3 rounded-lg bg-muted/50 border">
+            <div class="text-sm font-medium text-foreground">
+              Chapter {chapter.number}{chapter.title ? `: ${chapter.title}` : ''}
             </div>
-          </div>
-        {:else}
-          <div class="flex items-start gap-2 p-3 rounded-lg bg-yellow-900/20 border border-yellow-800/30">
-            <AlertTriangle class="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
-            <p class="text-xs text-yellow-400">
-              This is the first chapter, so no previous context will be used.
+            <p class="text-xs text-muted-foreground mt-1 line-clamp-2">
+              {chapter.summary}
             </p>
+          </div>
+
+          {#if previousChapters.length > 0}
+            <div class="space-y-2">
+              <p class="text-sm text-muted-foreground">
+                The following {previousChapters.length} chapter{previousChapters.length === 1 ? '' : 's'} will be used as context:
+              </p>
+              <div class="space-y-1 max-h-32 overflow-y-auto pr-1">
+                {#each previousChapters as prevChapter}
+                  <div class="text-xs text-muted-foreground p-2 rounded bg-muted/30">
+                    <span class="font-medium text-foreground/80">Ch {prevChapter.number}</span>
+                    {#if prevChapter.title}
+                      <span>: {prevChapter.title}</span>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {:else}
+            <Alert variant="warning">
+              <AlertTriangle class="h-4 w-4" />
+              <AlertTitle>No Context</AlertTitle>
+              <AlertDescription>
+                This is the first chapter, so no previous context will be used.
+              </AlertDescription>
+            </Alert>
+          {/if}
+
+          <p class="text-sm text-muted-foreground">
+            The current summary will be replaced with a newly generated one.
+            The chapter's old summary will <strong>not</strong> be included in the prompt.
+          </p>
+        {:else}
+          <div class="text-muted-foreground text-center py-4">
+            Chapter not found.
           </div>
         {/if}
+      </div>
+    </ScrollArea>
 
-        <p class="text-sm text-surface-400">
-          The current summary will be replaced with a newly generated one.
-          The chapter's old summary will <strong>not</strong> be included in the prompt.
-        </p>
-      {:else}
-        <p class="text-surface-400 text-center py-4">
-          Chapter not found.
-        </p>
-      {/if}
-    </div>
-
-    <!-- Footer -->
-    <div class="flex items-center justify-end gap-3 px-4 pt-4 pb-modal-safe border-t border-surface-700">
+    <ResponsiveModal.Footer class="px-4 py-4 border-t mt-auto">
       {#if !ui.memoryLoading}
-        <button
-          class="px-4 py-2 text-sm text-surface-300 hover:text-surface-100 transition-colors"
-          onclick={onClose}
-        >
+        <Button variant="outline" onclick={onClose}>
           Cancel
-        </button>
+        </Button>
       {/if}
-      <button
-        class="btn-primary px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2"
+      <Button 
         onclick={onConfirm}
         disabled={!chapter || ui.memoryLoading}
+        class="gap-2"
       >
         {#if ui.memoryLoading}
           <RefreshCw class="h-4 w-4 animate-spin" />
@@ -150,7 +109,8 @@
           <RefreshCw class="h-4 w-4" />
           <span>Resummarize</span>
         {/if}
-      </button>
-    </div>
-  </div>
-</div>
+      </Button>
+    </ResponsiveModal.Footer>
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>
+

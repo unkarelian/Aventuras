@@ -1,7 +1,20 @@
 <script lang="ts">
   import type { Entry, EntryType, EntryInjectionMode, EntryState, AdventureEntryState, CreativeEntryState } from '$lib/types';
   import { story } from '$lib/stores/story.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
   import { ChevronDown, ChevronUp, Plus, X } from 'lucide-svelte';
+  
+  import { Input } from '$lib/components/ui/input';
+  import { Textarea } from '$lib/components/ui/textarea';
+  import { Button } from '$lib/components/ui/button';
+  import { Label } from '$lib/components/ui/label';
+  import { Slider } from '$lib/components/ui/slider';
+  import { Switch } from '$lib/components/ui/switch';
+  import { Badge } from '$lib/components/ui/badge';
+  import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
+  import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
+  import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '$lib/components/ui/collapsible';
+  import { cn } from '$lib/utils/cn';
 
   interface Props {
     entry?: Entry | null;
@@ -28,7 +41,6 @@
   let newKeyword = $state('');
 
   let saving = $state(false);
-  let error = $state<string | null>(null);
 
   const entryTypes: Array<{ value: EntryType; label: string }> = [
     { value: 'character', label: 'Character' },
@@ -147,12 +159,11 @@
 
   async function handleSave() {
     if (!name.trim()) {
-      error = 'Name is required';
+      ui.showToast('Name is required', 'error');
       return;
     }
 
     saving = true;
-    error = null;
 
     try {
       const now = Date.now();
@@ -184,236 +195,234 @@
 
       onSave(entryData);
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Failed to save entry';
+      ui.showToast(err instanceof Error ? err.message : 'Failed to save entry', 'error');
     } finally {
       saving = false;
     }
   }
 </script>
 
-<div class="space-y-4">
-  {#if error}
-    <div class="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">
-      {error}
-    </div>
-  {/if}
-
+<div class="space-y-6">
   <!-- Name -->
-  <div>
-    <label class="block text-sm font-medium text-surface-300 mb-1">
-      Name <span class="text-red-400">*</span>
-    </label>
-    <input
+  <div class="space-y-2">
+    <Label for="entry-name">
+      Name <span class="text-red-500">*</span>
+    </Label>
+    <Input
+      id="entry-name"
       type="text"
       bind:value={name}
       placeholder="Entry name"
-      class="input w-full"
     />
   </div>
 
   <!-- Type -->
-  <div>
-    <label class="block text-sm font-medium text-surface-300 mb-1">Type</label>
-    <select bind:value={type} class="input w-full">
-      {#each entryTypes as option}
-        <option value={option.value}>{option.label}</option>
-      {/each}
-    </select>
+  <div class="space-y-2">
+    <Label for="entry-type">Type</Label>
+    <Select value={type} onValueChange={(v) => type = v as EntryType}>
+      <SelectTrigger id="entry-type">
+        {entryTypes.find(t => t.value === type)?.label ?? 'Select type'}
+      </SelectTrigger>
+      <SelectContent>
+        {#each entryTypes as option}
+          <SelectItem value={option.value}>{option.label}</SelectItem>
+        {/each}
+      </SelectContent>
+    </Select>
   </div>
 
   <!-- Description -->
-  <div>
-    <label class="block text-sm font-medium text-surface-300 mb-1">Description</label>
-    <textarea
+  <div class="space-y-2">
+    <Label for="entry-description">Description</Label>
+    <Textarea
+      id="entry-description"
       bind:value={description}
       placeholder="Describe this entry..."
       rows={4}
-      class="input w-full resize-none"
-    ></textarea>
+      class="resize-none"
+    />
   </div>
 
   <!-- Aliases -->
-  <div>
-    <label class="block text-sm font-medium text-surface-300 mb-1">
+  <div class="space-y-2">
+    <Label>
       Aliases
-      <span class="text-xs text-surface-500 font-normal ml-1">
+      <span class="text-xs text-muted-foreground font-normal ml-1">
         Alternative names for matching
       </span>
-    </label>
+    </Label>
     <div class="flex flex-wrap gap-2 mb-2">
       {#each aliases as alias}
-        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-700 text-sm">
+        <Badge variant="secondary" class="gap-1 pr-1">
           {alias}
           <button
-            class="text-surface-400 hover:text-surface-200"
+            class="rounded-full hover:bg-muted p-0.5"
             onclick={() => removeAlias(alias)}
           >
             <X class="h-3 w-3" />
           </button>
-        </span>
+        </Badge>
       {/each}
     </div>
     <div class="flex gap-2">
-      <input
+      <Input
         type="text"
         bind:value={newAlias}
         placeholder="Add alias..."
-        class="input flex-1"
+        class="flex-1"
         onkeydown={handleAliasKeydown}
       />
-      <button
-        class="btn-ghost p-2 border border-surface-600 rounded-lg"
+      <Button
+        variant="outline"
+        size="icon"
         onclick={addAlias}
         disabled={!newAlias.trim()}
       >
         <Plus class="h-4 w-4" />
-      </button>
+      </Button>
     </div>
   </div>
 
   <!-- Keywords -->
-  <div>
-    <label class="block text-sm font-medium text-surface-300 mb-1">
+  <div class="space-y-2">
+    <Label>
       Keywords
-      <span class="text-xs text-surface-500 font-normal ml-1">
+      <span class="text-xs text-muted-foreground font-normal ml-1">
         Trigger words for injection
       </span>
-    </label>
+    </Label>
     <div class="flex flex-wrap gap-2 mb-2">
       {#each keywords as keyword}
-        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-accent-500/20 text-accent-300 text-sm">
+        <Badge variant="default" class="bg-primary/20 text-primary hover:bg-primary/30 gap-1 pr-1 border-transparent">
           {keyword}
           <button
-            class="text-accent-400 hover:text-accent-200"
+            class="rounded-full hover:bg-primary/20 p-0.5 text-primary"
             onclick={() => removeKeyword(keyword)}
           >
             <X class="h-3 w-3" />
           </button>
-        </span>
+        </Badge>
       {/each}
     </div>
     <div class="flex gap-2">
-      <input
+      <Input
         type="text"
         bind:value={newKeyword}
         placeholder="Add keyword..."
-        class="input flex-1"
+        class="flex-1"
         onkeydown={handleKeywordKeydown}
       />
-      <button
-        class="btn-ghost p-2 border border-surface-600 rounded-lg"
+      <Button
+        variant="outline"
+        size="icon"
         onclick={addKeyword}
         disabled={!newKeyword.trim()}
       >
         <Plus class="h-4 w-4" />
-      </button>
+      </Button>
     </div>
   </div>
 
   <!-- Context Inclusion Mode -->
-  <div>
-    <label class="block text-sm font-medium text-surface-300 mb-1">Context Inclusion</label>
-    <div class="grid grid-cols-3 gap-2">
+  <div class="space-y-3">
+    <Label>Context Inclusion</Label>
+    <RadioGroup value={injectionMode} onValueChange={(v) => injectionMode = v as EntryInjectionMode} class="grid grid-cols-1 sm:grid-cols-3 gap-2">
       {#each injectionModes as mode}
-        <button
-          class="p-2 rounded-lg border text-left transition-colors
-            {injectionMode === mode.value
-              ? 'border-accent-500 bg-accent-500/20'
-              : 'border-surface-600 bg-surface-800 hover:bg-surface-700'}"
-          onclick={() => injectionMode = mode.value}
-        >
-          <div class="font-medium text-sm">{mode.label}</div>
-          <div class="text-xs text-surface-500">{mode.description}</div>
-        </button>
+        <div class={cn(
+          "flex items-start space-x-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors h-full",
+          injectionMode === mode.value && "border-primary bg-primary/5"
+        )}>
+          <RadioGroupItem value={mode.value} id={`mode-${mode.value}`} class="mt-1" />
+          <Label for={`mode-${mode.value}`} class="cursor-pointer flex flex-col gap-1 font-normal">
+            <span class="font-medium text-sm">{mode.label}</span>
+            <span class="text-xs text-muted-foreground">{mode.description}</span>
+          </Label>
+        </div>
       {/each}
-    </div>
+    </RadioGroup>
+    
     {#if injectionMode === 'keyword' || injectionMode === 'relevant'}
-      <p class="text-xs text-surface-500 mt-2">
+      <p class="text-xs text-muted-foreground mt-2">
         Entry will be included when keywords/aliases match the story, or when the AI determines it's contextually relevant.
       </p>
     {/if}
   </div>
 
   <!-- Priority -->
-  <div>
-    <label class="block text-sm font-medium text-surface-300 mb-1">
-      Priority
-      <span class="text-xs text-surface-500 font-normal ml-1">
-        Higher priority entries are injected first
-      </span>
-    </label>
-    <div class="flex items-center gap-3">
-      <input
-        type="range"
-        bind:value={priority}
-        min={0}
-        max={100}
-        class="flex-1"
-      />
-      <span class="text-sm text-surface-300 w-8 text-right">{priority}</span>
+  <div class="space-y-4">
+    <div class="flex items-center justify-between">
+      <Label>
+        Priority
+        <span class="text-xs text-muted-foreground font-normal ml-1">
+          Higher priority entries are injected first
+        </span>
+      </Label>
+      <span class="text-sm font-medium w-8 text-right">{priority}</span>
     </div>
+    <Slider
+      value={[priority]}
+      min={0}
+      max={100}
+      step={1}
+      onValueChange={(vals) => priority = vals[0]}
+    />
   </div>
 
   <!-- Lore Management Blacklist -->
-  <div class="flex items-center justify-between p-3 rounded-lg bg-surface-800/50 border border-surface-700">
-    <div>
-      <div class="text-sm font-medium text-surface-300">Hide from AI Lore Management</div>
-      <div class="text-xs text-surface-500">
+  <div class="flex items-center justify-between p-3 rounded-lg bg-muted/30 border">
+    <div class="space-y-0.5">
+      <Label class="text-base">Hide from AI Lore Management</Label>
+      <p class="text-xs text-muted-foreground">
         When enabled, the AI won't see or modify this entry during lore management
-      </div>
+      </p>
     </div>
-    <button
-      type="button"
-      class="relative w-11 h-6 rounded-full transition-colors
-        {loreManagementBlacklisted ? 'bg-amber-500' : 'bg-surface-600'}"
-      onclick={() => loreManagementBlacklisted = !loreManagementBlacklisted}
-    >
-      <span
-        class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform
-          {loreManagementBlacklisted ? 'translate-x-5' : ''}"
-      ></span>
-    </button>
+    <Switch bind:checked={loreManagementBlacklisted} />
   </div>
 
   <!-- Hidden Info (collapsible) -->
-  <div>
-    <button
-      class="flex items-center gap-2 text-sm text-surface-400 hover:text-surface-300"
-      onclick={() => showHiddenInfo = !showHiddenInfo}
-    >
-      {#if showHiddenInfo}
-        <ChevronUp class="h-4 w-4" />
-      {:else}
-        <ChevronDown class="h-4 w-4" />
-      {/if}
-      Hidden Info
-      <span class="text-xs text-surface-500">(secrets the protagonist doesn't know)</span>
-    </button>
-    {#if showHiddenInfo}
-      <textarea
+  <Collapsible bind:open={showHiddenInfo}>
+    <CollapsibleTrigger>
+      {#snippet children({ builder })}
+        <Button builders={[builder]} variant="ghost" class="w-full flex justify-between px-0 hover:bg-transparent">
+          <span class="flex items-center gap-2 text-sm font-medium">
+            Hidden Info
+            <span class="text-xs text-muted-foreground font-normal">(secrets the protagonist doesn't know)</span>
+          </span>
+          {#if showHiddenInfo}
+            <ChevronUp class="h-4 w-4 text-muted-foreground" />
+          {:else}
+            <ChevronDown class="h-4 w-4 text-muted-foreground" />
+          {/if}
+        </Button>
+      {/snippet}
+    </CollapsibleTrigger>
+    <CollapsibleContent>
+      <Textarea
         bind:value={hiddenInfo}
         placeholder="Hidden information, revealed secrets, etc..."
         rows={3}
-        class="input w-full resize-none mt-2"
-      ></textarea>
-    {/if}
-  </div>
+        class="resize-none mt-2"
+      />
+    </CollapsibleContent>
+  </Collapsible>
 
   <!-- Actions -->
-  <div class="flex gap-2 pt-4 border-t border-surface-700">
-    <button
-      class="btn-ghost flex-1 py-2 border border-surface-600 rounded-lg"
+  <div class="flex gap-2 pt-4 border-t mt-4">
+    <Button
+      variant="outline"
+      class="flex-1"
       onclick={onCancel}
       disabled={saving}
     >
       Cancel
-    </button>
-    <button
-      class="btn-primary flex-1 py-2"
+    </Button>
+    <Button
+      class="flex-1"
       onclick={handleSave}
       disabled={saving || !name.trim()}
     >
       {saving ? 'Saving...' : (entry ? 'Save Changes' : 'Create Entry')}
-    </button>
+    </Button>
   </div>
 </div>
+

@@ -2,6 +2,7 @@
   import type { StoryEntry } from '$lib/types';
   import { slide } from 'svelte/transition';
   import { MessageSquare, Scroll } from 'lucide-svelte';
+  import { Badge } from '$lib/components/ui/badge';
 
   interface Props {
     entries: StoryEntry[];
@@ -39,25 +40,27 @@
 </script>
 
 {#if expanded && entries.length > 0}
-  <div class="mt-2 space-y-1 pl-2 border-l-2 border-surface-700" transition:slide={{ duration: 200 }}>
+  <div class="mt-2 space-y-1 pl-2 border-l-2" transition:slide={{ duration: 200 }}>
     {#each entries.slice(0, 10) as entry}
       {@const Icon = getEntryIcon(entry.type)}
       <div class="flex items-start gap-2 py-1 text-xs">
-        <div
-          class="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium {entry.type === 'user_action' ? 'bg-blue-900/30 text-blue-400' : 'bg-purple-900/30 text-purple-400'}"
+        <Badge
+          variant={entry.type === 'user_action' ? 'secondary' : 'outline'}
+          class="flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium h-5"
         >
           <Icon class="h-3 w-3" />
           <span>{getEntryLabel(entry.type)}</span>
-        </div>
-        <span class="text-surface-400 leading-relaxed">
+        </Badge>
+        <span class="text-muted-foreground leading-relaxed mt-0.5">
           {truncate(entry.content, 120)}
         </span>
       </div>
     {/each}
     {#if entries.length > 10}
-      <div class="text-xs text-surface-500 py-1">
+      <div class="text-xs text-muted-foreground py-1">
         ... {entries.length - 10} more entries
       </div>
     {/if}
   </div>
 {/if}
+

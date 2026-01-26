@@ -2,13 +2,17 @@
   import { ui } from '$lib/stores/ui.svelte';
   import { story } from '$lib/stores/story.svelte';
   import { exportLorebook, getFormatInfo, type ExportFormat } from '$lib/services/lorebookExporter';
-  import { X, Download, FileJson, FileText, Check, Loader2 } from 'lucide-svelte';
-  import { swipe } from '$lib/utils/swipe';
+  import { Download, FileJson, FileText, Check, Loader2 } from 'lucide-svelte';
+  
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal';
+  import { Button } from '$lib/components/ui/button';
+  import { RadioGroup, RadioGroupItem } from '$lib/components/ui/radio-group';
+  import { Label } from '$lib/components/ui/label';
+  import { cn } from '$lib/utils/cn';
 
   let selectedFormat = $state<ExportFormat>('aventura');
   let exportSelected = $state(false);
   let exporting = $state(false);
-  let error = $state<string | null>(null);
 
   const formats: ExportFormat[] = ['aventura', 'sillytavern', 'text'];
 
@@ -24,12 +28,11 @@
 
   async function handleExport() {
     if (entryCount === 0) {
-      error = 'No entries to export';
+      ui.showToast('No entries to export', 'error');
       return;
     }
 
     exporting = true;
-    error = null;
 
     try {
       await exportLorebook({
@@ -39,9 +42,10 @@
           ? `${story.currentStory.title}-lorebook`
           : undefined,
       });
+      ui.showToast('Export successful', 'info');
       ui.closeLorebookExport();
     } catch (err) {
-      error = err instanceof Error ? err.message : 'Export failed';
+      ui.showToast(err instanceof Error ? err.message : 'Export failed', 'error');
     } finally {
       exporting = false;
     }
@@ -50,140 +54,86 @@
   function close() {
     ui.closeLorebookExport();
   }
-
-  // Swipe down to dismiss modal on mobile
-  function handleSwipeDown() {
-    close();
-  }
 </script>
 
-<div
-  class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60"
-  onclick={close}
-  onkeydown={(e) => e.key === 'Escape' && close()}
-  role="dialog"
-  aria-modal="true"
-  tabindex="-1"
->
-  <div
-    class="card w-full max-w-md max-h-[90vh] overflow-hidden rounded-b-none sm:rounded-b-xl"
-    onclick={(e) => e.stopPropagation()}
-    onkeydown={(e) => e.stopPropagation()}
-    role="document"
-    use:swipe={{ onSwipeDown: handleSwipeDown, threshold: 50 }}
-  >
-    <!-- Mobile swipe handle indicator -->
-    <div class="sm:hidden flex justify-center pt-2 pb-1">
-      <div class="w-10 h-1 rounded-full bg-surface-600"></div>
-    </div>
-
-    <!-- Header -->
-    <div class="flex items-center justify-between border-b border-surface-700 pb-4 pt-0 sm:pt-0">
+<ResponsiveModal.Root open={true} onOpenChange={(open) => !open && close()}>
+  <ResponsiveModal.Content class="max-w-md max-h-[90vh] flex flex-col p-0 gap-0">
+    <ResponsiveModal.Header class="px-6 py-4 border-b">
       <div class="flex items-center gap-2">
-        <Download class="h-5 w-5 text-accent-400" />
-        <h2 class="text-xl font-semibold text-surface-100">Export Lorebook</h2>
+        <Download class="h-5 w-5 text-primary" />
+        <ResponsiveModal.Title>Export Lorebook</ResponsiveModal.Title>
       </div>
-      <button class="btn-ghost rounded-lg p-2" onclick={close}>
-        <X class="h-5 w-5" />
-      </button>
-    </div>
+    </ResponsiveModal.Header>
 
-    <!-- Content -->
-    <div class="py-4 space-y-4">
-      {#if error}
-        <div class="p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-300 text-sm">
-          {error}
-        </div>
-      {/if}
-
+    <div class="py-6 px-6 space-y-6">
       <!-- Export scope -->
       {#if hasSelection}
-        <div class="space-y-2">
-          <label class="text-sm font-medium text-surface-300">What to export</label>
-          <div class="space-y-2">
-            <label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer
-              {!exportSelected ? 'border-accent-500 bg-accent-500/20' : 'border-surface-600 bg-surface-800'}">
-              <input
-                type="radio"
-                name="scope"
-                checked={!exportSelected}
-                onchange={() => exportSelected = false}
-                class="h-4 w-4 text-accent-500 focus:ring-accent-500"
-              />
-              <div>
-                <div class="text-surface-200">All entries</div>
-                <div class="text-xs text-surface-500">{story.lorebookEntries.length} entries</div>
-              </div>
-            </label>
-            <label class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer
-              {exportSelected ? 'border-accent-500 bg-accent-500/20' : 'border-surface-600 bg-surface-800'}">
-              <input
-                type="radio"
-                name="scope"
-                checked={exportSelected}
-                onchange={() => exportSelected = true}
-                class="h-4 w-4 text-accent-500 focus:ring-accent-500"
-              />
-              <div>
-                <div class="text-surface-200">Selected only</div>
-                <div class="text-xs text-surface-500">{ui.lorebookBulkSelection.size} entries</div>
-              </div>
-            </label>
-          </div>
+        <div class="space-y-3">
+          <Label>What to export</Label>
+          <RadioGroup value={exportSelected ? 'selected' : 'all'} onValueChange={(v) => exportSelected = v === 'selected'}>
+            <div class={cn("flex items-center space-x-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50", !exportSelected && "border-primary bg-primary/5")}>
+              <RadioGroupItem value="all" id="scope-all" />
+              <Label for="scope-all" class="flex-1 cursor-pointer">
+                <div class="font-medium">All entries</div>
+                <div class="text-xs text-muted-foreground">{story.lorebookEntries.length} entries</div>
+              </Label>
+            </div>
+            
+            <div class={cn("flex items-center space-x-2 rounded-lg border p-3 cursor-pointer hover:bg-muted/50", exportSelected && "border-primary bg-primary/5")}>
+              <RadioGroupItem value="selected" id="scope-selected" />
+              <Label for="scope-selected" class="flex-1 cursor-pointer">
+                <div class="font-medium">Selected only</div>
+                <div class="text-xs text-muted-foreground">{ui.lorebookBulkSelection.size} entries</div>
+              </Label>
+            </div>
+          </RadioGroup>
         </div>
       {:else}
-        <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700">
-          <div class="text-surface-200">{story.lorebookEntries.length} entries</div>
-          <div class="text-xs text-surface-500">All lorebook entries will be exported</div>
+        <div class="p-3 rounded-lg bg-muted/50 border">
+          <div class="font-medium text-foreground">{story.lorebookEntries.length} entries</div>
+          <div class="text-xs text-muted-foreground">All lorebook entries will be exported</div>
         </div>
       {/if}
 
       <!-- Format selection -->
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-surface-300">Export format</label>
-        <div class="space-y-2">
+      <div class="space-y-3">
+        <Label>Export format</Label>
+        <RadioGroup value={selectedFormat} onValueChange={(v) => selectedFormat = v as ExportFormat}>
           {#each formats as format}
             {@const info = getFormatInfo(format)}
-            <button
-              class="w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors
-                {selectedFormat === format
-                  ? 'border-accent-500 bg-accent-500/20'
-                  : 'border-surface-600 bg-surface-800 hover:bg-surface-700'}"
-              onclick={() => selectedFormat = format}
-            >
-              <div class="flex-shrink-0 mt-0.5">
-                {#if selectedFormat === format}
-                  <Check class="h-5 w-5 text-accent-400" />
-                {:else if format === 'text'}
-                  <FileText class="h-5 w-5 text-surface-500" />
+            <div class={cn(
+              "flex items-start space-x-3 rounded-lg border p-3 cursor-pointer hover:bg-muted/50 transition-colors",
+              selectedFormat === format && "border-primary bg-primary/5"
+            )}>
+              <RadioGroupItem value={format} id={`format-${format}`} class="mt-1" />
+              <div class="flex-1 space-y-1">
+                <Label for={`format-${format}`} class="font-medium cursor-pointer flex items-center gap-2">
+                  {info.label}
+                  <span class="text-xs font-normal text-muted-foreground ml-auto">{info.extension}</span>
+                </Label>
+                <p class="text-xs text-muted-foreground">{info.description}</p>
+              </div>
+              <div class="mt-0.5 text-muted-foreground">
+                {#if format === 'text'}
+                  <FileText class="h-4 w-4" />
                 {:else}
-                  <FileJson class="h-5 w-5 text-surface-500" />
+                  <FileJson class="h-4 w-4" />
                 {/if}
               </div>
-              <div class="flex-1 min-w-0">
-                <div class="font-medium text-surface-200">{info.label}</div>
-                <div class="text-xs text-surface-500">{info.description}</div>
-              </div>
-              <div class="text-xs text-surface-600">{info.extension}</div>
-            </button>
+            </div>
           {/each}
-        </div>
+        </RadioGroup>
       </div>
     </div>
 
-    <!-- Footer -->
-    <div class="flex gap-2 pt-4 pb-modal-safe border-t border-surface-700">
-      <button
-        class="btn-ghost flex-1 py-2 border border-surface-600 rounded-lg"
-        onclick={close}
-        disabled={exporting}
-      >
+    <ResponsiveModal.Footer class="px-6 py-4 border-t mt-auto">
+      <Button variant="outline" onclick={close} disabled={exporting}>
         Cancel
-      </button>
-      <button
-        class="btn-primary flex-1 py-2 flex items-center justify-center gap-2"
-        onclick={handleExport}
+      </Button>
+      <Button 
+        onclick={handleExport} 
         disabled={exporting || entryCount === 0}
+        class="gap-2"
       >
         {#if exporting}
           <Loader2 class="h-4 w-4 animate-spin" />
@@ -192,7 +142,8 @@
           <Download class="h-4 w-4" />
           Export
         {/if}
-      </button>
-    </div>
-  </div>
-</div>
+      </Button>
+    </ResponsiveModal.Footer>
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>
+

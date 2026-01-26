@@ -233,10 +233,16 @@
   <ResponsiveModal.Content
     class="sm:max-w-6xl w-full h-[100dvh] sm:h-[90vh] flex flex-col overflow-hidden p-0 rounded-none sm:rounded-lg"
   >
-    <ResponsiveModal.Header class="px-6 py-4 border-b flex-shrink-0 flex items-center justify-center relative">
-      <ResponsiveModal.Title class="text-center">Edit Lorebook</ResponsiveModal.Title>
+    <ResponsiveModal.Header
+      class="px-6 py-4 border-b flex-shrink-0 flex items-center justify-center relative"
+    >
+      <ResponsiveModal.Title class="text-center"
+        >Edit Lorebook</ResponsiveModal.Title
+      >
       {#if error}
-        <div class="absolute top-full left-0 w-full text-center text-destructive text-sm bg-background/95 backdrop-blur py-1 border-b">
+        <div
+          class="absolute top-full left-0 w-full text-center text-destructive text-sm bg-background/95 backdrop-blur py-1 border-b"
+        >
           {error}
         </div>
       {/if}
@@ -358,13 +364,11 @@
             >
               <div class="p-4 border-b space-y-3">
                 <div class="relative">
-                  <Search
-                    class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-                  />
                   <Input
                     bind:value={searchQuery}
                     placeholder="Search entries..."
                     class="pl-9 bg-background"
+                    leftIcon={Search}
                   />
                 </div>
                 <Button class="w-full" onclick={handleAddEntry}>
@@ -374,7 +378,9 @@
 
               <div class="flex-1 overflow-y-auto p-2 space-y-1 flex flex-col">
                 {#if filteredEntries.length === 0}
-                  <div class="flex-1 flex flex-col items-center justify-center text-center text-sm text-muted-foreground min-h-[200px]">
+                  <div
+                    class="flex-1 flex flex-col items-center justify-center text-center text-sm text-muted-foreground min-h-[200px]"
+                  >
                     {#if searchQuery}
                       No matches found
                     {:else}

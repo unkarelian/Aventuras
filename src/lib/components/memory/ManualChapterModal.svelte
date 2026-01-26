@@ -1,9 +1,11 @@
 <script lang="ts">
   import { story } from '$lib/stores/story.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import { X, ChevronDown, ChevronUp } from 'lucide-svelte';
-  import { fade, fly } from 'svelte/transition';
-  import { swipe } from '$lib/utils/swipe';
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal';
+  import { Button } from '$lib/components/ui/button';
+  import { ScrollArea } from '$lib/components/ui/scroll-area';
+  import { Badge } from '$lib/components/ui/badge';
+  import { cn } from '$lib/utils/cn';
 
   interface Props {
     onConfirm: (endEntryIndex: number) => void;
@@ -42,105 +44,60 @@
     const absoluteIndex = story.lastChapterEndIndex + selectedIndex + 1;
     onConfirm(absoluteIndex);
   }
-
-  function handleKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape') {
-      onClose();
-    }
-  }
-
-  // Swipe down to dismiss modal on mobile
-  function handleSwipeDown() {
-    onClose();
-  }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<ResponsiveModal.Root open={true} onOpenChange={(open) => !open && onClose()}>
+  <ResponsiveModal.Content class="max-w-lg max-h-[85vh] flex flex-col p-0 gap-0">
+    <ResponsiveModal.Header class="px-4 py-4 border-b">
+      <ResponsiveModal.Title>Create Chapter</ResponsiveModal.Title>
+      <ResponsiveModal.Description>
+        Select where to end this chapter. All entries up to and including the selected entry
+        will be summarized.
+      </ResponsiveModal.Description>
+    </ResponsiveModal.Header>
 
-<!-- Backdrop -->
-<div
-  class="fixed inset-0 bg-black/60 z-50"
-  transition:fade={{ duration: 150 }}
-  onclick={onClose}
-  role="button"
-  tabindex="-1"
-></div>
-
-<!-- Modal -->
-<div
-  class="fixed inset-x-0 sm:inset-x-4 bottom-0 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 z-50 max-w-lg mx-auto max-h-[90vh] flex flex-col"
-  transition:fly={{ y: 20, duration: 200 }}
-  use:swipe={{ onSwipeDown: handleSwipeDown, threshold: 50 }}
->
-  <div class="bg-surface-800 rounded-t-xl sm:rounded-xl shadow-xl overflow-hidden">
-    <!-- Mobile swipe handle indicator -->
-    <div class="sm:hidden flex justify-center pt-2 pb-1">
-      <div class="w-10 h-1 rounded-full bg-surface-600"></div>
-    </div>
-
-    <!-- Header -->
-    <div class="flex items-center justify-between p-4 pt-2 sm:pt-4 border-b border-surface-700">
-      <h2 class="text-lg font-semibold text-surface-100">Create Chapter</h2>
-      <button
-        class="p-1 rounded hover:bg-surface-700 text-surface-400 hover:text-surface-200"
-        onclick={onClose}
-      >
-        <X class="h-5 w-5" />
-      </button>
-    </div>
-
-    <!-- Content -->
-    <div class="p-4 space-y-4">
+    <div class="flex-1 min-h-0">
       {#if entries.length === 0}
-        <p class="text-surface-400 text-center py-4">
+        <div class="flex items-center justify-center h-40 text-muted-foreground">
           No entries available for chapter creation.
-        </p>
-      {:else}
-        <p class="text-sm text-surface-300">
-          Select where to end this chapter. All entries up to and including the selected entry
-          will be summarized.
-        </p>
-
-        <!-- Entry Selector -->
-        <div class="space-y-2 max-h-64 overflow-y-auto">
-          {#each entries as entry, idx}
-            <button
-              class="w-full text-left p-2 rounded transition-colors"
-              class:bg-primary-600={selectedIndex === idx}
-              class:bg-surface-700={selectedIndex !== idx}
-              class:hover:bg-surface-600={selectedIndex !== idx}
-              onclick={() => selectedIndex = idx}
-            >
-              <div class="flex items-start gap-2">
-                <span
-                  class="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded {entry.type === 'user_action' ? 'bg-blue-900/50 text-blue-300' : 'bg-purple-900/50 text-purple-300'}"
-                >
-                  {entry.type === 'user_action' ? 'ACTION' : 'NARRATIVE'}
-                </span>
-                <span class="text-xs text-surface-300 leading-relaxed">
-                  {truncate(entry.content)}
-                </span>
-              </div>
-            </button>
-          {/each}
         </div>
-
-        <div class="text-xs text-surface-500">
+      {:else}
+        <ScrollArea class="h-[50vh] p-4">
+          <div class="space-y-1">
+            {#each entries as entry, idx}
+              <button
+                class={cn(
+                  "w-full text-left p-3 rounded-lg transition-colors border",
+                  selectedIndex === idx 
+                    ? "bg-primary/10 border-primary/50 ring-1 ring-primary/20" 
+                    : "hover:bg-muted/50 border-transparent"
+                )}
+                onclick={() => selectedIndex = idx}
+              >
+                <div class="flex items-start gap-3">
+                  <Badge variant={entry.type === 'user_action' ? 'secondary' : 'outline'} class="shrink-0 mt-0.5 text-[10px] px-1.5 h-5">
+                    {entry.type === 'user_action' ? 'ACTION' : 'NARRATIVE'}
+                  </Badge>
+                  <span class="text-sm text-foreground/80 leading-relaxed line-clamp-2">
+                    {entry.content}
+                  </span>
+                </div>
+              </button>
+            {/each}
+          </div>
+        </ScrollArea>
+        
+        <div class="px-4 py-2 text-xs text-muted-foreground border-t bg-muted/20">
           Chapter will include {selectedIndex + 1} of {entries.length} entries
         </div>
       {/if}
     </div>
 
-    <!-- Footer -->
-    <div class="flex items-center justify-end gap-3 px-4 pt-4 pb-modal-safe border-t border-surface-700">
-      <button
-        class="px-4 py-2 text-sm text-surface-300 hover:text-surface-100 transition-colors"
-        onclick={onClose}
-      >
+    <ResponsiveModal.Footer class="px-4 py-4 border-t mt-auto">
+      <Button variant="outline" onclick={onClose}>
         Cancel
-      </button>
-      <button
-        class="btn-primary px-4 py-2 text-sm font-medium rounded-lg"
+      </Button>
+      <Button 
         onclick={handleConfirm}
         disabled={entries.length === 0 || ui.memoryLoading}
       >
@@ -149,7 +106,8 @@
         {:else}
           Create Chapter
         {/if}
-      </button>
-    </div>
-  </div>
-</div>
+      </Button>
+    </ResponsiveModal.Footer>
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>
+
