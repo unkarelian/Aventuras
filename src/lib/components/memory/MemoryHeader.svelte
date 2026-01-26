@@ -1,7 +1,13 @@
 <script lang="ts">
   import { story } from '$lib/stores/story.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import { Plus, Settings, ToggleLeft, ToggleRight } from 'lucide-svelte';
+  import { Plus, Settings } from 'lucide-svelte';
+  import { Button } from '$lib/components/ui/button';
+  import { Card, CardContent } from '$lib/components/ui/card';
+  import { Progress } from '$lib/components/ui/progress';
+  import { Switch } from '$lib/components/ui/switch';
+  import { Label } from '$lib/components/ui/label';
+  import { cn } from '$lib/utils/cn';
 
   interface Props {
     onCreateChapter?: () => void;
@@ -37,71 +43,73 @@
   }
 </script>
 
-<div class="rounded-lg bg-surface-800 p-4 space-y-3">
-  <!-- Token Usage Section -->
-  <div class="space-y-2">
-    <div class="flex items-center justify-between">
-      <span class="text-sm text-surface-300">Context Usage</span>
-      <button
-        class="flex items-center gap-1.5 text-sm transition-colors hover:text-primary-400"
-        onclick={toggleAutoSummarize}
-        title={autoSummarize ? 'Auto-summarize enabled' : 'Auto-summarize disabled'}
+<Card>
+  <CardContent class="p-4 space-y-4">
+    <!-- Token Usage Section -->
+    <div class="space-y-3">
+      <div class="flex items-center justify-between">
+        <Label class="text-muted-foreground">Context Usage</Label>
+        <div class="flex items-center gap-2">
+          <Label for="auto-summarize" class="text-xs cursor-pointer {autoSummarize ? 'text-primary' : 'text-muted-foreground'}">
+            Auto-summarize
+          </Label>
+          <Switch 
+            id="auto-summarize"
+            checked={autoSummarize} 
+            onCheckedChange={toggleAutoSummarize} 
+          />
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <Progress 
+        value={percentage} 
+        class="h-3"
+        indicatorClass={cn(
+          "transition-all duration-300",
+          !isNearThreshold && "bg-primary",
+          isNearThreshold && !isOverThreshold && "bg-amber-500",
+          isOverThreshold && "bg-red-500"
+        )}
+      />
+
+      <!-- Token Count -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 text-sm">
+        <span class="text-muted-foreground">
+          <span class="font-medium text-foreground">{formatNumber(tokensOutsideBuffer)}</span>
+          <span class="text-muted-foreground/70"> / {formatNumber(threshold)}</span>
+          <span class="text-muted-foreground/70"> tokens</span>
+        </span>
+        <span class="text-muted-foreground text-xs sm:text-sm">
+          {messagesSinceLastChapter} messages
+          {#if bufferSize > 0}
+            <span class="text-muted-foreground/70">({bufferSize} protected)</span>
+          {/if}
+        </span>
+      </div>
+    </div>
+
+    <!-- Actions Row -->
+    <div class="flex items-center gap-2">
+      <Button
+        class="flex-1 gap-2"
+        onclick={handleCreateChapter}
+        disabled={ui.memoryLoading || messagesSinceLastChapter === 0}
       >
-        {#if autoSummarize}
-          <ToggleRight class="h-5 w-5 text-primary-400" />
-          <span class="text-primary-400">Auto</span>
-        {:else}
-          <ToggleLeft class="h-5 w-5 text-surface-500" />
-          <span class="text-surface-500">Auto</span>
-        {/if}
-      </button>
+        <Plus class="h-4 w-4" />
+        <span>Create Chapter Now</span>
+      </Button>
+
+      <Button
+        variant="ghost"
+        size="icon"
+        class={cn(ui.memorySettingsOpen && "bg-accent text-accent-foreground")}
+        onclick={() => ui.toggleMemorySettings()}
+        title="Memory Settings"
+      >
+        <Settings class="h-5 w-5" />
+      </Button>
     </div>
+  </CardContent>
+</Card>
 
-    <!-- Progress Bar -->
-    <div class="relative h-3 rounded-full bg-surface-700 overflow-hidden">
-      <div
-        class="absolute inset-y-0 left-0 rounded-full transition-all duration-300"
-        class:bg-accent-500={!isNearThreshold}
-        class:bg-amber-500={isNearThreshold && !isOverThreshold}
-        class:bg-red-500={isOverThreshold}
-        style:width="{percentage}%"
-      ></div>
-    </div>
-
-    <!-- Token Count -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 text-sm">
-      <span class="text-surface-400">
-        <span class="font-medium text-surface-200">{formatNumber(tokensOutsideBuffer)}</span>
-        <span class="text-surface-500"> / {formatNumber(threshold)}</span>
-        <span class="text-surface-500"> tokens</span>
-      </span>
-      <span class="text-surface-500 text-xs sm:text-sm">
-        {messagesSinceLastChapter} messages
-        {#if bufferSize > 0}
-          <span class="text-surface-600">({bufferSize} protected)</span>
-        {/if}
-      </span>
-    </div>
-  </div>
-
-  <!-- Actions Row -->
-  <div class="flex items-center gap-2">
-    <button
-      class="btn-primary flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium"
-      onclick={handleCreateChapter}
-      disabled={ui.memoryLoading || messagesSinceLastChapter === 0}
-    >
-      <Plus class="h-4 w-4" />
-      <span>Create Chapter Now</span>
-    </button>
-
-    <button
-      class="btn-ghost p-2 rounded-lg"
-      class:bg-surface-700={ui.memorySettingsOpen}
-      onclick={() => ui.toggleMemorySettings()}
-      title="Memory Settings"
-    >
-      <Settings class="h-5 w-5" />
-    </button>
-  </div>
-</div>

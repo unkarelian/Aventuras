@@ -2,6 +2,10 @@
   import { story } from '$lib/stores/story.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { slide } from 'svelte/transition';
+  import { Card, CardContent } from '$lib/components/ui/card';
+  import { Slider } from '$lib/components/ui/slider';
+  import { Label } from '$lib/components/ui/label';
+  import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group';
 
   const threshold = $derived(story.memoryConfig.tokenThreshold);
   const bufferMessages = $derived(story.memoryConfig.chapterBuffer);
@@ -53,65 +57,63 @@
 </script>
 
 {#if ui.memorySettingsOpen}
-  <div class="rounded-lg bg-surface-800 p-4 space-y-4" transition:slide={{ duration: 200 }}>
-    <h3 class="text-sm font-medium text-surface-200">Memory Settings</h3>
+  <div transition:slide={{ duration: 200 }}>
+    <Card class="mt-4">
+      <CardContent class="p-4 space-y-4">
+        <h3 class="text-sm font-medium text-foreground">Memory Settings</h3>
 
-    <!-- Token Threshold -->
-    <div class="space-y-2">
-      <div class="flex items-center justify-between">
-        <label for="token-threshold" class="text-sm text-surface-300">Token Threshold</label>
-        <span class="text-sm font-medium text-surface-200">{formatNumber(localThreshold)}</span>
-      </div>
-      <input
-        id="token-threshold"
-        type="range"
-        min="4000"
-        max="100000"
-        step="1000"
-        value={localThreshold}
-        oninput={(e) => scheduleThresholdSave(parseInt(e.currentTarget.value))}
-        class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-surface-700 accent-primary-500"
-      />
-      <div class="flex items-center gap-1 flex-wrap">
-        {#each thresholdPresets as preset}
-          <button
-            class="px-2 py-1 text-xs rounded transition-colors"
-            class:bg-primary-600={localThreshold === preset.value}
-            class:text-white={localThreshold === preset.value}
-            class:bg-surface-700={localThreshold !== preset.value}
-            class:text-surface-300={localThreshold !== preset.value}
-            class:hover:bg-surface-600={localThreshold !== preset.value}
-            onclick={() => scheduleThresholdSave(preset.value)}
-          >
-            {preset.label}
-          </button>
-        {/each}
-      </div>
-      <p class="text-xs text-surface-500">
-        Auto-summarization triggers when token count exceeds this threshold.
-      </p>
-    </div>
+        <!-- Token Threshold -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <Label for="token-threshold" class="text-muted-foreground">Token Threshold</Label>
+            <span class="text-sm font-medium text-foreground">{formatNumber(localThreshold)}</span>
+          </div>
+          
+          <Slider 
+            id="token-threshold"
+            value={[localThreshold]}
+            min={4000}
+            max={100000}
+            step={1000}
+            onValueChange={(vals) => scheduleThresholdSave(vals[0])}
+          />
+          
+          <ToggleGroup type="single" value={localThreshold.toString()} onValueChange={(val) => val && scheduleThresholdSave(parseInt(val))} class="justify-start flex-wrap">
+            {#each thresholdPresets as preset}
+              <ToggleGroupItem value={preset.value.toString()} size="sm" class="h-7 px-2 text-xs">
+                {preset.label}
+              </ToggleGroupItem>
+            {/each}
+          </ToggleGroup>
+          
+          <p class="text-xs text-muted-foreground">
+            Auto-summarization triggers when token count exceeds this threshold.
+          </p>
+        </div>
 
-    <!-- Buffer Messages -->
-    <div class="space-y-2">
-      <div class="flex items-center justify-between">
-        <label for="buffer-messages" class="text-sm text-surface-300">Buffer Messages</label>
-        <span class="text-sm font-medium text-surface-200">{localBuffer}</span>
-      </div>
-      <input
-        id="buffer-messages"
-        type="range"
-        min="0"
-        max="50"
-        step="1"
-        value={localBuffer}
-        oninput={(e) => scheduleBufferSave(parseInt(e.currentTarget.value))}
-        class="w-full h-2 rounded-lg appearance-none cursor-pointer bg-surface-700 accent-primary-500"
-      />
-      <p class="text-xs text-surface-500">
-        Recent messages protected from being included in chapter summaries.
-        Higher values keep more context visible but create smaller chapters.
-      </p>
-    </div>
+        <!-- Buffer Messages -->
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <Label for="buffer-messages" class="text-muted-foreground">Buffer Messages</Label>
+            <span class="text-sm font-medium text-foreground">{localBuffer}</span>
+          </div>
+          
+          <Slider 
+            id="buffer-messages"
+            value={[localBuffer]}
+            min={0}
+            max={50}
+            step={1}
+            onValueChange={(vals) => scheduleBufferSave(vals[0])}
+          />
+
+          <p class="text-xs text-muted-foreground">
+            Recent messages protected from being included in chapter summaries.
+            Higher values keep more context visible but create smaller chapters.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   </div>
 {/if}
+

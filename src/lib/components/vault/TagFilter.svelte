@@ -2,7 +2,11 @@
   import { tagStore } from "$lib/stores/tags.svelte";
   import type { VaultType } from "$lib/types";
   import { Filter, Check, X } from "lucide-svelte";
-  import { fade, slide } from "svelte/transition";
+  import { Button } from "$lib/components/ui/button";
+  import { Badge } from "$lib/components/ui/badge";
+  import * as Command from "$lib/components/ui/command";
+  import * as Popover from "$lib/components/ui/popover";
+  import { cn } from "$lib/utils/cn";
 
   interface Props {
     selectedTags: string[];
@@ -13,16 +17,9 @@
 
   let { selectedTags, logic, type, onUpdate }: Props = $props();
 
-  let isOpen = $state(false);
-  let search = $state("");
+  let open = $state(false);
 
   const availableTags = $derived(tagStore.getTagsForType(type));
-
-  const filteredTags = $derived.by(() => {
-    if (!search.trim()) return availableTags;
-    const q = search.toLowerCase();
-    return availableTags.filter((t) => t.name.toLowerCase().includes(q));
-  });
 
   function toggleTag(tagName: string) {
     if (selectedTags.includes(tagName)) {
@@ -37,142 +34,110 @@
 
   function clearTags() {
     onUpdate([], logic);
-    isOpen = false;
+    open = false;
   }
 
   function toggleLogic() {
     onUpdate(selectedTags, logic === "AND" ? "OR" : "AND");
   }
-
-  // Close dropdown on click outside
-  function handleClickOutside(node: HTMLElement) {
-    const handleClick = (e: MouseEvent) => {
-      if (!node.contains(e.target as Node)) {
-        isOpen = false;
-      }
-    };
-    document.addEventListener("click", handleClick);
-    return {
-      destroy() {
-        document.removeEventListener("click", handleClick);
-      },
-    };
-  }
 </script>
 
-<div class="relative z-20" use:handleClickOutside>
-  <button
-    class={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs transition-colors ${
-      selectedTags.length > 0
-        ? "border-accent-500 bg-accent-500/10 text-accent-400"
-        : "border-surface-600 bg-surface-800 text-surface-400 hover:border-surface-500"
-    }`}
-    onclick={() => (isOpen = !isOpen)}
-  >
-    <Filter class="h-3 w-3" />
-    <span class="hidden sm:inline">Tags</span>
-    {#if selectedTags.length > 0}
-      <span
-        class="ml-1 rounded-full bg-accent-500/20 px-1.5 py-0.5 text-[10px] font-bold"
+<Popover.Root bind:open>
+  <Popover.Trigger>
+    {#snippet child({ props })}
+      <Button
+        variant={selectedTags.length > 0 ? "secondary" : "outline"}
+        size="default"
+        class={cn(
+          "gap-2",
+          selectedTags.length > 0 && "bg-secondary text-secondary-foreground",
+        )}
+        {...props}
       >
-        {selectedTags.length}
-      </span>
-    {/if}
-  </button>
-
-  {#if isOpen}
-    <!-- Mobile Backdrop -->
-    <div
-      class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm sm:hidden"
-      transition:fade={{ duration: 100 }}
-      onclick={() => (isOpen = false)}
-      aria-hidden="true"
-    ></div>
-
-    <div
-      transition:fade={{ duration: 100 }}
-      class="
-        fixed left-1/2 top-1/2 z-50 w-72 -translate-x-1/2 -translate-y-1/2 shadow-2xl
-        sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-64 sm:translate-x-0 sm:translate-y-0 sm:shadow-xl
-        rounded-xl border border-surface-600 bg-surface-800 p-3
-      "
-    >
-      <!-- Header / Logic Toggle -->
-      <div class="mb-3 flex items-center justify-between">
-        <span class="text-xs font-medium text-surface-400">Filter Logic:</span>
+        <Filter class="h-3 w-3" />
+        <span class="hidden sm:inline">Tags</span>
+        {#if selectedTags.length > 0}
+          <Badge variant="secondary" class="h-5 px-0 text-sm">
+            {selectedTags.length}
+          </Badge>
+        {/if}
+      </Button>
+    {/snippet}
+  </Popover.Trigger>
+  <Popover.Content class="w-70 p-0" align="end">
+    <!-- Logic Toggle Header -->
+    <div class="flex items-center justify-between border-b px-3 py-2">
+      <span class="text-xs font-medium text-muted-foreground"
+        >Filter Logic:</span
+      >
+      <div class="flex items-center rounded-md bg-muted p-0.5">
         <button
-          class="flex items-center rounded bg-surface-700 p-0.5"
+          class={cn(
+            "rounded-sm px-2 py-0.5 text-[10px] font-bold transition-all",
+            logic === "AND"
+              ? "bg-background text-primary shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
           onclick={toggleLogic}
         >
-          <span
-            class={`rounded px-2 py-0.5 text-[10px] font-bold transition-all ${
-              logic === "AND"
-                ? "bg-accent-500 text-white shadow-sm"
-                : "text-surface-400 hover:text-surface-200"
-            }`}
-          >
-            AND
-          </span>
-          <span
-            class={`rounded px-2 py-0.5 text-[10px] font-bold transition-all ${
-              logic === "OR"
-                ? "bg-accent-500 text-white shadow-sm"
-                : "text-surface-400 hover:text-surface-200"
-            }`}
-          >
-            OR
-          </span>
+          AND
+        </button>
+        <button
+          class={cn(
+            "rounded-sm px-2 py-0.5 text-[10px] font-bold transition-all",
+            logic === "OR"
+              ? "bg-background text-primary shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+          onclick={toggleLogic}
+        >
+          OR
         </button>
       </div>
-
-      <!-- Search -->
-      <div class="mb-2">
-        <input
-          type="text"
-          bind:value={search}
-          placeholder="Filter tags..."
-          class="w-full rounded border border-surface-600 bg-surface-700 px-2 py-1.5 text-xs text-surface-100 placeholder-surface-500 focus:border-accent-500 focus:outline-none"
-        />
-      </div>
-
-      <!-- Tag List -->
-      <div class="max-h-48 space-y-1 overflow-y-auto">
-        {#each filteredTags as tag}
-          <button
-            class={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors ${
-              selectedTags.includes(tag.name)
-                ? "bg-accent-500/10 text-accent-400"
-                : "text-surface-300 hover:bg-surface-700"
-            }`}
-            onclick={() => toggleTag(tag.name)}
-          >
-            <div class="flex items-center gap-2">
-              <span>{tag.name}</span>
-            </div>
-            {#if selectedTags.includes(tag.name)}
-              <Check class="h-3 w-3" />
-            {/if}
-          </button>
-        {/each}
-        {#if filteredTags.length === 0}
-          <div class="py-2 text-center text-xs text-surface-500">
-            No tags found
-          </div>
-        {/if}
-      </div>
-
-      <!-- Footer -->
-      {#if selectedTags.length > 0}
-        <div class="mt-2 border-t border-surface-700 pt-2">
-          <button
-            class="flex w-full items-center justify-center gap-1 rounded bg-surface-700 py-1.5 text-xs text-surface-300 hover:bg-surface-600 hover:text-surface-100"
-            onclick={clearTags}
-          >
-            <X class="h-3 w-3" />
-            Clear Filters
-          </button>
-        </div>
-      {/if}
     </div>
-  {/if}
-</div>
+
+    <!-- Command List -->
+    <Command.Root>
+      <Command.Input placeholder="Filter tags..." class="h-9" />
+      <Command.List class="max-h-[200px]">
+        <Command.Empty>No tags found.</Command.Empty>
+        <Command.Group>
+          {#each availableTags as tag}
+            <Command.Item
+              value={tag.name}
+              onSelect={() => toggleTag(tag.name)}
+              class="cursor-pointer"
+            >
+              <div
+                class={cn(
+                  "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                  selectedTags.includes(tag.name)
+                    ? "bg-primary text-primary-foreground"
+                    : "opacity-50 [&_svg]:invisible",
+                )}
+              >
+                <Check class={cn("h-4 w-4")} />
+              </div>
+              <span>{tag.name}</span>
+            </Command.Item>
+          {/each}
+        </Command.Group>
+      </Command.List>
+    </Command.Root>
+
+    <!-- Clear Footer -->
+    {#if selectedTags.length > 0}
+      <div class="border-t p-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          class="w-full justify-center text-xs h-8"
+          onclick={clearTags}
+        >
+          <X class="mr-2 h-3 w-3" />
+          Clear Filters
+        </Button>
+      </div>
+    {/if}
+  </Popover.Content>
+</Popover.Root>

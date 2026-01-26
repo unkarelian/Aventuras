@@ -65,7 +65,9 @@
 
   // Keyboard shortcut hint
   const sendKeyHint = $derived(
-    isTouchDevice() ? "Shift+Enter to send" : "Enter to send, Shift+Enter for new line"
+    isTouchDevice()
+      ? "Shift+Enter to send"
+      : "Enter to send, Shift+Enter for new line",
   );
 
   // Action type configuration for the redesigned input
@@ -1004,18 +1006,32 @@
         // Phase 2.4: Translate narration if enabled (background, non-blocking)
         // Store promise so image generation can wait for it
         const translationSettingsRef = settings.translationSettings;
-        let translationPromise: Promise<{ translatedContent: string; targetLanguage: string } | null> | null = null;
+        let translationPromise: Promise<{
+          translatedContent: string;
+          targetLanguage: string;
+        } | null> | null = null;
 
-        if (TranslationService.shouldTranslateNarration(translationSettingsRef)) {
-          const isVisualProse = story.currentStory?.settings?.visualProseMode ?? false;
+        if (
+          TranslationService.shouldTranslateNarration(translationSettingsRef)
+        ) {
+          const isVisualProse =
+            story.currentStory?.settings?.visualProseMode ?? false;
           const targetLang = translationSettingsRef.targetLanguage;
           const entryIdForTranslation = narrationEntry.id;
 
           // Run translation async - store promise so image gen can wait for it
           translationPromise = (async () => {
             try {
-              log("Translating narration", { entryId: entryIdForTranslation, isVisualProse, targetLang });
-              const result = await aiService.translateNarration(fullResponse, targetLang, isVisualProse);
+              log("Translating narration", {
+                entryId: entryIdForTranslation,
+                isVisualProse,
+                targetLang,
+              });
+              const result = await aiService.translateNarration(
+                fullResponse,
+                targetLang,
+                isVisualProse,
+              );
               await database.updateStoryEntry(entryIdForTranslation, {
                 translatedContent: result.translatedContent,
                 translationLanguage: targetLang,
@@ -1023,7 +1039,10 @@
               // Refresh the entry in the store to show translated content
               await story.refreshEntry(entryIdForTranslation);
               log("Narration translated", { entryId: entryIdForTranslation });
-              return { translatedContent: result.translatedContent, targetLanguage: targetLang };
+              return {
+                translatedContent: result.translatedContent,
+                targetLanguage: targetLang,
+              };
             } catch (error) {
               log("Narration translation failed (non-fatal)", error);
               return null;
@@ -1037,14 +1056,20 @@
         if (ttsSettings.enabled && ttsSettings.autoPlay) {
           if (translationPromise) {
             // Wait for translation to complete before TTS so entry.translatedContent is available
-            translationPromise.then(() => {
-              emitTTSQueued(narrationEntry.id, fullResponse);
-              log("TTS queued for auto-play (after translation)", { entryId: narrationEntry.id });
-            }).catch(() => {
-              // Translation failed, still trigger TTS with original content
-              emitTTSQueued(narrationEntry.id, fullResponse);
-              log("TTS queued for auto-play (translation failed)", { entryId: narrationEntry.id });
-            });
+            translationPromise
+              .then(() => {
+                emitTTSQueued(narrationEntry.id, fullResponse);
+                log("TTS queued for auto-play (after translation)", {
+                  entryId: narrationEntry.id,
+                });
+              })
+              .catch(() => {
+                // Translation failed, still trigger TTS with original content
+                emitTTSQueued(narrationEntry.id, fullResponse);
+                log("TTS queued for auto-play (translation failed)", {
+                  entryId: narrationEntry.id,
+                });
+              });
           } else {
             // No translation enabled, trigger TTS immediately
             emitTTSQueued(narrationEntry.id, fullResponse);
@@ -1093,103 +1118,221 @@
 
           // Phase 4.5: Translate world state elements if enabled (background, non-blocking)
           const translationSettingsForUI = settings.translationSettings;
-          if (TranslationService.shouldTranslateWorldState(translationSettingsForUI)) {
+          if (
+            TranslationService.shouldTranslateWorldState(
+              translationSettingsForUI,
+            )
+          ) {
             const targetLangForUI = translationSettingsForUI.targetLanguage;
 
             // Run translation async (non-blocking) - don't await
             (async () => {
               try {
                 // Collect items to translate from classification result
-                const itemsToTranslate: { id: string; text: string; type: 'name' | 'description' | 'title'; entityType: string; field: string; isArray?: boolean }[] = [];
+                const itemsToTranslate: {
+                  id: string;
+                  text: string;
+                  type: "name" | "description" | "title";
+                  entityType: string;
+                  field: string;
+                  isArray?: boolean;
+                }[] = [];
 
                 // New characters
-                for (const char of classificationResult.entryUpdates.newCharacters) {
-                  const dbChar = story.characters.find(c => c.name === char.name);
+                for (const char of classificationResult.entryUpdates
+                  .newCharacters) {
+                  const dbChar = story.characters.find(
+                    (c) => c.name === char.name,
+                  );
                   if (dbChar) {
-                    itemsToTranslate.push({ id: `${dbChar.id}:name`, text: char.name, type: 'name', entityType: 'character', field: 'translatedName' });
+                    itemsToTranslate.push({
+                      id: `${dbChar.id}:name`,
+                      text: char.name,
+                      type: "name",
+                      entityType: "character",
+                      field: "translatedName",
+                    });
                     if (char.description) {
-                      itemsToTranslate.push({ id: `${dbChar.id}:desc`, text: char.description, type: 'description', entityType: 'character', field: 'translatedDescription' });
+                      itemsToTranslate.push({
+                        id: `${dbChar.id}:desc`,
+                        text: char.description,
+                        type: "description",
+                        entityType: "character",
+                        field: "translatedDescription",
+                      });
                     }
                     if (char.relationship) {
-                      itemsToTranslate.push({ id: `${dbChar.id}:rel`, text: char.relationship, type: 'description', entityType: 'character', field: 'translatedRelationship' });
+                      itemsToTranslate.push({
+                        id: `${dbChar.id}:rel`,
+                        text: char.relationship,
+                        type: "description",
+                        entityType: "character",
+                        field: "translatedRelationship",
+                      });
                     }
                     if (char.traits && char.traits.length > 0) {
-                      itemsToTranslate.push({ id: `${dbChar.id}:traits`, text: char.traits.join(', '), type: 'description', entityType: 'character', field: 'translatedTraits', isArray: true });
+                      itemsToTranslate.push({
+                        id: `${dbChar.id}:traits`,
+                        text: char.traits.join(", "),
+                        type: "description",
+                        entityType: "character",
+                        field: "translatedTraits",
+                        isArray: true,
+                      });
                     }
-                    if (char.visualDescriptors && char.visualDescriptors.length > 0) {
-                      itemsToTranslate.push({ id: `${dbChar.id}:visual`, text: char.visualDescriptors.join(', '), type: 'description', entityType: 'character', field: 'translatedVisualDescriptors', isArray: true });
+                    if (
+                      char.visualDescriptors &&
+                      char.visualDescriptors.length > 0
+                    ) {
+                      itemsToTranslate.push({
+                        id: `${dbChar.id}:visual`,
+                        text: char.visualDescriptors.join(", "),
+                        type: "description",
+                        entityType: "character",
+                        field: "translatedVisualDescriptors",
+                        isArray: true,
+                      });
                     }
                   }
                 }
 
                 // New locations
-                for (const loc of classificationResult.entryUpdates.newLocations) {
-                  const dbLoc = story.locations.find(l => l.name === loc.name);
+                for (const loc of classificationResult.entryUpdates
+                  .newLocations) {
+                  const dbLoc = story.locations.find(
+                    (l) => l.name === loc.name,
+                  );
                   if (dbLoc) {
-                    itemsToTranslate.push({ id: `${dbLoc.id}:name`, text: loc.name, type: 'name', entityType: 'location', field: 'translatedName' });
+                    itemsToTranslate.push({
+                      id: `${dbLoc.id}:name`,
+                      text: loc.name,
+                      type: "name",
+                      entityType: "location",
+                      field: "translatedName",
+                    });
                     if (loc.description) {
-                      itemsToTranslate.push({ id: `${dbLoc.id}:desc`, text: loc.description, type: 'description', entityType: 'location', field: 'translatedDescription' });
+                      itemsToTranslate.push({
+                        id: `${dbLoc.id}:desc`,
+                        text: loc.description,
+                        type: "description",
+                        entityType: "location",
+                        field: "translatedDescription",
+                      });
                     }
                   }
                 }
 
                 // New items
                 for (const item of classificationResult.entryUpdates.newItems) {
-                  const dbItem = story.items.find(i => i.name === item.name);
+                  const dbItem = story.items.find((i) => i.name === item.name);
                   if (dbItem) {
-                    itemsToTranslate.push({ id: `${dbItem.id}:name`, text: item.name, type: 'name', entityType: 'item', field: 'translatedName' });
+                    itemsToTranslate.push({
+                      id: `${dbItem.id}:name`,
+                      text: item.name,
+                      type: "name",
+                      entityType: "item",
+                      field: "translatedName",
+                    });
                     if (item.description) {
-                      itemsToTranslate.push({ id: `${dbItem.id}:desc`, text: item.description, type: 'description', entityType: 'item', field: 'translatedDescription' });
+                      itemsToTranslate.push({
+                        id: `${dbItem.id}:desc`,
+                        text: item.description,
+                        type: "description",
+                        entityType: "item",
+                        field: "translatedDescription",
+                      });
                     }
                   }
                 }
 
                 // New story beats
-                for (const beat of classificationResult.entryUpdates.newStoryBeats) {
-                  const dbBeat = story.storyBeats.find(b => b.title === beat.title);
+                for (const beat of classificationResult.entryUpdates
+                  .newStoryBeats) {
+                  const dbBeat = story.storyBeats.find(
+                    (b) => b.title === beat.title,
+                  );
                   if (dbBeat) {
-                    itemsToTranslate.push({ id: `${dbBeat.id}:title`, text: beat.title, type: 'title', entityType: 'storyBeat', field: 'translatedTitle' });
+                    itemsToTranslate.push({
+                      id: `${dbBeat.id}:title`,
+                      text: beat.title,
+                      type: "title",
+                      entityType: "storyBeat",
+                      field: "translatedTitle",
+                    });
                     if (beat.description) {
-                      itemsToTranslate.push({ id: `${dbBeat.id}:desc`, text: beat.description, type: 'description', entityType: 'storyBeat', field: 'translatedDescription' });
+                      itemsToTranslate.push({
+                        id: `${dbBeat.id}:desc`,
+                        text: beat.description,
+                        type: "description",
+                        entityType: "storyBeat",
+                        field: "translatedDescription",
+                      });
                     }
                   }
                 }
 
                 if (itemsToTranslate.length > 0) {
-                  log("Translating world state elements", { count: itemsToTranslate.length, targetLang: targetLangForUI });
-                  const uiItems = itemsToTranslate.map(item => ({ id: item.id, text: item.text, type: item.type }));
-                  const translated = await aiService.translateUIElements(uiItems, targetLangForUI);
+                  log("Translating world state elements", {
+                    count: itemsToTranslate.length,
+                    targetLang: targetLangForUI,
+                  });
+                  const uiItems = itemsToTranslate.map((item) => ({
+                    id: item.id,
+                    text: item.text,
+                    type: item.type,
+                  }));
+                  const translated = await aiService.translateUIElements(
+                    uiItems,
+                    targetLangForUI,
+                  );
 
                   // Apply translations to database
                   for (const translatedItem of translated) {
-                    const [entityId, fieldType] = translatedItem.id.split(':');
-                    const originalItem = itemsToTranslate.find(i => i.id === translatedItem.id);
+                    const [entityId, fieldType] = translatedItem.id.split(":");
+                    const originalItem = itemsToTranslate.find(
+                      (i) => i.id === translatedItem.id,
+                    );
                     if (!originalItem) continue;
 
                     // Handle array fields (traits, visualDescriptors) by splitting the translated comma-separated string
                     const translatedValue = originalItem.isArray
-                      ? translatedItem.text.split(',').map(s => s.trim()).filter(Boolean)
+                      ? translatedItem.text
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean)
                       : translatedItem.text;
 
-                    const updateData: Record<string, string | string[] | null> = {
-                      [originalItem.field]: translatedValue,
-                      translationLanguage: targetLangForUI,
-                    };
+                    const updateData: Record<string, string | string[] | null> =
+                      {
+                        [originalItem.field]: translatedValue,
+                        translationLanguage: targetLangForUI,
+                      };
 
-                    if (originalItem.entityType === 'character') {
-                      await database.updateCharacter(entityId, updateData as any);
-                    } else if (originalItem.entityType === 'location') {
-                      await database.updateLocation(entityId, updateData as any);
-                    } else if (originalItem.entityType === 'item') {
+                    if (originalItem.entityType === "character") {
+                      await database.updateCharacter(
+                        entityId,
+                        updateData as any,
+                      );
+                    } else if (originalItem.entityType === "location") {
+                      await database.updateLocation(
+                        entityId,
+                        updateData as any,
+                      );
+                    } else if (originalItem.entityType === "item") {
                       await database.updateItem(entityId, updateData as any);
-                    } else if (originalItem.entityType === 'storyBeat') {
-                      await database.updateStoryBeat(entityId, updateData as any);
+                    } else if (originalItem.entityType === "storyBeat") {
+                      await database.updateStoryBeat(
+                        entityId,
+                        updateData as any,
+                      );
                     }
                   }
 
                   // Refresh story state to show translations in sidebar
                   await story.refreshWorldState();
-                  log("World state elements translated", { count: translated.length });
+                  log("World state elements translated", {
+                    count: translated.length,
+                  });
                 }
               } catch (error) {
                 log("World state translation failed (non-fatal)", error);
@@ -1226,14 +1369,19 @@
             let translationLanguage: string | undefined;
 
             if (translationPromise) {
-              log("Waiting for translation to complete for image generation...");
+              log(
+                "Waiting for translation to complete for image generation...",
+              );
               const translationResult = await translationPromise;
               if (translationResult) {
                 translatedNarrative = translationResult.translatedContent;
                 translationLanguage = translationResult.targetLanguage;
-                log("Translation complete, will embed images in translated text", {
-                  targetLanguage: translationLanguage,
-                });
+                log(
+                  "Translation complete, will embed images in translated text",
+                  {
+                    targetLanguage: translationLanguage,
+                  },
+                );
               }
             }
 
@@ -1439,10 +1587,10 @@
         });
         const result = await aiService.translateInput(
           content,
-          translationSettings.sourceLanguage
+          translationSettings.sourceLanguage,
         );
-        originalInput = content;  // Save original for display
-        promptContent = result.translatedContent;  // Use English for prompt
+        originalInput = content; // Save original for display
+        promptContent = result.translatedContent; // Use English for prompt
         log("Input translated", {
           originalLength: content.length,
           translatedLength: promptContent.length,
@@ -1780,16 +1928,19 @@
           });
           const result = await aiService.translateInput(
             backup.userActionContent,
-            translationSettings.sourceLanguage
+            translationSettings.sourceLanguage,
           );
-          originalInput = backup.userActionContent;  // Save original for display
-          promptContent = result.translatedContent;  // Use English for prompt
+          originalInput = backup.userActionContent; // Save original for display
+          promptContent = result.translatedContent; // Use English for prompt
           log("Retry: Input translated", {
             originalLength: backup.userActionContent.length,
             translatedLength: promptContent.length,
           });
         } catch (error) {
-          log("Retry: Input translation failed (non-fatal), using original", error);
+          log(
+            "Retry: Input translation failed (non-fatal), using original",
+            error,
+          );
           // Continue with original content if translation fails
         }
       }
@@ -1849,13 +2000,13 @@
 
   function handleKeydown(event: KeyboardEvent) {
     const isMobile = isTouchDevice();
-    
+
     // On mobile: Enter = new line, Shift+Enter = send
     // On desktop: Enter = send, Shift+Enter = new line
-    const shouldSubmit = isMobile 
-      ? (event.key === "Enter" && event.shiftKey)
-      : (event.key === "Enter" && !event.shiftKey);
-    
+    const shouldSubmit = isMobile
+      ? event.key === "Enter" && event.shiftKey
+      : event.key === "Enter" && !event.shiftKey;
+
     if (shouldSubmit) {
       event.preventDefault();
       handleSubmit();
@@ -1886,7 +2037,7 @@
   }
 </script>
 
-<div class="space-y-3">
+<div class="space-y-3 ml-1">
   <!-- Error retry banner -->
   {#if ui.lastGenerationError && !ui.isGenerating}
     <div
@@ -1917,24 +2068,24 @@
   {#if isCreativeMode}
     <!-- Creative Writing Mode: Direction Input -->
     <div
-      class="rounded-lg border-l-0 sm:border-l-4 {ui.isGenerating
+      class="rounded-lg sm:border sm:border-border border-l-0 sm:border-l-4 sm:shadow-sm {ui.isGenerating
         ? 'sm:border-l-surface-600 bg-surface-400/5'
-        : 'border-l-accent-500 sm:bg-surface-400/5'} transition-colors duration-200 relative"
+        : 'border-l-accent-500 bg-card'} transition-colors duration-200 relative"
     >
       <!-- Mobile Word Count Pill -->
       {#if settings.uiSettings.showWordCount}
-        <div class="absolute top-2 right-0 sm:hidden">
+        <div class="absolute -top-[2.05rem] -right-3 sm:hidden">
           <div
-            class="bg-surface-700 px-2 py-0.5 rounded-b-lg rounded-t-md text-[10px] text-surface-400"
+            class="bg-surface-800 px-2 py-0.5 border border-surface-500/30 border-b-0 rounded-tl-md text-sm text-surface-400"
           >
-            {story.wordCount} wc
+            {story.wordCount} words
           </div>
         </div>
       {/if}
 
       <!-- Creative Writing Mode: Suggestions (Header) -->
       {#if !settings.uiSettings.disableSuggestions}
-        <div class="border-b border-surface-700/30">
+        <div class="sm:border-b border-surface-700/30">
           <Suggestions
             suggestions={ui.suggestions}
             loading={ui.suggestionsLoading}
@@ -1944,7 +2095,7 @@
         </div>
       {/if}
 
-      <div class="flex items-end gap-1 p-0.5 mb-3 sm:mb-2 sm:p-1.5">
+      <div class="flex items-center sm:items-end gap-1 mb-3 sm:mb-0 sm:p-1">
         <div class="relative flex-1 min-w-0">
           <textarea
             bind:value={inputValue}
@@ -1952,22 +2103,16 @@
             onkeydown={handleKeydown}
             disabled={ui.isGenerating}
             placeholder="Describe what happens next in the story..."
-            class="w-full bg-transparent border-none focus:ring-0 px-2 min-h-[24px] sm:min-h-[24px] max-h-[160px] resize-none text-base text-surface-200 placeholder-surface-500 focus:outline-none leading-relaxed"
+            class="w-full bg-transparent border-none focus:ring-0 px-2 min-h-6 sm:min-h-6 max-h-40 resize-none text-base text-surface-200 placeholder-surface-500 focus:outline-none leading-relaxed"
             rows="1"
           ></textarea>
-          <!-- Character Count -->
-          <div
-            class="absolute bottom-0 right-0 text-[10px] text-surface-500 pointer-events-none opacity-0 group-focus-within:opacity-100 transition-opacity"
-          >
-            {inputValue.length}
-          </div>
         </div>
 
         {#if ui.isGenerating}
           {#if !ui.isRetryingLastMessage}
             <button
               onclick={handleStopGeneration}
-              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse"
+              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse -translate-y-0.5 sm:translate-y-0"
               title="Stop generation"
             >
               <Square class="h-6 w-6" />
@@ -1985,7 +2130,7 @@
           <button
             onclick={handleSubmit}
             disabled={!inputValue.trim()}
-            class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 text-accent-400 hover:text-accent-300 hover:bg-accent-500/10"
+            class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 text-accent-400 hover:text-accent-300 hover:bg-accent-500/10 -translate-y-0.5 sm:translate-y-0"
             title="Send direction ({sendKeyHint})"
           >
             <Send class="h-6 w-6" />
@@ -2002,9 +2147,9 @@
 
     <!-- Adventure Mode: Redesigned Input -->
     <div
-      class="rounded-lg border-l-0 sm:border-l-4 sm:bg-surface-400/5 {ui.isGenerating
+      class="rounded-lg sm:border sm:border-border border-l-0 sm:border-l-4 sm:shadow-sm {ui.isGenerating
         ? 'sm:border-l-surface-60'
-        : `${actionBorderColors[actionType]}`} transition-colors duration-200 relative"
+        : `${actionBorderColors[actionType]}`} bg-card transition-colors duration-200 relative"
     >
       <!-- Mobile Word Count Pill -->
       {#if settings.uiSettings.showWordCount}
@@ -2020,7 +2165,7 @@
       <!-- Action type selector row (Top - both mobile and desktop) -->
       {#if !settings.uiSettings.disableActionPrefixes}
         <div
-          class="flex items-center gap-1 border-b border-surface-700/30 px-1 pt-0 pb-2 sm:px-2 sm:py-1"
+          class="flex items-center gap-1 sm:border-b border-surface-700/30 px-1 pt-0 pb-0 sm:px-2 sm:py-1"
         >
           {#each actionTypes as type}
             {@const Icon = actionIcons[type]}
@@ -2029,7 +2174,7 @@
                      text-[10px] sm:text-xs font-medium transition-all duration-150
                      {actionType === type
                 ? actionActiveStyles[type]
-                : 'text-surface-500 hover:text-surface-300 hover:bg-surface-700/50'}"
+                : `text-surface-500 hover:${actionButtonStyles[type]}`}"
               onclick={() => (actionType = type)}
             >
               <Icon class="h-3 w-3 sm:h-3.5 sm:w-3.5" />
@@ -2040,9 +2185,9 @@
       {/if}
 
       <!-- Main input row -->
-      <div class="flex items-end gap-1 p-0.5 mb-3 sm:mb-2 sm:p-1.5">
+      <div class="flex items-center sm:items-end gap-1 mb-3 sm:mb-0 sm:p-1">
         <!-- Textarea -->
-        <div class="relative flex-1 min-w-0">
+        <div class="relative flex-1 self-center min-w-0">
           <textarea
             bind:value={inputValue}
             use:autoResize={inputValue}
@@ -2067,7 +2212,7 @@
           {#if !ui.isRetryingLastMessage}
             <button
               onclick={handleStopGeneration}
-              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse"
+              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 shrink-0 animate-pulse -translate-y-0.5 sm:translate-y-0"
               title="Stop generation"
             >
               <Square class="h-6 w-6" />
@@ -2075,7 +2220,7 @@
           {:else}
             <button
               disabled
-              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed flex-shrink-0"
+              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed shrink-0"
               title="Stop disabled during retry"
             >
               <Square class="h-6 w-6" />
@@ -2085,9 +2230,9 @@
           <button
             onclick={handleSubmit}
             disabled={!inputValue.trim()}
-            class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 {actionButtonStyles[
+            class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 shrink-0 {actionButtonStyles[
               actionType
-            ]}"
+            ]} -translate-y-0.5 sm:translate-y-0"
             title="Send ({sendKeyHint})"
           >
             <Send class="h-6 w-6" />

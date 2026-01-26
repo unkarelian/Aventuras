@@ -1,0 +1,76 @@
+/* =============================================
+   DARK THEME (Default)
+   Modern slate/blue dark mode
+   ============================================= */
+[data-theme="dark"] {
+  /* Shadcn Variables (Dark) */
+  --radius: 0.5rem;
+  --background: hsl(222 47% 11%);
+  --foreground: hsl(210 40% 98%);
+  --muted: hsl(217 33% 25%);
+  --muted-foreground: hsl(215 20.2% 65.1%);
+  --popover: hsl(217 33% 17%);
+  --popover-foreground: hsl(210 40% 98%);
+  --card: hsl(217 33% 17%);
+  --card-foreground: hsl(210 40% 98%);
+  --border: hsl(217 33% 25%);
+  --input: hsl(217 33% 25%);
+  --primary: hsl(221.2 83.2% 53.3%);
+  --primary-foreground: hsl(210 40% 98%);
+  --secondary: hsl(217 33% 25%);
+  --secondary-foreground: hsl(210 40% 98%);
+  --accent: hsl(217 33% 25%);
+  --accent-foreground: hsl(210 40% 98%);
+  --destructive: hsl(0 62.8% 30.6%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --ring: hsl(221.2 83.2% 53.3%);
+
+  /* Surface colors (backgrounds, borders) */
+  --color-surface-50: #f8fafc;
+  --color-surface-100: #f1f5f9;
+  --color-surface-200: #e2e8f0;
+  --color-surface-300: #cbd5e1;
+  --color-surface-400: #94a3b8;
+  --color-surface-500: #64748b;
+  --color-surface-600: #475569;
+  --color-surface-700: #334155;
+  --color-surface-800: #1e293b;
+  --color-surface-850: #141b25;
+  --color-surface-900: #0f172a;
+  --color-surface-950: #020617;
+
+  /* Accent colors (interactive elements) */
+  --color-accent-50: #eff6ff;
+  --color-accent-100: #dbeafe;
+  --color-accent-200: #bfdbfe;
+  --color-accent-300: #93c5fd;
+  --color-accent-400: #60a5fa;
+  --color-accent-500: #3b82f6;
+  --color-accent-600: #2563eb;
+  --color-accent-700: #1d4ed8;
+  --color-accent-800: #1e40af;
+  --color-accent-900: #1e3a8a;
+  --color-accent-950: #172554;
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-900);
+  --bg-secondary: var(--color-surface-800);
+  --bg-tertiary: var(--color-surface-700);
+  --text-primary: var(--color-surface-100);
+  --text-secondary: var(--color-surface-300);
+  --text-muted: var(--color-surface-400);
+  --text-accent: var(--color-accent-400);
+  --border-primary: var(--color-surface-700);
+  --border-secondary: var(--color-surface-600);
+
+  /* Scrollbar */
+  --scrollbar-track: var(--color-surface-800);
+  --scrollbar-thumb: var(--color-surface-600);
+  --scrollbar-thumb-hover: var(--color-surface-500);
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}

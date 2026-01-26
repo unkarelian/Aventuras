@@ -176,6 +176,7 @@ pov: POV;
     tone: string;
     visualProseMode?: boolean;
     inlineImageMode?: boolean;
+    imageGenerationMode?: 'none' | 'auto' | 'inline';
   };
   title: string;
   openingGuidance?: string; // Creative writing mode: user guidance for the opening scene
@@ -208,6 +209,7 @@ export interface GeneratedCharacter {
   description: string;
   relationship: string;
   traits: string[];
+  vaultId?: string;
 }
 
 export interface GeneratedOpening {
@@ -1177,7 +1179,7 @@ prepareStoryData(wizardData: WizardData, opening: GeneratedOpening): {
     genre: string;
     description?: string;
     mode: StoryMode;
-    settings: { pov: POV; tense: Tense; tone?: string; themes?: string[]; visualProseMode?: boolean; inlineImageMode?: boolean };
+    settings: { pov: POV; tense: Tense; tone?: string; themes?: string[]; visualProseMode?: boolean; inlineImageMode?: boolean; imageGenerationMode?: 'none' | 'auto' | 'inline' };
     protagonist: Partial<Character>;
     startingLocation: Partial<Location>;
     initialItems: Partial<Item>[];
@@ -1203,6 +1205,7 @@ settings: {
         themes: expandedSetting?.themes,
         visualProseMode: writingStyle.visualProseMode,
         inlineImageMode: writingStyle.inlineImageMode,
+        imageGenerationMode: writingStyle.imageGenerationMode,
       },
       protagonist: {
         name: protagonist?.name || (writingStyle.pov === 'second' ? 'You' : 'The Protagonist'),

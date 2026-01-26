@@ -27,6 +27,7 @@ export type { StoryMode, POV, EntryType };
  */
 export interface ImportedLorebookItem {
   id: string;
+  vaultId?: string; // If imported from vault
   filename: string;
   result: LorebookImportResult;
   entries: ImportedEntry[];

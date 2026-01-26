@@ -1,17 +1,21 @@
 <script lang="ts">
   import type { DiscoveryCard } from '$lib/services/discovery';
-  import { Download, Loader2, Check } from 'lucide-svelte';
+  import { Download, Loader2, Check, Eye } from 'lucide-svelte';
+  import { Card, CardContent } from "$lib/components/ui/card";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Button } from "$lib/components/ui/button";
 
   type NsfwMode = 'disable' | 'blur' | 'enable';
 
   interface Props {
     card: DiscoveryCard;
     onImport: (card: DiscoveryCard) => void;
+    onViewDetails?: (card: DiscoveryCard) => void;
     isImported?: boolean;
     nsfwMode?: NsfwMode;
   }
 
-  let { card, onImport, isImported = false, nsfwMode = 'disable' }: Props = $props();
+  let { card, onImport, onViewDetails, isImported = false, nsfwMode = 'disable' }: Props = $props();
 
   // Hide card entirely if NSFW is disabled and card is NSFW
   let isHidden = $derived(nsfwMode === 'disable' && card.nsfw);
@@ -29,27 +33,32 @@
       onImport(card);
     }
   }
+
+  function handleCardClick() {
+    onViewDetails?.(card);
+  }
 </script>
 
 {#if !isHidden}
-<div
-  class="group relative flex flex-col overflow-hidden rounded-lg border border-surface-600 bg-surface-800 transition-all hover:border-surface-500 hover:shadow-lg"
+<Card 
+  class="group overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg h-full flex flex-col cursor-pointer active:scale-[0.98] active:transition-none"
+  onclick={handleCardClick}
 >
   <!-- Image -->
   <div
-    class="relative aspect-square w-full overflow-hidden bg-surface-700"
+    class="relative aspect-square w-full overflow-hidden bg-muted"
   >
     <div class="absolute inset-0 h-full w-full" class:blur-lg={shouldBlur}>
-      {#if !imageError && card.avatarUrl}
+      {#if !imageError && (card.imageUrl || card.avatarUrl)}
         <img
-          src={card.avatarUrl}
+          src={card.imageUrl || card.avatarUrl}
           alt={card.name}
           class="h-full w-full object-cover transition-transform group-hover:scale-105"
           onerror={handleImageError}
           loading="lazy"
         />
       {:else}
-        <div class="flex h-full w-full items-center justify-center text-surface-500">
+        <div class="flex h-full w-full items-center justify-center text-muted-foreground">
           <span class="text-4xl">?</span>
         </div>
       {/if}
@@ -57,52 +66,63 @@
 
     <!-- NSFW Badge -->
     {#if card.nsfw}
-      <div class="absolute left-2 top-2 z-20 rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
+      <Badge variant="destructive" class="absolute left-2 top-2 z-20">
         NSFW
-      </div>
+      </Badge>
     {/if}
 
     <!-- Source Badge -->
-    <div class="absolute right-2 top-2 z-20 rounded bg-surface-900/80 px-1.5 py-0.5 text-xs text-surface-300">
+    <Badge variant="secondary" class="absolute right-2 top-2 z-20 opacity-90">
       {card.source}
-    </div>
+    </Badge>
 
     <!-- Imported Badge (Visible always if imported) -->
     {#if isImported}
-      <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-surface-900/60 backdrop-blur-[1px] z-10">
-        <div class="flex items-center gap-1.5 rounded-full bg-green-500/20 px-3 py-1 text-sm font-medium text-green-400 border border-green-500/30 shadow-sm">
-          <Check class="h-4 w-4" />
-          <span>Imported</span>
-        </div>
+      <div class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/60 backdrop-blur-[1px] z-10">
+        <Badge variant="outline" class="gap-1.5 border-green-500/50 bg-green-500/10 text-green-500">
+          <Check class="h-3.5 w-3.5" />
+          Imported
+        </Badge>
       </div>
     {/if}
 
     <!-- Hover Actions (Only visible when NOT imported) -->
     {#if !isImported}
-      <div class="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
-        <button
+      <div class="absolute inset-0 hidden sm:flex items-center justify-center gap-2 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100 p-4">
+        <Button
+           size="icon"
+           variant="secondary"
+           onclick={(e) => { e.stopPropagation(); handleCardClick(); }}
+           class="h-9 w-9 shrink-0"
+           title="View Details"
+        >
+           <Eye class="h-4 w-4" />
+        </Button>
+
+        <Button
+          size="sm"
           onclick={handleImportClick}
-          class="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500"
+          class="gap-1.5 min-w-[90px]"
         >
           <Download class="h-4 w-4" />
           Import
-        </button>
+        </Button>
       </div>
     {/if}
   </div>
 
   <!-- Info -->
-  <div class="flex flex-1 flex-col gap-1 p-3">
-    <h3 class="line-clamp-1 text-sm font-medium text-surface-100" title={card.name}>
+  <CardContent class="flex flex-1 flex-col gap-1 p-3">
+    <h3 class="line-clamp-1 text-sm font-medium leading-none" title={card.name}>
       {card.name}
     </h3>
     {#if card.creator}
-      <p class="line-clamp-1 text-xs text-surface-400">
+      <p class="line-clamp-1 text-xs text-muted-foreground">
         by {card.creator}
       </p>
     {/if}
     {#if card.description}
-      <p class="mt-1 line-clamp-2 text-xs text-surface-500">
+      <p class="mt-1 line-clamp-2 text-xs text-muted-foreground">
         {card.description}
       </p>
     {/if}
@@ -111,17 +131,17 @@
     {#if card.tags.length > 0}
       <div class="mt-auto flex flex-wrap gap-1 pt-2">
         {#each card.tags.slice(0, 3) as tag}
-          <span class="rounded bg-surface-700 px-1.5 py-0.5 text-xs text-surface-400">
+          <Badge variant="outline" class="text-[10px] px-1 py-0 h-5 font-normal">
             {tag}
-          </span>
+          </Badge>
         {/each}
         {#if card.tags.length > 3}
-          <span class="rounded bg-surface-700 px-1.5 py-0.5 text-xs text-surface-400">
+          <Badge variant="outline" class="text-[10px] px-1 py-0 h-5 font-normal">
             +{card.tags.length - 3}
-          </span>
+          </Badge>
         {/if}
       </div>
     {/if}
-  </div>
-</div>
+  </CardContent>
+</Card>
 {/if}

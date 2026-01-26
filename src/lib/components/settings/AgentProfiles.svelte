@@ -19,15 +19,26 @@
     Download,
     Wand2,
     Languages,
+    Plus,
+    Trash2,
+    Check,
   } from "lucide-svelte";
   import ModelSelector from "./ModelSelector.svelte";
 
+  // Shadcn Components
+  import * as Card from "$lib/components/ui/card";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import { Slider } from "$lib/components/ui/slider";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import { cn } from "$lib/utils/cn";
+
   interface Props {
     providerOptions: ProviderInfo[];
-    onManageProfiles: () => void;
   }
 
-  let { providerOptions, onManageProfiles }: Props = $props();
+  let { providerOptions }: Props = $props();
 
   const reasoningLevels = ["off", "low", "medium", "high"] as const;
   const reasoningLabels: Record<string, string> = {
@@ -219,6 +230,7 @@
   let editingPresetId = $state<string | null>(null);
   let tempPreset = $state<GenerationPreset | null>(null);
   let activeTaskMenu = $state<string | null>(null); // Just stores serviceId now
+  let resettingProfiles = $state(false);
 
   // Default profile assignments
   const defaultAssignments: Record<string, string> = {
@@ -316,6 +328,13 @@
 
   async function handleSavePreset() {
     if (!tempPreset) return;
+    if (!tempPreset.model) {
+      await ask("Please select or enter a model.", {
+        title: "Validation Error",
+        kind: "error",
+      });
+      return;
+    }
 
     const index = settings.generationPresets.findIndex(
       (p) => p.id === tempPreset!.id,
@@ -369,15 +388,6 @@
   }
 
   async function handleResetProfiles() {
-    const confirmed = await ask(
-      "Reset all profiles to their default values and task assignments?",
-      {
-        title: "Reset Profiles",
-        kind: "warning",
-      },
-    );
-    if (!confirmed) return;
-
     await settings.resetGenerationPresets();
 
     // Assign tasks to their default profiles
@@ -409,66 +419,126 @@
   function isTaskMenuOpen(serviceId: string): boolean {
     return activeTaskMenu === serviceId;
   }
+
+  // Proxy states for sliders when editing
+  let tempPresetTemperature = $state([0.7]);
+  let tempPresetMaxTokens = $state([4096]);
+  let tempPresetReasoning = $state([0]);
+
+  $effect(() => {
+    if (tempPreset) {
+      tempPresetTemperature = [tempPreset.temperature];
+      tempPresetMaxTokens = [tempPreset.maxTokens];
+      tempPresetReasoning = [getReasoningIndex(tempPreset.reasoningEffort)];
+    }
+  });
+
+  function updateTempPresetTemperature(v: number[]) {
+    if (tempPreset) tempPreset.temperature = v[0];
+  }
+
+  function updateTempPresetMaxTokens(v: number[]) {
+    if (tempPreset) tempPreset.maxTokens = v[0];
+  }
+
+  function updateTempPresetReasoning(v: number[]) {
+    if (tempPreset) tempPreset.reasoningEffort = getReasoningValue(v[0]) as any;
+  }
 </script>
 
-<div class="border-t border-surface-700 pt-6">
-  <div class="flex items-center justify-between mb-4">
+<div class="pt-6 border-t">
+  <div class="flex items-start sm:items-center justify-between mb-4">
     <div>
-      <h3 class="text-sm font-medium text-surface-200">Agent Profiles</h3>
-      <p class="text-xs text-surface-500">
+      <h3 class="text-base font-medium">Agent Profiles</h3>
+      <p class="text-xs text-muted-foreground">
         Click a task to move it between profiles.
       </p>
     </div>
     <div class="flex items-center gap-2">
-      <button
-        class="btn btn-ghost text-xs flex items-center gap-1 text-surface-400 hover:text-surface-200"
-        onclick={handleResetProfiles}
-        title="Reset all profiles to defaults"
-      >
-        <RotateCcw class="h-3 w-3" />
-        Reset
-      </button>
-      <button class="btn btn-secondary text-xs" onclick={createNewPreset}>
-        + New Profile
-      </button>
+      {#if resettingProfiles}
+        <span class="text-xs font-medium text-muted-foreground">
+          Reset all?
+        </span>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="hover:bg-transparent text-muted-foreground hover:text-foreground w-5 px-0"
+          onclick={() => (resettingProfiles = false)}
+          title="Cancel"
+        >
+          <X class="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          class="hover:bg-transparent text-destructive w-5 px-0"
+          onclick={() => {
+            resettingProfiles = false;
+            handleResetProfiles();
+          }}
+          title="Confirm Reset"
+        >
+          <Check class="h-3.5 w-3.5" />
+        </Button>
+      {:else}
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={() => (resettingProfiles = true)}
+          title="Reset all profiles to defaults"
+          class="text-xs"
+        >
+          <RotateCcw class="h-3 w-3 mr-1" />
+          Reset
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          onclick={createNewPreset}
+          class="text-xs"
+        >
+          <Plus class="h-3 w-3 mr-1" />
+          New Profile
+        </Button>
+      {/if}
     </div>
   </div>
 
   {#if editingPresetId && tempPreset}
-    <div class="card bg-surface-800 p-4 border border-surface-600 mb-6">
-      <div class="space-y-4">
+    <Card.Root class="mb-6">
+      <Card.Header class="pb-3">
         <div class="flex justify-between items-start">
-          <h4 class="text-sm font-medium text-surface-100">
+          <Card.Title class="text-base">
             {tempPreset.id === editingPresetId &&
             !settings.generationPresets.find((p) => p.id === tempPreset!.id)
               ? "Create Profile"
               : "Edit Profile"}
-          </h4>
-          <button
-            class="text-surface-400 hover:text-surface-200"
+          </Card.Title>
+          <Button
+            variant="text"
+            size="icon"
+            class="h-6 w-6 -mr-2 -mt-2"
             onclick={cancelEditingPreset}
           >
             <X class="h-4 w-4" />
-          </button>
+          </Button>
         </div>
+      </Card.Header>
 
+      <Card.Content class="grid gap-4">
         <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs font-medium text-surface-400">Name</label>
-            <input
+          <div class="grid gap-2">
+            <Label>Name</Label>
+            <Input
               type="text"
-              class="input input-sm w-full mt-1"
               bind:value={tempPreset.name}
               placeholder="e.g. Classification, Memory"
             />
           </div>
-          <div>
-            <label class="text-xs font-medium text-surface-400"
-              >Description</label
-            >
-            <input
+          <div class="grid gap-2">
+            <Label>Description</Label>
+            <Input
               type="text"
-              class="input input-sm w-full mt-1"
               bind:value={tempPreset.description}
               placeholder="Brief description"
             />
@@ -477,158 +547,152 @@
 
         <ModelSelector
           profileId={tempPreset?.profileId ?? null}
-          model={tempPreset?.model ?? ''}
+          model={tempPreset?.model ?? ""}
           onProfileChange={(id) => {
             if (tempPreset) tempPreset.profileId = id;
           }}
           onModelChange={(m) => {
             if (tempPreset) tempPreset.model = m;
           }}
-          {onManageProfiles}
         />
 
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="mb-1 block text-xs font-medium text-surface-400">
-              Temperature: {tempPreset.temperature.toFixed(2)}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.05"
-              bind:value={tempPreset.temperature}
-              class="w-full h-2"
+        <div class="grid grid-cols-2 gap-6">
+          <div class="grid gap-4">
+            <div class="flex justify-between">
+              <Label>Temperature</Label>
+              <span class="text-xs text-muted-foreground"
+                >{tempPreset.temperature.toFixed(2)}</span
+              >
+            </div>
+            <Slider
+              bind:value={tempPresetTemperature}
+              min={0}
+              max={2}
+              step={0.05}
+              onValueChange={updateTempPresetTemperature}
             />
           </div>
-          <div>
-            <label class="mb-1 block text-xs font-medium text-surface-400">
-              Max Tokens: {tempPreset.maxTokens}
-            </label>
-            <input
-              type="range"
-              min="256"
-              max="32000"
-              step="256"
-              bind:value={tempPreset.maxTokens}
-              class="w-full h-2"
+
+          <div class="grid gap-4">
+            <div class="flex justify-between">
+              <Label>Max Tokens</Label>
+              <span class="text-xs text-muted-foreground"
+                >{tempPreset.maxTokens}</span
+              >
+            </div>
+            <Slider
+              bind:value={tempPresetMaxTokens}
+              min={256}
+              max={32000}
+              step={256}
+              onValueChange={updateTempPresetMaxTokens}
             />
           </div>
         </div>
 
-        <div>
-          <label class="mb-1 block text-xs font-medium text-surface-400">
-            Thinking: {reasoningLabels[tempPreset.reasoningEffort]}
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="3"
-            step="1"
-            value={getReasoningIndex(tempPreset.reasoningEffort)}
-            onchange={(e) => {
-              if (tempPreset)
-                tempPreset.reasoningEffort = getReasoningValue(
-                  parseInt(e.currentTarget.value),
-                ) as any;
-            }}
-            class="w-full h-2"
+        <div class="grid gap-4">
+          <div class="flex justify-between">
+            <Label
+              >Thinking: {reasoningLabels[tempPreset.reasoningEffort]}</Label
+            >
+          </div>
+          <Slider
+            bind:value={tempPresetReasoning}
+            min={0}
+            max={3}
+            step={1}
+            onValueChange={updateTempPresetReasoning}
           />
+          <div class="flex justify-between text-xs text-muted-foreground px-1">
+            <span>Off</span>
+            <span>Low</span>
+            <span>Medium</span>
+            <span>High</span>
+          </div>
         </div>
 
         {#if settings.advancedRequestSettings.manualMode}
-          <div class="pt-2 border-t border-surface-700">
-            <label class="mb-1 block text-xs font-medium text-surface-400">
-              Manual Request Body (JSON)
-            </label>
-            <textarea
+          <div class="pt-2 border-t">
+            <Label class="mb-2 block">Manual Request Body (JSON)</Label>
+            <Textarea
               bind:value={tempPreset.manualBody}
-              class="input text-xs min-h-[100px] resize-y font-mono w-full"
-              rows="4"
+              class="min-h-[100px] font-mono text-xs"
+              rows={4}
               placeholder={'{"temperature": 0.7, "top_p": 0.9}'}
-            ></textarea>
-            <p class="text-xs text-surface-500 mt-1">
+            />
+            <p class="text-xs text-muted-foreground mt-1">
               Overrides request parameters; messages and tools are managed by
               Aventuras.
             </p>
           </div>
         {/if}
+      </Card.Content>
 
-        <div class="flex justify-end gap-2 pt-2">
-          <button class="btn btn-ghost text-xs" onclick={cancelEditingPreset}
-            >Cancel</button
-          >
-          <button class="btn btn-primary text-xs" onclick={handleSavePreset}
-            >Save Profile</button
-          >
-        </div>
-      </div>
-    </div>
+      <Card.Footer class="flex justify-end gap-2 pt-2">
+        <Button variant="ghost" size="sm" onclick={cancelEditingPreset}
+          >Cancel</Button
+        >
+        <Button
+          size="sm"
+          onclick={handleSavePreset}
+          disabled={!tempPreset?.model}>Save Profile</Button
+        >
+      </Card.Footer>
+    </Card.Root>
   {/if}
 
   <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-20">
     {#each settings.generationPresets as preset (preset.id)}
       {#if preset.id !== editingPresetId}
-        <div
-          class="card p-3 flex flex-col gap-3 transition-colors border-2 border-transparent bg-surface-800"
-          role="region"
-          aria-label="{preset.name} Profile"
-        >
-          <div
-            class="flex justify-between items-start border-b border-surface-700 pb-2"
-          >
+        <Card.Root class="flex flex-col h-full">
+          <div class="flex justify-between items-start border-b p-3 pb-2">
             <div class="min-w-0">
-              <div
-                class="font-medium text-surface-100 text-sm truncate"
-                title={preset.name}
-              >
+              <div class="font-medium text-sm truncate" title={preset.name}>
                 {preset.name}
               </div>
               <div
-                class="text-xs text-surface-500 truncate"
+                class="text-xs text-muted-foreground truncate"
                 title={preset.model}
               >
                 {preset.model}
               </div>
             </div>
             <div class="flex gap-1 shrink-0 ml-2">
-              <button
-                class="p-1 hover:text-accent-400 text-surface-400 transition-colors"
+              <Button
+                variant="text"
+                size="icon"
+                class="h-6 w-6 text-muted-foreground hover:text-foreground"
                 onclick={() => startEditingPreset(preset)}
                 title="Edit Profile"
               >
                 <Settings2 class="h-3 w-3" />
-              </button>
-              <button
-                class="p-1 hover:text-red-400 text-surface-400 transition-colors"
+              </Button>
+              <Button
+                variant="text"
+                size="icon"
+                class="h-6 w-6 text-muted-foreground hover:text-red-500"
                 onclick={() => handleDeletePreset(preset.id)}
                 title="Delete Profile"
               >
-                <X class="h-3 w-3" />
-              </button>
+                <Trash2 class="h-3 w-3" />
+              </Button>
             </div>
           </div>
 
-          <div
-            class="flex-1 flex flex-col gap-2 min-h-[60px] bg-surface-900/30 rounded p-2"
-          >
+          <Card.Content class="flex-1 flex flex-col gap-2 p-3 bg-muted/30">
             {#each getServicesForProfile(preset.id) as service (service.id)}
               <div
-                class="flex flex-col rounded bg-surface-700 border border-surface-600 shadow-sm transition-all overflow-hidden"
-                class:bg-surface-600={isTaskMenuOpen(service.id)}
-                class:border-surface-500={isTaskMenuOpen(service.id)}
+                class="flex flex-col rounded-md bg-background border shadow-sm transition-all overflow-hidden"
               >
                 <button
-                  class="flex items-center gap-2 p-2 select-none text-left w-full transition-colors group"
+                  class="flex items-center gap-2 p-2 select-none text-left w-full transition-colors group hover:bg-muted/50"
                   onclick={(e) => handleTaskClick(e, service.id)}
                   title={service.description}
                 >
-                  <service.icon class="h-3 w-3 text-accent-400 shrink-0" />
-                  <span class="text-xs text-surface-100 truncate"
-                    >{service.label}</span
-                  >
+                  <service.icon class="h-3 w-3 text-primary shrink-0" />
+                  <span class="text-xs truncate flex-1">{service.label}</span>
                   <ChevronDown
-                    class="h-3 w-3 text-surface-500 ml-auto transition-transform {isTaskMenuOpen(
+                    class="h-3 w-3 text-muted-foreground ml-auto transition-transform {isTaskMenuOpen(
                       service.id,
                     )
                       ? 'rotate-180'
@@ -637,18 +701,16 @@
                 </button>
 
                 {#if isTaskMenuOpen(service.id)}
-                  <div
-                    class="bg-surface-900/20 border-t border-surface-600/50 p-1 flex flex-col gap-0.5"
-                  >
+                  <div class="bg-muted/50 border-t p-1 flex flex-col gap-0.5">
                     <div
-                      class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-surface-500"
+                      class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
                     >
                       Move to...
                     </div>
                     {#each settings.generationPresets as targetPreset}
                       {#if targetPreset.id !== preset.id}
                         <button
-                          class="text-left px-2 py-1.5 text-xs text-surface-200 hover:bg-surface-500/20 rounded transition-colors truncate"
+                          class="text-left px-2 py-1.5 text-xs hover:bg-background rounded-sm transition-colors truncate w-full"
                           onclick={(e) => {
                             e.stopPropagation();
                             moveTask(service.id, targetPreset.id);
@@ -659,7 +721,7 @@
                       {/if}
                     {/each}
                     <button
-                      class="text-left px-2 py-1.5 text-xs text-surface-400 hover:bg-surface-500/20 rounded transition-colors border-t border-surface-600/50 mt-1 pt-1"
+                      class="text-left px-2 py-1.5 text-xs text-muted-foreground hover:bg-background rounded-sm transition-colors border-t mt-1 pt-1 w-full"
                       onclick={(e) => {
                         e.stopPropagation();
                         moveTask(service.id, "custom");
@@ -673,58 +735,48 @@
             {/each}
             {#if getServicesForProfile(preset.id).length === 0}
               <div
-                class="flex-1 flex items-center justify-center text-xs text-surface-600 italic py-2"
+                class="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-2"
               >
                 No tasks assigned
               </div>
             {/if}
-          </div>
-        </div>
+          </Card.Content>
+        </Card.Root>
       {/if}
     {/each}
 
     <!-- Unassigned Card -->
-    <div
-      class="card p-3 flex flex-col gap-3 border-2 border-dashed border-surface-600 bg-surface-900/20"
-      role="region"
-      aria-label="Unassigned Tasks"
-    >
-      <div
-        class="font-medium text-surface-300 text-sm pb-2 border-b border-surface-700/50"
-      >
-        Unassigned
+    <Card.Root class="flex flex-col h-full border-dashed bg-muted/20">
+      <div class="border-b p-3 pb-2">
+        <div class="font-medium text-muted-foreground text-sm">Unassigned</div>
       </div>
-      <div
-        class="flex-1 flex flex-col gap-2 rounded p-2 transition-all {getServicesForProfile(
+      <Card.Content
+        class="flex-1 flex flex-col gap-2 p-3 transition-all {getServicesForProfile(
           'custom',
         ).length > 0
-          ? 'bg-surface-900/30 min-h-[60px]'
+          ? 'bg-muted/30'
           : ''}"
       >
         {#if getServicesForProfile("custom").length > 0}
           <div
-            class="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1.5 mb-2"
+            class="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1.5 mb-2"
           >
             Unassigned agents will not work. Assign them to a profile.
           </div>
         {/if}
         {#each getServicesForProfile("custom") as service (service.id)}
           <div
-            class="flex flex-col rounded bg-surface-700 border border-surface-600 shadow-sm transition-all overflow-hidden"
-            class:bg-surface-600={isTaskMenuOpen(service.id)}
-            class:border-surface-500={isTaskMenuOpen(service.id)}
+            class="flex flex-col rounded-md bg-background border shadow-sm transition-all overflow-hidden"
           >
             <button
-              class="flex items-center gap-2 p-2 select-none text-left w-full transition-colors group"
+              class="flex items-center gap-2 p-2 select-none text-left w-full transition-colors group hover:bg-muted/50"
               onclick={(e) => handleTaskClick(e, service.id)}
               title={service.description}
             >
-              <service.icon class="h-3 w-3 text-surface-400 shrink-0" />
-              <span class="text-xs text-surface-100 truncate"
-                >{service.label}</span
-              >
+              <service.icon class="h-3 w-3 text-muted-foreground shrink-0" />
+              <span class="text-xs truncate flex-1">{service.label}</span>
               <ChevronDown
-                class="h-3 w-3 text-surface-500 ml-auto transition-transform {isTaskMenuOpen(
+                class="h-3 w-3 text-muted-foreground ml-auto transition-transform {isTaskMenuOpen(
                   service.id,
                 )
                   ? 'rotate-180'
@@ -733,17 +785,15 @@
             </button>
 
             {#if isTaskMenuOpen(service.id)}
-              <div
-                class="bg-surface-900/20 border-t border-surface-600/50 p-1 flex flex-col gap-0.5"
-              >
+              <div class="bg-muted/50 border-t p-1 flex flex-col gap-0.5">
                 <div
-                  class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-surface-500"
+                  class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"
                 >
                   Move to...
                 </div>
                 {#each settings.generationPresets as targetPreset}
                   <button
-                    class="text-left px-2 py-1.5 text-xs text-surface-200 hover:bg-surface-500/20 rounded transition-colors truncate"
+                    class="text-left px-2 py-1.5 text-xs hover:bg-background rounded-sm transition-colors truncate w-full"
                     onclick={(e) => {
                       e.stopPropagation();
                       moveTask(service.id, targetPreset.id);
@@ -758,12 +808,12 @@
         {/each}
         {#if getServicesForProfile("custom").length === 0}
           <div
-            class="flex-1 flex items-center justify-center text-xs text-surface-600 italic py-2 -mt-1.5"
+            class="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-2"
           >
             All tasks assigned
           </div>
         {/if}
-      </div>
-    </div>
+      </Card.Content>
+    </Card.Root>
   </div>
 </div>

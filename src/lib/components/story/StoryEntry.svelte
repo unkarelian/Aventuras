@@ -41,6 +41,9 @@
   import { onMount } from "svelte";
   import ReasoningBlock from "./ReasoningBlock.svelte";
   import { countTokens } from "$lib/services/tokenizer";
+  import { Button } from "$lib/components/ui/button";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import { Input } from "$lib/components/ui/input";
 
   let { entry }: { entry: StoryEntry } = $props();
 
@@ -52,8 +55,7 @@
 
   // Check if reasoning is enabled in API settings
   const isReasoningEnabled = $derived(
-    settings.apiSettings.reasoningEffort !== "off" &&
-      settings.apiSettings.enableThinking,
+    settings.apiSettings.reasoningEffort !== "off",
   );
 
   // TTS generation state
@@ -742,10 +744,10 @@
   };
 
   const styles = {
-    user_action: "border-l-accent-500 bg-accent-500/5",
-    narration: "border-l-surface-600 bg-surface-800/50",
-    system: "border-l-surface-500 bg-surface-800/30 italic text-surface-400",
-    retry: "border-l-amber-500 bg-amber-500/5",
+    user_action: "border-l-primary bg-primary/5",
+    narration: "border-l-muted-foreground/40 bg-card",
+    system: "border-l-muted bg-muted/30 italic text-muted-foreground",
+    retry: "border-l-amber-500 bg-amber-500/10",
   };
 
   const Icon = $derived(icons[entry.type]);
@@ -904,19 +906,25 @@
   });
 </script>
 
-<div class="group rounded-lg border-l-4 px-4 pb-4 pt-3 {styles[entry.type]}">
+<div
+  class="group rounded-lg border border-border border-l-4 px-4 pb-4 pt-3 shadow-sm {styles[
+    entry.type
+  ]}"
+>
   <!-- Header row: Label + metadata on left, action buttons on right -->
   <div class="flex items-center gap-2 mb-2">
     <!-- Left side: Entry type indicator + reasoning toggle -->
     {#if entry.type === "user_action"}
-      <span class="user-action text-sm font-semibold tracking-wide">You</span>
+      <span class="user-action text-sm font-semibold tracking-wide text-primary"
+        >You</span
+      >
     {:else if entry.type === "system"}
-      <div class="flex items-center gap-1.5 text-surface-400">
+      <div class="flex items-center gap-1.5 text-muted-foreground">
         <Icon class="h-4 w-4 shrink-0 translate-y-px" />
         <span class="text-xs font-medium uppercase tracking-wider">System</span>
       </div>
     {:else}
-      <Icon class="h-4 w-4 shrink-0 translate-y-px text-surface-500" />
+      <Icon class="h-4 w-4 shrink-0 translate-y-px text-muted-foreground" />
     {/if}
 
     <!-- Reasoning toggle (inline icon in header) - only show if reasoning is enabled -->
@@ -930,15 +938,13 @@
     {/if}
 
     <!-- Token count badge (shows 0 if no tokens) -->
-    <span
-      class="text-[11px] bg-surface-700/50 px-1.5 py-0.5 rounded tabular-nums"
-    >
+    <span class="text-[11px] bg-muted px-1.5 py-0.5 rounded tabular-nums">
       {#if isReasoningEnabled && reasoningTokens > 0}
-        <span class="text-surface-500">{reasoningTokens}r</span>
-        <span class="text-surface-600 mx-0.5">+</span>
+        <span class="text-muted-foreground">{reasoningTokens}r</span>
+        <span class="text-muted-foreground/50 mx-0.5">+</span>
       {/if}
-      <span class="text-surface-500">{contentTokens}</span>
-      <span class="text-surface-500 ml-0.5">tokens</span>
+      <span class="text-muted-foreground">{contentTokens}</span>
+      <span class="text-muted-foreground ml-0.5">tokens</span>
     </span>
 
     <!-- Spacer to push buttons to the right -->
@@ -946,66 +952,76 @@
 
     <!-- Right side: Action buttons toolbar (always visible on mobile, hover-only on desktop) -->
     {#if !isEditing && !isDeleting && !isBranching && !isCreatingCheckpoint && entry.type !== "system"}
-      <div
-        class="flex items-center gap-0.5 visible sm:invisible sm:group-hover:visible sm:focus-within:visible transition-[visibility] duration-0"
-      >
+      <div class="flex items-center gap-0.5">
         {#if canRetry}
-          <button
+          <Button
+            variant="text"
+            size="icon"
             onclick={() => ui.triggerRetryLastMessage()}
-            class="entry-action-btn text-accent-400 hover:bg-accent-500/15"
+            class="h-7 w-7 text-amber-500 hover:text-amber-600"
             title="Generate a different response"
           >
             <RotateCcw class="h-4 w-4" />
-          </button>
+          </Button>
         {/if}
         {#if canBranch}
-          <button
+          <Button
+            variant="text"
+            size="icon"
             onclick={() => (isBranching = true)}
-            class="entry-action-btn text-amber-400 hover:bg-amber-500/15"
+            class="h-7 w-7 text-amber-500 hover:text-amber-600"
             title="Branch from here"
           >
             <GitBranch class="h-4 w-4" />
-          </button>
+          </Button>
         {/if}
         {#if canCreateCheckpoint}
-          <button
+          <Button
+            variant="text"
+            size="icon"
             onclick={() => (isCreatingCheckpoint = true)}
-            class="entry-action-btn text-blue-400 hover:bg-blue-500/15"
+            class="h-7 w-7 text-blue-500 hover:text-blue-600"
             title="Create checkpoint"
           >
             <Bookmark class="h-4 w-4" />
-          </button>
+          </Button>
         {/if}
-        <button
+        <Button
+          variant="text"
+          size="icon"
           onclick={handleTTSToggle}
           disabled={isGeneratingTTS}
-          class="entry-action-btn text-surface-400 hover:bg-surface-600 hover:text-surface-200 disabled:opacity-40"
+          class="h-7 w-7 text-muted-foreground hover:text-foreground"
           title={isPlayingTTS ? "Stop narration" : "Narrate"}
         >
           {#if isGeneratingTTS}
             <Loader2 class="h-4 w-4 animate-spin" />
           {:else if isPlayingTTS}
-            <X class="h-4 w-4 text-red-400" />
+            <X class="h-4 w-4 text-red-500" />
           {:else}
             <Volume2 class="h-4 w-4" />
           {/if}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="text"
+          size="icon"
           onclick={startEdit}
           disabled={ui.isGenerating}
-          class="entry-action-btn text-surface-400 hover:bg-surface-600 hover:text-surface-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="h-7 w-7 text-muted-foreground hover:text-foreground"
           title={ui.isGenerating ? "Cannot edit during generation" : "Edit"}
         >
           <Pencil class="h-4 w-4" />
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="text"
+          size="icon"
           onclick={() => (isDeleting = true)}
           disabled={ui.isGenerating}
-          class="entry-action-btn text-surface-400 hover:bg-red-500/15 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="h-7 w-7 text-muted-foreground hover:text-red-500"
           title={ui.isGenerating ? "Cannot delete during generation" : "Delete"}
         >
           <Trash2 class="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     {/if}
   </div>
@@ -1014,58 +1030,63 @@
   <div class="min-w-0">
     {#if isEditing}
       <div class="space-y-2">
-        <textarea
+        <Textarea
           bind:value={editContent}
           onkeydown={handleKeydown}
-          class="input min-h-[100px] w-full resize-y text-base"
-          rows="4"
-        ></textarea>
+          class="min-h-25 w-full resize-y text-base"
+          rows={4}
+        />
         <div class="flex gap-2">
-          <button
-            onclick={saveEdit}
-            class="btn btn-primary flex items-center gap-1.5 text-sm min-h-[40px] px-3"
-          >
-            <Check class="h-4 w-4" />
+          <Button size="sm" onclick={saveEdit} class="h-9 px-3">
+            <Check class="mr-1.5 h-4 w-4" />
             Save
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onclick={cancelEdit}
-            class="btn btn-secondary flex items-center gap-1.5 text-sm min-h-[40px] px-3"
+            class="h-9 px-3"
           >
-            <X class="h-4 w-4" />
+            <X class="mr-1.5 h-4 w-4" />
             Cancel
-          </button>
+          </Button>
         </div>
-        <p class="text-xs text-surface-500 hidden sm:block">
+        <p class="text-xs text-muted-foreground hidden sm:block">
           Ctrl+Enter to save, Esc to cancel
         </p>
       </div>
     {:else if isDeleting}
       <div class="space-y-2">
-        <p class="text-sm text-surface-300">Delete this entry?</p>
+        <p class="text-sm text-muted-foreground">Delete this entry?</p>
         <div class="flex gap-2">
-          <button
+          <Button
+            variant="destructive"
+            size="sm"
             onclick={confirmDelete}
-            class="btn flex items-center gap-1.5 text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30 min-h-[40px] px-3"
+            class="h-9 px-3"
           >
-            <Trash2 class="h-4 w-4" />
+            <Trash2 class="mr-1.5 h-4 w-4" />
             Delete
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onclick={() => (isDeleting = false)}
-            class="btn btn-secondary flex items-center gap-1.5 text-sm min-h-[40px] px-3"
+            class="h-9 px-3"
           >
-            <X class="h-4 w-4" />
+            <X class="mr-1.5 h-4 w-4" />
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     {:else if isBranching}
       <div class="space-y-2">
-        <p class="text-sm text-surface-300">Create a branch from this point:</p>
-        <input
+        <p class="text-sm text-muted-foreground">
+          Create a branch from this point:
+        </p>
+        <Input
           type="text"
-          class="input w-full text-sm"
+          class="h-9 text-sm"
           placeholder="Branch name..."
           bind:value={branchName}
           onkeydown={(e) => {
@@ -1074,34 +1095,37 @@
           }}
         />
         <div class="flex gap-2">
-          <button
+          <Button
+            size="sm"
             onclick={handleCreateBranch}
             disabled={!branchName.trim()}
-            class="btn flex items-center gap-1.5 text-sm bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 disabled:opacity-50 min-h-[40px] px-3"
+            class="h-9 px-3 bg-amber-500 hover:bg-amber-600 text-white"
           >
-            <GitBranch class="h-4 w-4" />
+            <GitBranch class="mr-1.5 h-4 w-4" />
             Create Branch
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onclick={cancelBranch}
-            class="btn btn-secondary flex items-center gap-1.5 text-sm min-h-[40px] px-3"
+            class="h-9 px-3"
           >
-            <X class="h-4 w-4" />
+            <X class="mr-1.5 h-4 w-4" />
             Cancel
-          </button>
+          </Button>
         </div>
-        <p class="text-xs text-surface-500">
+        <p class="text-xs text-muted-foreground">
           This will create a new timeline from this checkpoint.
         </p>
       </div>
     {:else if isCreatingCheckpoint}
       <div class="space-y-2">
-        <p class="text-sm text-surface-300">
+        <p class="text-sm text-muted-foreground">
           Create a checkpoint at this point:
         </p>
-        <input
+        <Input
           type="text"
-          class="input w-full text-sm"
+          class="h-9 text-sm"
           placeholder="Checkpoint name..."
           bind:value={checkpointName}
           onkeydown={(e) => {
@@ -1110,23 +1134,26 @@
           }}
         />
         <div class="flex gap-2">
-          <button
+          <Button
+            size="sm"
             onclick={handleCreateCheckpoint}
             disabled={!checkpointName.trim()}
-            class="btn flex items-center gap-1.5 text-sm bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 disabled:opacity-50 min-h-[40px] px-3"
+            class="h-9 px-3 bg-blue-500 hover:bg-blue-600 text-white"
           >
-            <Bookmark class="h-4 w-4" />
+            <Bookmark class="mr-1.5 h-4 w-4" />
             Create Checkpoint
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
             onclick={cancelCheckpoint}
-            class="btn btn-secondary flex items-center gap-1.5 text-sm min-h-[40px] px-3"
+            class="h-9 px-3"
           >
-            <X class="h-4 w-4" />
+            <X class="mr-1.5 h-4 w-4" />
             Cancel
-          </button>
+          </Button>
         </div>
-        <p class="text-xs text-surface-500">
+        <p class="text-xs text-muted-foreground">
           Checkpoints save the current story state and allow branching from this
           point.
         </p>
@@ -1142,12 +1169,17 @@
         />
       {/if}
 
-      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
       <div
         class="story-text prose-content"
         class:visual-prose-container={visualProseMode &&
           entry.type === "narration"}
         onclick={handleContentClick}
+        onkeydown={(e) => {
+          if (e.key === "Enter" || e.key === " ") handleContentClick(e);
+        }}
+        tabindex="0"
+        role="button"
+        aria-label="Expand embedded image or interact with story content"
       >
         {#if entry.type === "narration"}
           {@const displayContent = entry.translatedContent ?? entry.content}
@@ -1184,14 +1216,16 @@
       </div>
 
       {#if isErrorEntry}
-        <button
+        <Button
+          variant="text"
+          size="sm"
           onclick={handleRetryFromEntry}
           disabled={ui.isGenerating}
-          class="mt-3 btn flex items-center gap-1.5 text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30 disabled:opacity-50"
+          class="mt-1 h-8 p-0 text-red-500 hover:text-red-400"
         >
-          <RefreshCw class="h-4 w-4" />
+          <RefreshCw class="h-3.5 w-3.5" />
           Retry
-        </button>
+        </Button>
       {/if}
     {/if}
   </div>
@@ -1199,9 +1233,19 @@
 
 {#if isEditingImage}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="inline-image-edit-overlay" onclick={handleEditImageCancel}>
+  <div
+    class="inline-image-edit-overlay"
+    onclick={handleEditImageCancel}
+    role="presentation"
+  >
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-    <div class="inline-image-edit-modal" onclick={(e) => e.stopPropagation()}>
+    <div
+      class="inline-image-edit-modal"
+      onclick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      tabindex="0"
+    >
       <h3>Edit Image Prompt</h3>
       <textarea
         bind:value={editingImagePrompt}

@@ -33,7 +33,7 @@
 
 {#if ui.toastVisible}
   <div
-    class="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] flex items-start gap-3 px-4 py-3 rounded-lg shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300 {getBackgroundColor()} w-[calc(100vw-2rem)] max-w-2xl sm:top-4 sm:px-5 sm:py-4 sm:rounded-xl sm:max-w-lg sm:cursor-default cursor-pointer"
+    class="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] flex items-start gap-3 px-4 py-3 rounded-lg shadow-2xl {getBackgroundColor()} w-[calc(100vw-2rem)] max-w-2xl sm:top-4 sm:left-auto sm:right-4 sm:translate-x-0 sm:px-5 sm:py-4 sm:rounded-xl sm:max-w-lg sm:cursor-default cursor-pointer animate-fade-in animate-slide-in"
     role="alert"
     onmouseenter={() => ui.setToastHovering(true)}
     onmouseleave={() => ui.setToastHovering(false)}
@@ -61,12 +61,39 @@
     }
   }
 
-  @keyframes slide-in-from-top-4 {
+  @keyframes slide-in-mobile {
     from {
       transform: translateY(-1rem);
+      opacity: 0;
     }
     to {
       transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes slide-in-desktop {
+    from {
+      transform: translateX(1rem);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  .animate-slide-in {
+    animation: slide-in-mobile 0.3s ease-out;
+  }
+
+  @media (min-width: 640px) {
+    .animate-slide-in {
+      animation: slide-in-desktop 0.3s ease-out;
     }
   }
 </style>

@@ -37,6 +37,37 @@ npm test -- -t "test name" # Run a single test (if using Vitest/Jest)
 - **Database**: SQLite via `@tauri-apps/plugin-sql`
 - **AI**: OpenAI-compatible APIs (OpenRouter, custom providers)
 
+## UI Design & Component System
+
+### Component Library
+- **Library**: [shadcn-svelte](https://www.shadcn-svelte.com/)
+- **Location**: `src/lib/components/ui/`
+- **Installation**: Use `npx shadcn-svelte@latest add [component]` to add new components.
+- **Icons**: [Lucide Svelte](https://lucide.dev/icons/) (`lucide-svelte`)
+
+### Theming System
+The application uses a sophisticated CSS variable-based theming system defined in `src/app.css`. It supports multiple distinct visual themes that override standard Tailwind/Shadcn tokens.
+
+**Available Themes**:
+- **Default (Dark)**: Modern slate/blue dark mode.
+- **Light (Paper)**: Warm, high-contrast, paper-like aesthetic.
+- **Light (Solarized)**: Classic solarized light palette.
+- **Retro Console**: CRT terminal aesthetic (green/amber on black) with scanline effects.
+- **Fallen Down**: Undertale/Deltarune inspired high-contrast pixel art aesthetic (black/white/yellow).
+
+### CSS Variables & Tokens
+- **Shadcn Tokens**: Standard tokens (`--background`, `--foreground`, `--primary`, `--muted`, etc.) are mapped to theme-specific colors in `app.css`.
+- **Surface System**: Custom `surface-*` (50-950) and `accent-*` (50-950) scales are used for fine-grained control across themes.
+- **Typography**:
+  - UI Font: System sans-serif.
+  - Story Text: Configurable via `--font-story` (Serif for default, Monospace for Retro/Fallen Down).
+
+### Usage Guidelines
+1. **Prefer Shadcn Components**: Use components from `$lib/components/ui` whenever possible (e.g., `Button`, `Input`, `Card`).
+2. **Tailwind Classes**: Use standard Tailwind classes. They will automatically adapt to the active theme via the CSS variables.
+3. **Custom Styling**: If custom CSS is needed, use the CSS variables defined in `app.css` to ensure theme compatibility (e.g., `var(--bg-secondary)` instead of hardcoded hex).
+4. **Icons**: Import icons from `lucide-svelte` (e.g., `import { Save } from 'lucide-svelte';`).
+
 ## Current Refactor: Preset-Based Service Configuration
 
 **Status**: In Progress - Phase 3 (AgentProfiles UI) Complete

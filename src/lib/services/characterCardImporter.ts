@@ -533,9 +533,6 @@ export async function convertCardToScenario(
 export interface SanitizedCharacter {
   name: string;
   description: string;
-  background: string | null;
-  motivation: string | null;
-  role: string | null;
   traits: string[];
   visualDescriptors: string[];
 }
@@ -612,9 +609,6 @@ export async function sanitizeCharacterCard(
     interface VaultImportResult {
       name: string;
       description: string;
-      background: string | null;
-      motivation: string | null;
-      role: string | null;
       traits: string[];
       visualDescriptors: string[];
     }
@@ -628,9 +622,6 @@ export async function sanitizeCharacterCard(
     return {
       name: result.name || card.name,
       description: result.description || '',
-      background: result.background || null,
-      motivation: result.motivation || null,
-      role: result.role || null,
       traits: Array.isArray(result.traits) ? result.traits.slice(0, 10) : [],
       visualDescriptors: Array.isArray(result.visualDescriptors) ? result.visualDescriptors : [],
     };

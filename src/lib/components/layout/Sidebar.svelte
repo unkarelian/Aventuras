@@ -1,6 +1,5 @@
 <script lang="ts">
   import { ui } from '$lib/stores/ui.svelte';
-  import { story } from '$lib/stores/story.svelte';
   import { Users, MapPin, Backpack, Scroll, Clock, GitBranch, BookOpen, BookMarked, Brain } from 'lucide-svelte';
   import CharacterPanel from '$lib/components/world/CharacterPanel.svelte';
 
@@ -10,6 +9,9 @@
   import TimePanel from '$lib/components/world/TimePanel.svelte';
   import BranchPanel from '$lib/components/branch/BranchPanel.svelte';
   import { swipe } from '$lib/utils/swipe';
+
+  import * as Tabs from "$lib/components/ui/tabs";
+  import { Button } from "$lib/components/ui/button";
 
   const tabs = [
     { id: 'characters' as const, icon: Users, label: 'Characters' },
@@ -41,82 +43,80 @@
 </script>
 
 <aside
-  class="sidebar flex h-full w-[calc(100vw-3rem)] max-w-72 flex-col border-l border-surface-700 sm:w-72"
+  class="flex h-full w-[calc(100vw-3rem)] max-w-72 flex-col border-l border-border bg-card/80 sm:w-72 backdrop-blur-[2px]"
   use:swipe={{ onSwipeLeft: handleSwipeLeft, onSwipeRight: handleSwipeRight, threshold: 50 }}
 >
   <!-- Tab navigation -->
-  <div class="flex border-b border-surface-700">
-    {#each tabs as tab}
-      <button
-        class="flex flex-1 items-center justify-center gap-1.5 py-3 sm:py-3 min-h-[48px] text-sm transition-colors"
-        class:text-accent-400={ui.sidebarTab === tab.id}
-        class:text-surface-400={ui.sidebarTab !== tab.id}
-        class:border-b-2={ui.sidebarTab === tab.id}
-        class:border-accent-500={ui.sidebarTab === tab.id}
-        class:hover:text-surface-200={ui.sidebarTab !== tab.id}
-        onclick={() => ui.setSidebarTab(tab.id)}
-        title={tab.label}
-      >
-        <svelte:component this={tab.icon} class="h-5 w-5 sm:h-4 sm:w-4" />
-      </button>
-    {/each}
-  </div>
+  <Tabs.Root
+    value={ui.sidebarTab}
+    onValueChange={(v) => ui.setSidebarTab(v as any)}
+    class="flex flex-col flex-1 min-h-0"
+  >
+    <div class="border-b border-border px-0 flex-shrink-0 bg-muted/60">
+        <Tabs.List class="w-full flex justify-start rounded-none bg-transparent p-0 h-auto">
+        {#each tabs as tab}
+            <Tabs.Trigger
+                value={tab.id}
+                class="flex-1 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-muted/30 bg-transparent hover:bg-muted/20 text-muted-foreground transition-colors"
+                title={tab.label}
+            >
+                <svelte:component this={tab.icon} class="h-4 w-4" />
+            </Tabs.Trigger>
+        {/each}
+        </Tabs.List>
+    </div>
 
-  <!-- Panel content -->
-  <div class="flex-1 overflow-y-auto p-3">
-    {#if ui.sidebarTab === 'characters'}
-      <CharacterPanel />
-    {:else if ui.sidebarTab === 'locations'}
-      <LocationPanel />
-    {:else if ui.sidebarTab === 'inventory'}
-      <InventoryPanel />
-    {:else if ui.sidebarTab === 'quests'}
-      <QuestPanel />
-    {:else if ui.sidebarTab === 'time'}
-      <TimePanel />
-    {:else if ui.sidebarTab === 'branches'}
-      <BranchPanel />
-    {/if}
-  </div>
+    <!-- Panel content -->
+    <div class="flex-1 overflow-y-auto p-3 min-h-0">
+        <Tabs.Content value="characters" class="mt-0 h-full space-y-4">
+            <CharacterPanel />
+        </Tabs.Content>
+        <Tabs.Content value="locations" class="mt-0 h-full space-y-4">
+            <LocationPanel />
+        </Tabs.Content>
+        <Tabs.Content value="inventory" class="mt-0 h-full space-y-4">
+            <InventoryPanel />
+        </Tabs.Content>
+        <Tabs.Content value="quests" class="mt-0 h-full space-y-4">
+            <QuestPanel />
+        </Tabs.Content>
+        <Tabs.Content value="time" class="mt-0 h-full space-y-4">
+            <TimePanel />
+        </Tabs.Content>
+        <Tabs.Content value="branches" class="mt-0 h-full space-y-4">
+            <BranchPanel />
+        </Tabs.Content>
+    </div>
+  </Tabs.Root>
 
   <!-- Bottom Context Navigation -->
-  <div class="flex items-center gap-1 border-t border-surface-700 p-2">
-    <button
-      class="btn-ghost flex flex-1 flex-col items-center justify-center gap-1 rounded py-2 text-xs"
-      class:text-accent-400={ui.activePanel === 'story'}
-      class:text-surface-400={ui.activePanel !== 'story'}
+  <div class="flex-shrink-0 flex items-center gap-1 border-t border-border p-2 bg-muted">
+    <Button
+      variant="ghost"
+      class="flex-1 flex-col h-auto py-2 gap-1 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground {ui.activePanel === 'story' ? '!bg-primary/10 !text-primary' : ''}"
       onclick={() => ui.setActivePanel('story')}
       title="Story"
     >
       <BookOpen class="h-4 w-4" />
       <span>Story</span>
-    </button>
-    <button
-      class="btn-ghost flex flex-1 flex-col items-center justify-center gap-1 rounded py-2 text-xs"
-      class:text-accent-400={ui.activePanel === 'lorebook'}
-      class:text-surface-400={ui.activePanel !== 'lorebook'}
+    </Button>
+    <Button
+      variant="ghost"
+      class="flex-1 flex-col h-auto py-2 gap-1 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground {ui.activePanel === 'lorebook' ? '!bg-primary/10 !text-primary' : ''}"
       onclick={() => ui.setActivePanel('lorebook')}
       title="Lorebook"
     >
       <BookMarked class="h-4 w-4" />
       <span>Lorebook</span>
-    </button>
-    <button
-      class="btn-ghost flex flex-1 flex-col items-center justify-center gap-1 rounded py-2 text-xs"
-      class:text-accent-400={ui.activePanel === 'memory'}
-      class:text-surface-400={ui.activePanel !== 'memory'}
+    </Button>
+    <Button
+      variant="ghost"
+      class="flex-1 flex-col h-auto py-2 gap-1 text-xs text-muted-foreground hover:bg-muted/40 hover:text-foreground {ui.activePanel === 'memory' ? '!bg-primary/10 !text-primary' : ''}"
       onclick={() => ui.setActivePanel('memory')}
       title="Memory"
     >
       <Brain class="h-4 w-4" />
       <span>Memory</span>
-    </button>
+    </Button>
   </div>
 </aside>
-
-
-<style>
-  .sidebar {
-    background-color: rgb(20 27 37);
-  }
-</style>

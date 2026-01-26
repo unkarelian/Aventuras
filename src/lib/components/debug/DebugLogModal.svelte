@@ -1,7 +1,9 @@
 <script lang="ts">
   import { ui, type DebugLogEntry } from '$lib/stores/ui.svelte';
-  import { X, ArrowUpCircle, ArrowDownCircle, Trash2, Copy, Check, WrapText } from 'lucide-svelte';
-
+  import { ArrowUpCircle, ArrowDownCircle, Trash2, Copy, Check, WrapText } from 'lucide-svelte';
+  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
+  import { Button } from "$lib/components/ui/button";
+  
   let copiedId = $state<string | null>(null);
   let renderNewlines = $state(false);
   let scrollContainer: HTMLDivElement | null = $state(null);
@@ -161,139 +163,138 @@
   });
 </script>
 
-{#if ui.debugModalOpen}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-    onclick={() => ui.closeDebugModal()}
-    onkeydown={(e) => e.key === 'Escape' && ui.closeDebugModal()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-  >
-    <div
-      class="card w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
-      role="document"
-    >
-      <!-- Header -->
-      <div class="flex items-center justify-between border-b border-surface-700 pb-4 flex-shrink-0">
+<ResponsiveModal.Root bind:open={ui.debugModalOpen}>
+  <ResponsiveModal.Content class="sm:max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0">
+    <ResponsiveModal.Header class="px-6 py-4 border-b border-border">
+      <div class="flex items-center justify-between w-full">
         <div class="flex items-center gap-2">
-          <h2 class="text-xl font-semibold text-surface-100">API Debug Logs</h2>
-          <span class="text-xs px-2 py-0.5 rounded bg-surface-700 text-surface-400">
+          <ResponsiveModal.Title>API Debug Logs</ResponsiveModal.Title>
+          <span class="text-xs px-2 py-0.5 rounded bg-secondary text-secondary-foreground font-mono">
             {ui.debugLogs.length} entries
           </span>
         </div>
-        <div class="flex items-center gap-2">
-          <button
-            class="btn-ghost rounded-lg p-2 {renderNewlines ? 'text-blue-400' : 'text-surface-400 hover:text-surface-200'}"
-            onclick={() => renderNewlines = !renderNewlines}
-            title={renderNewlines ? 'Show escaped newlines (\\n)' : 'Render newlines as line breaks'}
-          >
-            <WrapText class="h-4 w-4" />
-          </button>
-          <button
-            class="btn-ghost rounded-lg p-2 text-surface-400 hover:text-red-400"
-            onclick={handleClearLogs}
-            title="Clear all logs"
-          >
-            <Trash2 class="h-4 w-4" />
-          </button>
-          <button class="btn-ghost rounded-lg p-2" onclick={() => ui.closeDebugModal()}>
-            <X class="h-5 w-5" />
-          </button>
+        <!-- Close button is automatically rendered by Dialog.Content/Drawer.Content -->
+      </div>
+      <ResponsiveModal.Description class="sr-only">
+        Logs of API requests and responses
+      </ResponsiveModal.Description>
+    </ResponsiveModal.Header>
+
+    <div class="flex-1 overflow-y-auto px-6 py-4" bind:this={scrollContainer}>
+      {#if groupedLogs.length === 0}
+        <div class="flex flex-col items-center justify-center h-48 text-muted-foreground text-sm">
+           <p>No API requests logged yet.</p>
+           <p>Make a request while debug mode is enabled to see logs here.</p>
         </div>
-      </div>
-
-      <!-- Content -->
-      <div class="flex-1 overflow-y-auto py-4" bind:this={scrollContainer}>
-        {#if groupedLogs.length === 0}
-          <p class="text-center text-surface-400 py-8">
-            No API requests logged yet. Make a request while debug mode is enabled to see logs here.
-          </p>
-        {:else}
-          <div class="space-y-4">
-            {#each groupedLogs as group, i}
-              <div class="border border-surface-700 rounded-lg overflow-hidden">
-                <!-- Request -->
-                {#if group.request}
-                  <div class="bg-surface-800/50">
-                    <div class="flex items-center justify-between px-4 py-2 border-b border-surface-700">
-                      <div class="flex items-center gap-2">
-                        <ArrowUpCircle class="h-4 w-4 text-blue-400" />
-                        <span class="text-sm font-medium text-blue-400">Request</span>
-                        <span class="text-xs text-surface-500">{group.request.serviceName}</span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-surface-500">
-                          {formatTimestamp(group.request.timestamp)}
-                        </span>
-                        <button
-                          class="p-1 rounded hover:bg-surface-700 text-surface-400 hover:text-surface-200"
-                          onclick={() => copyToClipboard(group.request!)}
-                          title="Copy JSON"
-                        >
-                          {#if copiedId === group.request.id}
-                            <Check class="h-3.5 w-3.5 text-green-400" />
-                          {:else}
-                            <Copy class="h-3.5 w-3.5" />
-                          {/if}
-                        </button>
-                      </div>
+      {:else}
+        <div class="space-y-4">
+          {#each groupedLogs as group}
+            <div class="border border-border rounded-lg overflow-hidden bg-card">
+              <!-- Request -->
+              {#if group.request}
+                <div class="bg-muted/30">
+                  <div class="flex items-center justify-between px-4 py-2 border-b border-border">
+                    <div class="flex items-center gap-2">
+                      <ArrowUpCircle class="h-4 w-4 text-blue-400" />
+                      <span class="text-sm font-medium text-blue-400">Request</span>
+                      <span class="text-xs text-muted-foreground">{group.request.serviceName}</span>
                     </div>
-                    <pre class="p-3 text-xs text-surface-300 overflow-x-auto max-h-64 overflow-y-auto font-mono whitespace-pre-wrap bg-surface-900/50">{formatJson(group.request)}</pre>
-                  </div>
-                {/if}
-
-                <!-- Response -->
-                {#if group.response}
-                  <div class="bg-surface-800/30">
-                    <div class="flex items-center justify-between px-4 py-2 border-b border-surface-700">
-                      <div class="flex items-center gap-2">
-                        <span class={group.response.error ? 'text-red-400' : 'text-green-400'}>
-                          <ArrowDownCircle class="h-4 w-4" />
-                        </span>
-                        <span class="text-sm font-medium {group.response.error ? 'text-red-400' : 'text-green-400'}">
-                          {group.response.error ? 'Error' : 'Response'}
-                        </span>
-                        {#if group.response.duration}
-                          <span class="text-xs px-1.5 py-0.5 rounded bg-surface-700 text-surface-400">
-                            {formatDuration(group.response.duration)}
-                          </span>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-muted-foreground font-mono">
+                        {formatTimestamp(group.request.timestamp)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onclick={() => copyToClipboard(group.request!)}
+                        title="Copy JSON"
+                      >
+                        {#if copiedId === group.request.id}
+                          <Check class="h-3.5 w-3.5 text-green-400" />
+                        {:else}
+                          <Copy class="h-3.5 w-3.5" />
                         {/if}
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <span class="text-xs text-surface-500">
-                          {formatTimestamp(group.response.timestamp)}
-                        </span>
-                        <button
-                          class="p-1 rounded hover:bg-surface-700 text-surface-400 hover:text-surface-200"
-                          onclick={() => copyToClipboard(group.response!)}
-                          title="Copy JSON"
-                        >
-                          {#if copiedId === group.response.id}
-                            <Check class="h-3.5 w-3.5 text-green-400" />
-                          {:else}
-                            <Copy class="h-3.5 w-3.5" />
-                          {/if}
-                        </button>
-                      </div>
+                      </Button>
                     </div>
-                    <pre class="p-3 text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono whitespace-pre-wrap bg-surface-900/50" class:text-surface-300={!group.response.error} class:text-red-300={group.response.error}>{formatJson(group.response)}</pre>
                   </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
+                  <pre class="p-3 text-xs text-muted-foreground overflow-x-auto max-h-64 overflow-y-auto font-mono whitespace-pre-wrap bg-muted/20">{formatJson(group.request)}</pre>
+                </div>
+              {/if}
 
-      <!-- Footer -->
-      <div class="border-t border-surface-700 pt-3 flex-shrink-0">
-        <p class="text-xs text-surface-500 text-center">
-          Logs are stored in memory only and will be cleared when you close the app.
-        </p>
-      </div>
+              <!-- Response -->
+              {#if group.response}
+                <div class="bg-muted/10">
+                  <div class="flex items-center justify-between px-4 py-2 border-b border-border">
+                    <div class="flex items-center gap-2">
+                      <span class={group.response.error ? 'text-red-400' : 'text-green-400'}>
+                        <ArrowDownCircle class="h-4 w-4" />
+                      </span>
+                      <span class="text-sm font-medium {group.response.error ? 'text-red-400' : 'text-green-400'}">
+                        {group.response.error ? 'Error' : 'Response'}
+                      </span>
+                      {#if group.response.duration}
+                        <span class="text-xs px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground font-mono">
+                          {formatDuration(group.response.duration)}
+                        </span>
+                      {/if}
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-muted-foreground font-mono">
+                        {formatTimestamp(group.response.timestamp)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="h-6 w-6 text-muted-foreground hover:text-foreground"
+                        onclick={() => copyToClipboard(group.response!)}
+                        title="Copy JSON"
+                      >
+                        {#if copiedId === group.response.id}
+                          <Check class="h-3.5 w-3.5 text-green-400" />
+                        {:else}
+                          <Copy class="h-3.5 w-3.5" />
+                        {/if}
+                      </Button>
+                    </div>
+                  </div>
+                  <pre 
+                    class="p-3 text-xs overflow-x-auto max-h-64 overflow-y-auto font-mono whitespace-pre-wrap bg-muted/20" 
+                    class:text-muted-foreground={!group.response.error} 
+                    class:text-red-300={group.response.error}
+                  >{formatJson(group.response)}</pre>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
-  </div>
-{/if}
+
+    <ResponsiveModal.Footer class="px-6 py-3 border-t border-border bg-muted/10 mt-auto flex flex-row items-center sm:justify-between justify-between">
+      <p class="text-xs text-muted-foreground text-left">
+        Logs are stored in memory only and will be cleared when you close the app.
+      </p>
+      <div class="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          class={renderNewlines ? 'text-blue-400 hover:text-blue-500' : 'text-muted-foreground hover:text-foreground'}
+          onclick={() => renderNewlines = !renderNewlines}
+          title={renderNewlines ? 'Show escaped newlines (\\n)' : 'Render newlines as line breaks'}
+        >
+          <WrapText class="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="text-muted-foreground hover:text-red-400 hover:bg-red-900/10"
+          onclick={handleClearLogs}
+          title="Clear all logs"
+        >
+          <Trash2 class="h-4 w-4" />
+        </Button>
+      </div>
+    </ResponsiveModal.Footer>
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>

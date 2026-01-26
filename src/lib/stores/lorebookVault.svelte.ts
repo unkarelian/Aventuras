@@ -3,6 +3,7 @@ import type { LorebookImportResult } from '$lib/services/lorebookImporter';
 import { database } from '$lib/services/database';
 import { discoveryService, type DiscoveryCard } from '$lib/services/discovery';
 import { parseLorebook, classifyEntriesWithLLM } from '$lib/services/lorebookImporter';
+import { ui } from './ui.svelte';
 
 const DEBUG = true;
 
@@ -241,71 +242,65 @@ class LorebookVaultStore {
     log('Started background import for:', card.name);
 
     this._processDiscoveryImport(tempId, card).catch(err => {
-      console.error('[LorebookVault] Background import failed:', err);
+      const message = err instanceof Error ? err.message : `Failed to import ${card.name}`;
+      ui.showToast(message, 'error');
       this.lorebooks = this.lorebooks.filter(lb => lb.id !== tempId);
     });
   }
 
   private async _processDiscoveryImport(tempId: string, card: DiscoveryCard): Promise<void> {
-    try {
-      const blob = await discoveryService.downloadCard(card);
-      const text = await blob.text();
-      const parsed = parseLorebook(text);
-      if (!parsed.success || parsed.entries.length === 0) {
-        throw new Error(parsed.errors.join('; ') || 'Failed to parse lorebook');
-      }
-
-      // Classify entries with LLM
-      const entries = await classifyEntriesWithLLM(
-        parsed.entries,
-        (current, total) => {
-           // Update progress logic could go here if we tracked it in metadata
-        },
-        'adventure'
-      );
-
-      const vaultEntries = entries.map(e => {
-        const { originalData, ...rest } = e;
-        return rest;
-      });
-      
-      const entryBreakdown: Record<EntryType, number> = {
-        character: 0, location: 0, item: 0,
-        faction: 0, concept: 0, event: 0,
-      };
-      for (const entry of vaultEntries) {
-        entryBreakdown[entry.type]++;
-      }
-
-      const finalData: VaultLorebook = {
-        id: tempId,
-        name: card.name,
-        description: card.description || null,
-        entries: vaultEntries,
-        tags: card.tags,
-        favorite: false,
-        source: 'import',
-        originalFilename: null,
-        originalStoryId: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        metadata: {
-          format: parsed.metadata.format,
-          totalEntries: vaultEntries.length,
-          entryBreakdown,
-          sourceUrl: card.imageUrl
-        },
-      };
-
-      await database.addVaultLorebook(finalData);
-      this.lorebooks = this.lorebooks.map(lb => lb.id === tempId ? finalData : lb);
-      log('Completed import for:', finalData.name);
-
-    } catch (error) {
-      console.error(`Import failed for ${card.name}`, error);
-      this.lorebooks = this.lorebooks.filter(lb => lb.id !== tempId);
-      throw error;
+    const blob = await discoveryService.downloadCard(card);
+    const text = await blob.text();
+    const parsed = parseLorebook(text);
+    if (!parsed.success || parsed.entries.length === 0) {
+      throw new Error(parsed.errors.join('; ') || 'Failed to parse lorebook');
     }
+
+    // Classify entries with LLM
+    const entries = await classifyEntriesWithLLM(
+      parsed.entries,
+      (current, total) => {
+         // Update progress logic could go here if we tracked it in metadata
+      },
+      'adventure'
+    );
+
+    const vaultEntries = entries.map(e => {
+      const { originalData, ...rest } = e;
+      return rest;
+    });
+    
+    const entryBreakdown: Record<EntryType, number> = {
+      character: 0, location: 0, item: 0,
+      faction: 0, concept: 0, event: 0,
+    };
+    for (const entry of vaultEntries) {
+      entryBreakdown[entry.type]++;
+    }
+
+    const finalData: VaultLorebook = {
+      id: tempId,
+      name: card.name,
+      description: card.description || null,
+      entries: vaultEntries,
+      tags: card.tags,
+      favorite: false,
+      source: 'import',
+      originalFilename: null,
+      originalStoryId: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      metadata: {
+        format: parsed.metadata.format,
+        totalEntries: vaultEntries.length,
+        entryBreakdown,
+        sourceUrl: card.imageUrl
+      },
+    };
+
+    await database.addVaultLorebook(finalData);
+    this.lorebooks = this.lorebooks.map(lb => lb.id === tempId ? finalData : lb);
+    log('Completed import for:', finalData.name);
   }
 
   /**
@@ -340,65 +335,60 @@ class LorebookVaultStore {
     log('Started background import for file:', name);
 
     this._processFileImport(tempId, file, name).catch(err => {
-      console.error('[LorebookVault] File import failed:', err);
+      const message = err instanceof Error ? err.message : `Failed to import ${name}`;
+      ui.showToast(message, 'error');
       this.lorebooks = this.lorebooks.filter(lb => lb.id !== tempId);
     });
   }
 
   private async _processFileImport(tempId: string, file: File, name: string): Promise<void> {
-    try {
-      const text = await file.text();
-      const parsed = parseLorebook(text);
-      if (!parsed.success || parsed.entries.length === 0) {
-        throw new Error(parsed.errors.join('; ') || 'Failed to parse lorebook');
-      }
-
-      const entries = await classifyEntriesWithLLM(
-        parsed.entries,
-        (current, total) => {},
-        'adventure'
-      );
-
-      const vaultEntries = entries.map(e => {
-        const { originalData, ...rest } = e;
-        return rest;
-      });
-      
-      const entryBreakdown: Record<EntryType, number> = {
-        character: 0, location: 0, item: 0,
-        faction: 0, concept: 0, event: 0,
-      };
-      for (const entry of vaultEntries) {
-        entryBreakdown[entry.type]++;
-      }
-
-      const finalData: VaultLorebook = {
-        id: tempId,
-        name: name,
-        description: null,
-        entries: vaultEntries,
-        tags: ['imported'],
-        favorite: false,
-        source: 'import',
-        originalFilename: file.name,
-        originalStoryId: null,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        metadata: {
-          format: parsed.metadata.format,
-          totalEntries: vaultEntries.length,
-          entryBreakdown,
-        },
-      };
-
-      await database.addVaultLorebook(finalData);
-      this.lorebooks = this.lorebooks.map(lb => lb.id === tempId ? finalData : lb);
-      log('Completed import for:', finalData.name);
-
-    } catch (error) {
-      this.lorebooks = this.lorebooks.filter(lb => lb.id !== tempId);
-      throw error;
+    const text = await file.text();
+    const parsed = parseLorebook(text);
+    if (!parsed.success || parsed.entries.length === 0) {
+      throw new Error(parsed.errors.join('; ') || 'Failed to parse lorebook');
     }
+
+    const entries = await classifyEntriesWithLLM(
+      parsed.entries,
+      (current, total) => {},
+      'adventure'
+    );
+
+    const vaultEntries = entries.map(e => {
+      const { originalData, ...rest } = e;
+      return rest;
+    });
+    
+    const entryBreakdown: Record<EntryType, number> = {
+      character: 0, location: 0, item: 0,
+      faction: 0, concept: 0, event: 0,
+    };
+    for (const entry of vaultEntries) {
+      entryBreakdown[entry.type]++;
+    }
+
+    const finalData: VaultLorebook = {
+      id: tempId,
+      name: name,
+      description: null,
+      entries: vaultEntries,
+      tags: ['imported'],
+      favorite: false,
+      source: 'import',
+      originalFilename: file.name,
+      originalStoryId: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      metadata: {
+        format: parsed.metadata.format,
+        totalEntries: vaultEntries.length,
+        entryBreakdown,
+      },
+    };
+
+    await database.addVaultLorebook(finalData);
+    this.lorebooks = this.lorebooks.map(lb => lb.id === tempId ? finalData : lb);
+    log('Completed import for:', finalData.name);
   }
 }
 

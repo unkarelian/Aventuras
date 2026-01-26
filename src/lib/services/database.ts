@@ -20,7 +20,6 @@ import type {
   EmbeddedImage,
   EmbeddedImageStatus,
   VaultCharacter,
-  VaultCharacterType,
   VaultLorebook,
   VaultScenario,
   VaultTag,
@@ -1682,15 +1681,6 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
     return results.map(this.mapVaultCharacter);
   }
 
-  async getVaultCharactersByType(type: VaultCharacterType): Promise<VaultCharacter[]> {
-    const db = await this.getDb();
-    const results = await db.select<any[]>(
-      'SELECT * FROM character_vault WHERE character_type = ? ORDER BY favorite DESC, updated_at DESC',
-      [type]
-    );
-    return results.map(this.mapVaultCharacter);
-  }
-
   async getVaultCharacter(id: string): Promise<VaultCharacter | null> {
     const db = await this.getDb();
     const results = await db.select<any[]>(
@@ -1704,21 +1694,15 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
     const db = await this.getDb();
     await db.execute(
       `INSERT INTO character_vault (
-        id, name, description, character_type,
-        background, motivation, role, relationship_template,
+        id, name, description,
         traits, visual_descriptors, portrait,
         tags, favorite, source, original_story_id, metadata,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         character.id,
         character.name,
         character.description,
-        character.characterType,
-        character.background,
-        character.motivation,
-        character.role,
-        character.relationshipTemplate,
         JSON.stringify(character.traits),
         JSON.stringify(character.visualDescriptors),
         character.portrait,
@@ -1740,11 +1724,6 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
 
     if (updates.name !== undefined) { setClauses.push('name = ?'); values.push(updates.name); }
     if (updates.description !== undefined) { setClauses.push('description = ?'); values.push(updates.description); }
-    if (updates.characterType !== undefined) { setClauses.push('character_type = ?'); values.push(updates.characterType); }
-    if (updates.background !== undefined) { setClauses.push('background = ?'); values.push(updates.background); }
-    if (updates.motivation !== undefined) { setClauses.push('motivation = ?'); values.push(updates.motivation); }
-    if (updates.role !== undefined) { setClauses.push('role = ?'); values.push(updates.role); }
-    if (updates.relationshipTemplate !== undefined) { setClauses.push('relationship_template = ?'); values.push(updates.relationshipTemplate); }
     if (updates.traits !== undefined) { setClauses.push('traits = ?'); values.push(JSON.stringify(updates.traits)); }
     if (updates.visualDescriptors !== undefined) { setClauses.push('visual_descriptors = ?'); values.push(JSON.stringify(updates.visualDescriptors)); }
     if (updates.portrait !== undefined) { setClauses.push('portrait = ?'); values.push(updates.portrait); }
@@ -1778,11 +1757,6 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
       id: row.id,
       name: row.name,
       description: row.description,
-      characterType: row.character_type,
-      background: row.background,
-      motivation: row.motivation,
-      role: row.role,
-      relationshipTemplate: row.relationship_template,
       traits: row.traits ? JSON.parse(row.traits) : [],
       visualDescriptors: row.visual_descriptors ? JSON.parse(row.visual_descriptors) : [],
       portrait: row.portrait,

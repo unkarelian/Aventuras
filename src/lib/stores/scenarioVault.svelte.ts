@@ -7,6 +7,7 @@ import {
   convertCardToScenario,
 } from '$lib/services/characterCardImporter';
 import type { Genre } from '$lib/services/ai/scenario';
+import { ui } from './ui.svelte';
 
 const DEBUG = true;
 
@@ -192,26 +193,21 @@ class ScenarioVaultStore {
 
     // 2. Process in background
     this._processDiscoveryImport(tempId, card, genre).catch(err => {
-      console.error('[ScenarioVault] Background import failed:', err);
+      const message = err instanceof Error ? err.message : `Failed to import ${card.name}`;
+      ui.showToast(message, 'error');
       this.scenarios = this.scenarios.filter(s => s.id !== tempId);
     });
   }
 
   private async _processDiscoveryImport(tempId: string, card: DiscoveryCard, genre: Genre): Promise<void> {
-    try {
-      const blob = await discoveryService.downloadCard(card);
-      const file = new File([blob], `${card.name}.${blob.type.includes('json') ? 'json' : 'png'}`, { type: blob.type });
+    const blob = await discoveryService.downloadCard(card);
+    const file = new File([blob], `${card.name}.${blob.type.includes('json') ? 'json' : 'png'}`, { type: blob.type });
 
-      await this._processFileImport(tempId, file, {
-        sourceUrl: card.imageUrl || card.avatarUrl,
-        tags: card.tags,
-        genre,
-      });
-    } catch (error) {
-      console.error(`Import failed for ${card.name}`, error);
-      this.scenarios = this.scenarios.filter(s => s.id !== tempId);
-      throw error;
-    }
+    await this._processFileImport(tempId, file, {
+      sourceUrl: card.imageUrl || card.avatarUrl,
+      tags: card.tags,
+      genre,
+    });
   }
 
   /**
@@ -246,7 +242,8 @@ class ScenarioVaultStore {
 
     // 2. Process in background
     this._processFileImport(tempId, file, { genre }).catch(err => {
-      console.error('[ScenarioVault] File import failed:', err);
+      const message = err instanceof Error ? err.message : `Failed to import ${name}`;
+      ui.showToast(message, 'error');
       this.scenarios = this.scenarios.filter(s => s.id !== tempId);
     });
   }
@@ -256,61 +253,55 @@ class ScenarioVaultStore {
     file: File,
     options: { sourceUrl?: string; tags?: string[]; genre?: Genre }
   ): Promise<void> {
-    try {
-      // Parse and convert
-      const jsonString = await readCharacterCardFile(file);
-      const result = await convertCardToScenario(
-        jsonString,
-        'adventure', // Default mode
-        options.genre || 'fantasy'
-      );
+    // Parse and convert
+    const jsonString = await readCharacterCardFile(file);
+    const result = await convertCardToScenario(
+      jsonString,
+      'adventure', // Default mode
+      options.genre || 'fantasy'
+    );
 
-      if (!result.success && result.errors.length > 0 && !result.settingSeed) {
-        throw new Error(result.errors.join('; '));
-      }
-
-      const npcs: VaultScenarioNpc[] = result.npcs.map(npc => ({
-        name: npc.name,
-        role: npc.role,
-        description: npc.description,
-        relationship: npc.relationship,
-        traits: npc.traits || [],
-      }));
-
-      const finalData: VaultScenario = {
-        id: tempId,
-        name: result.storyTitle || file.name.replace(/\.[^/.]+$/, ''),
-        description: result.settingSeed.slice(0, 200) + (result.settingSeed.length > 200 ? '...' : ''),
-        settingSeed: result.settingSeed,
-        npcs,
-        primaryCharacterName: result.primaryCharacterName,
-        firstMessage: result.firstMessage || null,
-        alternateGreetings: result.alternateGreetings || [],
-        tags: options.tags || ['imported'],
-        favorite: false,
-        source: 'import',
-        originalFilename: file.name,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        metadata: {
-          hasFirstMessage: !!result.firstMessage,
-          alternateGreetingsCount: result.alternateGreetings?.length || 0,
-          npcCount: npcs.length,
-          sourceUrl: options.sourceUrl,
-        },
-      };
-
-      // Save to DB
-      await database.addVaultScenario(finalData);
-
-      // Update store
-      this.scenarios = this.scenarios.map(s => s.id === tempId ? finalData : s);
-      log('Completed import for:', finalData.name);
-
-    } catch (error) {
-      this.scenarios = this.scenarios.filter(s => s.id !== tempId);
-      throw error;
+    if (!result.success && result.errors.length > 0 && !result.settingSeed) {
+      throw new Error(result.errors.join('; '));
     }
+
+    const npcs: VaultScenarioNpc[] = result.npcs.map(npc => ({
+      name: npc.name,
+      role: npc.role,
+      description: npc.description,
+      relationship: npc.relationship,
+      traits: npc.traits || [],
+    }));
+
+    const finalData: VaultScenario = {
+      id: tempId,
+      name: result.storyTitle || file.name.replace(/\.[^/.]+$/, ''),
+      description: result.settingSeed.slice(0, 200) + (result.settingSeed.length > 200 ? '...' : ''),
+      settingSeed: result.settingSeed,
+      npcs,
+      primaryCharacterName: result.primaryCharacterName,
+      firstMessage: result.firstMessage || null,
+      alternateGreetings: result.alternateGreetings || [],
+      tags: options.tags || ['imported'],
+      favorite: false,
+      source: 'import',
+      originalFilename: file.name,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      metadata: {
+        hasFirstMessage: !!result.firstMessage,
+        alternateGreetingsCount: result.alternateGreetings?.length || 0,
+        npcCount: npcs.length,
+        sourceUrl: options.sourceUrl,
+      },
+    };
+
+    // Save to DB
+    await database.addVaultScenario(finalData);
+
+    // Update store
+    this.scenarios = this.scenarios.map(s => s.id === tempId ? finalData : s);
+    log('Completed import for:', finalData.name);
   }
 }
 

@@ -1,0 +1,168 @@
+/* =============================================
+   LIGHT THEME (Paper)
+   Clean paper-like backgrounds with high contrast text
+   ============================================= */
+[data-theme="light"] {
+  /* Paper-inspired surface colors */
+  --color-surface-50: #faf9f7;
+  --color-surface-100: #f4f2ee; /* Cleaner off-white */
+  --color-surface-200: #e8e6e1;
+  --color-surface-300: #dad8d3;
+  --color-surface-400: #b8b3a9;
+  --color-surface-500: #7d786e;
+  --color-surface-600: #5c5850;
+  --color-surface-700: #3d3a35;
+  --color-surface-800: #2a2825;
+  --color-surface-850: #1f1e1b;
+  --color-surface-900: #161513;
+  --color-surface-950: #0a0a09;
+
+  /* Warm accent colors (amber/brown - ink on paper) */
+  --color-accent-50: #fef8ee;
+  --color-accent-100: #fcf0dc;
+  --color-accent-200: #f8ddb8;
+  --color-accent-300: #f3c78a;
+  --color-accent-400: #e6a54a;
+  --color-accent-500: #c4872d;
+  --color-accent-600: #a66b1f;
+  --color-accent-700: #8a5419;
+  --color-accent-800: #724516;
+  --color-accent-900: #5f3a14;
+  --color-accent-950: #361e0a;
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-50);
+  --bg-secondary: var(--color-surface-100);
+  --bg-tertiary: var(--color-surface-200);
+  --text-primary: var(--color-surface-900);
+  --text-secondary: var(--color-surface-700);
+  --text-muted: var(--color-surface-500);
+  --text-accent: var(--color-accent-600);
+  --border-primary: var(--color-surface-300);
+  --border-secondary: var(--color-surface-400);
+  --scrollbar-track: var(--color-surface-200);
+  --scrollbar-thumb: var(--color-surface-400);
+  --scrollbar-thumb-hover: var(--color-surface-500);
+
+  /* Shadcn Variables (Light) */
+  --radius: 0.5rem;
+  --background: hsl(0 0% 100%);
+  --foreground: hsl(222.2 84% 4.9%);
+  --card: hsl(0 0% 100%);
+  --card-foreground: hsl(222.2 84% 4.9%);
+  --popover: hsl(0 0% 100%);
+  --popover-foreground: hsl(222.2 84% 4.9%);
+  --primary: hsl(222.2 47.4% 11.2%);
+  --primary-foreground: hsl(210 40% 98%);
+  --secondary: hsl(210 40% 96.1%);
+  --secondary-foreground: hsl(222.2 47.4% 11.2%);
+  --muted: hsl(210 40% 96.1%);
+  --muted-foreground: hsl(215.4 16.3% 46.9%);
+  --accent: hsl(210 40% 96.1%);
+  --accent-foreground: hsl(222.2 47.4% 11.2%);
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(210 40% 98%);
+  --border: hsl(214.3 31.8% 91.4%);
+  --input: hsl(214.3 31.8% 91.4%);
+  --ring: hsl(215 20.2% 65.1%);
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - INVERT for light theme (dark numbers = light colors) */
+[data-theme="light"] .bg-surface-900 {
+  background-color: var(--color-surface-50);
+}
+
+[data-theme="light"] .bg-surface-850 {
+  background-color: var(--color-surface-100);
+}
+
+[data-theme="light"] .bg-surface-800 {
+  background-color: var(--color-surface-100);
+}
+
+[data-theme="light"] .bg-surface-700 {
+  background-color: var(--color-surface-200);
+}
+
+[data-theme="light"] .bg-surface-600 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="light"] .bg-surface-500 {
+  background-color: var(--color-surface-400);
+}
+
+[data-theme="light"] .bg-surface-400 {
+  background-color: var(--color-surface-400);
+}
+
+[data-theme="light"] .bg-surface-300 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="light"] .bg-surface-200 {
+  background-color: var(--color-surface-200);
+}
+
+[data-theme="light"] .bg-surface-100 {
+  background-color: var(--color-surface-100);
+}
+
+[data-theme="light"] .bg-surface-50 {
+  background-color: var(--color-surface-50);
+}
+
+/* Text color overrides - INVERT for light theme (light numbers = dark colors) */
+[data-theme="light"] .text-surface-50 {
+  color: var(--color-surface-950);
+}
+
+[data-theme="light"] .text-surface-100 {
+  color: var(--color-surface-900);
+}
+
+[data-theme="light"] .text-surface-200 {
+  color: var(--color-surface-800);
+}
+
+[data-theme="light"] .text-surface-300 {
+  color: var(--color-surface-700);
+}
+
+[data-theme="light"] .text-surface-400 {
+  color: var(--color-surface-500);
+}
+
+[data-theme="light"] .text-surface-500 {
+  color: var(--color-surface-500);
+}
+
+/* Border color overrides */
+[data-theme="light"] .border-surface-700 {
+  border-color: var(--color-surface-300);
+}
+
+[data-theme="light"] .border-surface-600 {
+  border-color: var(--color-surface-400);
+}
+
+/* Select dropdown styling */
+[data-theme="light"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="light"] select.input option {
+  background-color: var(--color-surface-100);
+  color: var(--color-surface-900);
+}
+
+[data-theme="light"] select.input option:checked {
+  background-color: var(--color-accent-600);
+  color: white;
+}

@@ -1,10 +1,22 @@
 <script lang="ts">
-  import { Code, Eye, Plus, RotateCcw, Check, ChevronDown, Info } from 'lucide-svelte';
-  import { promptService, type Macro, type PromptTemplate, type MacroOverride, type ComplexMacro, type SimpleMacro, type ContextPlaceholder, getPlaceholderByToken } from '$lib/services/prompts';
-  import MacroChip from './MacroChip.svelte';
-  import MacroEditor from './MacroEditor.svelte';
-  import ComplexMacroEditor from './ComplexMacroEditor.svelte';
-  import PlaceholderInfo from './PlaceholderInfo.svelte';
+  import { Code, Eye, Plus, RotateCcw, ChevronDown, Info } from "lucide-svelte";
+  import {
+    promptService,
+    type Macro,
+    type PromptTemplate,
+    type MacroOverride,
+    type ContextPlaceholder,
+    getPlaceholderByToken,
+    type MacroVariant,
+  } from "$lib/services/prompts";
+  import MacroChip from "./MacroChip.svelte";
+  import MacroInspector from "./MacroInspector.svelte";
+  import PlaceholderInfo from "./PlaceholderInfo.svelte";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import { Button } from "$lib/components/ui/button";
+  import * as Tabs from "$lib/components/ui/tabs";
+  import * as Popover from "$lib/components/ui/popover";
+  import * as Command from "$lib/components/ui/command";
 
   interface Props {
     /** The prompt template being edited */
@@ -19,9 +31,9 @@
     isUserModified?: boolean;
     /** Current story context for complex macro preview */
     currentContext?: {
-      mode?: 'adventure' | 'creative-writing';
-      pov?: 'first' | 'second' | 'third';
-      tense?: 'past' | 'present';
+      mode?: "adventure" | "creative-writing";
+      pov?: "first" | "second" | "third";
+      tense?: "past" | "present";
     };
     /** Macro overrides for display */
     macroOverrides?: MacroOverride[];
@@ -56,26 +68,29 @@
   }: Props = $props();
 
   // Check if template has user content
-  const hasUserPrompt = $derived(template.userContent !== undefined && template.userContent.length > 0);
+  const hasUserPrompt = $derived(
+    template.userContent !== undefined && template.userContent.length > 0,
+  );
 
   // Active prompt tab (system or user)
-  let activeTab = $state<'system' | 'user'>('system');
+  let activeTab = $state<"system" | "user">("system");
 
   // Get the current content based on active tab
-  const currentContent = $derived(activeTab === 'system' ? content : (userContent ?? ''));
-  const currentIsModified = $derived(activeTab === 'system' ? isModified : isUserModified);
+  const currentContent = $derived(
+    activeTab === "system" ? content : (userContent ?? ""),
+  );
+  const currentIsModified = $derived(
+    activeTab === "system" ? isModified : isUserModified,
+  );
 
   // View mode state
-  let viewMode = $state<'visual' | 'raw'>('visual');
+  let viewMode = $state<"visual" | "raw">("visual");
   let showMacroMenu = $state(false);
-  let menuPosition = $state({ x: 0, y: 0 });
 
-  // Editor modals
+  // Editor state
   let editingMacro = $state<Macro | null>(null);
-  let showSimpleEditor = $state(false);
-  let showComplexEditor = $state(false);
 
-  // Placeholder info modal
+  // Placeholder info
   let viewingPlaceholder = $state<ContextPlaceholder | null>(null);
   let showPlaceholderInfo = $state(false);
 
@@ -86,7 +101,7 @@
   let segments = $derived.by(() => {
     const textToParse = currentContent;
     const result: Array<{
-      type: 'text' | 'macro' | 'placeholder';
+      type: "text" | "macro" | "placeholder";
       content: string;
       macro?: Macro;
       placeholder?: ContextPlaceholder;
@@ -99,32 +114,32 @@
       // Add text before the token
       if (match.index > lastIndex) {
         result.push({
-          type: 'text',
+          type: "text",
           content: textToParse.slice(lastIndex, match.index),
         });
       }
 
       // Find if this is a macro or a context placeholder
       const token = match[1];
-      const macro = allMacros.find(m => m.token === token);
+      const macro = allMacros.find((m) => m.token === token);
       const placeholder = getPlaceholderByToken(token);
 
       if (macro) {
         result.push({
-          type: 'macro',
+          type: "macro",
           content: match[0],
           macro,
         });
       } else if (placeholder) {
         result.push({
-          type: 'placeholder',
+          type: "placeholder",
           content: match[0],
           placeholder,
         });
       } else {
-        // Unknown token - treat as text with special styling
+        // Unknown token - treat as text
         result.push({
-          type: 'text',
+          type: "text",
           content: match[0],
         });
       }
@@ -135,7 +150,7 @@
     // Add remaining text
     if (lastIndex < textToParse.length) {
       result.push({
-        type: 'text',
+        type: "text",
         content: textToParse.slice(lastIndex),
       });
     }
@@ -145,7 +160,7 @@
 
   // Handle content change based on active tab
   function handleContentChange(newContent: string) {
-    if (activeTab === 'system') {
+    if (activeTab === "system") {
       onChange(newContent);
     } else {
       onUserChange?.(newContent);
@@ -154,7 +169,7 @@
 
   // Handle reset based on active tab
   function handleReset() {
-    if (activeTab === 'system') {
+    if (activeTab === "system") {
       onReset();
     } else {
       onUserReset?.();
@@ -163,42 +178,35 @@
 
   // Find macro override
   function findMacroOverride(macroId: string): MacroOverride | undefined {
-    return macroOverrides.find(o => o.macroId === macroId);
+    return macroOverrides.find((o) => o.macroId === macroId);
   }
 
   // Handle macro chip click
   function handleMacroClick(macro: Macro) {
-    editingMacro = macro;
-    if (macro.type === 'simple') {
-      showSimpleEditor = true;
+    // If we're already editing this macro, close it. Otherwise open it.
+    if (editingMacro?.id === macro.id) {
+      editingMacro = null;
     } else {
-      showComplexEditor = true;
+      editingMacro = macro;
     }
   }
 
-  // Handle simple macro save
-  function handleSimpleSave(value: string) {
-    if (!editingMacro || editingMacro.type !== 'simple') return;
+  // Handle macro save
+  function handleMacroSave(value: string | MacroVariant[]) {
+    if (!editingMacro) return;
 
-    onMacroOverride?.({
-      macroId: editingMacro.id,
-      value,
-    });
+    if (editingMacro.type === "simple" && typeof value === "string") {
+      onMacroOverride?.({
+        macroId: editingMacro.id,
+        value,
+      });
+    } else if (editingMacro.type === "complex" && Array.isArray(value)) {
+      onMacroOverride?.({
+        macroId: editingMacro.id,
+        variantOverrides: value,
+      });
+    }
 
-    showSimpleEditor = false;
-    editingMacro = null;
-  }
-
-  // Handle complex macro save
-  function handleComplexSave(variantOverrides: import('$lib/services/prompts').MacroVariant[]) {
-    if (!editingMacro || editingMacro.type !== 'complex') return;
-
-    onMacroOverride?.({
-      macroId: editingMacro.id,
-      variantOverrides,
-    });
-
-    showComplexEditor = false;
     editingMacro = null;
   }
 
@@ -206,28 +214,23 @@
   function handleMacroReset() {
     if (!editingMacro) return;
     onMacroReset?.(editingMacro.id);
-    showSimpleEditor = false;
-    showComplexEditor = false;
     editingMacro = null;
   }
 
-  // Handle placeholder click - show info modal
-  function handlePlaceholderClick(placeholder: ContextPlaceholder) {
-    viewingPlaceholder = placeholder;
-    showPlaceholderInfo = true;
-  }
-
   // Insert macro at cursor position (raw mode)
-  let textareaRef: HTMLTextAreaElement | undefined;
+  let textareaRef = $state<HTMLTextAreaElement | null>(null);
 
   function insertMacro(macro: Macro) {
-    if (viewMode !== 'raw' || !textareaRef) {
+    if (viewMode !== "raw" || !textareaRef) {
       // In visual mode, just append
       handleContentChange(currentContent + `{{${macro.token}}}`);
     } else {
       const start = textareaRef.selectionStart;
       const end = textareaRef.selectionEnd;
-      const newContent = currentContent.slice(0, start) + `{{${macro.token}}}` + currentContent.slice(end);
+      const newContent =
+        currentContent.slice(0, start) +
+        `{{${macro.token}}}` +
+        currentContent.slice(end);
       handleContentChange(newContent);
 
       // Restore cursor position after the inserted macro
@@ -242,311 +245,208 @@
     showMacroMenu = false;
   }
 
-  function toggleMacroMenu(event: MouseEvent) {
-    const button = event.currentTarget as HTMLButtonElement;
-    const rect = button.getBoundingClientRect();
-    menuPosition = {
-      x: rect.left,
-      y: rect.bottom + 4,
-    };
-    showMacroMenu = !showMacroMenu;
-  }
-
-  function handleClickOutside(event: MouseEvent) {
-    const target = event.target as HTMLElement;
-    if (!target.closest('.macro-menu') && !target.closest('.macro-menu-trigger')) {
-      showMacroMenu = false;
-    }
+  function handlePlaceholderClick(placeholder: ContextPlaceholder) {
+    // Currently using legacy modal, but we should probably refactor this too.
+    // For now, let's just use the legacy modal but triggered differently or inline.
+    // Or just ignore it for this plan as macro editing was the main focus.
+    viewingPlaceholder = placeholder;
+    showPlaceholderInfo = true;
   }
 </script>
 
-<svelte:window onclick={handleClickOutside} />
-
-<div class="prompt-editor">
-  <!-- Header -->
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-    <div class="flex items-center gap-2">
-      <h3 class="text-sm font-medium text-surface-200">{template.name}</h3>
-      {#if currentIsModified}
-        <span class="text-xs px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-400 border border-amber-700/30">
-          Modified
-        </span>
-      {/if}
-    </div>
-    <div class="flex items-center gap-1 flex-wrap">
-      <!-- View mode toggle -->
-      <div class="flex items-center rounded-lg bg-surface-800 p-0.5">
-        <button
-          class="view-toggle {viewMode === 'visual' ? 'view-toggle-active' : ''}"
-          onclick={() => viewMode = 'visual'}
-          title="Visual mode"
+<div class="flex flex-col gap-4">
+  <!-- Header Actions -->
+  <div class="flex items-start justify-between gap-4">
+    <p class="text-base text-muted-foreground">{template.description}</p>
+    <div class="flex items-center gap-1 shrink-0">
+      <!-- View Toggle -->
+      <div class="flex items-center border rounded-md p-0.5 bg-muted/50">
+        <Button
+          variant={viewMode === "visual" ? "secondary" : "ghost"}
+          size="icon"
+          class={viewMode === "visual" ? "h-7 w-7 text-primary" : "h-7 w-7 text-muted-foreground"}
+          title="Visual Mode"
+          onclick={() => (viewMode = "visual")}
         >
-          <Eye class="h-3.5 w-3.5" />
-        </button>
-        <button
-          class="view-toggle {viewMode === 'raw' ? 'view-toggle-active' : ''}"
-          onclick={() => viewMode = 'raw'}
-          title="Raw mode"
+          <Eye class="h-4 w-4" />
+        </Button>
+        <Button
+          variant={viewMode === "raw" ? "secondary" : "ghost"}
+          size="icon"
+          class={viewMode === "raw" ? "h-7 w-7 text-primary" : "h-7 w-7 text-muted-foreground"}
+          title="Raw Mode"
+          onclick={() => (viewMode = "raw")}
         >
-          <Code class="h-3.5 w-3.5" />
-        </button>
+          <Code class="h-4 w-4" />
+        </Button>
       </div>
 
-      <!-- Insert macro button -->
-      <div class="relative">
-        <button
-          class="macro-menu-trigger btn btn-ghost text-xs flex items-center gap-1 px-2 py-1"
-          onclick={toggleMacroMenu}
-        >
-          <Plus class="h-3.5 w-3.5" />
-          <span class="hidden xs:inline">Insert Macro</span>
-          <span class="xs:hidden">Macro</span>
-          <ChevronDown class="h-3 w-3" />
-        </button>
+      <!-- Macro Insert Menu -->
+      <Popover.Root bind:open={showMacroMenu}>
+        <Popover.Trigger>
+          {#snippet child({ props })}
+            <Button
+              variant="outline"
+              size="sm"
+              class="h-8 gap-1 ml-2"
+              {...props}
+            >
+              <Plus class="h-3.5 w-3.5" />
+              <span class="hidden xs:inline">Macro</span>
+            </Button>
+          {/snippet}
+        </Popover.Trigger>
+        <Popover.Content class="w-64 p-0" align="end">
+          <Command.Root>
+            <Command.Input placeholder="Search macros..." />
+            <Command.List>
+              <Command.Empty>No macro found.</Command.Empty>
+              <Command.Group heading="Simple Macros">
+                {#each allMacros.filter((m) => m.type === "simple") as macro}
+                  <Command.Item
+                    value={macro.name}
+                    onSelect={() => insertMacro(macro)}
+                  >
+                    <span>{macro.name}</span>
+                    <span
+                      class="ml-auto text-xs text-muted-foreground font-mono"
+                    >
+                      {macro.token}
+                    </span>
+                  </Command.Item>
+                {/each}
+              </Command.Group>
+              <Command.Separator />
+              <Command.Group heading="Complex Macros">
+                {#each allMacros.filter((m) => m.type === "complex") as macro}
+                  <Command.Item
+                    value={macro.name}
+                    onSelect={() => insertMacro(macro)}
+                  >
+                    <span>{macro.name}</span>
+                    <span
+                      class="ml-auto text-xs text-muted-foreground font-mono"
+                    >
+                      {macro.token}
+                    </span>
+                  </Command.Item>
+                {/each}
+              </Command.Group>
+            </Command.List>
+          </Command.Root>
+        </Popover.Content>
+      </Popover.Root>
 
-        {#if showMacroMenu}
-          <div
-            class="macro-menu fixed z-50 w-64 max-w-[calc(100vw-2rem)] max-h-80 overflow-y-auto rounded-lg border border-surface-700 bg-surface-900 shadow-xl"
-            style="left: min({menuPosition.x}px, calc(100vw - 17rem)); top: {menuPosition.y}px;"
-          >
-            <div class="p-2 space-y-1">
-              <div class="text-xs text-surface-500 px-2 py-1">Simple Macros</div>
-              {#each allMacros.filter(m => m.type === 'simple') as macro}
-                <button
-                  class="w-full text-left px-2 py-1.5 rounded hover:bg-surface-800 text-sm text-surface-300"
-                  onclick={() => insertMacro(macro)}
-                >
-                  <span class="font-medium">{macro.name}</span>
-                  <span class="text-xs text-surface-500 ml-2 hidden sm:inline">{'{{' + macro.token + '}}'}</span>
-                </button>
-              {/each}
-
-              <div class="border-t border-surface-700 my-2"></div>
-
-              <div class="text-xs text-surface-500 px-2 py-1">Complex Macros</div>
-              {#each allMacros.filter(m => m.type === 'complex') as macro}
-                <button
-                  class="w-full text-left px-2 py-1.5 rounded hover:bg-surface-800 text-sm text-surface-300"
-                  onclick={() => insertMacro(macro)}
-                >
-                  <span class="font-medium">{macro.name}</span>
-                  <span class="text-xs text-surface-500 ml-2 hidden sm:inline">{'{{' + macro.token + '}}'}</span>
-                </button>
-              {/each}
-            </div>
-          </div>
-        {/if}
-      </div>
-
-      <!-- Reset button -->
       {#if currentIsModified}
-        <button
-          class="btn btn-ghost text-xs flex items-center gap-1 px-2 py-1 text-surface-400 hover:text-red-400"
-          onclick={handleReset}
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 text-muted-foreground hover:text-red-500"
           title="Reset to default"
+          onclick={handleReset}
         >
-          <RotateCcw class="h-3.5 w-3.5" />
-          <span class="hidden xs:inline">Reset</span>
-        </button>
+          <RotateCcw class="h-4 w-4" />
+        </Button>
       {/if}
     </div>
   </div>
 
-  <!-- Description -->
-  <p class="text-xs text-surface-500 mb-2">{template.description}</p>
-
-  <!-- System/User Tabs (only show if template has user content) -->
+  <!-- Tabs (System/User) -->
   {#if hasUserPrompt}
-    <div class="flex items-center gap-1 mb-3">
-      <button
-        class="prompt-tab {activeTab === 'system' ? 'prompt-tab-active' : ''}"
-        onclick={() => activeTab = 'system'}
-      >
-        System Prompt
-        {#if isModified}
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 ml-1"></span>
-        {/if}
-      </button>
-      <button
-        class="prompt-tab {activeTab === 'user' ? 'prompt-tab-active' : ''}"
-        onclick={() => activeTab = 'user'}
-      >
-        User Message
-        {#if isUserModified}
-          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 ml-1"></span>
-        {/if}
-      </button>
-    </div>
+    <Tabs.Root
+      value={activeTab}
+      onValueChange={(v) => (activeTab = v as "system" | "user")}
+    >
+      <Tabs.List class="grid w-full grid-cols-2">
+        <Tabs.Trigger value="system" class="text-xs relative">
+          System Prompt
+          {#if isModified}
+            <span
+              class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500"
+            ></span>
+          {/if}
+        </Tabs.Trigger>
+        <Tabs.Trigger value="user" class="text-xs relative">
+          User Message
+          {#if isUserModified}
+            <span
+              class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500"
+            ></span>
+          {/if}
+        </Tabs.Trigger>
+      </Tabs.List>
+    </Tabs.Root>
   {/if}
 
-  <!-- Content area -->
-  {#if viewMode === 'visual'}
-    <!-- Visual mode: render with macro chips -->
-    <div class="visual-content">
+  <!-- Editor Content -->
+  {#if viewMode === "visual"}
+    <div
+      class="min-h-[200px] max-h-[400px] overflow-y-auto p-3 rounded-md border bg-muted/30 text-sm leading-relaxed"
+    >
       {#each segments as segment}
-        {#if segment.type === 'text'}
+        {#if segment.type === "text"}
           <span class="whitespace-pre-wrap">{segment.content}</span>
-        {:else if segment.type === 'macro' && segment.macro}
+        {:else if segment.type === "macro" && segment.macro}
           <MacroChip
             macro={segment.macro}
             interactive={true}
             onClick={() => handleMacroClick(segment.macro!)}
+            class={editingMacro?.id === segment.macro.id
+              ? "ring-2 ring-primary ring-offset-1"
+              : ""}
           />
-        {:else if segment.type === 'placeholder' && segment.placeholder}
-          <!-- Context placeholder - read-only with info click -->
+        {:else if segment.type === "placeholder" && segment.placeholder}
           <button
             type="button"
-            class="placeholder-chip"
+            class="inline-flex items-center gap-1 px-1.5 py-0.5 mx-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground hover:bg-secondary/80 align-middle transition-colors"
             onclick={() => handlePlaceholderClick(segment.placeholder!)}
-            title="Click for info about {segment.placeholder.name}"
           >
             <Info class="h-3 w-3" />
-            <span>{segment.placeholder.name}</span>
+            {segment.placeholder.name}
           </button>
         {:else}
-          <!-- Unknown token - render as code -->
-          <code class="text-xs px-1.5 py-0.5 rounded bg-red-900/30 text-red-400 border border-red-700/30">
+          <code
+            class="text-xs px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+          >
             {segment.content}
           </code>
         {/if}
       {/each}
     </div>
   {:else}
-    <!-- Raw mode: plain textarea -->
-    <textarea
-      bind:this={textareaRef}
+    <Textarea
+      bind:ref={textareaRef}
       value={currentContent}
-      oninput={(e) => handleContentChange(e.currentTarget.value)}
-      class="raw-content input text-sm font-mono"
-      placeholder={`Enter ${activeTab === 'system' ? 'system prompt' : 'user message'} content...`}
-    ></textarea>
+      oninput={(e) =>
+        handleContentChange((e.target as HTMLTextAreaElement).value)}
+      class="min-h-[200px] max-h-[400px] font-mono text-sm"
+      placeholder={`Enter ${activeTab === "system" ? "system prompt" : "user message"} content...`}
+    />
+  {/if}
+
+  <!-- Inline Macro Inspector -->
+  {#if editingMacro}
+    <div class="mt-2 animate-in slide-in-from-top-2 fade-in duration-200">
+      <MacroInspector
+        macro={editingMacro}
+        override={findMacroOverride(editingMacro.id)}
+        {currentContext}
+        onSave={handleMacroSave}
+        onReset={handleMacroReset}
+        onClose={() => (editingMacro = null)}
+      />
+    </div>
   {/if}
 </div>
 
-<!-- Simple Macro Editor Modal -->
-{#if editingMacro && editingMacro.type === 'simple'}
-  <MacroEditor
-    isOpen={showSimpleEditor}
-    macro={editingMacro as SimpleMacro}
-    currentOverride={findMacroOverride(editingMacro.id)}
-    onClose={() => { showSimpleEditor = false; editingMacro = null; }}
-    onSave={handleSimpleSave}
-    onReset={handleMacroReset}
-  />
-{/if}
-
-<!-- Complex Macro Editor Modal -->
-{#if editingMacro && editingMacro.type === 'complex'}
-  <ComplexMacroEditor
-    isOpen={showComplexEditor}
-    macro={editingMacro as ComplexMacro}
-    currentOverride={findMacroOverride(editingMacro.id)}
-    currentContext={currentContext}
-    onClose={() => { showComplexEditor = false; editingMacro = null; }}
-    onSave={handleComplexSave}
-    onReset={handleMacroReset}
-  />
-{/if}
-
-<!-- Placeholder Info Modal -->
+<!-- Placeholder Info Modal (Legacy for now) -->
 {#if viewingPlaceholder}
   <PlaceholderInfo
     isOpen={showPlaceholderInfo}
     placeholder={viewingPlaceholder}
-    onClose={() => { showPlaceholderInfo = false; viewingPlaceholder = null; }}
+    onClose={() => {
+      showPlaceholderInfo = false;
+      viewingPlaceholder = null;
+    }}
   />
 {/if}
-
-<style>
-  .prompt-editor {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .view-toggle {
-    padding: 0.375rem;
-    border-radius: 0.375rem;
-    color: var(--text-secondary);
-    transition: all 0.15s ease;
-  }
-
-  .view-toggle:hover {
-    color: var(--text-primary);
-  }
-
-  .view-toggle-active {
-    background-color: var(--bg-secondary);
-    color: var(--text-primary);
-  }
-
-  .visual-content {
-    min-height: 200px;
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    background-color: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
-    font-size: 0.875rem;
-    line-height: 1.6;
-    color: var(--text-secondary);
-  }
-
-  .visual-content :global(.macro-chip) {
-    vertical-align: middle;
-    margin: 0 0.125rem;
-  }
-
-  .placeholder-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.125rem 0.5rem;
-    border-radius: 0.375rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-secondary);
-    color: var(--text-secondary);
-    cursor: pointer;
-    vertical-align: middle;
-    margin: 0 0.125rem;
-    transition: all 0.15s ease;
-  }
-
-  .placeholder-chip:hover {
-    background-color: var(--bg-tertiary);
-    border-color: var(--accent-primary);
-    color: var(--text-primary);
-  }
-
-  .raw-content {
-    min-height: 200px;
-    max-height: 400px;
-    resize: vertical;
-    font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  }
-
-  .prompt-tab {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    border-radius: 0.375rem;
-    color: var(--text-secondary);
-    background-color: transparent;
-    border: 1px solid transparent;
-    transition: all 0.15s ease;
-  }
-
-  .prompt-tab:hover {
-    background-color: var(--bg-tertiary);
-  }
-
-  .prompt-tab-active {
-    background-color: var(--bg-tertiary);
-    border-color: var(--border-primary);
-    color: var(--text-primary);
-  }
-</style>

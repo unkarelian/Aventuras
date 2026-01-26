@@ -1,0 +1,22 @@
+<script lang="ts">
+	import type { WithElementRef, WithoutChildren } from "bits-ui";
+	import type { HTMLTextareaAttributes } from "svelte/elements";
+	import { cn } from "$lib/utils/cn.js";
+
+	let {
+		ref = $bindable(null),
+		value = $bindable(),
+		class: className,
+		...restProps
+	}: WithoutChildren<WithElementRef<HTMLTextareaAttributes>> = $props();
+</script>
+
+<textarea
+	bind:this={ref}
+	class={cn(
+		"border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring flex min-h-[80px] w-full rounded-md border px-3 py-2 text-base focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+		className
+	)}
+	bind:value
+	{...restProps}
+></textarea>

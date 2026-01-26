@@ -8,7 +8,7 @@
     type StreamEvent
   } from '$lib/services/ai/interactiveLorebook';
   import { OpenAIProvider } from '$lib/services/ai/openrouter';
-  import { settings, getDefaultInteractiveLorebookSettings } from '$lib/stores/settings.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import DiffView from './DiffView.svelte';
   import {
     X, Send, Loader2, Bot, User, ChevronDown, ChevronUp,
@@ -17,6 +17,10 @@
   import { fade, slide } from 'svelte/transition';
   import { onMount, onDestroy, tick } from 'svelte';
   import { parseMarkdown } from '$lib/utils/markdown';
+  import { Button } from '$lib/components/ui/button';
+  import { Textarea } from '$lib/components/ui/textarea';
+  import { Badge } from '$lib/components/ui/badge';
+  import { cn } from '$lib/utils/cn';
   import { isTouchDevice } from '$lib/utils/swipe';
 
   // AbortController for cancelling ongoing requests
@@ -377,34 +381,20 @@
 </script>
 
 <div
-  class="fixed inset-0 z-50 flex flex-col bg-surface-800 md:relative md:inset-auto md:z-auto md:w-[400px] md:border-l md:border-surface-700"
+  class="flex flex-col h-full w-full bg-background border-l-0 md:border-l border-border"
   in:slide={{ axis: 'x', duration: 200 }}
 >
-  <!-- Header -->
-  <div class="flex items-center justify-between px-4 py-4 md:py-3 border-b border-surface-700 bg-surface-800/80 pt-safe">
-    <div class="flex items-center gap-2">
-      <Bot class="h-5 w-5 text-purple-400" />
-      <span class="font-medium text-surface-100">AI Assistant</span>
-    </div>
-    <button
-      class="p-2.5 md:p-1.5 rounded-md text-surface-400 hover:text-surface-200 hover:bg-surface-700 -mr-1 md:mr-0"
-      onclick={onClose}
-      title="Close chat"
-    >
-      <X class="h-6 w-6 md:h-5 md:w-5" />
-    </button>
-  </div>
-
   <!-- Approve All Banner -->
   {#if pendingCount >= 2}
-    <div class="px-4 py-2 bg-purple-500/10 border-b border-purple-500/30" in:slide>
-      <button
-        class="w-full flex items-center justify-center gap-2 py-2 rounded-md bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 font-medium text-sm transition-colors"
+    <div class="px-4 py-2 bg-primary/10 border-b border-primary/20" in:slide>
+      <Button
+        variant="ghost"
+        class="w-full justify-center text-primary hover:text-primary hover:bg-primary/10 gap-2 h-auto py-2"
         onclick={handleApproveAll}
       >
         <CheckCheck class="h-4 w-4" />
         Approve All ({pendingCount} changes)
-      </button>
+      </Button>
     </div>
   {/if}
 
@@ -415,34 +405,43 @@
   >
     {#each messages as message (message.id)}
       <div
-        class="flex {message.role === 'user' ? 'justify-end' : 'justify-start'}"
+        class={cn(
+          "flex w-full",
+          message.role === 'user' ? 'justify-end' : 'justify-start'
+        )}
         in:fade={{ duration: 150 }}
       >
-        <div class="max-w-[90%] md:max-w-[85%] {message.role === 'user' ? 'order-2' : 'order-1'}">
+        <div class={cn(
+          "max-w-[90%] md:max-w-[85%]",
+          message.role === 'user' ? 'order-2' : 'order-1'
+        )}>
           <!-- Message bubble -->
           <div
-            class="rounded-lg p-3 {message.role === 'user'
-              ? 'bg-accent-500/20 text-accent-100'
-              : 'bg-surface-700 text-surface-100'}"
+            class={cn(
+              "rounded-lg p-3 text-sm",
+              message.role === 'user'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted/50 border'
+            )}
           >
             <!-- Icon -->
             <div class="flex items-start gap-2">
               {#if message.role === 'assistant'}
-                <Bot class="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                <Bot class="h-4 w-4 mt-0.5 flex-shrink-0 text-primary" />
               {:else}
-                <User class="h-4 w-4 text-accent-400 mt-0.5 flex-shrink-0" />
+                <User class="h-4 w-4 mt-0.5 flex-shrink-0 opacity-80" />
               {/if}
               <div class="flex-1 min-w-0">
-                <div class="text-sm chat-markdown prose-content break-words">{@html parseMarkdown(message.content)}</div>
+                <div class="chat-markdown prose-content break-words">{@html parseMarkdown(message.content)}</div>
               </div>
             </div>
 
             <!-- Reasoning (collapsible) -->
             {#if message.role === 'assistant' && formatReasoning(message)}
               {@const reasoning = formatReasoning(message)}
-              <div class="mt-2 pt-2 border-t border-surface-600/50">
+              <div class="mt-2 pt-2 border-t border-border/50">
                 <button
-                  class="flex items-center gap-1.5 text-xs text-surface-400 hover:text-surface-300"
+                  class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   onclick={() => toggleReasoning(message.id)}
                 >
                   <Brain class="h-3 w-3" />
@@ -454,7 +453,7 @@
                   {/if}
                 </button>
                 {#if expandedReasoning.has(message.id)}
-                  <div class="mt-2 text-xs text-surface-400 whitespace-pre-wrap" in:slide>
+                  <div class="mt-2 text-xs text-muted-foreground whitespace-pre-wrap font-mono bg-muted/30 p-2 rounded" in:slide>
                     {reasoning}
                   </div>
                 {/if}
@@ -466,11 +465,11 @@
           {#if message.toolCalls && message.toolCalls.length > 0}
             <div class="mt-2 space-y-1">
               {#each message.toolCalls as toolCall (toolCall.id)}
-                <div class="flex items-center gap-2 px-2 py-1.5 rounded-md bg-surface-700/50 text-xs">
-                  <Wrench class="h-3 w-3 text-blue-400 flex-shrink-0" />
-                  <span class="text-blue-300 font-medium">{formatToolCallName(toolCall.name)}</span>
+                <div class="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/30 text-xs border">
+                  <Wrench class="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  <span class="font-medium text-muted-foreground">{formatToolCallName(toolCall.name)}</span>
                   {#if toolCall.args && Object.keys(toolCall.args).length > 0}
-                    <span class="text-surface-500">
+                    <span class="text-muted-foreground/70">
                       {#if toolCall.name === 'list_entries' && toolCall.args.type}
                         (type: {toolCall.args.type})
                       {:else if toolCall.name === 'get_entry' && toolCall.args.index !== undefined}
@@ -504,9 +503,12 @@
                 {:else}
                   <!-- Approved/Rejected indicator -->
                   <div
-                    class="flex items-center gap-2 px-3 py-2 rounded-md text-sm {change.status === 'approved'
-                      ? 'bg-green-500/10 text-green-400'
-                      : 'bg-red-500/10 text-red-400'}"
+                    class={cn(
+                      "flex items-center gap-2 px-3 py-2 rounded-md text-sm border",
+                      change.status === 'approved'
+                        ? 'bg-green-500/10 text-green-500 border-green-500/20'
+                        : 'bg-destructive/10 text-destructive border-destructive/20'
+                    )}
                     in:fade
                   >
                     {#if change.status === 'approved'}
@@ -523,7 +525,10 @@
           {/if}
 
           <!-- Timestamp -->
-          <div class="mt-1 text-xs text-surface-500 {message.role === 'user' ? 'text-right' : ''}">
+          <div class={cn(
+            "mt-1 text-xs text-muted-foreground",
+            message.role === 'user' ? 'text-right' : ''
+          )}>
             {new Date(message.timestamp).toLocaleTimeString()}
           </div>
         </div>
@@ -534,23 +539,23 @@
     {#if isGenerating}
       <div class="flex justify-start" in:fade>
         <div class="max-w-[90%] md:max-w-[85%]">
-          <div class="bg-surface-700 rounded-lg p-3 text-surface-100">
+          <div class="bg-muted/50 border rounded-lg p-3">
             <div class="flex items-start gap-2">
-              <Bot class="h-4 w-4 text-purple-400 mt-0.5 flex-shrink-0" />
+              <Bot class="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
               <div class="flex-1 min-w-0">
                 <!-- Active tool calls -->
                 {#if activeToolCalls.length > 0}
                   <div class="space-y-1">
                     {#each activeToolCalls as toolCall (toolCall.id)}
-                      <div class="flex items-center gap-2 px-2 py-1.5 rounded-md bg-surface-600/50 text-xs" in:fade>
+                      <div class="flex items-center gap-2 px-2 py-1.5 rounded-md bg-background text-xs border" in:fade>
                         {#if toolCall.result === '...'}
-                          <Loader2 class="h-3 w-3 text-blue-400 animate-spin flex-shrink-0" />
+                          <Loader2 class="h-3 w-3 text-primary animate-spin flex-shrink-0" />
                         {:else}
-                          <Wrench class="h-3 w-3 text-blue-400 flex-shrink-0" />
+                          <Wrench class="h-3 w-3 text-muted-foreground flex-shrink-0" />
                         {/if}
-                        <span class="text-blue-300 font-medium">{formatToolCallName(toolCall.name)}</span>
+                        <span class="font-medium">{formatToolCallName(toolCall.name)}</span>
                         {#if toolCall.args && Object.keys(toolCall.args).length > 0}
-                          <span class="text-surface-500">
+                          <span class="text-muted-foreground">
                             {#if toolCall.name === 'create_entry' && toolCall.args.name}
                               ({toolCall.args.name})
                             {:else if toolCall.name === 'list_entries' && toolCall.args.type}
@@ -564,7 +569,7 @@
                     {/each}
                   </div>
                 {:else if isThinking}
-                  <div class="flex items-center gap-2 text-sm text-surface-400">
+                  <div class="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 class="h-4 w-4 animate-spin" />
                     <span>Thinking...</span>
                   </div>
@@ -579,8 +584,8 @@
 
   <!-- Error display -->
   {#if error}
-    <div class="px-4 py-2 bg-red-500/10 border-t border-red-500/30" in:slide>
-      <div class="flex items-center gap-2 text-sm text-red-400">
+    <div class="px-4 py-2 bg-destructive/10 border-t border-destructive/20" in:slide>
+      <div class="flex items-center gap-2 text-sm text-destructive">
         <AlertCircle class="h-4 w-4" />
         <span>{error}</span>
       </div>
@@ -588,18 +593,19 @@
   {/if}
 
   <!-- Input area -->
-  <div class="p-4 border-t border-surface-700 bg-surface-800/80 pb-safe">
-    <div class="flex items-end gap-2 md:gap-2">
-      <textarea
+  <div class="p-4 border-t bg-muted/10 pb-safe">
+    <div class="flex items-end gap-2">
+      <Textarea
         bind:value={inputValue}
         onkeydown={handleKeyDown}
         placeholder="Describe what you'd like to add..."
-        rows="2"
-        class="flex-1 resize-none rounded-lg border border-surface-600 bg-surface-700 px-3 py-3 md:py-2 text-base md:text-sm text-surface-100 placeholder-surface-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500/50"
+        rows={2}
+        class="min-h-[2.5rem] resize-none"
         disabled={isGenerating || !service}
-      ></textarea>
-      <button
-        class="flex items-center justify-center h-12 w-12 md:h-11 md:w-11 rounded-lg bg-purple-600 text-white hover:bg-purple-500 active:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      />
+      <Button
+        size="icon"
+        class={cn("h-11 w-11 shrink-0", isGenerating && "opacity-80")}
         onclick={handleSend}
         disabled={!inputValue.trim() || isGenerating || !service}
         title="Send message"
@@ -609,10 +615,10 @@
         {:else}
           <Send class="h-6 w-6" />
         {/if}
-      </button>
+      </Button>
     </div>
-    <div class="mt-2 text-xs text-surface-500 hidden md:block">
-      Press {isTouchDevice() ? 'Shift+Enter to send, Enter for new line' : 'Enter to send, Shift+Enter for new line'}
+    <div class="mt-2 text-xs text-muted-foreground hidden md:block text-center">
+       Press {isTouchDevice() ? 'Shift+Enter to send, Enter for new line' : 'Enter to send, Shift+Enter for new line'}
     </div>
   </div>
 </div>

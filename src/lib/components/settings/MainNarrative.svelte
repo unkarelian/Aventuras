@@ -1,10 +1,24 @@
 <script lang="ts">
-  import { settings } from "$lib/stores/settings.svelte";
+  import {
+    settings,
+    DEFAULT_OPENROUTER_PROFILE_ID,
+  } from "$lib/stores/settings.svelte";
   import { Cpu, RefreshCw } from "lucide-svelte";
   import ProviderOnlySelector from "./ProviderOnlySelector.svelte";
   import type { ProviderInfo } from "$lib/services/ai/types";
   import { OpenAIProvider } from "$lib/services/ai/openrouter";
   import type { ReasoningEffort } from "$lib/types";
+  import { cn } from "$lib/utils/cn";
+
+  // Shadcn Components
+  import * as Card from "$lib/components/ui/card";
+  import * as Select from "$lib/components/ui/select";
+  import { Label } from "$lib/components/ui/label";
+  import { Button } from "$lib/components/ui/button";
+  import { Slider } from "$lib/components/ui/slider";
+  import { Input } from "$lib/components/ui/input";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import ModelSelector from "./ModelSelector.svelte";
 
   interface Props {
     providerOptions: ProviderInfo[];
@@ -114,211 +128,227 @@
       isLoadingModels = false;
     }
   }
+
+  let selectedProfileName = $derived(
+    settings.apiSettings.profiles.find(
+      (p) => p.id === settings.apiSettings.mainNarrativeProfileId,
+    )?.name || "Select Profile",
+  );
+
+  let isOpenRouter = $derived.by(() => {
+    const p = settings.apiSettings.profiles.find(
+      (p) => p.id === settings.apiSettings.mainNarrativeProfileId,
+    );
+    if (!p) return false;
+    // Check if it's the default OpenRouter profile OR if the base URL contains openrouter.ai
+    return (
+      p.id === DEFAULT_OPENROUTER_PROFILE_ID ||
+      (p.baseUrl && p.baseUrl.toLowerCase().includes("openrouter"))
+    );
+  });
+
+  // Proxy states for sliders to ensure correct array type binding
+  let tempValue = $state([settings.apiSettings.temperature]);
+  let tokensValue = $state([settings.apiSettings.maxTokens]);
+  let reasoningValue = $state([
+    getReasoningIndex(settings.apiSettings.reasoningEffort),
+  ]);
+
+  $effect(() => {
+    tempValue = [settings.apiSettings.temperature];
+  });
+
+  $effect(() => {
+    tokensValue = [settings.apiSettings.maxTokens];
+  });
+
+  $effect(() => {
+    reasoningValue = [getReasoningIndex(settings.apiSettings.reasoningEffort)];
+  });
+
+  function updateTemperature(v: number[]) {
+    settings.setTemperature(v[0]);
+  }
+
+  function updateTokens(v: number[]) {
+    settings.setMaxTokens(v[0]);
+  }
+
+  function updateReasoning(v: number[]) {
+    settings.setMainReasoningEffort(getReasoningValue(v[0]));
+  }
 </script>
 
-<div class="card bg-surface-800 p-4 border border-surface-700">
-  <div class="flex items-center gap-2 mb-4">
-    <Cpu class="h-5 w-5 text-accent-400" />
-    <h3 class="text-sm font-semibold text-surface-100">Main Narrative</h3>
-  </div>
+<Card.Root>
+  <Card.Header>
+    <Card.Title class="flex items-center gap-2 text-base">
+      <Cpu class="h-5 w-5 text-primary" />
+      Main Narrative
+    </Card.Title>
+  </Card.Header>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-    <!-- API Endpoint -->
-    <div>
-      <label class="mb-1.5 block text-xs font-medium text-surface-400">
-        API Endpoint
-      </label>
-      <select
-        class="input text-sm"
-        value={settings.apiSettings.mainNarrativeProfileId}
-        onchange={(e) => handleSetMainNarrativeProfile(e.currentTarget.value)}
-      >
-        {#each settings.apiSettings.profiles as profile (profile.id)}
-          <option value={profile.id}>
-            {profile.name}
-            {#if profile.id === settings.getDefaultProfileIdForProvider()}
-              (Default){/if}
-          </option>
-        {/each}
-      </select>
-    </div>
-
-    <!-- Model Select -->
-    <div>
-      <div class="mb-1.5 flex items-center justify-between">
-        <label class="text-xs font-medium text-surface-400"> Model </label>
-        <button
-          class="flex items-center gap-1 text-xs text-accent-400 hover:text-accent-300 disabled:opacity-50"
-          onclick={fetchModelsToProfile}
-          disabled={isLoadingModels}
-        >
-          <span class={isLoadingModels ? "animate-spin" : ""}>
-            <RefreshCw class="h-3 w-3" />
-          </span>
-          Refresh
-        </button>
-      </div>
-
+  <Card.Content class="grid gap-3 pt-4">
+    <div class="grid gap-2">
+      <ModelSelector
+        class="grid-cols-1 md:grid-cols-2"
+        profileId={settings.apiSettings.mainNarrativeProfileId}
+        model={settings.apiSettings.defaultModel}
+        onProfileChange={(id) => handleSetMainNarrativeProfile(id)}
+        onModelChange={(m) => settings.setDefaultModel(m)}
+        onRefreshModels={fetchModelsToProfile}
+        isRefreshingModels={isLoadingModels}
+      />
       {#if modelError}
-        <p class="mb-1 text-xs text-amber-400">{modelError}</p>
+        <p class="text-xs text-destructive">{modelError}</p>
       {/if}
+    </div>
 
-      <select
-        class="input text-sm"
-        value={settings.apiSettings.defaultModel}
-        onchange={(e) => settings.setDefaultModel(e.currentTarget.value)}
-        disabled={isLoadingModels}
-      >
-        {#if isLoadingModels}
-          <option>Loading models...</option>
-        {:else if profileModels.length === 0}
-          <option value="">No models - click Refresh</option>
-        {:else}
-          {#each profileModels as modelId}
-            <option value={modelId}>{modelId}</option>
-          {/each}
-        {/if}
-      </select>
-      {#if profileModels.length > 0}
-        <p class="mt-1 text-xs text-surface-500">
-          {profileModels.length} models available
+    <!-- Temperature & Max Tokens Row -->
+    <div
+      class={cn(
+        "grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t",
+        settings.advancedRequestSettings.manualMode &&
+          "opacity-50 pointer-events-none",
+      )}
+    >
+      <div class="grid gap-4">
+        <div class="flex justify-between">
+          <Label>Temperature</Label>
+          <span class="text-xs text-muted-foreground"
+            >{settings.apiSettings.temperature.toFixed(1)}</span
+          >
+        </div>
+        <Slider
+          bind:value={tempValue}
+          min={0}
+          max={2}
+          step={0.1}
+          onValueChange={updateTemperature}
+        />
+        <div class="flex justify-between text-xs text-muted-foreground">
+          <span>Focused</span>
+          <span>Creative</span>
+        </div>
+      </div>
+
+      <div class="grid gap-4">
+        <div class="flex justify-between items-center">
+          <Label>Max Tokens</Label>
+        </div>
+        <div class="flex gap-4 pt-0.5 justify-start items-start">
+          <div class="flex-1 flex flex-col gap-4.5">
+            <Slider
+              bind:value={tokensValue}
+              min={1024}
+              max={128000}
+              step={1024}
+              onValueChange={updateTokens}
+            />
+            <div class="flex justify-between text-xs text-muted-foreground">
+              <span>1K</span>
+              <span>128K</span>
+            </div>
+          </div>
+          <div class="-mt-5.5">
+            <Input
+              type="number"
+              class="w-24 h-8 text-left"
+              value={settings.apiSettings.maxTokens}
+              oninput={(e) => {
+                const value = parseInt(e.currentTarget.value);
+                if (!isNaN(value)) {
+                  settings.setMaxTokens(value);
+                }
+              }}
+              onchange={(e) => {
+                const value = parseInt(e.currentTarget.value);
+                if (value < 1024) settings.setMaxTokens(1024);
+                if (value > 128000) settings.setMaxTokens(128000);
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Thinking & Provider Row -->
+    <div
+      class={cn(
+        "grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t",
+        settings.advancedRequestSettings.manualMode &&
+          "opacity-50 pointer-events-none",
+      )}
+    >
+      <div class="grid gap-4">
+        <div class="flex justify-between">
+          <Label
+            >Thinking: {reasoningLabels[
+              settings.apiSettings.reasoningEffort
+            ]}</Label
+          >
+        </div>
+        <Slider
+          bind:value={reasoningValue}
+          min={0}
+          max={3}
+          step={1}
+          onValueChange={updateReasoning}
+        />
+        <div class="flex justify-between text-xs text-muted-foreground">
+          <span>Off</span>
+          <span>Low</span>
+          <span>Med</span>
+          <span>High</span>
+        </div>
+      </div>
+
+      {#if isOpenRouter}
+        <div>
+          <ProviderOnlySelector
+            providers={providerOptions}
+            selected={settings.apiSettings.providerOnly}
+            disabled={settings.advancedRequestSettings.manualMode}
+            onChange={(next) => {
+              settings.setMainProviderOnly(next);
+            }}
+          />
+        </div>
+      {/if}
+    </div>
+
+    {#if settings.advancedRequestSettings.manualMode}
+      <div class="mt-4 pt-4 border-t">
+        <div class="mb-2 flex items-center justify-between">
+          <Label>Manual Request Body (JSON)</Label>
+          <Button
+            variant="text"
+            size="sm"
+            class="h-auto p-0"
+            onclick={() =>
+              onOpenManualBodyEditor(
+                "Main Narrative",
+                settings.apiSettings.manualBody,
+                (next) => {
+                  settings.apiSettings.manualBody = next;
+                  settings.setMainManualBody(next);
+                },
+              )}
+          >
+            Pop out
+          </Button>
+        </div>
+        <Textarea
+          bind:value={settings.apiSettings.manualBody}
+          onblur={() =>
+            settings.setMainManualBody(settings.apiSettings.manualBody)}
+          class="min-h-[100px] resize-y font-mono w-full"
+          rows={4}
+        />
+        <p class="text-xs text-muted-foreground mt-1">
+          Overrides request parameters; messages and tools are managed by
+          Aventuras.
         </p>
-      {/if}
-    </div>
-  </div>
-
-  <!-- Temperature & Max Tokens Row -->
-  <div
-    class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-surface-700"
-    class:opacity-50={settings.advancedRequestSettings.manualMode}
-  >
-    <div>
-      <label class="mb-1.5 block text-xs font-medium text-surface-400">
-        Temperature: {settings.apiSettings.temperature.toFixed(1)}
-      </label>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.1"
-        value={settings.apiSettings.temperature}
-        oninput={(e) =>
-          settings.setTemperature(parseFloat(e.currentTarget.value))}
-        disabled={settings.advancedRequestSettings.manualMode}
-        class="w-full"
-      />
-      <div class="flex justify-between text-xs text-surface-500 mt-1">
-        <span>Focused</span>
-        <span>Creative</span>
       </div>
-    </div>
-
-    <div>
-      <label class="mb-1.5 block text-xs font-medium text-surface-400">
-        Max Tokens: {settings.apiSettings.maxTokens.toLocaleString()}
-      </label>
-      <input
-        type="range"
-        min="256"
-        max="1000000"
-        step="1"
-        value={settings.apiSettings.maxTokens}
-        oninput={(e) => settings.setMaxTokens(parseInt(e.currentTarget.value))}
-        disabled={settings.advancedRequestSettings.manualMode}
-        class="w-full"
-      />
-      <input
-        type="number"
-        min="256"
-        max="1000000"
-        value={settings.apiSettings.maxTokens}
-        oninput={(e) => {
-          const value = parseInt(e.currentTarget.value);
-          if (!isNaN(value) && value >= 256 && value <= 1000000) {
-            settings.setMaxTokens(value);
-          }
-        }}
-        disabled={settings.advancedRequestSettings.manualMode}
-        class="input w-full text-sm mt-2"
-        placeholder="256 - 1,000,000"
-      />
-    </div>
-  </div>
-
-  <!-- Thinking & Provider Row -->
-  <div
-    class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-surface-700"
-    class:opacity-50={settings.advancedRequestSettings.manualMode}
-  >
-    <div>
-      <label class="mb-1.5 block text-xs font-medium text-surface-400">
-        Thinking: {reasoningLabels[settings.apiSettings.reasoningEffort]}
-      </label>
-      <input
-        type="range"
-        min="0"
-        max="3"
-        step="1"
-        value={getReasoningIndex(settings.apiSettings.reasoningEffort)}
-        onchange={(e) =>
-          settings.setMainReasoningEffort(
-            getReasoningValue(parseInt(e.currentTarget.value)),
-          )}
-        disabled={settings.advancedRequestSettings.manualMode}
-        class="w-full"
-      />
-      <div class="flex justify-between text-xs text-surface-500 mt-1">
-        <span>Off</span>
-        <span>Low</span>
-        <span>Med</span>
-        <span>High</span>
-      </div>
-    </div>
-
-    <div>
-      <ProviderOnlySelector
-        providers={providerOptions}
-        selected={settings.apiSettings.providerOnly}
-        disabled={settings.advancedRequestSettings.manualMode}
-        onChange={(next) => {
-          settings.setMainProviderOnly(next);
-        }}
-      />
-    </div>
-  </div>
-
-  {#if settings.advancedRequestSettings.manualMode}
-    <div class="mt-4 pt-4 border-t border-surface-700">
-      <div class="mb-1 flex items-center justify-between">
-        <label class="text-xs font-medium text-surface-400"
-          >Manual Request Body (JSON)</label
-        >
-        <button
-          class="text-xs text-accent-400 hover:text-accent-300"
-          onclick={() =>
-            onOpenManualBodyEditor(
-              "Main Narrative",
-              settings.apiSettings.manualBody,
-              (next) => {
-                settings.apiSettings.manualBody = next;
-                settings.setMainManualBody(next);
-              },
-            )}
-        >
-          Pop out
-        </button>
-      </div>
-      <textarea
-        bind:value={settings.apiSettings.manualBody}
-        onblur={() =>
-          settings.setMainManualBody(settings.apiSettings.manualBody)}
-        class="input text-xs min-h-[100px] resize-y font-mono w-full"
-        rows="4"
-      ></textarea>
-      <p class="text-xs text-surface-500 mt-1">
-        Overrides request parameters; messages and tools are managed by
-        Aventuras.
-      </p>
-    </div>
-  {/if}
-</div>
+    {/if}
+  </Card.Content>
+</Card.Root>

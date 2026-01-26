@@ -22,7 +22,7 @@
   
   // Check if reasoning is enabled in API settings
   let isReasoningEnabled = $derived(
-    settings.apiSettings.reasoningEffort !== 'off' && settings.apiSettings.enableThinking
+    settings.apiSettings.reasoningEffort !== 'off'
   );
   
   // Live token counts (separate)
@@ -37,11 +37,11 @@
 </script>
 
   <!-- Streaming content container -->
-  <div class="rounded-lg border-l-4 border-l-accent-500 bg-accent-500/5 px-4 pb-4 pt-3 animate-fade-in">
+  <div class="rounded-lg border border-border border-l-4 border-l-muted-foreground/40 bg-card shadow-sm px-4 pb-4 pt-3 animate-fade-in">
     <!-- Header row -->
     <div class="flex items-center gap-2 mb-2">
       <BookOpen 
-        class="h-4 w-4 shrink-0 translate-y-px text-accent-400 {isContentPhase || !isReasoningEnabled ? 'animate-pulse' : ''}"
+        class="h-4 w-4 shrink-0 translate-y-px text-muted-foreground {isContentPhase || !isReasoningEnabled ? 'animate-pulse' : ''}"
       />
       
       <!-- Reasoning toggle (inline icon) - only show if reasoning is enabled -->
@@ -50,21 +50,21 @@
       {/if}
       
       <!-- Live token counts with phase-based highlighting -->
-      <span class="text-[11px] bg-surface-700/50 px-1.5 py-0.5 rounded tabular-nums">
+      <span class="text-[11px] bg-muted px-1.5 py-0.5 rounded tabular-nums">
         {#if isReasoningEnabled && reasoningTokens > 0}
           <span 
             class="transition-colors duration-200"
-            class:text-surface-400={isReasoningPhase}
-            class:text-surface-500={!isReasoningPhase}
+            class:text-primary={isReasoningPhase}
+            class:text-muted-foreground={!isReasoningPhase}
           >{reasoningTokens}r</span>
-          <span class="text-surface-600 mx-0.5">+</span>
+          <span class="text-muted-foreground/50 mx-0.5">+</span>
         {/if}
         <span 
           class="transition-colors duration-200"
-          class:text-surface-400={isContentPhase}
-          class:text-surface-500={!isContentPhase}
+          class:text-primary={isContentPhase}
+          class:text-muted-foreground={!isContentPhase}
         >{contentTokens}</span>
-        <span class="text-surface-500 ml-0.5">tokens</span>
+        <span class="text-muted-foreground ml-0.5">tokens</span>
       </span>
 
       <!-- Spacer to push buttons to the right -->
@@ -92,7 +92,7 @@
         </div>
       {:else if isReasoningPhase || isThinking}
         <!-- Pending Content Indicator (while reasoning or thinking) -->
-        <div class="story-text prose-content animate-fade-in text-surface-500 mt-1">
+        <div class="story-text prose-content animate-fade-in text-muted-foreground mt-1">
           <span class="typing-indicator">
             <span>.</span><span>.</span><span>.</span>
           </span>

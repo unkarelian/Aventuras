@@ -1,7 +1,8 @@
-import type { VaultCharacter, VaultCharacterType, Character } from '$lib/types';
+import type { VaultCharacter, Character } from '$lib/types';
 import { database } from '$lib/services/database';
 import { discoveryService, type DiscoveryCard } from '$lib/services/discovery';
 import { readCharacterCardFile, parseCharacterCard, sanitizeCharacterCard } from '$lib/services/characterCardImporter';
+import { ui } from './ui.svelte';
 
 const DEBUG = true;
 
@@ -21,16 +22,6 @@ class CharacterVaultStore {
 
   // Loading state
   isLoaded = $state(false);
-
-  // Derived: protagonists only
-  get protagonists(): VaultCharacter[] {
-    return this.characters.filter(c => c.characterType === 'protagonist');
-  }
-
-  // Derived: supporting characters only
-  get supportingCharacters(): VaultCharacter[] {
-    return this.characters.filter(c => c.characterType === 'supporting');
-  }
 
   // Derived: favorites
   get favorites(): VaultCharacter[] {
@@ -106,19 +97,11 @@ class CharacterVaultStore {
    */
   async saveFromStory(
     storyCharacter: Character,
-    asType: VaultCharacterType,
     storyId: string
   ): Promise<VaultCharacter> {
-    const isProtagonist = storyCharacter.relationship === 'self';
-
     return this.add({
       name: storyCharacter.name,
       description: storyCharacter.description,
-      characterType: asType,
-      background: null,
-      motivation: null,
-      role: isProtagonist ? null : storyCharacter.relationship,
-      relationshipTemplate: isProtagonist ? null : storyCharacter.relationship,
       traits: [...storyCharacter.traits],
       visualDescriptors: [...(storyCharacter.visualDescriptors || [])],
       portrait: storyCharacter.portrait,
@@ -135,13 +118,12 @@ class CharacterVaultStore {
    * Returns the data needed to create a story Character.
    */
   copyToStory(vaultCharacter: VaultCharacter, storyId: string, branchId: string | null): Omit<Character, 'id'> {
-    const isProtagonist = vaultCharacter.characterType === 'protagonist';
-
     return {
       storyId,
       name: vaultCharacter.name,
       description: vaultCharacter.description,
-      relationship: isProtagonist ? 'self' : (vaultCharacter.relationshipTemplate || null),
+      // Relationship, motivation, and role will be set by the wizard or default
+      relationship: null, 
       traits: [...vaultCharacter.traits],
       visualDescriptors: [...vaultCharacter.visualDescriptors],
       portrait: vaultCharacter.portrait,
@@ -159,13 +141,6 @@ class CharacterVaultStore {
       return this.characters;
     }
     return database.searchVaultCharacters(query);
-  }
-
-  /**
-   * Get characters by type.
-   */
-  getByType(type: VaultCharacterType): VaultCharacter[] {
-    return this.characters.filter(c => c.characterType === type);
   }
 
   /**
@@ -189,11 +164,6 @@ class CharacterVaultStore {
     return this.add({
       name: sanitized.name,
       description: sanitized.description,
-      characterType: 'supporting',
-      background: sanitized.background || originalCard.scenario || null,
-      motivation: sanitized.motivation,
-      role: sanitized.role,
-      relationshipTemplate: null,
       traits: sanitized.traits || [],
       visualDescriptors: sanitized.visualDescriptors || [],
       portrait: null,
@@ -226,11 +196,6 @@ class CharacterVaultStore {
     return this.add({
       name: card.name,
       description: card.description || card.creator_notes || null,
-      characterType: 'supporting',
-      background: card.scenario || null,
-      motivation: null,
-      role: null,
-      relationshipTemplate: null,
       traits,
       visualDescriptors: [],
       portrait: null,
@@ -255,11 +220,6 @@ class CharacterVaultStore {
       id: tempId,
       name: card.name,
       description: card.description || 'Importing...',
-      characterType: 'supporting',
-      background: null,
-      motivation: null,
-      role: null,
-      relationshipTemplate: null,
       traits: [],
       visualDescriptors: [],
       portrait: card.avatarUrl || null,
@@ -281,25 +241,20 @@ class CharacterVaultStore {
 
     // 2. Process in background
     this._processDiscoveryImport(tempId, card).catch(err => {
-      console.error('[CharacterVault] Background import failed:', err);
+      const message = err instanceof Error ? err.message : `Failed to import ${card.name}`;
+      ui.showToast(message, 'error');
       this.characters = this.characters.filter(c => c.id !== tempId);
     });
   }
 
   private async _processDiscoveryImport(tempId: string, card: DiscoveryCard): Promise<void> {
-    try {
-      const blob = await discoveryService.downloadCard(card);
-      const file = new File([blob], `${card.name}.${blob.type.includes('json') ? 'json' : 'png'}`, { type: blob.type });
-      
-      await this._processFileImport(tempId, file, {
-        sourceUrl: card.imageUrl || card.avatarUrl,
-        tags: card.tags
-      });
-    } catch (error) {
-      console.error(`Import failed for ${card.name}`, error);
-      this.characters = this.characters.filter(c => c.id !== tempId);
-      throw error;
-    }
+    const blob = await discoveryService.downloadCard(card);
+    const file = new File([blob], `${card.name}.${blob.type.includes('json') ? 'json' : 'png'}`, { type: blob.type });
+    
+    await this._processFileImport(tempId, file, {
+      sourceUrl: card.imageUrl || card.avatarUrl,
+      tags: card.tags
+    });
   }
 
   /**
@@ -315,11 +270,6 @@ class CharacterVaultStore {
       id: tempId,
       name: name,
       description: 'Importing from file...',
-      characterType: 'supporting',
-      background: null,
-      motivation: null,
-      role: null,
-      relationshipTemplate: null,
       traits: [],
       visualDescriptors: [],
       portrait: null,
@@ -338,7 +288,8 @@ class CharacterVaultStore {
 
     // 2. Process in background
     this._processFileImport(tempId, file, {}).catch(err => {
-      console.error('[CharacterVault] File import failed:', err);
+      const message = err instanceof Error ? err.message : `Failed to import ${name}`;
+      ui.showToast(message, 'error');
       this.characters = this.characters.filter(c => c.id !== tempId);
     });
   }
@@ -381,11 +332,6 @@ class CharacterVaultStore {
         id: tempId,
         name: sanitized?.name || parsed.name,
         description: sanitized?.description || parsed.description || parsed.creator_notes || null,
-        characterType: 'supporting',
-        background: sanitized?.background || parsed.scenario || null,
-        motivation: sanitized?.motivation || null,
-        role: sanitized?.role || null,
-        relationshipTemplate: null,
         traits: sanitized?.traits || (parsed.personality ? parsed.personality.split(/[,;]/).map(t => t.trim()).filter(Boolean).slice(0, 10) : []),
         visualDescriptors: sanitized?.visualDescriptors || [],
         portrait: portrait || null,
@@ -410,6 +356,7 @@ class CharacterVaultStore {
       log('Completed import for:', finalData.name);
 
     } catch (error) {
+      this.characters = this.characters.filter(c => c.id !== tempId);
       throw error;
     }
   }

@@ -3,17 +3,12 @@
   import { ui } from "$lib/stores/ui.svelte";
   import { exportService } from "$lib/services/export";
   import { ask } from "@tauri-apps/plugin-dialog";
-  import {
-    BookOpen,
-    Trash2,
-    Clock,
-    Sparkles,
-    Upload,
-    RefreshCw,
-    Archive,
-    Plus,
-  } from "lucide-svelte";
+  import { BookOpen, Upload, RefreshCw, Archive, Plus } from "lucide-svelte";
   import SetupWizard from "../wizard/SetupWizard.svelte";
+
+  import { Button } from "$lib/components/ui/button";
+  import EmptyState from "$lib/components/ui/empty-state/empty-state.svelte";
+  import StoryCard from "$lib/components/story/StoryCard.svelte";
 
   // File input for import (HTML-based for mobile compatibility)
   let importFileInput: HTMLInputElement;
@@ -50,35 +45,6 @@
     }
   }
 
-  function formatDate(timestamp: number): string {
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  }
-
-  function getGenreColor(genre: string | null): string {
-    switch (genre) {
-      case "Fantasy":
-        return "bg-purple-500/20 text-purple-400";
-      case "Sci-Fi":
-        return "bg-cyan-500/20 text-cyan-400";
-      case "Mystery":
-        return "bg-amber-500/20 text-amber-400";
-      case "Horror":
-        return "bg-red-500/20 text-red-400";
-      case "Slice of Life":
-        return "bg-green-500/20 text-green-400";
-      case "Historical":
-        return "bg-orange-500/20 text-orange-400";
-      default:
-        return "bg-surface-700 text-surface-400";
-    }
-  }
-
-  let importError = $state<string | null>(null);
-
   function triggerImport() {
     importFileInput?.click();
   }
@@ -87,8 +53,6 @@
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
-
-    importError = null;
 
     try {
       const content = await file.text();
@@ -99,13 +63,13 @@
         await story.loadStory(result.storyId);
         ui.setActivePanel("story");
       } else if (result.error) {
-        importError = result.error;
-        setTimeout(() => (importError = null), 5000);
+        ui.showToast(result.error, "error");
       }
     } catch (error) {
-      importError =
-        error instanceof Error ? error.message : "Failed to read file";
-      setTimeout(() => (importError = null), 5000);
+      ui.showToast(
+        error instanceof Error ? error.message : "Failed to read file",
+        "error",
+      );
     }
 
     // Reset file input for re-selection
@@ -113,42 +77,44 @@
   }
 </script>
 
-<div class="h-full overflow-y-auto p-4 sm:p-6 relative">
-  <div class="mx-auto max-w-4xl min-h-full flex flex-col">
+<div class="h-full overflow-y-auto p-4 sm:p-6 relative bg-background">
+  <div class="mx-auto max-w-5xl min-h-full flex flex-col">
     <!-- Header -->
-    <div class="mb-6 sm:mb-8 flex items-start justify-between gap-4 shrink-0">
-      <div>
-        <h1 class="text-xl sm:text-2xl font-bold text-surface-100">
+    <div
+      class="mb-6 sm:mb-8 flex flex-row items-start justify-between gap-3 sm:gap-4"
+    >
+      <div class="flex-1 min-w-0 mr-2">
+        <h1
+          class="pb-1 text-xl sm:text-3xl font-bold tracking-tight text-foreground truncate"
+        >
           Story Library
         </h1>
-        <p class="text-sm sm:text-base text-surface-400">
-          Your adventures await
+        <p class="-mt-1 text-sm sm:text-base text-muted-foreground truncate">
+          Your adventures await...
         </p>
       </div>
-      <div class="flex items-center gap-2 flex-nowrap">
-        <button
-          class="btn btn-secondary flex items-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 text-sm"
-          onclick={() => ui.openSyncModal()}
+      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <Button
+          icon={RefreshCw}
+          label="Sync"
+          variant="outline"
           title="Sync stories between devices"
-        >
-          <RefreshCw class="h-4 w-4 sm:h-5 sm:w-5" />
-          <span class="hidden xs:inline">Sync</span>
-        </button>
-        <button
-          class="btn btn-secondary flex items-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 text-sm"
+          onclick={() => ui.openSyncModal()}
+        />
+        <Button
+          icon={Archive}
+          label="Vault"
+          variant="outline"
+          title="Vault"
           onclick={() => ui.setActivePanel("vault")}
-          title="Vault - Manage reusable characters and lorebooks"
-        >
-          <Archive class="h-4 w-4 sm:h-5 sm:w-5" />
-          <span class="hidden xs:inline">Vault</span>
-        </button>
-        <button
-          class="btn btn-secondary flex items-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 text-sm"
+        />
+        <Button
+          icon={Upload}
+          label="Import"
+          variant="outline"
+          title="Import Story"
           onclick={triggerImport}
-        >
-          <Upload class="h-4 w-4 sm:h-5 sm:w-5" />
-          <span class="hidden xs:inline">Import</span>
-        </button>
+        />
         <input
           type="file"
           accept="*/*,.avt,.json,application/json,application/octet-stream"
@@ -156,90 +122,32 @@
           bind:this={importFileInput}
           onchange={handleImportFileSelect}
         />
-        <button
-          class="btn btn-primary flex items-center gap-1.5 sm:gap-2 min-h-[44px] px-3 sm:px-4 text-sm"
+        <Button
+          variant="default"
+          icon={Plus}
+          label="New Story"
+          title="New Story"
           onclick={openSetupWizard}
-        >
-          <Plus class="h-4 w-4 sm:h-5 sm:w-5" />
-          <span class="hidden xs:inline">New</span>
-        </button>
+        />
       </div>
     </div>
 
-    <!-- Import error message -->
-    {#if importError}
-      <div class="mb-4 rounded-lg bg-red-500/20 p-3 text-sm text-red-400">
-        {importError}
-      </div>
-    {/if}
-
     <!-- Stories grid -->
     {#if story.allStories.length === 0}
-      <div
-        class="flex flex-col items-center justify-center flex-1 text-center px-4 pb-20"
-      >
-        <BookOpen class="mb-2 h-12 w-12 sm:h-16 sm:w-16 text-surface-600" />
-        <h2 class="text-lg sm:text-xl font-semibold text-surface-300">
-          No stories yet
-        </h2>
-        <p class="mt-1 text-sm sm:text-base text-surface-500">
-          Create your first adventure to get started
-        </p>
-        <button
-          class="btn btn-primary flex items-center justify-center gap-2 min-h-[48px] mt-4"
-          onclick={openSetupWizard}
-        >
-          <Plus class="h-5 w-5" />
-          Create Story
-        </button>
-      </div>
+      <EmptyState
+        icon={BookOpen}
+        title="No stories yet"
+        description="Create your first adventure to get started."
+        actionLabel="Create Story"
+        onAction={openSetupWizard}
+        class="pb-20"
+      />
     {:else}
       <div
-        class="grid gap-3 sm:gap-4 grid-cols-1 xs:grid-cols-2 lg:grid-cols-3"
+        class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
       >
         {#each story.allStories as s (s.id)}
-          <div
-            role="button"
-            tabindex="0"
-            onclick={() => openStory(s.id)}
-            onkeydown={(e) => e.key === "Enter" && openStory(s.id)}
-            class="card group cursor-pointer text-left transition-colors hover:border-accent-500/50 hover:bg-surface-700/50 active:bg-surface-700 min-h-[80px]"
-          >
-            <div class="flex items-start justify-between">
-              <div class="flex-1 min-w-0">
-                <h3
-                  class="font-semibold text-surface-100 group-hover:text-accent-400 truncate"
-                >
-                  {s.title}
-                </h3>
-                {#if s.genre}
-                  <span
-                    class="mt-1 inline-block rounded-full px-2 py-0.5 text-xs {getGenreColor(
-                      s.genre,
-                    )}"
-                  >
-                    {s.genre}
-                  </span>
-                {/if}
-              </div>
-              <button
-                onclick={(e) => deleteStory(s.id, e)}
-                class="rounded p-2 text-surface-500 sm:opacity-0 transition-opacity hover:bg-red-500/20 hover:text-red-400 group-hover:opacity-100 min-h-[40px] min-w-[40px] flex items-center justify-center -mr-1 -mt-1"
-                title="Delete story"
-              >
-                <Trash2 class="h-4 w-4" />
-              </button>
-            </div>
-            {#if s.description}
-              <p class="mt-2 line-clamp-2 text-sm text-surface-400">
-                {s.description}
-              </p>
-            {/if}
-            <div class="mt-3 flex items-center gap-1 text-xs text-surface-500">
-              <Clock class="h-3 w-3" />
-              <span>Updated {formatDate(s.updatedAt)}</span>
-            </div>
-          </div>
+          <StoryCard story={s} onOpen={openStory} onDelete={deleteStory} />
         {/each}
       </div>
     {/if}
@@ -250,7 +158,7 @@
     href="https://discord.gg/DqVzhSPC46"
     target="_blank"
     rel="noopener noreferrer"
-    class="hidden sm:flex fixed bottom-safe-4 left-safe-4 items-center gap-2 rounded-lg bg-[#5865F2] px-3 py-2 text-sm text-white shadow-lg transition-all hover:bg-[#4752C4] hover:scale-105"
+    class="hidden sm:flex fixed bottom-6 left-6 items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground shadow-lg transition-all hover:bg-secondary/80 hover:scale-105 z-40"
   >
     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
       <path

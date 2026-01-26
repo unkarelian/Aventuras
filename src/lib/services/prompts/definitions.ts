@@ -1806,9 +1806,6 @@ Respond with valid JSON only (no markdown code blocks):
 {
   "name": "The character's actual name (what {{char}} refers to)",
   "description": "1-2 paragraphs describing who this character is - their role, personality, and key characteristics. Written as clean prose.",
-  "background": "1-2 paragraphs of backstory, history, and context. Null if not provided in the card.",
-  "motivation": "What drives this character - their goals, desires, or purpose. 1-2 sentences. Null if not clear.",
-  "role": "A short role descriptor like 'Mentor', 'Rival', 'Guardian', 'Companion', etc. Null if unclear.",
   "traits": ["array", "of", "3-8", "personality", "traits"],
   "visualDescriptors": ["array", "of", "physical", "appearance", "details", "for", "image", "generation"]
 }
@@ -1819,18 +1816,6 @@ Respond with valid JSON only (no markdown code blocks):
 - Who is this character? What makes them interesting?
 - Combine personality and role information
 - Clean, engaging prose without roleplay formatting
-
-### background  
-- Their history, where they come from, important past events
-- Set to null if the card doesn't provide meaningful backstory
-
-### motivation
-- What do they want? What drives their actions?
-- Set to null if not discernible from the card
-
-### role
-- A simple archetype or function: "Mentor", "Love Interest", "Antagonist", "Guide", "Companion", "Ruler", etc.
-- Set to null if the character doesn't fit a clear role
 
 ### traits
 - Personality traits as single words or short phrases

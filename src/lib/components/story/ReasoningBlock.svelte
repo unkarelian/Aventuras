@@ -1,18 +1,20 @@
 <script lang="ts">
-  import { slide } from 'svelte/transition';
-  import { parseMarkdown } from '$lib/utils/markdown';
-  import { ui } from '$lib/stores/ui.svelte';
-  import { settings } from '$lib/stores/settings.svelte';
-  import { Brain } from 'lucide-svelte';
+  import { slide } from "svelte/transition";
+  import { parseMarkdown } from "$lib/utils/markdown";
+  import { ui } from "$lib/stores/ui.svelte";
+  import { settings } from "$lib/stores/settings.svelte";
+  import { Brain } from "lucide-svelte";
+  import { Button } from "$lib/components/ui/button";
+  import { cn } from "$lib/utils/cn";
 
-  let { 
-    content, 
+  let {
+    content,
     isStreaming = false,
     isReasoningPhase = false,
     entryId,
     showToggleOnly = false,
-  }: { 
-    content: string; 
+  }: {
+    content: string;
     isStreaming?: boolean;
     isReasoningPhase?: boolean;
     entryId?: string;
@@ -30,7 +32,7 @@
   // Toggle function that updates the appropriate store (only when enabled)
   function toggleOpen() {
     if (!isToggleEnabled) return;
-    
+
     if (isStreaming) {
       ui.setStreamingReasoningExpanded(!isOpen);
     } else if (entryId) {
@@ -40,100 +42,51 @@
 
   // Toggle is only enabled when showReasoning is on (regardless of streaming state)
   let isToggleEnabled = $derived(settings.uiSettings.showReasoning);
-  
+
   // Content panel visibility respects the setting
   let isContentVisible = $derived(settings.uiSettings.showReasoning);
-  
+
   let renderedContent = $derived(parseMarkdown(content));
 </script>
 
 {#if showToggleOnly}
   <!-- Toggle-only mode: just the icon button for header row -->
-  <button 
-    class="reasoning-toggle"
-    class:is-open={isOpen}
-    class:is-streaming={isStreaming}
-    class:is-disabled={!isToggleEnabled}
+  <Button
+    variant="text"
+    size="icon"
+    class={cn(
+      "h-6 w-6 relative",
+      !isToggleEnabled && "opacity-50 cursor-not-allowed",
+      isStreaming
+        ? "text-blue-400"
+        : isOpen
+          ? "text-foreground"
+          : "text-muted-foreground",
+    )}
     onclick={toggleOpen}
-    title={isToggleEnabled ? (isOpen ? "Hide thinking" : "Show thinking") : "Reasoning display is disabled in settings"}
+    disabled={!isToggleEnabled}
+    title={isToggleEnabled
+      ? isOpen
+        ? "Hide thinking"
+        : "Show thinking"
+      : "Reasoning display is disabled in settings"}
   >
-    <Brain class="h-3.5 w-3.5 {isReasoningPhase ? 'animate-pulse' : ''}" />
+    <Brain class={cn("h-3.5 w-3.5", isReasoningPhase && "animate-pulse")} />
     {#if isStreaming}
-      <span class="streaming-indicator"></span>
+      <span
+        class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse"
+      ></span>
     {/if}
-  </button>
+  </Button>
 {:else}
   <!-- Content panel mode: the expanded reasoning content -->
   {#if isContentVisible && isOpen}
-    <div class="reasoning-panel" transition:slide={{ duration: 150 }}>
-      <div class="reasoning-text prose-content">
+    <div class="py-2 mb-2" transition:slide>
+      <div
+        class="text-xs leading-relaxed text-muted-foreground italic break-words prose-content"
+      >
         {@html renderedContent}
       </div>
     </div>
   {/if}
 {/if}
-
-<style>
-  .reasoning-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    padding: 0.25rem;
-    border-radius: 0.25rem;
-    background: transparent;
-    border: none;
-    color: var(--color-surface-500, #64748b);
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  @media (hover: hover) {
-    .reasoning-toggle:not(.is-disabled):hover {
-      color: var(--color-surface-300, #cbd5e1);
-      background: var(--color-surface-700, #334155);
-    }
-  }
-
-  .reasoning-toggle.is-open {
-    color: var(--color-surface-300, #cbd5e1);
-  }
-
-  .reasoning-toggle.is-streaming {
-    color: var(--color-accent-400, #60a5fa);
-  }
-
-  .reasoning-toggle.is-disabled {
-    cursor: default;
-    pointer-events: none;
-  }
-
-  .streaming-indicator {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: var(--color-accent-400, #60a5fa);
-    animation: pulse 1.5s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.8); }
-  }
-
-  .reasoning-panel {
-    padding: 0.5rem 0;
-    margin-bottom: 0.5rem;
-  }
-
-  .reasoning-text {
-    font-size: 0.8rem;
-    line-height: 1.5;
-    color: var(--color-surface-400, #94a3b8);
-    font-style: italic;
-    word-break: break-word;
-  }
-</style>

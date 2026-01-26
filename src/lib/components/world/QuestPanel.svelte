@@ -8,11 +8,19 @@
     XCircle,
     Circle,
     Pencil,
-    Trash2,
     ChevronDown,
-    ChevronUp,
+    Save,
+    X
   } from "lucide-svelte";
   import type { StoryBeat } from "$lib/types";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Label } from "$lib/components/ui/label";
+  import * as Select from "$lib/components/ui/select";
+  import IconRow from "$lib/components/ui/icon-row.svelte";
+  import { cn } from "$lib/utils/cn";
 
   let showAddForm = $state(false);
   let newTitle = $state("");
@@ -23,20 +31,10 @@
   let editDescription = $state("");
   let editType = $state<StoryBeat["type"]>("quest");
   let editStatus = $state<StoryBeat["status"]>("pending");
-  let confirmingDeleteId = $state<string | null>(null);
 
   function toggleCollapse(beatId: string) {
     const isCollapsed = ui.isEntityCollapsed(beatId);
     ui.toggleEntityCollapsed(beatId, !isCollapsed);
-  }
-
-  function getSectionLineCount(beat: StoryBeat): number {
-    let lines = 0;
-    if (beat.description) {
-      const words = beat.description.split(/\s+/).length;
-      lines += Math.ceil(words / 8);
-    }
-    return lines;
   }
 
   async function addBeat() {
@@ -82,7 +80,6 @@
 
   async function deleteBeat(beat: StoryBeat) {
     await story.deleteStoryBeat(beat.id);
-    confirmingDeleteId = null;
   }
 
   function getStatusIcon(status: string) {
@@ -103,15 +100,15 @@
   function getStatusColor(status: string) {
     switch (status) {
       case "pending":
-        return "text-surface-500";
+        return "text-muted-foreground";
       case "active":
-        return "text-amber-400";
+        return "text-amber-500";
       case "completed":
-        return "text-green-400";
+        return "text-green-500";
       case "failed":
-        return "text-red-400";
+        return "text-destructive";
       default:
-        return "text-surface-400";
+        return "text-muted-foreground";
     }
   }
 
@@ -133,189 +130,255 @@
   }
 </script>
 
-<div class="space-y-3">
-  <div class="flex items-center justify-between">
-    <h3 class="font-medium text-surface-200">Story Beats</h3>
-    <button
-      class="sm:btn-ghost rounded p-1"
+<div class="flex flex-col gap-1 pb-12">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-2">
+    <h3 class="text-xl font-bold tracking-tight text-foreground">Story Beats</h3>
+    <Button
+      variant="text"
+      size="icon"
+      class="h-6 w-6 text-muted-foreground hover:text-foreground"
       onclick={() => (showAddForm = !showAddForm)}
       title="Add story beat"
     >
-      <Plus class="h-4 w-4" />
-    </button>
+      <Plus class="h-6! w-6!" />
+    </Button>
   </div>
 
+  <!-- Add Form -->
   {#if showAddForm}
-    <div class="card space-y-2">
-      <input
-        type="text"
-        bind:value={newTitle}
-        placeholder="Title"
-        class="input text-sm"
-      />
-      <select bind:value={newType} class="input text-sm">
-        <option value="quest">Quest</option>
-        <option value="milestone">Milestone</option>
-        <option value="revelation">Revelation</option>
-        <option value="event">Event</option>
-        <option value="plot_point">Plot Point</option>
-      </select>
-      <textarea
-        bind:value={newDescription}
-        placeholder="Description (optional)"
-        class="input text-sm"
-        rows="2"
-      ></textarea>
-      <div class="flex justify-end gap-2">
-        <button
-          class="btn btn-secondary text-xs"
+    <div class="rounded-lg border border-border bg-card p-3 shadow-sm mb-2">
+      <div class="space-y-3">
+        <Input
+          type="text"
+          bind:value={newTitle}
+          placeholder="Title"
+          class="h-8 text-sm"
+        />
+        
+        <Select.Root type="single" bind:value={newType}>
+          <Select.Trigger class="h-8 text-xs w-full">
+            <div class="flex items-center gap-2 overflow-hidden">
+               <span class="truncate">{getTypeLabel(newType)}</span>
+            </div>
+          </Select.Trigger>
+          <Select.Content>
+            <Select.Item value="quest" label="Quest" />
+            <Select.Item value="milestone" label="Milestone" />
+            <Select.Item value="revelation" label="Revelation" />
+            <Select.Item value="event" label="Event" />
+            <Select.Item value="plot_point" label="Plot Point" />
+          </Select.Content>
+        </Select.Root>
+
+        <Textarea
+          bind:value={newDescription}
+          placeholder="Description (optional)"
+          class="resize-none text-sm min-h-15"
+          rows={2}
+        />
+      </div>
+      <div class="mt-3 flex justify-end gap-2">
+        <Button
+          variant="text"
+          size="sm"
+          class="h-7"
           onclick={() => (showAddForm = false)}
         >
           Cancel
-        </button>
-        <button
-          class="btn btn-primary text-xs"
+        </Button>
+        <Button
+          size="sm"
+          class="h-7"
           onclick={addBeat}
           disabled={!newTitle.trim()}
         >
           Add
-        </button>
+        </Button>
       </div>
     </div>
   {/if}
 
-  <!-- Active quests -->
+  <!-- Active Quests -->
   {#if story.pendingQuests.length > 0}
-    <div class="space-y-2">
-      <h4 class="text-sm font-medium text-surface-400">Active</h4>
+    <div class="flex flex-col gap-2 mb-4">
+      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">Active</h4>
       {#each story.pendingQuests as beat (beat.id)}
         {@const StatusIcon = getStatusIcon(beat.status)}
         {@const isCollapsed = ui.isEntityCollapsed(beat.id)}
-        {@const sectionLineCount = getSectionLineCount(beat)}
-        {@const needsCollapse = sectionLineCount > 4}
-        <div class="card p-3">
-          <!-- Section 1: Icon, Title, and Type -->
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <div class="flex min-w-0 items-start gap-2 flex-1">
-              <div class="{getStatusColor(beat.status)} flex-shrink-0">
-                <StatusIcon class="h-5 w-5" />
+        {@const isEditing = editingId === beat.id}
+        {@const description = beat.translatedDescription ?? beat.description}
+        {@const hasLongDescription = (description?.length ?? 0) > 45}
+
+        <div
+          class={cn(
+            "group rounded-lg border border-border bg-card shadow-sm transition-all pl-3 pr-2 pt-3 pb-2",
+            isEditing ? "ring-1 ring-primary/20" : "",
+          )}
+        >
+          {#if isEditing}
+             <!-- EDIT MODE -->
+             <div class="space-y-3">
+              <div class="flex justify-between items-center mb-2">
+                <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Editing Beat
+                </h4>
+                <Button variant="text" size="icon" class="h-6 w-6" onclick={cancelEdit}>
+                  <X class="h-4 w-4" />
+                </Button>
               </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <span class="break-words font-medium text-surface-100"
-                    >{beat.translatedTitle ?? beat.title}</span
-                  >
-                  <span
-                    class="rounded-full bg-surface-700 px-2 py-0.5 text-xs text-surface-400"
-                  >
-                    {getTypeLabel(beat.type)}
-                  </span>
+
+              <div class="space-y-2">
+                <div class="space-y-1">
+                  <Label class="text-xs">Title</Label>
+                  <Input
+                    type="text"
+                    bind:value={editTitle}
+                    placeholder="Title"
+                    class="h-8 text-sm"
+                  />
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="space-y-1">
+                    <Label class="text-xs">Type</Label>
+                    <Select.Root type="single" bind:value={editType}>
+                      <Select.Trigger class="h-8 text-xs w-full">
+                         <div class="flex items-center gap-2 overflow-hidden">
+                           <span class="truncate">{getTypeLabel(editType)}</span>
+                        </div>
+                      </Select.Trigger>
+                      <Select.Content>
+                        <Select.Item value="quest" label="Quest" />
+                        <Select.Item value="milestone" label="Milestone" />
+                        <Select.Item value="revelation" label="Revelation" />
+                        <Select.Item value="event" label="Event" />
+                        <Select.Item value="plot_point" label="Plot Point" />
+                      </Select.Content>
+                    </Select.Root>
+                  </div>
+                  <div class="space-y-1">
+                    <Label class="text-xs">Status</Label>
+                    <Select.Root type="single" bind:value={editStatus}>
+                      <Select.Trigger class="h-8 text-xs w-full">
+                         <div class="flex items-center gap-2 overflow-hidden">
+                           <span class="truncate capitalize">{editStatus}</span>
+                        </div>
+                      </Select.Trigger>
+                      <Select.Content>
+                        <Select.Item value="pending" label="Pending" />
+                        <Select.Item value="active" label="Active" />
+                        <Select.Item value="completed" label="Completed" />
+                        <Select.Item value="failed" label="Failed" />
+                      </Select.Content>
+                    </Select.Root>
+                  </div>
+                </div>
+
+                <div class="space-y-1">
+                  <Label class="text-xs">Description</Label>
+                  <Textarea
+                    bind:value={editDescription}
+                    placeholder="Description"
+                    class="resize-none text-xs min-h-[60px]"
+                  />
                 </div>
               </div>
-            </div>
-          </div>
 
-          <!-- Section 2: Description -->
-          {#if beat.description || beat.translatedDescription}
-            <div
-              class="mt-2 space-y-2 rounded-md bg-surface-800/40"
-              class:max-h-24={isCollapsed && needsCollapse}
-              class:overflow-hidden={isCollapsed && needsCollapse}
-            >
-              <p class="break-words text-sm text-surface-400">
-                {beat.translatedDescription ?? beat.description}
-              </p>
-            </div>
-          {/if}
-
-          <!-- Action Buttons -->
-          <div
-            class="flex items-center justify-between gap-1 self-end sm:self-auto mt-3"
-          >
-            <div class="flex items-center gap-3">
-              {#if confirmingDeleteId === beat.id}
-                <button
-                  class="sm:btn-ghost rounded text-xs text-red-400 hover:bg-red-500/20"
-                  onclick={() => deleteBeat(beat)}
-                >
-                  Confirm
-                </button>
-                <button
-                  class="sm:btn-ghost roundedtext-xs"
-                  onclick={() => (confirmingDeleteId = null)}
-                >
+              <div class="flex justify-end gap-2 pt-2 border-t border-border">
+                <Button variant="text" size="sm" class="h-7 text-xs" onclick={cancelEdit}>
                   Cancel
-                </button>
-              {:else}
-                <button
-                  class="sm:btn-ghost rounded text-surface-500 hover:text-surface-200"
-                  onclick={() => startEdit(beat)}
-                  title="Edit story beat"
-                >
-                  <Pencil class="h-3.5 w-3.5" />
-                </button>
-                <button
-                  class="sm:btn-ghost rounded text-surface-500 hover:text-red-400"
-                  onclick={() => (confirmingDeleteId = beat.id)}
-                  title="Delete story beat"
-                >
-                  <Trash2 class="h-3.5 w-3.5" />
-                </button>
-              {/if}
-            </div>
-            {#if needsCollapse}
-              <button
-                class="sm:btn-ghost rounded text-surface-500 hover:text-surface-200"
-                onclick={() => toggleCollapse(beat.id)}
-                title={isCollapsed ? "Expand" : "Collapse"}
-              >
-                {#if isCollapsed}
-                  <ChevronDown class="h-3.5 w-3.5" />
-                {:else}
-                  <ChevronUp class="h-3.5 w-3.5" />
-                {/if}
-              </button>
-            {/if}
-          </div>
-          {#if editingId === beat.id}
-            <div class="mt-3 space-y-2">
-              <input
-                type="text"
-                bind:value={editTitle}
-                placeholder="Title"
-                class="input text-sm"
-              />
-              <select bind:value={editType} class="input text-sm">
-                <option value="quest">Quest</option>
-                <option value="milestone">Milestone</option>
-                <option value="revelation">Revelation</option>
-                <option value="event">Event</option>
-                <option value="plot_point">Plot Point</option>
-              </select>
-              <select bind:value={editStatus} class="input text-sm">
-                <option value="pending">Pending</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-              </select>
-              <textarea
-                bind:value={editDescription}
-                placeholder="Description (optional)"
-                class="input text-sm"
-                rows="2"
-              ></textarea>
-              <div class="flex justify-end gap-2">
-                <button class="btn btn-secondary text-xs" onclick={cancelEdit}>
-                  Cancel
-                </button>
-                <button
-                  class="btn btn-primary text-xs"
+                </Button>
+                <Button
+                  size="sm"
+                  class="h-7 text-xs px-4"
                   onclick={() => saveEdit(beat)}
                   disabled={!editTitle.trim()}
                 >
+                  <Save class="mr-1.5 h-3.5 w-3.5" />
                   Save
-                </button>
+                </Button>
               </div>
+            </div>
+          {:else}
+            <!-- DISPLAY MODE -->
+            <div class="flex items-start gap-3">
+              <!-- Icon -->
+              <div class={cn("mt-1 flex-shrink-0", getStatusColor(beat.status))}>
+                <StatusIcon class="h-4 w-4" />
+              </div>
+
+              <!-- Content -->
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <p class="font-medium leading-none text-foreground truncate pr-2">
+                    {beat.translatedTitle ?? beat.title}
+                  </p>
+                  
+                  <div class="flex items-center">
+                    <Button
+                      variant="text"
+                      size="icon"
+                      class="h-6 w-6 text-muted-foreground hover:text-foreground -my-1"
+                      onclick={() => startEdit(beat)}
+                      title="Edit"
+                    >
+                      <Pencil class="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                   <Badge variant="secondary" class="px-1.5 py-0 text-[10px] font-normal text-muted-foreground h-4">
+                     {getTypeLabel(beat.type)}
+                   </Badge>
+                </div>
+
+                {#if description}
+                  <div class="mt-2 text-xs text-muted-foreground">
+                    {#if !isCollapsed || !hasLongDescription}
+                      <p class="leading-relaxed whitespace-pre-wrap">{description}</p>
+                    {:else}
+                       <button
+                          type="button"
+                          class="truncate cursor-pointer hover:text-foreground bg-transparent border-none p-0 text-left w-full"
+                          onclick={() => toggleCollapse(beat.id)}
+                        >
+                          {description}
+                        </button>
+                    {/if}
+                  </div>
+                {/if}
+              </div>
+            </div>
+            
+            <!-- Footer Actions -->
+            <div class="flex items-center justify-between mt-1 border-t border-border/0 pt-1">
+               {#if hasLongDescription}
+                 <Button
+                  variant="text"
+                  size="icon"
+                  class="h-6 w-6 -ml-2 text-muted-foreground hover:text-foreground"
+                  onclick={() => toggleCollapse(beat.id)}
+                  title={!isCollapsed ? "Show less" : "Show more"}
+                >
+                  <ChevronDown
+                    class={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      !isCollapsed ? "rotate-180" : "",
+                    )}
+                  />
+                </Button>
+               {:else}
+                 <div></div>
+               {/if}
+               
+               <IconRow 
+                 class="ml-auto"
+                 onDelete={() => deleteBeat(beat)} 
+                 showDelete={true}
+                 confirmMessage="Delete?"
+               />
             </div>
           {/if}
         </div>
@@ -323,141 +386,116 @@
     </div>
   {/if}
 
-  {#if story.storyBeats.length === 0}
-    <p class="py-4 text-center text-sm text-surface-500">No story beats yet</p>
-  {:else}
-    <!-- Completed/Failed -->
-    {@const completedBeats = story.storyBeats.filter(
-      (b) => b.status === "completed" || b.status === "failed",
-    )}
-    {#if completedBeats.length > 0}
-      <div class="space-y-2">
-        <h4 class="text-sm font-medium text-surface-400">History</h4>
-        {#each completedBeats as beat (beat.id)}
-          {@const StatusIcon = getStatusIcon(beat.status)}
-          {@const isCollapsed = ui.isEntityCollapsed(beat.id)}
-          {@const sectionLineCount = getSectionLineCount(beat)}
-          {@const needsCollapse = sectionLineCount > 4}
-          <div class="card p-3 opacity-60">
-            <!-- Section 1: Icon and Title -->
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start">
-              <div class="flex min-w-0 items-start gap-2 flex-1">
-                <div class="{getStatusColor(beat.status)} flex-shrink-0">
-                  <StatusIcon class="h-4 w-4" />
-                </div>
-                <span class="break-words text-surface-300">{beat.translatedTitle ?? beat.title}</span>
-              </div>
-            </div>
-
-            <!-- Section 2: Description -->
-            {#if beat.description || beat.translatedDescription}
-              <div
-                class="mt-2 space-y-2 rounded-md bg-surface-800/40"
-                class:max-h-24={isCollapsed && needsCollapse}
-                class:overflow-hidden={isCollapsed && needsCollapse}
-              >
-                <p class="break-words text-sm text-surface-400">
-                  {beat.translatedDescription ?? beat.description}
-                </p>
-              </div>
-            {/if}
-
-            <!-- Action Buttons -->
-            <div
-              class="flex items-center justify-between gap-1 self-end sm:self-auto mt-3"
-            >
-              <div class="flex items-center gap-3">
-                {#if confirmingDeleteId === beat.id}
-                  <button
-                    class="sm:btn-ghost rounded text-xs text-red-400 hover:bg-red-500/20"
-                    onclick={() => deleteBeat(beat)}
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    class="sm:btn-ghost rounded text-xs"
-                    onclick={() => (confirmingDeleteId = null)}
-                  >
-                    Cancel
-                  </button>
-                {:else}
-                  <button
-                    class="sm:btn-ghost rounded text-surface-500 hover:text-surface-200"
-                    onclick={() => startEdit(beat)}
-                    title="Edit story beat"
-                  >
-                    <Pencil class="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    class="sm:btn-ghost rounded text-surface-500 hover:text-red-400"
-                    onclick={() => (confirmingDeleteId = beat.id)}
-                    title="Delete story beat"
-                  >
-                    <Trash2 class="h-3.5 w-3.5" />
-                  </button>
-                {/if}
-              </div>
-              {#if needsCollapse}
-                <button
-                  class="sm:btn-ghost rounded text-surface-500 hover:text-surface-200"
-                  onclick={() => toggleCollapse(beat.id)}
-                  title={isCollapsed ? "Expand" : "Collapse"}
-                >
-                  {#if isCollapsed}
-                    <ChevronDown class="h-3.5 w-3.5" />
-                  {:else}
-                    <ChevronUp class="h-3.5 w-3.5" />
-                  {/if}
-                </button>
-              {/if}
-            </div>
-            {#if editingId === beat.id}
-              <div class="mt-3 space-y-2">
-                <input
-                  type="text"
-                  bind:value={editTitle}
-                  placeholder="Title"
-                  class="input text-sm"
-                />
-                <select bind:value={editType} class="input text-sm">
-                  <option value="quest">Quest</option>
-                  <option value="milestone">Milestone</option>
-                  <option value="revelation">Revelation</option>
-                  <option value="event">Event</option>
-                  <option value="plot_point">Plot Point</option>
-                </select>
-                <select bind:value={editStatus} class="input text-sm">
-                  <option value="pending">Pending</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="failed">Failed</option>
-                </select>
-                <textarea
-                  bind:value={editDescription}
-                  placeholder="Description (optional)"
-                  class="input text-sm"
-                  rows="2"
-                ></textarea>
-                <div class="flex justify-end gap-2">
-                  <button
-                    class="btn btn-secondary text-xs"
-                    onclick={cancelEdit}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    class="btn btn-primary text-xs"
-                    onclick={() => saveEdit(beat)}
-                    disabled={!editTitle.trim()}
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            {/if}
-          </div>
-        {/each}
+  <!-- History / Empty State -->
+  {#if story.storyBeats.length === 0 && story.pendingQuests.length === 0}
+     <div class="flex flex-col items-center justify-center py-8 text-center rounded-lg border border-dashed border-border bg-muted/20">
+      <div class="mb-3 rounded-full bg-muted p-3">
+        <Target class="h-6 w-6 text-muted-foreground" />
       </div>
-    {/if}
+      <p class="text-sm text-muted-foreground">No story beats yet</p>
+      <Button
+        variant="text"
+        size="sm"
+        class="mt-1 h-auto text-xs text-primary gap-1.5 hover:text-primary/80"
+        onclick={() => (showAddForm = true)}
+      >
+        <Plus class="h-3.5 w-3.5" />
+        Add your first beat
+      </Button>
+    </div>
+  {:else}
+     {@const completedBeats = story.storyBeats.filter(
+        (b) => b.status === "completed" || b.status === "failed"
+      )}
+      
+      {#if completedBeats.length > 0}
+         <div class="flex flex-col gap-2">
+            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider pl-1">History</h4>
+            {#each completedBeats as beat (beat.id)}
+                {@const StatusIcon = getStatusIcon(beat.status)}
+                {@const isCollapsed = ui.isEntityCollapsed(beat.id)}
+                 {@const description = beat.translatedDescription ?? beat.description}
+                 {@const hasLongDescription = (description?.length ?? 0) > 45}
+
+                <div class="group rounded-lg border border-border bg-card/50 shadow-sm transition-all pl-3 pr-2 pt-3 pb-2 opacity-75 hover:opacity-100">
+                    <div class="flex items-start gap-3">
+                        <div class={cn("mt-1 flex-shrink-0", getStatusColor(beat.status))}>
+                            <StatusIcon class="h-4 w-4" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                             <div class="flex items-center justify-between gap-2">
+                                <p class="font-medium leading-none text-muted-foreground line-through decoration-muted-foreground/50 truncate pr-2">
+                                    {beat.translatedTitle ?? beat.title}
+                                </p>
+                                
+                                <div class="flex items-center">
+                                   <Button
+                                    variant="text"
+                                    size="icon"
+                                    class="h-6 w-6 text-muted-foreground hover:text-foreground -my-1"
+                                    onclick={() => startEdit(beat)}
+                                    title="Edit"
+                                  >
+                                    <Pencil class="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                             </div>
+                             
+                             <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                                <Badge variant="secondary" class="px-1.5 py-0 text-[10px] font-normal text-muted-foreground h-4">
+                                    {getTypeLabel(beat.type)}
+                                </Badge>
+                             </div>
+
+                             {#if description}
+                                <div class="mt-2 text-xs text-muted-foreground">
+                                    {#if !isCollapsed || !hasLongDescription}
+                                    <p class="leading-relaxed whitespace-pre-wrap">{description}</p>
+                                    {:else}
+                                    <button
+                                        type="button"
+                                        class="truncate cursor-pointer hover:text-foreground bg-transparent border-none p-0 text-left w-full"
+                                        onclick={() => toggleCollapse(beat.id)}
+                                        >
+                                        {description}
+                                        </button>
+                                    {/if}
+                                </div>
+                             {/if}
+                        </div>
+                    </div>
+                    
+                    <!-- Footer Actions -->
+                    <div class="flex items-center justify-between mt-1 border-t border-border/0 pt-1">
+                       {#if hasLongDescription}
+                         <Button
+                          variant="text"
+                          size="icon"
+                          class="h-6 w-6 -ml-2 text-muted-foreground hover:text-foreground"
+                          onclick={() => toggleCollapse(beat.id)}
+                          title={!isCollapsed ? "Show less" : "Show more"}
+                        >
+                          <ChevronDown
+                            class={cn(
+                              "h-4 w-4 transition-transform duration-200",
+                              !isCollapsed ? "rotate-180" : "",
+                            )}
+                          />
+                        </Button>
+                       {:else}
+                         <div></div>
+                       {/if}
+                       
+                       <IconRow 
+                         class="ml-auto"
+                         onDelete={() => deleteBeat(beat)} 
+                         showDelete={true}
+                         confirmMessage="Delete?"
+                       />
+                    </div>
+                </div>
+            {/each}
+         </div>
+      {/if}
   {/if}
 </div>

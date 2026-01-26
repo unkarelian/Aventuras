@@ -2,11 +2,13 @@
   import { story } from '$lib/stores/story.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { settings } from '$lib/stores/settings.svelte';
-  import { Loader2 } from 'lucide-svelte';
+  import { Loader2, BookOpen } from 'lucide-svelte';
   import StoryEntry from './StoryEntry.svelte';
   import StreamingEntry from './StreamingEntry.svelte';
   import ActionInput from './ActionInput.svelte';
   import ActionChoices from './ActionChoices.svelte';
+  import { Button } from '$lib/components/ui/button';
+  import EmptyState from '$lib/components/ui/empty-state/empty-state.svelte';
 
   let storyContainer: HTMLDivElement;
 
@@ -126,32 +128,36 @@
   >
     <div class="mx-auto max-w-3xl space-y-3 sm:space-y-4">
       {#if story.entries.length === 0 && !ui.isStreaming}
-        <div class="flex flex-col items-center justify-center py-12 sm:py-20 text-center px-2">
-          <p class="text-base sm:text-lg text-surface-400">Your adventure begins here...</p>
-          <p class="mt-2 text-sm text-surface-500">
-            Type an action below to start your story
-          </p>
-        </div>
+        <EmptyState
+          icon={BookOpen}
+          title="Your adventure begins here..."
+          description="Type an action below to start your story."
+          class="py-12 sm:py-20"
+        />
       {:else}
         <!-- Show collapsed entries indicator if there are hidden entries -->
         {#if displayedEntries.hiddenCount > 0}
-          <div class="flex flex-col items-center gap-2 py-3 mb-3 border-b border-surface-700">
-            <p class="text-sm text-surface-400">
+          <div class="flex flex-col items-center gap-2 py-3 mb-3 border-b border-border">
+            <p class="text-sm text-muted-foreground">
               {displayedEntries.hiddenCount} earlier entries hidden for performance
             </p>
             <div class="flex gap-2">
-              <button
+              <Button
+                variant="secondary"
+                size="sm"
+                class="h-7 text-xs"
                 onclick={showMoreEntries}
-                class="px-3 py-1.5 text-xs font-medium text-surface-300 bg-surface-700 hover:bg-surface-600 rounded-md transition-colors"
               >
                 Show {Math.min(LOAD_MORE_BATCH, displayedEntries.hiddenCount)} more
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="text"
+                size="sm"
+                class="h-7 text-xs"
                 onclick={showAllEntries}
-                class="px-3 py-1.5 text-xs font-medium text-surface-400 hover:text-surface-300 transition-colors"
               >
                 Show all
-              </button>
+              </Button>
             </div>
           </div>
         {/if}
@@ -167,7 +173,7 @@
 
         <!-- Show post-generation status (e.g. Updating world...) -->
         {#if ui.isGenerating && !ui.isStreaming && ui.generationStatus}
-           <div class="flex items-center justify-center py-2 text-surface-400 gap-2 animate-fade-in">
+           <div class="flex items-center justify-center py-2 text-muted-foreground gap-2 animate-fade-in">
              <Loader2 class="h-4 w-4 animate-spin" />
              <span class="text-sm">{ui.generationStatus}</span>
            </div>
@@ -182,8 +188,8 @@
   </div>
 
   <!-- Action input area -->
-  <div class="border-t border-surface-700 bg-surface-800 px-3 sm:pl-6 sm:pr-8 pt-2 pb-1 sm:py-4 pb-safe">
-    <div class="mx-auto max-w-[48rem]">
+  <div class="border-t border-border bg-card px-3 sm:pl-6 sm:pr-8 pt-2 pb-1 sm:py-4 pb-safe">
+    <div class="mx-auto max-w-3xl">
       <ActionInput />
     </div>
   </div>

@@ -43,4 +43,7 @@ export interface DiscoveryProvider {
   downloadCard(card: DiscoveryCard): Promise<Blob>;
   // Get available tags for filtering (provider-specific)
   getTags(): Promise<string[]>;
+  // Fetch full details for a card (e.g. including alternate greetings, scenario, etc.)
+  getCardDetails?(card: DiscoveryCard): Promise<DiscoveryCard>;
 }
+

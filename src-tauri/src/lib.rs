@@ -141,6 +141,12 @@ pub fn run() {
             description: "vault_tags",
             sql: include_str!("../migrations/022_vault_tags.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 23,
+            description: "simplify_character_vault",
+            sql: include_str!("../migrations/023_simplify_character_vault.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 

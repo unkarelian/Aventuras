@@ -3,13 +3,13 @@
     X,
     Search,
     Loader2,
-    ChevronDown,
-    Tag,
     Filter,
     Check,
     EyeOff,
     Eye,
     Blend,
+    Globe,
+    Tag,
   } from "lucide-svelte";
   import {
     discoveryService,
@@ -17,9 +17,20 @@
     type SearchResult,
   } from "$lib/services/discovery";
   import DiscoveryCardComponent from "./DiscoveryCard.svelte";
+  import DiscoveryCardDetails from "./DiscoveryCardDetails.svelte";
   import { characterVault } from "$lib/stores/characterVault.svelte";
   import { lorebookVault } from "$lib/stores/lorebookVault.svelte";
   import { scenarioVault } from "$lib/stores/scenarioVault.svelte";
+
+  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Badge } from "$lib/components/ui/badge";
+  import * as Select from "$lib/components/ui/select";
+  import * as ToggleGroup from "$lib/components/ui/toggle-group";
+  import * as Popover from "$lib/components/ui/popover";
+  import * as Command from "$lib/components/ui/command";
+  import { cn } from "$lib/utils/cn";
 
   interface Props {
     isOpen: boolean;
@@ -29,11 +40,9 @@
 
   let { isOpen, mode, onClose }: Props = $props();
 
-  // NSFW mode type
   type NsfwMode = "disable" | "blur" | "enable";
   const NSFW_MODE_STORAGE_KEY = "aventura:discovery:nsfwMode";
 
-  // Load persisted NSFW mode
   function loadNsfwMode(): NsfwMode {
     if (typeof localStorage !== "undefined") {
       const stored = localStorage.getItem(NSFW_MODE_STORAGE_KEY);
@@ -44,9 +53,8 @@
     return "disable";
   }
 
-  // State
   let searchQuery = $state("");
-  let activeProviderId = $state("all"); // 'all' for Search All, or provider id
+  let activeProviderId = $state("all");
   let results = $state<DiscoveryCard[]>([]);
   let isLoading = $state(false);
   let hasMore = $state(false);
@@ -54,8 +62,8 @@
   let errorMessage = $state<string | null>(null);
   let nsfwMode = $state<NsfwMode>(loadNsfwMode());
   let hasInitialSearched = $state(false);
+  let selectedCard = $state<DiscoveryCard | null>(null);
 
-  // Track known imported items (URLs)
   let importedUrls = $derived.by(() => {
     const urls = new Set<string>();
     if (mode === "character") {
@@ -74,30 +82,20 @@
     return urls;
   });
 
-  // Persist settings
   $effect(() => {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(NSFW_MODE_STORAGE_KEY, nsfwMode);
     }
   });
 
-  // Tag filtering
   let selectedTags = $state<string[]>([]);
   let tagInput = $state("");
   let showTagDropdown = $state(false);
-  let showProviderDropdown = $state(false);
   let availableTags = $state<string[]>([]);
   let isLoadingTags = $state(false);
 
-  // Derived
   let providers = $derived(discoveryService.getProviders(mode));
-  let activeProviderName = $derived(
-    activeProviderId === "all"
-      ? "All Sources"
-      : providers.find((p) => p.id === activeProviderId)?.name || "Unknown",
-  );
 
-  // Filter suggestions from available tags based on input
   let tagSuggestions = $derived(
     tagInput.trim()
       ? availableTags
@@ -106,14 +104,14 @@
               t.toLowerCase().includes(tagInput.toLowerCase()) &&
               !selectedTags.includes(t),
           )
-          .slice(0, 15)
+          .slice(0, 30)
       : [],
   );
 
-  // Popular tags (subset of available tags for quick selection)
-  let popularTags = $derived(availableTags.slice(0, 18));
+  let popularTags = $derived(
+    availableTags.slice(0, 20).filter((t) => !selectedTags.includes(t)),
+  );
 
-  // Fetch tags when modal opens or provider changes
   async function loadTags() {
     isLoadingTags = true;
     try {
@@ -131,33 +129,26 @@
     }
   }
 
-  // Load tags when modal opens and trigger initial search
   $effect(() => {
     if (isOpen) {
       loadTags();
-      // Trigger initial search when modal first opens
       if (!hasInitialSearched) {
         hasInitialSearched = true;
         handleSearch();
       }
     } else {
-      // Reset when modal closes
       hasInitialSearched = false;
     }
   });
 
-  // Reload tags when provider changes
   $effect(() => {
-    // Create dependency on activeProviderId
     const _providerId = activeProviderId;
     if (isOpen) {
       loadTags();
     }
   });
 
-  // Reset state when mode changes
   $effect(() => {
-    // Access mode to create dependency
     const _mode = mode;
     results = [];
     currentPage = 1;
@@ -211,7 +202,6 @@
       let result: SearchResult;
 
       if (activeProviderId === "all") {
-        // Use loadMoreAll for aggregated pagination
         result = await discoveryService.loadMoreAll(mode, 48);
       } else {
         const searchOptions = {
@@ -260,29 +250,6 @@
     }
   }
 
-  function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-    if (e.key === "Escape") {
-      if (showProviderDropdown) {
-        showProviderDropdown = false;
-      } else if (showTagDropdown) {
-        showTagDropdown = false;
-      } else {
-        onClose();
-      }
-    }
-  }
-
-  function selectProvider(providerId: string) {
-    activeProviderId = providerId;
-    showProviderDropdown = false;
-    results = [];
-    hasMore = false;
-    errorMessage = null;
-  }
-
   function toggleTag(tag: string) {
     if (selectedTags.includes(tag)) {
       selectedTags = selectedTags.filter((t) => t !== tag);
@@ -306,431 +273,344 @@
   function clearTags() {
     selectedTags = [];
   }
+
+  function handleViewDetails(card: DiscoveryCard) {
+    selectedCard = card;
+  }
 </script>
 
-{#if isOpen}
-  <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-  <!-- Backdrop -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-    onclick={onClose}
+<ResponsiveModal.Root open={isOpen} onOpenChange={(v) => !v && onClose()}>
+  <ResponsiveModal.Content
+    class="w-full sm:w-[calc(100%-2rem)] max-w-7xl h-[85vh] p-0 gap-0 flex flex-col overflow-hidden"
   >
-    <!-- Modal -->
-    <div
-      class="card w-full max-w-6xl h-[85vh] overflow-hidden flex flex-col shadow-2xl"
-      onclick={(e) => e.stopPropagation()}
-    >
-      <!-- Header -->
-      <div
-        class="flex items-center justify-between border-b border-surface-700 px-2 py-2 sm:px-4 sm:py-3 flex-shrink-0 bg-surface-800 -mt-2"
+    {#if selectedCard}
+      <DiscoveryCardDetails
+        card={selectedCard}
+        onBack={() => (selectedCard = null)}
+        onImport={handleImport}
+        isImported={selectedCard &&
+          importedUrls.has(selectedCard.imageUrl || selectedCard.avatarUrl)}
+        {nsfwMode}
+      />
+    {:else}
+      <ResponsiveModal.Header
+        class="px-4 py-3 border-b shrink-0 text-center sm:text-left"
       >
-        <h2
-          class="text-base sm:text-lg font-semibold text-surface-100 ml-1 sm:ml-0"
+        <ResponsiveModal.Title
+          class="flex items-center mt-2 sm:mt-0 gap-2 justify-center sm:justify-start"
         >
           Browse {mode === "character"
             ? "Characters"
             : mode === "lorebook"
               ? "Lorebooks"
               : "Scenarios"}
-        </h2>
-        <button
-          onclick={onClose}
-          class="btn-ghost rounded-lg p-1.5 hover:bg-surface-700 transition-colors -mr-1"
-        >
-          <X class="h-4 w-4" />
-        </button>
-      </div>
+        </ResponsiveModal.Title>
+        <ResponsiveModal.Description class="sr-only">
+          Find and import new {mode}s from online sources.
+        </ResponsiveModal.Description>
+      </ResponsiveModal.Header>
 
-      <!-- Controls Bar -->
-      <div
-        class="relative z-30 flex flex-col gap-2 border-b border-surface-700 px-2 py-2 sm:px-4 sm:py-3 bg-surface-800/50 flex-shrink-0"
-      >
-        <!-- Mobile: Search on top -->
-        <div class="flex gap-2 sm:hidden">
-          <div class="relative flex-1">
-            <Search
-              class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500"
-            />
-            <input
-              type="text"
-              bind:value={searchQuery}
-              onkeydown={handleKeyDown}
-              placeholder="Search..."
-              class="w-full rounded-lg border border-surface-600 bg-surface-800 py-2 pl-10 pr-4 text-sm text-surface-100 placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-            />
-          </div>
-          <button
-            onclick={handleSearch}
-            disabled={isLoading}
-            class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
+      <div class="flex flex-col border-b bg-muted/20">
+        <div class="flex flex-col gap-4 p-4">
+          <div
+            class="flex flex-col sm:flex-row items-start sm:items-center gap-4 justify-between"
           >
-            {#if isLoading}
-              <Loader2 class="h-4 w-4 animate-spin" />
-            {:else}
-              <Search class="h-4 w-4" />
-            {/if}
-          </button>
-        </div>
-
-        <!-- Filters row -->
-        <div
-          class="flex items-center gap-2 sm:overflow-visible sm:flex-wrap sm:gap-3"
-        >
-          <!-- Provider Dropdown -->
-          <div class="relative flex-shrink-0">
-            <button
-              onclick={() => {
-                showProviderDropdown = !showProviderDropdown;
-                showTagDropdown = false;
-              }}
-              class="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-surface-600 bg-surface-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-surface-200 transition-colors hover:border-surface-500 hover:bg-surface-700 whitespace-nowrap"
+            <div
+              class="flex items-center gap-2 w-full sm:w-auto overflow-x-auto sm:overflow-visible pb-1 sm:pb-0 scrollbar-hide sm:flex-1 justify-between sm:justify-normal"
             >
-              {#if activeProviderId !== "all"}
-                {@const provider = providers.find(
-                  (p) => p.id === activeProviderId,
-                )}
-                {#if provider?.icon}
-                  <img src={provider.icon} alt="" class="h-4 w-4 rounded" />
-                {/if}
-              {/if}
-              <span class="hidden sm:inline">{activeProviderName}</span>
-              <span class="sm:hidden"
-                >{activeProviderId === "all"
-                  ? "All"
-                  : providers
-                      .find((p) => p.id === activeProviderId)
-                      ?.name?.slice(0, 8) || "Source"}</span
-              >
-              <ChevronDown class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-surface-400" />
-            </button>
-
-            {#if showProviderDropdown}
-              <div
-                class="absolute left-0 top-full z-40 mt-1 min-w-[180px] rounded-lg border border-surface-600 bg-surface-800 py-1 shadow-xl"
-              >
-                <!-- All Sources option -->
-                <button
-                  onclick={() => selectProvider("all")}
-                  class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-surface-700"
-                  class:bg-surface-700={activeProviderId === "all"}
-                  class:text-primary-400={activeProviderId === "all"}
-                  class:text-surface-200={activeProviderId !== "all"}
-                >
-                  <Search class="h-4 w-4" />
-                  <span>All Sources</span>
-                  {#if activeProviderId === "all"}
-                    <Check class="ml-auto h-4 w-4" />
-                  {/if}
-                </button>
-
-                <div class="my-1 border-t border-surface-700"></div>
-
-                {#each providers as provider}
-                  <button
-                    onclick={() => selectProvider(provider.id)}
-                    class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-surface-700"
-                    class:bg-surface-700={activeProviderId === provider.id}
-                    class:text-primary-400={activeProviderId === provider.id}
-                    class:text-surface-200={activeProviderId !== provider.id}
-                  >
-                    {#if provider.icon}
-                      <img src={provider.icon} alt="" class="h-4 w-4 rounded" />
-                    {:else}
-                      <div class="h-4 w-4 rounded bg-surface-600"></div>
-                    {/if}
-                    <span>{provider.name}</span>
-                    {#if activeProviderId === provider.id}
-                      <Check class="ml-auto h-4 w-4" />
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            {/if}
-          </div>
-
-          <!-- Tag Filter Button -->
-          <div class="relative flex-shrink-0">
-            <button
-              onclick={() => {
-                showTagDropdown = !showTagDropdown;
-                showProviderDropdown = false;
-              }}
-              class="flex items-center gap-1.5 sm:gap-2 rounded-lg border border-surface-600 bg-surface-800 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm transition-colors hover:border-surface-500 hover:bg-surface-700 whitespace-nowrap"
-              class:border-primary-500={selectedTags.length > 0}
-              class:text-primary-400={selectedTags.length > 0}
-              class:text-surface-300={selectedTags.length === 0}
-            >
-              <Filter class="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              <span class="hidden sm:inline"
-                >Tags{selectedTags.length > 0
-                  ? ` (${selectedTags.length})`
-                  : ""}</span
-              >
-              <span class="sm:hidden"
-                >{selectedTags.length > 0 ? selectedTags.length : ""}</span
-              >
-              <ChevronDown class="h-3.5 w-3.5 sm:h-4 sm:w-4 text-surface-400" />
-            </button>
-
-            {#if showTagDropdown}
-              <div
-                class="absolute left-0 top-full z-10 mt-1 w-72 rounded-lg border border-surface-600 bg-surface-800 p-3 shadow-xl"
-              >
-                <!-- Custom tag input -->
-                <div class="mb-3">
-                  <div class="relative flex items-center">
-                    <input
-                      type="text"
-                      bind:value={tagInput}
-                      onkeydown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (tagSuggestions.length > 0) {
-                            toggleTag(tagSuggestions[0]);
-                            tagInput = "";
-                          } else {
-                            addCustomTag();
-                          }
-                        }
-                      }}
-                      placeholder="Type to search tags..."
-                      class="w-full rounded-lg border border-surface-600 bg-surface-900 px-3 py-2 pr-10 text-sm text-surface-200 placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-                    />
-                    <button
-                      onclick={addCustomTag}
-                      disabled={!tagInput.trim()}
-                      class="absolute right-1.5 rounded-md bg-surface-800 p-1.5 text-surface-400 transition-colors hover:bg-surface-700 hover:text-primary-400 disabled:opacity-0"
-                      title="Add tag"
-                    >
-                      <Check class="h-4 w-4" />
-                    </button>
-
-                    <!-- Autocomplete Dropdown -->
-                    {#if tagSuggestions.length > 0}
+              <div class="min-w-[140px] sm:w-[180px] flex-shrink-0">
+                <Select.Root type="single" bind:value={activeProviderId}>
+                  <Select.Trigger class="h-9 w-full">
+                    {#if activeProviderId === "all"}
                       <div
-                        class="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-surface-600 bg-surface-800 shadow-xl"
+                        class="flex items-center gap-2 text-muted-foreground min-w-0"
                       >
-                        {#each tagSuggestions as suggestion}
-                          <button
-                            onclick={() => {
-                              toggleTag(suggestion);
-                              tagInput = "";
-                            }}
-                            class="w-full px-3 py-2 text-left text-sm text-surface-200 hover:bg-surface-700 hover:text-white"
-                          >
-                            {suggestion}
-                          </button>
-                        {/each}
+                        <Globe class="h-4 w-4 shrink-0" />
+                        <span class="text-foreground truncate">All Sources</span
+                        >
+                      </div>
+                    {:else}
+                      {@const p = providers.find(
+                        (p) => p.id === activeProviderId,
+                      )}
+                      <div class="flex items-center gap-2 min-w-0">
+                        {#if p?.icon}
+                          <img
+                            src={p.icon}
+                            alt=""
+                            class="h-4 w-4 rounded shrink-0"
+                          />
+                        {:else}
+                          <Globe class="h-4 w-4 shrink-0" />
+                        {/if}
+                        <span class="truncate">{p?.name || "Unknown"}</span>
                       </div>
                     {/if}
-                  </div>
-                </div>
-
-                <!-- Selected tags -->
-                {#if selectedTags.length > 0}
-                  <div class="mb-3">
-                    <div class="mb-1.5 flex items-center justify-between">
-                      <span class="text-xs font-medium text-surface-400"
-                        >Selected</span
-                      >
-                      <button
-                        onclick={clearTags}
-                        class="text-xs text-surface-500 hover:text-surface-300"
-                        >Clear all</button
-                      >
-                    </div>
-                    <div class="flex flex-wrap gap-1.5">
-                      {#each selectedTags as tag}
-                        <button
-                          onclick={() => removeTag(tag)}
-                          class="flex items-center gap-1 rounded-full bg-primary-600/20 px-2 py-0.5 text-xs text-primary-400 transition-colors hover:bg-primary-600/30"
-                        >
-                          <Tag class="h-3 w-3" />
-                          {tag}
-                          <X class="h-3 w-3" />
-                        </button>
-                      {/each}
-                    </div>
-                  </div>
-                {/if}
-
-                <!-- Popular tags -->
-                <div>
-                  <div class="mb-1.5 flex items-center gap-2">
-                    <span class="text-xs font-medium text-surface-400"
-                      >Popular Tags</span
-                    >
-                    {#if isLoadingTags}
-                      <Loader2 class="h-3 w-3 animate-spin text-surface-500" />
-                    {/if}
-                  </div>
-                  {#if popularTags.length > 0}
-                    <div class="flex flex-wrap gap-1.5">
-                      {#each popularTags as tag}
-                        <button
-                          onclick={() => toggleTag(tag)}
-                          class="rounded-full px-2 py-0.5 text-xs transition-colors"
-                          class:bg-primary-600={selectedTags.includes(tag)}
-                          class:text-white={selectedTags.includes(tag)}
-                          class:bg-surface-700={!selectedTags.includes(tag)}
-                          class:text-surface-300={!selectedTags.includes(tag)}
-                          class:hover:bg-surface-600={!selectedTags.includes(
-                            tag,
-                          )}
-                        >
-                          {tag}
-                        </button>
-                      {/each}
-                    </div>
-                  {:else if !isLoadingTags}
-                    <p class="text-xs text-surface-500">No tags available</p>
-                  {/if}
-                </div>
+                  </Select.Trigger>
+                  <Select.Content>
+                    <Select.Item value="all">
+                      <Globe class="mr-2 h-4 w-4" />
+                      All Sources
+                    </Select.Item>
+                    {#each providers as provider}
+                      <Select.Item value={provider.id}>
+                        {#if provider.icon}
+                          <img
+                            src={provider.icon}
+                            alt=""
+                            class="mr-2 h-4 w-4 rounded"
+                          />
+                        {:else}
+                          <Globe class="mr-2 h-4 w-4" />
+                        {/if}
+                        {provider.name}
+                      </Select.Item>
+                    {/each}
+                  </Select.Content>
+                </Select.Root>
               </div>
-            {/if}
-          </div>
 
-          <!-- Divider -->
-          <div class="h-6 w-px bg-surface-700 mx-1 hidden sm:block"></div>
+              <div class="flex-shrink-0">
+                <Popover.Root bind:open={showTagDropdown}>
+                  <Popover.Trigger>
+                    {#snippet child({ props })}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        {...props}
+                        class={cn(
+                          "h-9 px-3",
+                          selectedTags.length > 0 &&
+                            "border-primary text-primary bg-primary/5",
+                        )}
+                      >
+                        <Filter class="h-4 w-4" />
+                        {#if selectedTags.length > 0}
+                          <span class="ml-1.5 text-xs font-medium tabular-nums">
+                            {selectedTags.length}
+                          </span>
+                        {/if}
+                      </Button>
+                    {/snippet}
+                  </Popover.Trigger>
+                  <Popover.Content class="p-0 w-[300px]" align="start">
+                    <Command.Root shouldFilter={false}>
+                      <Command.Input
+                        placeholder="Search tags..."
+                        bind:value={tagInput}
+                        onkeydown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            if (tagSuggestions.length > 0) {
+                              toggleTag(tagSuggestions[0]);
+                              tagInput = "";
+                            } else {
+                              addCustomTag();
+                            }
+                          }
+                        }}
+                      />
+                      <Command.List>
+                        <Command.Empty>
+                          {#if tagInput}
+                            <button
+                              class="w-full text-left px-4 py-2 text-sm"
+                              onclick={addCustomTag}
+                            >
+                              Add "{tagInput}"
+                            </button>
+                          {:else}
+                            No tags found.
+                          {/if}
+                        </Command.Empty>
+                        {#if tagSuggestions.length > 0}
+                          <Command.Group heading="Suggestions">
+                            {#each tagSuggestions as tag}
+                              <Command.Item
+                                value={tag}
+                                onSelect={() => {
+                                  toggleTag(tag);
+                                  tagInput = "";
+                                }}
+                              >
+                                <div
+                                  class="mr-2 flex h-4 w-4 items-center justify-center opacity-0"
+                                  class:opacity-100={selectedTags.includes(tag)}
+                                >
+                                  <Check class="h-4 w-4" />
+                                </div>
+                                {tag}
+                              </Command.Item>
+                            {/each}
+                          </Command.Group>
+                        {/if}
 
-          <!-- NSFW Mode Selector -->
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <span class="text-xs font-medium text-surface-400">NSFW:</span>
+                        {#if popularTags.length > 0 && !tagInput}
+                          <Command.Group heading="Popular">
+                            {#each popularTags as tag}
+                              <Command.Item
+                                value={tag}
+                                onSelect={() => toggleTag(tag)}
+                              >
+                                <div
+                                  class="mr-2 flex h-4 w-4 items-center justify-center opacity-0"
+                                  class:opacity-100={selectedTags.includes(tag)}
+                                >
+                                  <Check class="h-4 w-4" />
+                                </div>
+                                {tag}
+                              </Command.Item>
+                            {/each}
+                          </Command.Group>
+                        {/if}
+                      </Command.List>
+                    </Command.Root>
+                  </Popover.Content>
+                </Popover.Root>
+              </div>
+
+              <div
+                class="hidden sm:block w-px h-6 bg-border mx-1 shrink-0"
+              ></div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-xs font-medium text-muted-foreground"
+                  >NSFW:</span
+                >
+                <ToggleGroup.Root
+                  type="single"
+                  bind:value={nsfwMode}
+                  class="bg-muted p-1 rounded-lg gap-0 h-9 border"
+                  variant="default"
+                >
+                  <ToggleGroup.Item
+                    value="disable"
+                    class="h-7 rounded-md px-2 text-xs data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm text-muted-foreground hover:bg-transparent hover:text-foreground transition-all flex items-center gap-1.5"
+                    title="Hide NSFW"
+                  >
+                    <EyeOff class="h-3.5 w-3.5" />
+                    <span class="hidden lg:inline">Hide</span>
+                  </ToggleGroup.Item>
+                  <ToggleGroup.Item
+                    value="blur"
+                    class="h-7 rounded-md px-2 text-xs data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm text-muted-foreground hover:bg-transparent hover:text-foreground transition-all flex items-center gap-1.5"
+                    title="Blur NSFW"
+                  >
+                    <Blend class="h-3.5 w-3.5" />
+                    <span class="hidden lg:inline">Blur</span>
+                  </ToggleGroup.Item>
+                  <ToggleGroup.Item
+                    value="enable"
+                    class="h-7 rounded-md px-2 text-xs data-[state=on]:bg-red-500/10 data-[state=on]:text-red-600 data-[state=on]:shadow-sm text-muted-foreground hover:bg-transparent hover:text-red-500 transition-all flex items-center gap-1.5"
+                    title="Show NSFW"
+                  >
+                    <Eye class="h-3.5 w-3.5" />
+                    <span class="hidden lg:inline">Show</span>
+                  </ToggleGroup.Item>
+                </ToggleGroup.Root>
+              </div>
+            </div>
+
             <div
-              class="flex items-center gap-0.5 rounded-lg border border-surface-600 bg-surface-800 p-0.5"
+              class="hidden sm:flex items-center w-[250px] lg:w-[300px] shrink-0"
             >
-              <button
-                onclick={() => (nsfwMode = "disable")}
-                class="flex items-center justify-center gap-0 rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
-                class:bg-surface-600={nsfwMode === "disable"}
-                class:text-surface-100={nsfwMode === "disable"}
-                class:text-surface-400={nsfwMode !== "disable"}
-                class:hover:text-surface-200={nsfwMode !== "disable"}
-                title="Hide NSFW content"
-              >
-                <EyeOff class="h-3.5 w-3.5 sm:mr-1.5" />
-                <span class="hidden sm:inline">Hide</span>
-              </button>
-              <button
-                onclick={() => (nsfwMode = "blur")}
-                class="flex items-center justify-center gap-0 rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
-                class:bg-amber-600={nsfwMode === "blur"}
-                class:text-white={nsfwMode === "blur"}
-                class:text-surface-400={nsfwMode !== "blur"}
-                class:hover:text-amber-400={nsfwMode !== "blur"}
-                title="Blur NSFW images"
-              >
-                <Blend class="h-3.5 w-3.5 sm:mr-1.5" />
-                <span class="hidden sm:inline">Blur</span>
-              </button>
-              <button
-                onclick={() => (nsfwMode = "enable")}
-                class="flex items-center justify-center gap-0 rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
-                class:bg-red-600={nsfwMode === "enable"}
-                class:text-white={nsfwMode === "enable"}
-                class:text-surface-400={nsfwMode !== "enable"}
-                class:hover:text-red-400={nsfwMode !== "enable"}
-                title="Show NSFW content"
-              >
-                <Eye class="h-3.5 w-3.5 sm:mr-1.5" />
-                <span class="hidden sm:inline">Show</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Spacer -->
-          <div class="flex-1 hidden sm:block"></div>
-
-          <!-- Search Bar (desktop only) -->
-          <div class="hidden sm:flex gap-2">
-            <div class="relative">
-              <Search
-                class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-500"
-              />
-              <input
-                type="text"
-                bind:value={searchQuery}
-                onkeydown={handleKeyDown}
+              <Input
                 placeholder="Search..."
-                class="w-48 rounded-lg border border-surface-600 bg-surface-800 py-2 pl-10 pr-4 text-sm text-surface-100 placeholder-surface-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 sm:w-64"
+                bind:value={searchQuery}
+                onkeydown={(e) => e.key === "Enter" && handleSearch()}
+                class="h-9 rounded-r-none border-r-0 focus-visible:ring-0 focus-visible:border-primary focus-visible:z-10"
               />
+              <Button
+                onclick={handleSearch}
+                disabled={isLoading}
+                size="icon"
+                variant="outline"
+                class="h-9 w-9 rounded-l-none border-l bg-muted/50 hover:bg-muted shrink-0"
+              >
+                {#if isLoading}
+                  <Loader2 class="h-4 w-4 animate-spin" />
+                {:else}
+                  <Search class="h-4 w-4" />
+                {/if}
+              </Button>
             </div>
-            <button
-              onclick={handleSearch}
-              disabled={isLoading}
-              class="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-500 disabled:opacity-50"
-            >
-              {#if isLoading}
-                <Loader2 class="h-4 w-4 animate-spin" />
-              {:else}
-                <Search class="h-4 w-4" />
-              {/if}
-              Search
-            </button>
           </div>
+
+          <div class="flex gap-2 sm:hidden">
+            <div class="flex flex-1 items-center">
+              <Input
+                placeholder="Search..."
+                bind:value={searchQuery}
+                onkeydown={(e) => e.key === "Enter" && handleSearch()}
+                class="h-9 rounded-r-none border-r-0 focus-visible:ring-0 focus-visible:border-primary focus-visible:z-10"
+              />
+              <Button
+                onclick={handleSearch}
+                disabled={isLoading}
+                size="icon"
+                variant="outline"
+                class="h-9 w-9 rounded-l-none border-l bg-muted/50 hover:bg-muted shrink-0"
+              >
+                {#if isLoading}
+                  <Loader2 class="h-4 w-4 animate-spin" />
+                {:else}
+                  <Search class="h-4 w-4" />
+                {/if}
+              </Button>
+            </div>
+          </div>
+
+          {#if selectedTags.length > 0}
+            <div
+              class="flex flex-wrap items-center gap-2 text-sm pt-3 border-t"
+            >
+              {#each selectedTags as tag}
+                <Badge
+                  variant="secondary"
+                  class="gap-1.5 pl-2 pr-1.5 h-7 items-center font-normal"
+                >
+                  {tag}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    class="h-4 w-4 hover:bg-transparent hover:text-destructive p-0"
+                    onclick={() => removeTag(tag)}
+                  >
+                    <X class="h-3 w-3" />
+                  </Button>
+                </Badge>
+              {/each}
+              <Button
+                variant="ghost"
+                size="sm"
+                class="h-7 text-xs px-2 hover:text-destructive"
+                onclick={clearTags}
+              >
+                Clear all
+              </Button>
+            </div>
+          {/if}
         </div>
-        <!-- Close scrollable row -->
       </div>
 
-      <!-- Active Tags Display (when tags are selected) -->
-      {#if selectedTags.length > 0}
-        <div
-          class="flex items-center gap-2 border-b border-surface-700 bg-surface-800/50 px-4 py-2"
-        >
-          <span class="text-xs text-surface-500">Filtering by:</span>
-          <div class="flex flex-wrap gap-1.5">
-            {#each selectedTags as tag}
-              <span
-                class="flex items-center gap-1 rounded-full bg-primary-600/20 px-2 py-0.5 text-xs text-primary-400"
-              >
-                <Tag class="h-3 w-3" />
-                {tag}
-                <button
-                  onclick={() => removeTag(tag)}
-                  class="hover:text-primary-200"
-                >
-                  <X class="h-3 w-3" />
-                </button>
-              </span>
-            {/each}
-          </div>
-          <button
-            onclick={clearTags}
-            class="ml-2 text-xs text-surface-500 hover:text-surface-300"
-            >Clear all</button
+      <div class="flex-1 overflow-y-auto p-4 bg-muted/5">
+        {#if errorMessage}
+          <div
+            class="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4"
           >
-        </div>
-      {/if}
+            {errorMessage}
+          </div>
+        {/if}
 
-      <!-- Messages -->
-      {#if errorMessage}
-        <div
-          class="mx-4 mt-3 rounded-lg border border-red-600/50 bg-red-900/20 px-4 py-2 text-sm text-red-400"
-        >
-          {errorMessage}
-        </div>
-      {/if}
-
-      <!-- Results Grid -->
-      <div class="flex-1 overflow-y-auto p-2 sm:p-4">
         {#if results.length === 0 && !isLoading}
           <div
-            class="flex h-full flex-col items-center justify-center text-surface-500"
+            class="flex h-full flex-col items-center justify-center text-muted-foreground p-8"
           >
-            <Search class="mb-2 h-12 w-12 opacity-50" />
-            <p>
-              Search to discover {mode === "character"
-                ? "characters"
-                : mode === "lorebook"
-                  ? "lorebooks"
-                  : "scenarios"}
+            <Search class="mb-4 h-12 w-12 opacity-20" />
+            <p class="text-lg font-medium">No results found</p>
+            <p class="text-sm opacity-70">
+              Try adjusting your search terms or filters.
             </p>
-            {#if activeProviderId === "all"}
-              <p class="mt-1 text-xs text-surface-600">
-                Searching across all available sources
-              </p>
-            {/if}
           </div>
         {:else}
           <div
@@ -740,29 +620,30 @@
               <DiscoveryCardComponent
                 {card}
                 onImport={handleImport}
+                onViewDetails={handleViewDetails}
                 isImported={importedUrls.has(card.imageUrl || card.avatarUrl)}
                 {nsfwMode}
               />
             {/each}
           </div>
 
-          <!-- Load More -->
           {#if hasMore}
-            <div class="mt-6 flex justify-center">
-              <button
+            <div class="mt-8 flex justify-center pb-4">
+              <Button
+                variant="outline"
                 onclick={loadMore}
                 disabled={isLoading}
-                class="flex items-center gap-2 rounded-lg border border-surface-600 bg-surface-800 px-6 py-2 text-surface-300 transition-colors hover:bg-surface-700 disabled:opacity-50"
+                class="min-w-[150px]"
               >
                 {#if isLoading}
-                  <Loader2 class="h-4 w-4 animate-spin" />
+                  <Loader2 class="mr-2 h-4 w-4 animate-spin" />
                 {/if}
                 Load More
-              </button>
+              </Button>
             </div>
           {/if}
         {/if}
       </div>
-    </div>
-  </div>
-{/if}
+    {/if}
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>

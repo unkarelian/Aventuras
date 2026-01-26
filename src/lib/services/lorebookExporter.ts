@@ -5,6 +5,8 @@
  */
 
 import type { Entry, EntryType, EntryInjectionMode } from '$lib/types';
+import { save } from '@tauri-apps/plugin-dialog';
+import { writeTextFile } from '@tauri-apps/plugin-fs';
 
 export type ExportFormat = 'aventura' | 'sillytavern' | 'text';
 
@@ -193,37 +195,32 @@ function getFileExtension(format: ExportFormat): string {
 }
 
 /**
- * Get MIME type for format
+ * Save file using Tauri native dialog
  */
-function getMimeType(format: ExportFormat): string {
-  switch (format) {
-    case 'aventura':
-    case 'sillytavern':
-      return 'application/json';
-    case 'text':
-      return 'text/plain';
-  }
-}
+async function saveFile(content: string, defaultPath: string): Promise<boolean> {
+  try {
+    const filePath = await save({
+      defaultPath,
+      filters: [
+        { name: 'Aventura Lorebook', extensions: ['json'] },
+        { name: 'Text', extensions: ['txt'] },
+      ],
+    });
 
-/**
- * Trigger file download in browser
- */
-function downloadFile(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+    if (!filePath) return false;
+
+    await writeTextFile(filePath, content);
+    return true;
+  } catch (error) {
+    console.error('[LorebookExporter] Failed to save file:', error);
+    throw error;
+  }
 }
 
 /**
  * Export lorebook entries to the specified format
  */
-export async function exportLorebook(options: LorebookExportOptions): Promise<void> {
+export async function exportLorebook(options: LorebookExportOptions): Promise<boolean> {
   const { format, entries, filename } = options;
 
   if (entries.length === 0) {
@@ -233,7 +230,7 @@ export async function exportLorebook(options: LorebookExportOptions): Promise<vo
   let content: string;
   const baseFilename = filename ?? `lorebook-${new Date().toISOString().split('T')[0]}`;
   const extension = getFileExtension(format);
-  const mimeType = getMimeType(format);
+  // Mime type not needed for Tauri save
 
   switch (format) {
     case 'aventura':
@@ -247,7 +244,7 @@ export async function exportLorebook(options: LorebookExportOptions): Promise<vo
       break;
   }
 
-  downloadFile(content, baseFilename + extension, mimeType);
+  return await saveFile(content, baseFilename + extension);
 }
 
 /**

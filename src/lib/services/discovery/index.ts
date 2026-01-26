@@ -229,9 +229,24 @@ class DiscoveryService {
     return provider.getTags();
   }
 
+  async getCardDetails(card: DiscoveryCard): Promise<DiscoveryCard> {
+    const provider = this.providers.get(card.source);
+    if (!provider) {
+      // If provider not found or doesn't support fetching details, return original card
+      return card;
+    }
+    
+    if (provider.getCardDetails) {
+      return provider.getCardDetails(card);
+    }
+    
+    return card;
+  }
+
   /**
    * Get tags from all providers (combined and deduplicated)
    */
+
   async getAllTags(type?: 'character' | 'lorebook' | 'scenario'): Promise<string[]> {
     const providers = this.getProviders(type);
     

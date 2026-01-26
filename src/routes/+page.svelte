@@ -5,7 +5,7 @@
   import { grammarService } from "$lib/services/grammar";
   import { updaterService } from "$lib/services/updater";
   import AppShell from "$lib/components/layout/AppShell.svelte";
-  import ProviderSetupModal from "$lib/components/settings/ProviderSetupModal.svelte";
+  import WelcomeScreen from "$lib/components/intro/WelcomeScreen.svelte";
 
   let initialized = $state(false);
   let error = $state<string | null>(null);
@@ -77,12 +77,6 @@
   }
 </script>
 
-<!-- Provider Setup Modal (First Run) -->
-<ProviderSetupModal
-  isOpen={showProviderSetup}
-  onComplete={handleProviderSetupComplete}
-/>
-
 {#if error}
   <div
     class="flex h-screen w-screen items-center justify-center bg-surface-900"
@@ -99,14 +93,7 @@
     </div>
   </div>
 {:else if showProviderSetup}
-  <!-- Show loading background while provider setup is shown -->
-  <div
-    class="flex h-screen w-screen items-center justify-center bg-surface-900"
-  >
-    <div class="flex flex-col items-center gap-4">
-      <p class="text-surface-400">Welcome to Aventuras</p>
-    </div>
-  </div>
+  <WelcomeScreen onComplete={handleProviderSetupComplete} />
 {:else if !initialized}
   <div
     class="flex h-screen w-screen items-center justify-center bg-surface-900"

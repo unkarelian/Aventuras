@@ -139,7 +139,49 @@ export class ChubProvider implements DiscoveryProvider {
     return await response.blob();
   }
 
+  async getCardDetails(card: DiscoveryCard): Promise<DiscoveryCard> {
+    if (card.type === 'lorebook') {
+      // Lorebooks might have a different structure, but we can try fetching the project definition
+      return card; 
+    }
+
+    try {
+      const url = `${CHUB_API_BASE}/api/characters/${card.id}?full=true`;
+      console.log('[Chub] Fetching full details:', url);
+      
+      const response = await corsFetch(url, {
+        method: 'GET',
+        headers: { Accept: 'application/json' }
+      });
+
+      if (!response.ok) {
+        console.warn(`[Chub] Failed to fetch details for ${card.id}: ${response.status}`);
+        return card;
+      }
+
+      const data = await response.json();
+      
+      // Update the raw data with the full definition
+      // We assume data.node contains the character definition or data itself is the node
+      const fullNode = data.node || data;
+      
+      return {
+        ...card,
+        // Update specific fields if they were missing/truncated in search
+        description: fullNode.description || fullNode.tagline || card.description,
+        raw: {
+          ...card.raw,
+          ...fullNode
+        }
+      };
+    } catch (error) {
+      console.error('[Chub] Error fetching details:', error);
+      return card;
+    }
+  }
+
   async getTags(): Promise<string[]> {
+
     // Return cached tags if available
     if (cachedTags) {
       return cachedTags;

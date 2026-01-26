@@ -7,7 +7,6 @@
     ReasoningEffort,
   } from "$lib/types";
   import {
-    X,
     Upload,
     FileJson,
     Loader2,
@@ -17,9 +16,21 @@
     ChevronDown,
     Sparkles,
   } from "lucide-svelte";
-  import { swipe } from "$lib/utils/swipe";
   import { fly, fade, slide } from "svelte/transition";
-  import CompactSelect from "./CompactSelect.svelte";
+
+  // Shadcn Components
+  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import * as Select from "$lib/components/ui/select";
+  import {
+    Alert,
+    AlertDescription,
+    AlertTitle,
+  } from "$lib/components/ui/alert";
+  import { ScrollArea } from "$lib/components/ui/scroll-area";
+  import { Separator } from "$lib/components/ui/separator";
 
   interface Props {
     open: boolean;
@@ -30,7 +41,6 @@
 
   // State
   let currentStep = $state<1 | 2 | 3>(1);
-  let fileInput: HTMLInputElement;
   let dragOver = $state(false);
   let parseResult = $state<ParsedPromptImport | null>(null);
   let error = $state<string | null>(null);
@@ -41,15 +51,18 @@
 
   // Derived
   const availableProfiles = $derived(
-    settings.apiSettings.profiles.map((p) => ({ id: p.id, name: p.name })),
+    settings.apiSettings.profiles.map((p) => ({ value: p.id, label: p.name })),
   );
 
-  function getAvailableModelsForProfile(profileId: string): string[] {
+  function getAvailableModelsForProfile(profileId: string) {
     const profile = settings.apiSettings.profiles.find(
       (p) => p.id === profileId,
     );
     if (!profile) return [];
-    return [...profile.customModels, ...profile.fetchedModels];
+    return [...profile.customModels, ...profile.fetchedModels].map((m) => ({
+      value: m,
+      label: m,
+    }));
   }
 
   const importStats = $derived.by(() => {
@@ -76,15 +89,11 @@
     importSuccess = false;
   }
 
-  function handleClose() {
-    resetState();
-    onClose();
-  }
-
-  function handleFileSelect(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (file) processFile(file);
+  function handleOpenChange(newOpen: boolean) {
+    if (!newOpen) {
+      resetState();
+      onClose();
+    }
   }
 
   function handleDrop(e: DragEvent) {
@@ -114,34 +123,51 @@
 
     try {
       const text = await file.text();
-      const result = promptExportService.parseImportFile(text);
+      processContent(text);
+    } catch (err) {
+      error = err instanceof Error ? err.message : "Failed to read file";
+    }
+  }
 
-      if (!result.success) {
-        error = result.errors.join(", ");
-        return;
+  function processContent(text: string) {
+    const result = promptExportService.parseImportFile(text);
+
+    if (!result.success) {
+      error = result.errors.join(", ");
+      return;
+    }
+
+    parseResult = result;
+
+    const configs = new Map<string, ImportPresetConfig>();
+    const profiles = settings.apiSettings.profiles;
+    const defaultProfileId = profiles.length > 0 ? profiles[0].id : "";
+
+    for (const preset of result.data!.generationPresets) {
+      configs.set(preset.id, {
+        presetId: preset.id,
+        presetName: preset.name,
+        profileId: defaultProfileId,
+        model: preset.model,
+        temperature: preset.temperature,
+        maxTokens: preset.maxTokens,
+        reasoningEffort: preset.reasoningEffort,
+        providerOnly: [...preset.providerOnly],
+        manualBody: preset.manualBody,
+      });
+    }
+    presetConfigs = configs;
+    currentStep = 2;
+  }
+
+  async function handleBrowse() {
+    error = null;
+    parseResult = null;
+    try {
+      const text = await promptExportService.pickAndReadImportFile();
+      if (text) {
+        processContent(text);
       }
-
-      parseResult = result;
-
-      const configs = new Map<string, ImportPresetConfig>();
-      const profiles = settings.apiSettings.profiles;
-      const defaultProfileId = profiles.length > 0 ? profiles[0].id : "";
-
-      for (const preset of result.data!.generationPresets) {
-        configs.set(preset.id, {
-          presetId: preset.id,
-          presetName: preset.name,
-          profileId: defaultProfileId,
-          model: preset.model,
-          temperature: preset.temperature,
-          maxTokens: preset.maxTokens,
-          reasoningEffort: preset.reasoningEffort,
-          providerOnly: [...preset.providerOnly],
-          manualBody: preset.manualBody,
-        });
-      }
-      presetConfigs = configs;
-      currentStep = 2;
     } catch (err) {
       error = err instanceof Error ? err.message : "Failed to read file";
     }
@@ -173,7 +199,7 @@
       currentStep = 3;
 
       setTimeout(() => {
-        handleClose();
+        handleOpenChange(false);
       }, 2000);
     } catch (err) {
       error = err instanceof Error ? err.message : "Import failed";
@@ -183,427 +209,387 @@
   }
 </script>
 
-{#if open}
-  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-  <div
-    class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-    onclick={handleClose}
-    onkeydown={(e) => e.key === "Escape" && handleClose()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-    transition:fade={{ duration: 150 }}
-  >
-    <!-- Backdrop -->
-    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+<ResponsiveModal.Root {open} onOpenChange={handleOpenChange}>
+  <ResponsiveModal.Content class="sm:max-w-xl max-h-[85vh] flex flex-col p-0 gap-0">
+    <ResponsiveModal.Header class="px-6 pt-6 pb-4">
+      <ResponsiveModal.Title class="flex items-center gap-2">
+        <Upload class="h-5 w-5 text-primary" />
+        Import Prompts
+      </ResponsiveModal.Title>
+      <ResponsiveModal.Description>
+        {stepTitles[currentStep - 1]}
+      </ResponsiveModal.Description>
 
-    <!-- Modal -->
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <div
-      class="relative w-full sm:max-w-xl bg-surface-900 sm:rounded-2xl rounded-t-2xl rounded-b-none shadow-2xl border border-surface-700/50 max-h-[85vh] sm:max-h-[80vh] flex flex-col overflow-hidden"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
-      role="document"
-      use:swipe={{ onSwipeDown: handleClose, threshold: 50 }}
-      transition:fly={{ y: 100, duration: 200 }}
-    >
-      <!-- Mobile Handle -->
-      <div class="sm:hidden flex justify-center pt-3 pb-2">
-        <div class="w-12 h-1.5 rounded-full bg-surface-600"></div>
-      </div>
-
-      <!-- Header -->
-      <div class="px-5 sm:px-6 pt-2 sm:pt-5 pb-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="p-2 rounded-xl bg-accent-500/10">
-              <Upload class="h-5 w-5 text-accent-400" />
-            </div>
-            <div>
-              <h2 class="text-lg font-semibold text-surface-100">
-                Import Prompts
-              </h2>
-              <p class="text-xs text-surface-500">
-                {stepTitles[currentStep - 1]}
-              </p>
-            </div>
-          </div>
-          <button
-            class="p-2 rounded-lg text-surface-400 hover:text-surface-200 hover:bg-surface-800 transition-colors"
-            onclick={handleClose}
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-
-        <!-- Progress Steps -->
-        <div class="flex items-center gap-2 mt-4">
-          {#each [1, 2, 3] as step}
-            <div class="flex-1 flex items-center gap-2">
-              <div
-                class="h-1.5 flex-1 rounded-full transition-all duration-300 {step <
-                currentStep
-                  ? 'bg-accent-500'
-                  : step === currentStep
-                    ? 'bg-accent-500'
-                    : 'bg-surface-700'}"
-              ></div>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <!-- Content -->
-      <div class="flex-1 overflow-y-auto px-5 sm:px-6 pb-4">
-        <!-- Error Message -->
-        {#if error}
-          <div
-            class="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3"
-            transition:fly={{ y: -10, duration: 200 }}
-          >
-            <AlertCircle class="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p class="text-red-300 text-sm">{error}</p>
-          </div>
-        {/if}
-
-        <!-- Warnings -->
-        {#if parseResult?.warnings && parseResult.warnings.length > 0}
-          <div
-            class="mb-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3"
-          >
-            <AlertTriangle
-              class="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5"
-            />
-            <div class="text-amber-300 text-sm">
-              {#each parseResult.warnings as warning}
-                <p>{warning}</p>
-              {/each}
-            </div>
-          </div>
-        {/if}
-
-        <!-- Step 1: File Upload -->
-        {#if currentStep === 1}
-          <div class="space-y-4" transition:fade={{ duration: 150 }}>
+      <!-- Progress Steps -->
+      <div class="flex items-center gap-2 mt-4">
+        {#each [1, 2, 3] as step}
+          <div class="flex-1 flex items-center gap-2">
             <div
-              class="border-2 border-dashed rounded-2xl p-8 sm:p-10 text-center transition-all cursor-pointer {dragOver
-                ? 'border-accent-500 bg-accent-500/5 scale-[1.02]'
-                : 'border-surface-600 hover:border-surface-500 hover:bg-surface-800/30'}"
-              ondrop={handleDrop}
-              ondragover={handleDragOver}
-              ondragleave={handleDragLeave}
-              role="button"
-              tabindex="0"
-              onclick={() => fileInput.click()}
-              onkeydown={(e) => e.key === "Enter" && fileInput.click()}
-            >
-              <div class="inline-flex p-4 rounded-2xl bg-surface-800/50 mb-4">
-                <FileJson class="h-10 w-10 text-surface-400" />
-              </div>
-              <p class="text-surface-200 font-medium mb-1">
-                Drop your file here
-              </p>
-              <p class="text-sm text-surface-500">or click to browse</p>
-            </div>
-            <input
-              type="file"
-              accept=".json,application/json"
-              class="hidden"
-              bind:this={fileInput}
-              onchange={handleFileSelect}
-            />
-            <p class="text-center text-xs text-surface-500">
-              Supports Aventuras prompt export files (.json)
-            </p>
+              class="h-1.5 flex-1 rounded-full transition-all duration-300 {step <
+              currentStep
+                ? 'bg-primary'
+                : step === currentStep
+                  ? 'bg-primary'
+                  : 'bg-muted'}"
+            ></div>
           </div>
+        {/each}
+      </div>
+    </ResponsiveModal.Header>
 
-          <!-- Step 2: Configure Presets -->
-        {:else if currentStep === 2 && parseResult?.data}
-          <div class="space-y-4" transition:fade={{ duration: 150 }}>
-            <!-- Stats Summary -->
-            {#if importStats}
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div class="p-3 rounded-xl bg-surface-800/50 text-center">
-                  <div class="text-lg font-semibold text-surface-100">
-                    {importStats.templateOverrides}
-                  </div>
-                  <div class="text-xs text-surface-500">Prompts</div>
-                </div>
-                <div class="p-3 rounded-xl bg-surface-800/50 text-center">
-                  <div class="text-lg font-semibold text-surface-100">
-                    {importStats.customMacros}
-                  </div>
-                  <div class="text-xs text-surface-500">Macros</div>
-                </div>
-                <div class="p-3 rounded-xl bg-surface-800/50 text-center">
-                  <div class="text-lg font-semibold text-surface-100">
-                    {importStats.macroOverrides}
-                  </div>
-                  <div class="text-xs text-surface-500">Overrides</div>
-                </div>
-                <div class="p-3 rounded-xl bg-surface-800/50 text-center">
-                  <div class="text-lg font-semibold text-surface-100">
-                    {importStats.presets}
-                  </div>
-                  <div class="text-xs text-surface-500">Presets</div>
-                </div>
-              </div>
-            {/if}
+    <div class="flex-1 overflow-y-auto px-6 pb-6">
+      <!-- Error Message -->
+      {#if error}
+        <Alert variant="destructive" class="mb-4">
+          <AlertCircle class="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      {/if}
 
-            <!-- Presets Configuration -->
+      <!-- Warnings -->
+      {#if parseResult?.warnings && parseResult.warnings.length > 0}
+        <Alert
+          class="mb-4 border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20"
+        >
+          <AlertTriangle class="h-4 w-4 text-amber-500" />
+          <AlertTitle>Warnings</AlertTitle>
+          <AlertDescription>
+            <ul class="list-disc list-inside">
+              {#each parseResult.warnings as warning}
+                <li>{warning}</li>
+              {/each}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      {/if}
+
+      <!-- Step 1: File Upload -->
+      {#if currentStep === 1}
+        <div class="space-y-4" transition:fade={{ duration: 150 }}>
+          <button
+            class="w-full border-2 border-dashed rounded-xl p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {dragOver
+              ? 'border-primary bg-primary/5 scale-[1.02]'
+              : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'}"
+            ondrop={handleDrop}
+            ondragover={handleDragOver}
+            ondragleave={handleDragLeave}
+            onclick={handleBrowse}
+            onkeydown={(e) => e.key === "Enter" && handleBrowse()}
+          >
+            <div class="p-4 rounded-full bg-muted">
+              <FileJson class="h-8 w-8 text-muted-foreground" />
+            </div>
             <div>
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-surface-300">
-                  Generation Presets
-                </h3>
+              <p class="text-sm font-medium mb-1">Drop your file here</p>
+              <p class="text-xs text-muted-foreground">or click to browse</p>
+            </div>
+          </button>
+          <p class="text-center text-xs text-muted-foreground">
+            Supports Aventuras prompt export files (.json)
+          </p>
+        </div>
+
+        <!-- Step 2: Configure Presets -->
+      {:else if currentStep === 2 && parseResult?.data}
+        <div class="space-y-4" transition:fade={{ duration: 150 }}>
+          <!-- Stats Summary -->
+          {#if importStats}
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div
+                class="p-3 rounded-lg bg-muted/50 text-center border border-border"
+              >
+                <div class="text-lg font-bold text-foreground">
+                  {importStats.templateOverrides}
+                </div>
+                <div class="text-xs text-muted-foreground">Prompts</div>
               </div>
+              <div
+                class="p-3 rounded-lg bg-muted/50 text-center border border-border"
+              >
+                <div class="text-lg font-bold text-foreground">
+                  {importStats.customMacros}
+                </div>
+                <div class="text-xs text-muted-foreground">Macros</div>
+              </div>
+              <div
+                class="p-3 rounded-lg bg-muted/50 text-center border border-border"
+              >
+                <div class="text-lg font-bold text-foreground">
+                  {importStats.macroOverrides}
+                </div>
+                <div class="text-xs text-muted-foreground">Overrides</div>
+              </div>
+              <div
+                class="p-3 rounded-lg bg-muted/50 text-center border border-border"
+              >
+                <div class="text-lg font-bold text-foreground">
+                  {importStats.presets}
+                </div>
+                <div class="text-xs text-muted-foreground">Presets</div>
+              </div>
+            </div>
+          {/if}
 
-              <div class="space-y-2">
-                {#each parseResult.data.generationPresets as preset (preset.id)}
-                  {@const config = presetConfigs.get(preset.id)!}
-                  {@const isExpanded = expandedPreset === preset.id}
-                  {@const availableModels = getAvailableModelsForProfile(
-                    config.profileId,
-                  )}
+          <!-- Presets Configuration -->
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-medium text-muted-foreground">
+                Generation Presets
+              </h3>
+            </div>
 
-                  <div
-                    class="rounded-xl border border-surface-700 bg-surface-800/30 transition-all"
+            <div class="space-y-3">
+              {#each parseResult.data.generationPresets as preset (preset.id)}
+                {@const config = presetConfigs.get(preset.id)!}
+                {@const isExpanded = expandedPreset === preset.id}
+                {@const availableModels = getAvailableModelsForProfile(
+                  config.profileId,
+                )}
+
+                <div
+                  class="rounded-lg border border-border bg-card text-card-foreground shadow-sm transition-all"
+                >
+                  <!-- Preset Header -->
+                  <button
+                    class="w-full px-4 py-3 flex flex-col gap-3 text-left hover:bg-muted/50 transition-colors rounded-t-lg {isExpanded
+                      ? ''
+                      : 'rounded-b-lg'}"
+                    onclick={() => togglePresetExpanded(preset.id)}
                   >
-                    <!-- Preset Header with Profile & Model (always visible) -->
-                    <!-- svelte-ignore a11y_click_events_have_key_events -->
-                    <div
-                      class="w-full px-3 py-2.5 flex flex-col gap-2 text-left hover:bg-surface-800/50 transition-colors cursor-pointer rounded-t-xl {isExpanded
-                        ? ''
-                        : 'rounded-b-xl'} focus:outline-none"
-                      onclick={() => togglePresetExpanded(preset.id)}
-                      role="button"
-                      tabindex="0"
-                    >
-                      <!-- Header Row (Icon + Name + Original Model) -->
-                      <div class="flex items-center gap-3 w-full min-w-0">
-                        <Sparkles
-                          class="h-4 w-4 text-accent-400 flex-shrink-0"
-                        />
-                        <div
-                          class="flex-1 min-w-0 flex items-center gap-2 overflow-hidden"
+                    <!-- Header Row -->
+                    <div class="flex items-center gap-3 w-full min-w-0">
+                      <Sparkles class="h-4 w-4 text-primary flex-shrink-0" />
+                      <div
+                        class="flex-1 min-w-0 flex items-center gap-2 overflow-hidden"
+                      >
+                        <span class="text-sm font-medium truncate"
+                          >{preset.name}</span
                         >
-                          <span
-                            class="text-sm font-medium text-surface-100 truncate"
-                            >{preset.name}</span
+                        <span
+                          class="text-xs text-muted-foreground truncate border-l border-border pl-2"
+                        >
+                          Was: <span class="text-foreground"
+                            >{preset.model}</span
                           >
-                          <span
-                            class="text-xs text-surface-500 truncate border-l border-surface-700 pl-2"
-                          >
-                            Was: <span class="text-surface-400"
-                              >{preset.model}</span
-                            >
-                          </span>
-                        </div>
-                        <ChevronDown
-                          class="h-4 w-4 text-surface-400 transition-transform flex-shrink-0 {isExpanded
-                            ? 'rotate-180'
-                            : ''}"
-                        />
+                        </span>
                       </div>
+                      <ChevronDown
+                        class="h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 {isExpanded
+                          ? 'rotate-180'
+                          : ''}"
+                      />
+                    </div>
 
-                      <!-- Controls Row -->
-                      <div class="flex items-center gap-2 w-full">
-                        <!-- Profile Select -->
-                        <CompactSelect
+                    <!-- Controls Row (Always visible now for easier access) -->
+                    <div
+                      class="flex items-center gap-2 w-full"
+                      onclick={(e) => e.stopPropagation()}
+                    >
+                      <!-- Profile Select -->
+                      <div class="flex-1 min-w-0">
+                        <Select.Root
+                          type="single"
                           value={config.profileId}
-                          options={availableProfiles.map((p) => ({
-                            value: p.id,
-                            label: p.name,
-                          }))}
-                          class="flex-1"
-                          onSelect={(newProfileId) => {
-                            if (!newProfileId) return;
-                            const models =
-                              getAvailableModelsForProfile(newProfileId);
+                          onValueChange={(v) => {
+                            if (!v) return;
+                            const models = getAvailableModelsForProfile(v);
                             const newModel =
-                              models.length > 0 ? models[0] : config.model;
+                              models.length > 0
+                                ? models[0].value
+                                : config.model;
                             updatePresetConfig(preset.id, {
-                              profileId: newProfileId,
+                              profileId: v,
                               model: newModel,
                             });
                           }}
-                        />
+                        >
+                          <Select.Trigger class="h-8 text-xs">
+                            <span class="truncate">
+                              {availableProfiles.find(
+                                (p) => p.value === config.profileId,
+                              )?.label || "Select Profile"}
+                            </span>
+                          </Select.Trigger>
+                          <Select.Content>
+                            {#each availableProfiles as profile}
+                              <Select.Item
+                                value={profile.value}
+                                label={profile.label}
+                                >{profile.label}</Select.Item
+                              >
+                            {/each}
+                          </Select.Content>
+                        </Select.Root>
+                      </div>
 
-                        <!-- Model Select -->
-                        <CompactSelect
+                      <!-- Model Select -->
+                      <div class="flex-1 min-w-0">
+                        <Select.Root
+                          type="single"
                           value={config.model}
-                          options={availableModels.length > 0
-                            ? availableModels.map((m) => ({
-                                value: m,
-                                label: m,
-                              }))
-                            : [{ value: null, label: "No models" }]}
-                          class="flex-1"
-                          placeholder="Select model"
-                          onSelect={(newModel) => {
-                            if (newModel) {
-                              updatePresetConfig(preset.id, {
-                                model: newModel,
-                              });
-                            }
+                          onValueChange={(v) => {
+                            if (v) updatePresetConfig(preset.id, { model: v });
                           }}
-                        />
+                        >
+                          <Select.Trigger class="h-8 text-xs">
+                            <span class="truncate">
+                              {availableModels.find(
+                                (m) => m.value === config.model,
+                              )?.label ||
+                                config.model ||
+                                "Select Model"}
+                            </span>
+                          </Select.Trigger>
+                          <Select.Content>
+                            {#if availableModels.length > 0}
+                              {#each availableModels as model}
+                                <Select.Item
+                                  value={model.value}
+                                  label={model.label}>{model.label}</Select.Item
+                                >
+                              {/each}
+                            {:else}
+                              <Select.Item value="nomodel" disabled
+                                >No models available</Select.Item
+                              >
+                            {/if}
+                          </Select.Content>
+                        </Select.Root>
                       </div>
                     </div>
+                  </button>
 
-                    <!-- Expanded Settings -->
-                    {#if isExpanded}
-                      <div
-                        class="px-3 pb-3 pt-2 border-t border-surface-700/30"
-                        transition:slide={{ duration: 200 }}
-                      >
-                        <div class="grid grid-cols-2 gap-2">
-                          <!-- Temperature -->
-                          <div>
-                            <label class="text-xs text-surface-500 mb-1 block"
-                              >Temperature</label
-                            >
-                            <input
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="2"
-                              class="w-full px-2 py-1.5 rounded-md bg-surface-700/50 border border-surface-600 text-surface-100 text-sm focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-colors"
-                              value={config.temperature}
-                              oninput={(e) =>
-                                updatePresetConfig(preset.id, {
-                                  temperature:
-                                    parseFloat(e.currentTarget.value) || 0,
-                                })}
-                            />
-                          </div>
+                  <!-- Expanded Settings -->
+                  {#if isExpanded}
+                    <div
+                      class="px-4 pb-4 pt-2 border-t border-border"
+                      transition:slide={{ duration: 200 }}
+                    >
+                      <div class="grid grid-cols-2 gap-4">
+                        <!-- Temperature -->
+                        <div class="space-y-1.5">
+                          <Label class="text-xs text-muted-foreground"
+                            >Temperature</Label
+                          >
+                          <Input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            class="h-8 text-xs"
+                            value={config.temperature}
+                            oninput={(e) =>
+                              updatePresetConfig(preset.id, {
+                                temperature:
+                                  parseFloat(e.currentTarget.value) || 0,
+                              })}
+                          />
+                        </div>
 
-                          <!-- Max Tokens -->
-                          <div>
-                            <label class="text-xs text-surface-500 mb-1 block"
-                              >Max Tokens</label
-                            >
-                            <input
-                              type="number"
-                              min="1"
-                              class="w-full px-2 py-1.5 rounded-md bg-surface-700/50 border border-surface-600 text-surface-100 text-sm focus:border-accent-500 focus:ring-1 focus:ring-accent-500 transition-colors"
-                              value={config.maxTokens}
-                              oninput={(e) =>
-                                updatePresetConfig(preset.id, {
-                                  maxTokens:
-                                    parseInt(e.currentTarget.value) || 1,
-                                })}
-                            />
-                          </div>
+                        <!-- Max Tokens -->
+                        <div class="space-y-1.5">
+                          <Label class="text-xs text-muted-foreground"
+                            >Max Tokens</Label
+                          >
+                          <Input
+                            type="number"
+                            min="1"
+                            class="h-8 text-xs"
+                            value={config.maxTokens}
+                            oninput={(e) =>
+                              updatePresetConfig(preset.id, {
+                                maxTokens: parseInt(e.currentTarget.value) || 1,
+                              })}
+                          />
+                        </div>
 
-                          <!-- Reasoning Effort -->
-                          <div class="col-span-2">
-                            <label class="text-xs text-surface-500 mb-1 block"
-                              >Reasoning</label
-                            >
-                            <div class="grid grid-cols-4 gap-1">
-                              {#each ["off", "low", "medium", "high"] as level}
-                                <button
-                                  class="py-1.5 px-2 rounded-md text-xs font-medium transition-colors {config.reasoningEffort ===
-                                  level
-                                    ? 'bg-accent-500 text-white'
-                                    : 'bg-surface-700/50 text-surface-400 hover:bg-surface-700'}"
-                                  onclick={() =>
-                                    updatePresetConfig(preset.id, {
-                                      reasoningEffort: level as ReasoningEffort,
-                                    })}
-                                >
-                                  {level.charAt(0).toUpperCase() +
-                                    level.slice(1)}
-                                </button>
-                              {/each}
-                            </div>
+                        <!-- Reasoning Effort -->
+                        <div class="col-span-2 space-y-1.5">
+                          <Label class="text-xs text-muted-foreground"
+                            >Reasoning Effort</Label
+                          >
+                          <div class="grid grid-cols-4 gap-2">
+                            {#each ["off", "low", "medium", "high"] as level}
+                              <Button
+                                variant={config.reasoningEffort === level
+                                  ? "default"
+                                  : "outline"}
+                                size="sm"
+                                class="h-7 text-xs capitalize"
+                                onclick={() =>
+                                  updatePresetConfig(preset.id, {
+                                    reasoningEffort: level as ReasoningEffort,
+                                  })}
+                              >
+                                {level}
+                              </Button>
+                            {/each}
                           </div>
                         </div>
                       </div>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-            </div>
-
-            <!-- Warning -->
-            <div
-              class="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-center gap-3"
-            >
-              <AlertTriangle class="h-5 w-5 text-amber-400 flex-shrink-0" />
-              <p class="text-xs text-amber-300/80">
-                Importing will <span class="font-medium text-amber-300"
-                  >replace</span
-                > all current prompts, macros, and presets.
-              </p>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
             </div>
           </div>
 
-          <!-- Step 3: Success -->
-        {:else if currentStep === 3}
-          <div class="py-8 text-center" transition:fade={{ duration: 150 }}>
-            <div class="inline-flex p-4 rounded-full bg-green-500/10 mb-4">
-              <Check class="h-10 w-10 text-green-400" />
-            </div>
-            <h3 class="text-xl font-semibold text-surface-100 mb-2">
-              Import Complete!
-            </h3>
-            <p class="text-surface-400">
-              Your prompts have been imported successfully.
-            </p>
-          </div>
-        {/if}
-      </div>
+          <!-- Warning -->
+          <Alert
+            class="border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20"
+          >
+            <AlertTriangle class="h-4 w-4 text-amber-500" />
+            <AlertDescription class="text-xs">
+              Importing will <span class="font-bold">replace</span> all current prompts,
+              macros, and presets.
+            </AlertDescription>
+          </Alert>
+        </div>
 
-      <!-- Footer -->
-      {#if currentStep !== 3}
-        <div
-          class="px-5 sm:px-6 py-4 border-t border-surface-700/50 bg-surface-800/30"
-        >
-          <div class="flex gap-3">
-            {#if currentStep === 1}
-              <button
-                class="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium text-surface-300 bg-surface-700/50 hover:bg-surface-700 transition-colors"
-                onclick={handleClose}
-              >
-                Cancel
-              </button>
-            {:else if currentStep === 2}
-              <button
-                class="py-2.5 px-4 rounded-xl text-sm font-medium text-surface-300 bg-surface-700/50 hover:bg-surface-700 transition-colors"
-                onclick={() => {
-                  currentStep = 1;
-                  parseResult = null;
-                }}
-              >
-                Back
-              </button>
-              <button
-                class="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium text-white bg-accent-500 hover:bg-accent-600 transition-colors flex items-center justify-center gap-2"
-                onclick={handleImport}
-                disabled={isImporting}
-              >
-                {#if isImporting}
-                  <Loader2 class="h-4 w-4 animate-spin" />
-                  <span>Importing...</span>
-                {:else}
-                  <span>Import</span>
-                {/if}
-              </button>
-            {/if}
+        <!-- Step 3: Success -->
+      {:else if currentStep === 3}
+        <div class="py-12 text-center" transition:fade={{ duration: 150 }}>
+          <div
+            class="inline-flex p-4 rounded-full bg-green-100 dark:bg-green-900/30 mb-4"
+          >
+            <Check class="h-10 w-10 text-green-600 dark:text-green-400" />
           </div>
+          <h3 class="text-xl font-semibold mb-2">Import Complete!</h3>
+          <p class="text-muted-foreground">
+            Your prompts have been imported successfully.
+          </p>
         </div>
       {/if}
-
-      <!-- Safe area padding for mobile -->
-      <div class="h-safe sm:hidden"></div>
     </div>
-  </div>
-{/if}
 
-<style>
-  .h-safe {
-    height: env(safe-area-inset-bottom, 0);
-  }
-</style>
+    <!-- Footer -->
+    {#if currentStep !== 3}
+      <ResponsiveModal.Footer class="px-6 py-4 border-t border-border bg-muted/20">
+        {#if currentStep === 1}
+          <Button variant="ghost" onclick={() => handleOpenChange(false)}>
+            Cancel
+          </Button>
+        {:else if currentStep === 2}
+          <Button
+            variant="ghost"
+            onclick={() => {
+              currentStep = 1;
+              parseResult = null;
+            }}
+          >
+            Back
+          </Button>
+          <Button onclick={handleImport} disabled={isImporting}>
+            {#if isImporting}
+              <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+              Importing...
+            {:else}
+              Import
+            {/if}
+          </Button>
+        {/if}
+      </ResponsiveModal.Footer>
+    {/if}
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>

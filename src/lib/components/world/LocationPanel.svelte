@@ -8,14 +8,20 @@
     Trash2,
     Pencil,
     ChevronDown,
-    ChevronUp,
+    Save,
+    X,
   } from "lucide-svelte";
   import type { Location } from "$lib/types";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Textarea } from "$lib/components/ui/textarea";
+  import { Label } from "$lib/components/ui/label";
+  import { cn } from "$lib/utils/cn";
+  import IconRow from "$lib/components/ui/icon-row.svelte";
 
   let showAddForm = $state(false);
   let newName = $state("");
   let newDescription = $state("");
-  let confirmingDeleteId = $state<string | null>(null);
   let editingId = $state<string | null>(null);
   let editName = $state("");
   let editDescription = $state("");
@@ -25,13 +31,8 @@
     ui.toggleEntityCollapsed(locationId, !isCollapsed);
   }
 
-  function getSectionLineCount(location: Location): number {
-    let lines = 0;
-    if (location.description) {
-      const words = location.description.split(/\s+/).length;
-      lines += Math.ceil(words / 8);
-    }
-    return lines;
+  function hasDetails(location: Location): boolean {
+    return !!location.description;
   }
 
   async function addLocation() {
@@ -55,9 +56,8 @@
     await story.toggleLocationVisited(locationId);
   }
 
-  async function deleteLocation(locationId: string) {
-    await story.deleteLocation(locationId);
-    confirmingDeleteId = null;
+  async function deleteLocation(location: Location) {
+    await story.deleteLocation(location.id);
   }
 
   function startEdit(location: Location) {
@@ -83,260 +83,394 @@
   }
 </script>
 
-<div class="space-y-3">
-  <div class="flex items-center justify-between">
-    <h3 class="font-medium text-surface-200">Locations</h3>
-    <button
-      class="sm:btn-ghost rounded p-1"
+<div class="flex flex-col gap-1 pb-12">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-2">
+    <h3 class="text-xl font-bold tracking-tight text-foreground">Locations</h3>
+    <Button
+      variant="text"
+      size="icon"
+      class="h-6 w-6 text-muted-foreground hover:text-foreground"
       onclick={() => (showAddForm = !showAddForm)}
       title="Add location"
     >
-      <Plus class="h-4 w-4" />
-    </button>
+      <Plus class="h-6! w-6!" />
+    </Button>
   </div>
 
+  <!-- Add Form -->
   {#if showAddForm}
-    <div class="card space-y-2">
-      <input
-        type="text"
-        bind:value={newName}
-        placeholder="Location name"
-        class="input text-sm"
-      />
-      <textarea
-        bind:value={newDescription}
-        placeholder="Description (optional)"
-        class="input text-sm"
-        rows="2"
-      ></textarea>
-      <div class="flex justify-end gap-2">
-        <button
-          class="btn btn-secondary text-xs"
+    <div class="rounded-lg border border-border bg-card p-3 shadow-sm">
+      <div class="space-y-3">
+        <Input
+          type="text"
+          bind:value={newName}
+          placeholder="Location name"
+          class="h-8 text-sm"
+        />
+        <Textarea
+          bind:value={newDescription}
+          placeholder="Description (optional)"
+          class="resize-none text-sm min-h-[60px]"
+          rows={2}
+        />
+      </div>
+      <div class="mt-3 flex justify-end gap-2">
+        <Button
+          variant="text"
+          size="sm"
+          class="h-7"
           onclick={() => (showAddForm = false)}
         >
           Cancel
-        </button>
-        <button
-          class="btn btn-primary text-xs"
+        </Button>
+        <Button
+          size="sm"
+          class="h-7"
           onclick={addLocation}
           disabled={!newName.trim()}
         >
           Add
-        </button>
+        </Button>
       </div>
     </div>
   {/if}
 
   <!-- Current Location -->
   {#if story.currentLocation}
-    {@const currentIsCollapsed = ui.isEntityCollapsed(story.currentLocation.id)}
-    {@const currentSectionLineCount = getSectionLineCount(
-      story.currentLocation,
-    )}
-    {@const currentNeedsCollapse = currentSectionLineCount > 4}
-    <div class="card border-accent-500/50 bg-accent-500/10 p-3">
-      <div class="flex items-center gap-2 text-accent-400">
-        <Navigation class="h-4 w-4" />
-        <span class="text-sm font-medium">Current Location</span>
-      </div>
-      <h4 class="mt-1 break-words font-medium text-surface-100">
-        {story.currentLocation.translatedName ?? story.currentLocation.name}
-      </h4>
-      {#if story.currentLocation.description || story.currentLocation.translatedDescription}
-        <div
-          class="mt-1 space-y-2 rounded-md bg-surface-800/40"
-          class:max-h-24={currentIsCollapsed && currentNeedsCollapse}
-          class:overflow-hidden={currentIsCollapsed && currentNeedsCollapse}
-        >
-          <p class="break-words text-sm text-surface-400">
-            {story.currentLocation.translatedDescription ?? story.currentLocation.description}
-          </p>
-        </div>
-      {/if}
+    {@const currentLocation = story.currentLocation}
+    {@const isEditing = editingId === currentLocation.id}
+    {@const isCollapsed = ui.isEntityCollapsed(currentLocation.id)}
 
-      <!-- Action Buttons -->
-      <div class="flex items-center justify-between gap-1 mt-3 mb-1">
-        <div class="flex items-center gap-1">
-          <button
-            class="sm:btn-ghost rounded text-surface-500 hover:text-surface-200"
-            onclick={() =>
-              story.currentLocation && startEdit(story.currentLocation)}
-            title="Edit location"
-          >
-            <Pencil class="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div class="flex items-center gap-1">
-          {#if currentNeedsCollapse}
-            <button
-              class="sm:btn-ghost rounded p-1.5 text-surface-500 hover:text-surface-200 sm:p-1"
-              onclick={() =>
-                story.currentLocation &&
-                toggleCollapse(story.currentLocation.id)}
-              title={currentIsCollapsed ? "Expand" : "Collapse"}
+    <div
+      class="rounded-lg border border-accent-500/50 bg-accent-500/10 pl-3 pr-2 pt-3 pb-2 shadow-sm mb-2"
+    >
+      {#if isEditing}
+        <!-- EDIT MODE (Current) -->
+        <div class="space-y-3">
+          <div class="flex justify-between items-center mb-2">
+            <h4
+              class="text-xs font-semibold text-accent-400 uppercase tracking-wider"
             >
-              {#if currentIsCollapsed}
-                <ChevronDown class="h-3.5 w-3.5" />
-              {:else}
-                <ChevronUp class="h-3.5 w-3.5" />
-              {/if}
-            </button>
-          {/if}
-        </div>
-      </div>
-      {#if editingId === story.currentLocation.id}
-        <div class="mt-3 space-y-2">
-          <input
-            type="text"
-            bind:value={editName}
-            placeholder="Location name"
-            class="input text-sm"
-          />
-          <textarea
-            bind:value={editDescription}
-            placeholder="Description (optional)"
-            class="input text-sm"
-            rows="2"
-          ></textarea>
-          <div class="flex justify-end gap-2">
-            <button class="btn btn-secondary text-xs" onclick={cancelEdit}>
+              Editing Current Location
+            </h4>
+            <Button
+              variant="text"
+              size="icon"
+              class="h-6 w-6"
+              onclick={cancelEdit}><X class="h-4 w-4" /></Button
+            >
+          </div>
+
+          <div class="space-y-1">
+            <Input
+              type="text"
+              bind:value={editName}
+              placeholder="Location name"
+              class="h-8 text-sm"
+            />
+          </div>
+
+          <div class="space-y-1">
+            <Textarea
+              bind:value={editDescription}
+              placeholder="Description"
+              class="resize-none text-xs min-h-[60px]"
+            />
+          </div>
+
+          <div
+            class="flex justify-end gap-2 pt-2 border-t border-accent-500/30"
+          >
+            <Button
+              variant="text"
+              size="sm"
+              class="h-7 text-xs"
+              onclick={cancelEdit}
+            >
               Cancel
-            </button>
-            <button
-              class="btn btn-primary text-xs"
-              onclick={() =>
-                story.currentLocation && saveEdit(story.currentLocation)}
+            </Button>
+            <Button
+              size="sm"
+              class="h-7 text-xs px-4"
+              onclick={() => saveEdit(currentLocation)}
               disabled={!editName.trim()}
             >
+              <Save class="mr-1.5 h-3.5 w-3.5" />
               Save
-            </button>
+            </Button>
+          </div>
+        </div>
+      {:else}
+        <!-- DISPLAY MODE (Current) -->
+        <div class="flex items-center gap-2 text-accent-500 mb-1">
+          <Navigation class="h-4 w-4" />
+          <span class="text-xs font-bold uppercase tracking-wide"
+            >Current Location</span
+          >
+        </div>
+
+        <h4 class="font-medium text-foreground break-words">
+          {currentLocation.translatedName ?? currentLocation.name}
+        </h4>
+
+        {#if currentLocation.description || currentLocation.translatedDescription}
+          <div class="mt-2 text-sm text-muted-foreground">
+            {#if !isCollapsed}
+              <p class="leading-relaxed whitespace-pre-wrap">
+                {currentLocation.translatedDescription ??
+                  currentLocation.description}
+              </p>
+            {:else}
+              <p
+                class="truncate cursor-pointer hover:text-foreground"
+                onclick={() => toggleCollapse(currentLocation.id)}
+              >
+                {currentLocation.translatedDescription ??
+                  currentLocation.description}
+              </p>
+            {/if}
+          </div>
+        {/if}
+
+        <div
+          class="flex items-center justify-between mt-2 pt-2 border-t border-accent-500/20"
+        >
+          {#if (currentLocation.description?.length ?? 0) > 45 || (currentLocation.translatedDescription?.length ?? 0) > 45}
+            <Button
+              variant="text"
+              size="icon"
+              class="h-6 w-6 -ml-2 text-accent-500 hover:text-accent-700"
+              onclick={() => toggleCollapse(currentLocation.id)}
+              title={isCollapsed ? "Show full description" : "Hide description"}
+            >
+              <ChevronDown
+                class={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  !isCollapsed ? "rotate-180" : "",
+                )}
+              />
+            </Button>
+          {:else}
+            <div></div>
+          {/if}
+
+          <div class="flex items-center">
+            <Button
+              variant="text"
+              size="icon"
+              class="h-6 w-6 text-accent-500 hover:text-accent-700"
+              onclick={() => startEdit(currentLocation)}
+              title="Edit location"
+            >
+              <Pencil class="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       {/if}
     </div>
   {/if}
 
-  {#if story.locations.length === 0}
-    <p class="py-4 text-center text-sm text-surface-500">No locations yet</p>
+  <!-- Location List -->
+  {#if story.locations.filter((l) => !l.current).length === 0 && !story.currentLocation}
+    <div
+      class="flex flex-col items-center justify-center py-8 text-center rounded-lg border border-dashed border-border bg-muted/20"
+    >
+      <div class="mb-3 rounded-full bg-muted p-3">
+        <MapPin class="h-6 w-6 text-muted-foreground" />
+      </div>
+      <p class="text-sm text-muted-foreground">No locations yet</p>
+      <Button
+        variant="link"
+        class="mt-1 h-auto p-0 text-xs text-primary"
+        onclick={() => (showAddForm = true)}
+      >
+        <Plus class="mr-1.5 h-3.5 w-3.5" />
+        Add your first location
+      </Button>
+    </div>
   {:else}
-    <div class="space-y-2">
+    <div class="flex flex-col gap-3.5">
       {#each story.locations.filter((l) => !l.current) as location (location.id)}
         {@const isCollapsed = ui.isEntityCollapsed(location.id)}
-        {@const sectionLineCount = getSectionLineCount(location)}
-        {@const needsCollapse = sectionLineCount > 4}
-        <div class="card p-3">
-          <!-- Section 1: Status and Name -->
-          <button
-            class="flex items-center gap-2 {location.visited
-              ? 'text-surface-500 hover:text-surface-300'
-              : 'text-surface-600 hover:text-surface-400'}"
-            onclick={() => toggleVisited(location.id)}
-            title={location.visited
-              ? "Click to mark as unvisited"
-              : "Click to mark as visited"}
-          >
-            <MapPin class="h-4 w-4" />
-            <span class="text-sm font-medium"
-              >{location.visited ? "Visited" : "Unvisited"}</span
-            >
-          </button>
-          <h4 class="mt-1 break-words font-medium text-surface-100">
-            {location.translatedName ?? location.name}
-          </h4>
+        {@const isEditing = editingId === location.id}
 
-          <!-- Section 2: Description -->
-          {#if location.description || location.translatedDescription}
-            <div
-              class="mt-1 space-y-2 rounded-md bg-surface-800/40"
-              class:max-h-24={isCollapsed && needsCollapse}
-              class:overflow-hidden={isCollapsed && needsCollapse}
-            >
-              <p class="break-words text-sm text-surface-400">
-                {location.translatedDescription ?? location.description}
-              </p>
-            </div>
-          {/if}
-
-          <!-- Action Buttons -->
-          <div class="flex items-center justify-between gap-1 mt-3">
-            <div class="flex items-center gap-3">
-              {#if confirmingDeleteId === location.id}
-                <button
-                  class="sm:btn-ghost rounded text-xs text-red-400 hover:bg-red-500/20"
-                  onclick={() => deleteLocation(location.id)}
+        <div
+          class={cn(
+            "group rounded-lg border border-border bg-card shadow-sm transition-all pl-3 pr-2 pt-3 pb-2",
+            isEditing ? "ring-1 ring-primary/20" : "",
+          )}
+        >
+          {#if isEditing}
+            <!-- EDIT MODE -->
+            <div class="space-y-3">
+              <div class="flex justify-between items-center mb-2">
+                <h4
+                  class="text-xs font-semibold text-muted-foreground uppercase tracking-wider"
                 >
-                  Confirm
-                </button>
-                <button
-                  class="sm:btn-ghost rounded text-xs"
-                  onclick={() => (confirmingDeleteId = null)}
+                  Editing {location.name}
+                </h4>
+                <Button
+                  variant="text"
+                  size="icon"
+                  class="h-6 w-6"
+                  onclick={cancelEdit}><X class="h-4 w-4" /></Button
+                >
+              </div>
+
+              <div class="space-y-1">
+                <Label class="text-xs">Name</Label>
+                <Input
+                  type="text"
+                  bind:value={editName}
+                  placeholder="Location name"
+                  class="h-8 text-sm"
+                />
+              </div>
+
+              <div class="space-y-1">
+                <Label class="text-xs">Description</Label>
+                <Textarea
+                  bind:value={editDescription}
+                  placeholder="Description"
+                  class="resize-none text-xs min-h-[60px]"
+                />
+              </div>
+
+              <div class="flex justify-end gap-2 pt-2 border-t border-border">
+                <Button
+                  variant="text"
+                  size="sm"
+                  class="h-7 text-xs"
+                  onclick={cancelEdit}
                 >
                   Cancel
-                </button>
-              {:else}
-                <button
-                  class="sm:btn-ghost rounded text-surface-500 hover:text-surface-200"
-                  onclick={() => startEdit(location)}
-                  title="Edit location"
-                >
-                  <Pencil class="h-3.5 w-3.5" />
-                </button>
-                <button
-                  class="sm:btn-ghost rounded text-surface-500 hover:text-red-400"
-                  onclick={() => (confirmingDeleteId = location.id)}
-                  title="Delete location"
-                >
-                  <Trash2 class="h-3.5 w-3.5" />
-                </button>
-              {/if}
-            </div>
-            <div class="flex items-center gap-1">
-              {#if needsCollapse}
-                <button
-                  class="sm:btn-ghost rounded p-1.5 text-surface-500 hover:text-surface-200 sm:p-1"
-                  onclick={() => toggleCollapse(location.id)}
-                  title={isCollapsed ? "Expand" : "Collapse"}
-                >
-                  {#if isCollapsed}
-                    <ChevronDown class="h-3.5 w-3.5" />
-                  {:else}
-                    <ChevronUp class="h-3.5 w-3.5" />
-                  {/if}
-                </button>
-              {/if}
-              <button
-                class="sm:btn-ghost rounded px-2 py-1 text-xs text-accent-400 hover:text-accent-300"
-                onclick={() => goToLocation(location.id)}
-              >
-                Go
-              </button>
-            </div>
-          </div>
-          {#if editingId === location.id}
-            <div class="mt-3 space-y-2">
-              <input
-                type="text"
-                bind:value={editName}
-                placeholder="Location name"
-                class="input text-sm"
-              />
-              <textarea
-                bind:value={editDescription}
-                placeholder="Description (optional)"
-                class="input text-sm"
-                rows="2"
-              ></textarea>
-              <div class="flex justify-end gap-2">
-                <button class="btn btn-secondary text-xs" onclick={cancelEdit}>
-                  Cancel
-                </button>
-                <button
-                  class="btn btn-primary text-xs"
+                </Button>
+                <Button
+                  size="sm"
+                  class="h-7 text-xs px-4"
                   onclick={() => saveEdit(location)}
                   disabled={!editName.trim()}
                 >
-                  Save
-                </button>
+                  <Save class="mr-1.5 h-3.5 w-3.5" />
+                  Save Changes
+                </Button>
+              </div>
+            </div>
+          {:else}
+            <!-- DISPLAY MODE -->
+            <div class="flex items-start gap-3">
+              <!-- Visited Status Icon -->
+              <button
+                class={cn(
+                  "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ring-1 transition-colors",
+                  location.visited
+                    ? "bg-muted ring-muted text-muted-foreground hover:bg-muted/80"
+                    : "bg-primary/10 ring-primary/20 text-primary hover:bg-primary/20",
+                )}
+                onclick={() => toggleVisited(location.id)}
+                title={location.visited
+                  ? "Mark as unvisited"
+                  : "Mark as visited"}
+              >
+                <MapPin class="h-4 w-4" />
+              </button>
+
+              <div class="min-w-0 flex-1 pt-0.5">
+                <div class="flex items-center justify-between">
+                  <p
+                    class="font-medium leading-none text-foreground truncate pr-2"
+                  >
+                    {location.translatedName ?? location.name}
+                  </p>
+                  <div class="flex items-center">
+                    <Button
+                      variant="text"
+                      size="icon"
+                      class="h-6 w-6 text-muted-foreground hover:text-foreground -my-1"
+                      onclick={() => startEdit(location)}
+                      title="Edit"
+                    >
+                      <Pencil class="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div class="mt-1 flex items-center gap-2">
+                  <span
+                    class={cn(
+                      "text-[10px] font-medium uppercase tracking-wider",
+                      location.visited
+                        ? "text-muted-foreground"
+                        : "text-primary",
+                    )}
+                  >
+                    {location.visited ? "Visited" : "Unvisited"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Description -->
+            {#if location.description || location.translatedDescription}
+              <div class="mt-2 text-xs text-muted-foreground">
+                {#if !isCollapsed}
+                  <p class="leading-relaxed whitespace-pre-wrap">
+                    {location.translatedDescription ?? location.description}
+                  </p>
+                {:else}
+                  <p
+                    class="truncate cursor-pointer hover:text-foreground"
+                    onclick={() => toggleCollapse(location.id)}
+                  >
+                    {location.translatedDescription ?? location.description}
+                  </p>
+                {/if}
+              </div>
+            {/if}
+
+            <!-- Footer Actions -->
+            <div
+              class="flex items-center justify-between mt-2 pt-2 border-t border-border"
+            >
+              {#if (location.description?.length ?? 0) > 45 || (location.translatedDescription?.length ?? 0) > 45}
+                <Button
+                  variant="text"
+                  size="icon"
+                  class="h-6 w-6 -ml-2 text-muted-foreground hover:text-foreground"
+                  onclick={() => toggleCollapse(location.id)}
+                  title={isCollapsed
+                    ? "Show full description"
+                    : "Hide description"}
+                >
+                  <ChevronDown
+                    class={cn(
+                      "h-4 w-4 transition-transform duration-200",
+                      !isCollapsed ? "rotate-180" : "",
+                    )}
+                  />
+                </Button>
+              {:else}
+                <div></div>
+              {/if}
+
+              <div class="flex items-center gap-2">
+                <IconRow
+                  class="ml-0"
+                  onDelete={() => deleteLocation(location)}
+                  showDelete={true}
+                >
+                  <Button
+                    variant="text"
+                    size="sm"
+                    class="h-6 text-xs text-muted-foreground hover:text-primary"
+                    onclick={() => goToLocation(location.id)}
+                    title="Travel to location"
+                  >
+                    <Navigation class="mr-1 h-3 w-3" />
+                    Travel
+                  </Button>
+                </IconRow>
               </div>
             </div>
           {/if}

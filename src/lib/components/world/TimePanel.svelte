@@ -1,6 +1,10 @@
 <script lang="ts">
-  import { story } from '$lib/stores/story.svelte';
-  import { Pencil, RotateCcw } from 'lucide-svelte';
+  import { story } from "$lib/stores/story.svelte";
+  import { Pencil, RotateCcw, Save, X } from "lucide-svelte";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { Label } from "$lib/components/ui/label";
+  import { cn } from "$lib/utils/cn";
 
   let isEditing = $state(false);
   let editYears = $state(0);
@@ -33,7 +37,7 @@
 
   async function resetTime() {
     const confirmed = await new Promise<boolean>((resolve) => {
-      const result = confirm('Reset time to zero? This cannot be undone.');
+      const result = confirm("Reset time to zero? This cannot be undone.");
       resolve(result);
     });
     if (!confirmed) return;
@@ -42,113 +46,152 @@
 
   // Helper to pad numbers for display
   function pad(n: number, width: number = 2): string {
-    return n.toString().padStart(width, '0');
+    return n.toString().padStart(width, "0");
   }
 </script>
 
-<div class="space-y-3">
-  <div class="flex items-center justify-between">
-    <h3 class="font-medium text-surface-200">Time</h3>
+<div class="flex flex-col gap-1 pb-12">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-2">
+    <h3 class="text-xl font-bold tracking-tight text-foreground">Time</h3>
     {#if !isEditing}
       <div class="flex items-center gap-1">
-        <button
-          class="sm:btn-ghost rounded p-1"
+        <Button
+          variant="text"
+          size="icon"
+          class="h-6 w-6 text-muted-foreground hover:text-foreground"
           onclick={startEdit}
           title="Edit time"
         >
           <Pencil class="h-4 w-4" />
-        </button>
-        <button
-          class="sm:btn-ghost rounded p-1"
+        </Button>
+        <Button
+          variant="text"
+          size="icon"
+          class="h-6 w-6 text-muted-foreground hover:text-destructive"
           onclick={resetTime}
           title="Reset time"
         >
           <RotateCcw class="h-4 w-4" />
-        </button>
+        </Button>
       </div>
     {/if}
   </div>
 
   {#if isEditing}
-    <div class="card space-y-3">
-      <div class="grid grid-cols-2 gap-2">
-        <div>
-          <label class="mb-1 block text-xs text-surface-400">Years</label>
-          <input
+    <div class="rounded-lg border border-border bg-card p-3 shadow-sm">
+      <div class="grid grid-cols-2 gap-3 mb-3">
+        <div class="space-y-1">
+          <Label class="text-xs">Years</Label>
+          <Input
             type="number"
             bind:value={editYears}
             min="0"
-            class="input text-sm"
+            class="h-8 text-sm"
           />
         </div>
-        <div>
-          <label class="mb-1 block text-xs text-surface-400">Days</label>
-          <input
+        <div class="space-y-1">
+          <Label class="text-xs">Days</Label>
+          <Input
             type="number"
             bind:value={editDays}
             min="0"
             max="364"
-            class="input text-sm"
+            class="h-8 text-sm"
           />
         </div>
-        <div>
-          <label class="mb-1 block text-xs text-surface-400">Hours</label>
-          <input
+        <div class="space-y-1">
+          <Label class="text-xs">Hours</Label>
+          <Input
             type="number"
             bind:value={editHours}
             min="0"
             max="23"
-            class="input text-sm"
+            class="h-8 text-sm"
           />
         </div>
-        <div>
-          <label class="mb-1 block text-xs text-surface-400">Minutes</label>
-          <input
+        <div class="space-y-1">
+          <Label class="text-xs">Minutes</Label>
+          <Input
             type="number"
             bind:value={editMinutes}
             min="0"
             max="59"
-            class="input text-sm"
+            class="h-8 text-sm"
           />
         </div>
       </div>
-      <p class="text-xs text-surface-500">
-        Time will be automatically normalized (60 min = 1 hour, etc.)
+
+      <p class="text-xs text-muted-foreground mb-3">
+        Time will be automatically normalized.
       </p>
-      <div class="flex justify-end gap-2">
-        <button class="btn btn-secondary text-xs" onclick={cancelEdit}>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-border">
+        <Button
+          variant="text"
+          size="sm"
+          class="h-7 text-xs"
+          onclick={cancelEdit}
+        >
           Cancel
-        </button>
-        <button class="btn btn-primary text-xs" onclick={saveEdit}>
+        </Button>
+        <Button size="sm" class="h-7 text-xs px-4" onclick={saveEdit}>
+          <Save class="h-3.5 w-3.5" />
           Save
-        </button>
+        </Button>
       </div>
     </div>
   {:else}
-    <div class="card p-4">
+    <div
+      class="group rounded-lg border border-border bg-card shadow-sm transition-all p-3"
+    >
       <!-- Detailed time display -->
       <div class="grid grid-cols-4 gap-2 text-center">
-        <div class="rounded bg-surface-700/50 p-2">
-          <div class="text-lg font-medium text-surface-100">{story.timeTracker.years}</div>
-          <div class="text-xs text-surface-500">Years</div>
+        <div class="rounded bg-muted/50 p-2 border border-border/50">
+          <div class="text-lg font-medium text-foreground">
+            {story.timeTracker.years}
+          </div>
+          <div
+            class="text-[10px] uppercase tracking-wider text-muted-foreground font-medium"
+          >
+            Years
+          </div>
         </div>
-        <div class="rounded bg-surface-700/50 p-2">
-          <div class="text-lg font-medium text-surface-100">{story.timeTracker.days}</div>
-          <div class="text-xs text-surface-500">Days</div>
+        <div class="rounded bg-muted/50 p-2 border border-border/50">
+          <div class="text-lg font-medium text-foreground">
+            {story.timeTracker.days}
+          </div>
+          <div
+            class="text-[10px] uppercase tracking-wider text-muted-foreground font-medium"
+          >
+            Days
+          </div>
         </div>
-        <div class="rounded bg-surface-700/50 p-2">
-          <div class="text-lg font-medium text-surface-100">{pad(story.timeTracker.hours)}</div>
-          <div class="text-xs text-surface-500">Hours</div>
+        <div class="rounded bg-muted/50 p-2 border border-border/50">
+          <div class="text-lg font-medium text-foreground">
+            {pad(story.timeTracker.hours)}
+          </div>
+          <div
+            class="text-[10px] uppercase tracking-wider text-muted-foreground font-medium"
+          >
+            Hours
+          </div>
         </div>
-        <div class="rounded bg-surface-700/50 p-2">
-          <div class="text-lg font-medium text-surface-100">{pad(story.timeTracker.minutes)}</div>
-          <div class="text-xs text-surface-500">Min.</div>
+        <div class="rounded bg-muted/50 p-2 border border-border/50">
+          <div class="text-lg font-medium text-foreground">
+            {pad(story.timeTracker.minutes)}
+          </div>
+          <div
+            class="text-[10px] uppercase tracking-wider text-muted-foreground font-medium"
+          >
+            Min
+          </div>
         </div>
       </div>
     </div>
 
-    <p class="text-xs text-surface-500">
-      Time is tracked automatically as the story progresses. You can also edit it manually.
+    <p class="text-xs text-muted-foreground mt-2 px-1">
+      Time is tracked automatically as the story progresses.
     </p>
   {/if}
 </div>

@@ -1,5 +1,5 @@
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
+import { save, open } from '@tauri-apps/plugin-dialog';
+import { writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import type {
   PromptExportData,
   ExportedGenerationPreset,
@@ -29,6 +29,24 @@ class PromptExportService {
 
     await writeTextFile(filePath, JSON.stringify(exportData, null, 2));
     return true;
+  }
+
+  async pickAndReadImportFile(): Promise<string | null> {
+    try {
+      const filePath = await open({
+        filters: [
+          { name: 'JSON', extensions: ['json'] },
+        ],
+        multiple: false,
+      });
+
+      if (!filePath || typeof filePath !== 'string') return null;
+
+      return await readTextFile(filePath);
+    } catch (e) {
+      console.error('Failed to pick/read file:', e);
+      return null;
+    }
   }
 
   buildExportData(): PromptExportData {

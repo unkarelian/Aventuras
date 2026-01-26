@@ -124,8 +124,19 @@ export class ImageGenerationService {
   async generateForNarrative(context: ImageGenerationContext): Promise<void> {
     const imageSettings = settings.systemServicesSettings.imageGeneration;
 
-    if (!imageSettings?.enabled) {
-      log('Image generation disabled');
+    // Determine effective mode with backward compatibility
+    const storySettings = story.currentStory?.settings;
+    let mode = storySettings?.imageGenerationMode;
+
+    if (!mode) {
+      // Legacy fallback
+      if (storySettings?.inlineImageMode) mode = 'inline';
+      else if (imageSettings?.enabled) mode = 'auto';
+      else mode = 'none';
+    }
+
+    if (mode !== 'auto') {
+      log('Image generation skipped', { mode });
       return;
     }
 

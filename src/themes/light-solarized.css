@@ -1,0 +1,281 @@
+/* =============================================
+   LIGHT THEME (Solarized - Refined Cream)
+   Creamy off-white cards on slightly darker backgrounds
+   ============================================= */
+[data-theme="light-solarized"] {
+  /* 
+     Creamy Scale 
+     50 = Purest Cream (Card Backgrounds)
+     100 = Subtle Beige (Main Background)
+     200-900 = Text and Borders
+  */
+  --color-surface-50: #fdfbf7;  /* Purest Cream (Card BG) */
+  --color-surface-100: #f5f2eb; /* Subtle Beige (Main BG) */
+  --color-surface-200: #e6e1d6; /* Borders / Dividers */
+  --color-surface-300: #d4cfc2; /* Darker Borders */
+  --color-surface-400: #a8a193; /* Muted Text */
+  --color-surface-500: #8c8576;
+  --color-surface-600: #6b6459;
+  --color-surface-700: #524d44; /* Secondary Text */
+  --color-surface-800: #3b3731;
+  --color-surface-850: #262420;
+  --color-surface-900: #1a1816; /* Primary Text */
+  --color-surface-950: #0d0c0b;
+
+  /* Accent colors (Soft Slate/Teal - Neutral & Clean) */
+  --color-accent-50: #f0fdfa;
+  --color-accent-100: #ccfbf1;
+  --color-accent-200: #99f6e4;
+  --color-accent-300: #5eead4;
+  --color-accent-400: #2dd4bf;
+  --color-accent-500: #14b8a6; /* Primary Accent */
+  --color-accent-600: #0d9488;
+  --color-accent-700: #0f766e;
+  --color-accent-800: #115e59;
+  --color-accent-900: #134e4a;
+  --color-accent-950: #042f2e;
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-100);   /* Main BG = Subtle Beige */
+  --bg-secondary: var(--color-surface-50);  /* Cards = Pure Cream */
+  --bg-tertiary: var(--color-surface-200);  /* Inputs = Darker Beige */
+  --text-primary: var(--color-surface-900);
+  --text-secondary: var(--color-surface-700);
+  --text-muted: var(--color-surface-400);
+  --text-accent: var(--color-accent-700);
+  --border-primary: var(--color-surface-300);
+  --border-secondary: var(--color-surface-200);
+  --scrollbar-track: var(--color-surface-100);
+  --scrollbar-thumb: var(--color-surface-300);
+  --scrollbar-thumb-hover: var(--color-surface-400);
+
+  /* Shadcn Variables (Mapped to Cream Scale) */
+  --radius: 0.5rem;
+  --background: hsl(42 20% 94%);     /* Surface 100 */
+  --foreground: hsl(30 10% 10%);     /* Surface 900 */
+  
+  --card: hsl(45 30% 98%);           /* Surface 50 */
+  --card-foreground: hsl(30 10% 10%); /* Surface 900 */
+  
+  --popover: hsl(45 30% 98%);        /* Surface 50 */
+  --popover-foreground: hsl(30 10% 10%);
+  
+  --primary: hsl(175 59% 35%);       /* Deep Teal */
+  --primary-foreground: hsl(45 30% 98%);
+  
+  --secondary: hsl(42 15% 85%);      /* Surface 200 */
+  --secondary-foreground: hsl(30 10% 10%);
+  
+  --muted: hsl(42 15% 85%);          /* Surface 200 */
+  --muted-foreground: hsl(35 5% 45%); /* Surface 600 */
+  
+  --accent: hsl(42 15% 90%);         /* Hover color (Light Beige) */
+  --accent-foreground: hsl(175 59% 35%);
+  
+  --destructive: hsl(1 71% 52%);
+  --destructive-foreground: hsl(45 30% 98%);
+  
+  --border: hsl(42 15% 85%);         /* Surface 200 */
+  --input: hsl(42 15% 85%);          /* Surface 200 */
+  --ring: hsl(175 59% 35%);
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - INVERTED Logic for Card Pop
+   Dark Mode uses: BG=900, Card=800 (Lighter than BG)
+   Light Mode Mapping:
+   900 (Main BG) -> Surface 100 (Darker Beige)
+   800 (Card BG) -> Surface 50 (Lighter Cream)
+*/
+
+[data-theme="light-solarized"] .bg-surface-900 {
+  background-color: var(--color-surface-100); /* Main Background */
+}
+
+[data-theme="light-solarized"] .bg-surface-850 {
+  background-color: var(--color-surface-50); /* Cards/Modals */
+}
+
+[data-theme="light-solarized"] .bg-surface-800 {
+  background-color: var(--color-surface-50); /* Cards/Panels */
+}
+
+[data-theme="light-solarized"] .bg-surface-700 {
+  background-color: var(--color-surface-200); /* Tertiary/Borders */
+}
+
+[data-theme="light-solarized"] .bg-surface-600 {
+  background-color: var(--color-surface-200);
+}
+
+[data-theme="light-solarized"] .bg-surface-500 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="light-solarized"] .bg-surface-400 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="light-solarized"] .bg-surface-300 {
+  background-color: var(--color-surface-400);
+}
+
+[data-theme="light-solarized"] .bg-surface-200 {
+  background-color: var(--color-surface-500);
+}
+
+[data-theme="light-solarized"] .bg-surface-100 {
+  background-color: var(--color-surface-600);
+}
+
+[data-theme="light-solarized"] .bg-surface-50 {
+  background-color: var(--color-surface-700);
+}
+
+/* Text color overrides */
+[data-theme="light-solarized"] .text-surface-50 {
+  color: var(--color-surface-950);
+}
+
+[data-theme="light-solarized"] .text-surface-100 {
+  color: var(--color-surface-900);
+}
+
+[data-theme="light-solarized"] .text-surface-200 {
+  color: var(--color-surface-800);
+}
+
+[data-theme="light-solarized"] .text-surface-300 {
+  color: var(--color-surface-700);
+}
+
+[data-theme="light-solarized"] .text-surface-400 {
+  color: var(--color-surface-500);
+}
+
+[data-theme="light-solarized"] .text-surface-500 {
+  color: var(--color-surface-500);
+}
+
+/* Border color overrides */
+[data-theme="light-solarized"] .border-surface-700 {
+  border-color: var(--color-surface-200);
+}
+
+[data-theme="light-solarized"] .border-surface-600 {
+  border-color: var(--color-surface-300);
+}
+
+/* Select dropdown styling */
+[data-theme="light-solarized"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23524d44' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="light-solarized"] select.input option {
+  background-color: var(--color-surface-50);
+  color: var(--color-surface-900);
+}
+
+[data-theme="light-solarized"] select.input option:checked {
+  background-color: var(--color-accent-500);
+  color: white;
+}
+
+/* Background overrides - INVERT for light theme (dark numbers = light colors) */
+[data-theme="light-solarized"] .bg-surface-900 {
+  background-color: var(--color-surface-50);
+}
+
+[data-theme="light-solarized"] .bg-surface-850 {
+  background-color: var(--color-surface-100);
+}
+
+[data-theme="light-solarized"] .bg-surface-800 {
+  background-color: var(--color-surface-100);
+}
+
+[data-theme="light-solarized"] .bg-surface-700 {
+  background-color: var(--color-surface-200);
+}
+
+[data-theme="light-solarized"] .bg-surface-600 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="light-solarized"] .bg-surface-500 {
+  background-color: var(--color-surface-400);
+}
+
+[data-theme="light-solarized"] .bg-surface-400 {
+  background-color: var(--color-surface-400);
+}
+
+[data-theme="light-solarized"] .bg-surface-300 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="light-solarized"] .bg-surface-200 {
+  background-color: var(--color-surface-200);
+}
+
+[data-theme="light-solarized"] .bg-surface-100 {
+  background-color: var(--color-surface-100);
+}
+
+[data-theme="light-solarized"] .bg-surface-50 {
+  background-color: var(--color-surface-50);
+}
+
+/* Text color overrides - INVERT for light theme (light numbers = dark colors) */
+[data-theme="light-solarized"] .text-surface-50 {
+  color: var(--color-surface-950);
+}
+
+[data-theme="light-solarized"] .text-surface-100 {
+  color: var(--color-surface-900);
+}
+
+[data-theme="light-solarized"] .text-surface-200 {
+  color: var(--color-surface-800);
+}
+
+[data-theme="light-solarized"] .text-surface-300 {
+  color: var(--color-surface-700);
+}
+
+[data-theme="light-solarized"] .text-surface-400 {
+  color: var(--color-surface-500);
+}
+
+[data-theme="light-solarized"] .text-surface-500 {
+  color: var(--color-surface-500);
+}
+
+/* Border color overrides */
+[data-theme="light-solarized"] .border-surface-700 {
+  border-color: var(--color-surface-300);
+}
+
+[data-theme="light-solarized"] .border-surface-600 {
+  border-color: var(--color-surface-400);
+}
+
+/* Select dropdown styling */
+[data-theme="light-solarized"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23657b83' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="light-solarized"] select.input option {
+  background-color: var(--color-surface-100);
+  color: var(--color-surface-900);
+}
+
+[data-theme="light-solarized"] select.input option:checked {
+  background-color: var(--color-accent-600);
+  color: white;
+}

@@ -1,26 +1,40 @@
 <script lang="ts">
   import { ui } from '$lib/stores/ui.svelte';
-  import { X, BookOpen, Users, MapPin, Package, Shield, Lightbulb, Calendar } from 'lucide-svelte';
+  import { BookOpen, Users, MapPin, Package, Shield, Lightbulb, Calendar } from 'lucide-svelte';
+  
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal';
+  import { ScrollArea } from '$lib/components/ui/scroll-area';
+  import { Badge } from '$lib/components/ui/badge';
+  import { Card, CardContent } from '$lib/components/ui/card';
+  import { Separator } from '$lib/components/ui/separator';
+  import { cn } from '$lib/utils/cn';
 
-  const tierLabels = {
+  const tierLabels: Record<number, string> = {
     1: 'Always Active',
     2: 'Keyword Matched',
     3: 'LLM Selected',
   };
 
-  const tierDescriptions = {
+  const tierDescriptions: Record<number, string> = {
     1: 'State-based or always-inject entries',
     2: 'Matched by name, alias, or keyword',
     3: 'Contextually relevant (AI selected)',
   };
 
-  const tierColors = {
-    1: 'text-green-400 bg-green-500/10 border-green-500/30',
-    2: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-    3: 'text-purple-400 bg-purple-500/10 border-purple-500/30',
+  // Modern colors compatible with light/dark modes
+  const tierColors: Record<number, string> = {
+    1: 'text-green-600 dark:text-green-400 border-green-500/20 bg-green-500/5',
+    2: 'text-amber-600 dark:text-amber-400 border-amber-500/20 bg-amber-500/5',
+    3: 'text-purple-600 dark:text-purple-400 border-purple-500/20 bg-purple-500/5',
   };
 
-  const typeIcons = {
+  const tierIndicatorColors: Record<number, string> = {
+    1: 'bg-green-500',
+    2: 'bg-amber-500',
+    3: 'bg-purple-500',
+  };
+
+  const typeIcons: Record<string, typeof Users> = {
     character: Users,
     location: MapPin,
     item: Package,
@@ -30,179 +44,112 @@
   };
 
   function getIcon(type: string) {
-    return typeIcons[type as keyof typeof typeIcons] || BookOpen;
+    return typeIcons[type] || BookOpen;
   }
 </script>
 
-{#if ui.lorebookDebugOpen}
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-    onclick={() => ui.closeLorebookDebug()}
-    onkeydown={(e) => e.key === 'Escape' && ui.closeLorebookDebug()}
-    role="dialog"
-    aria-modal="true"
-    tabindex="-1"
-  >
-    <div
-      class="card w-full max-w-2xl max-h-[80vh] overflow-hidden"
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
-      role="document"
-    >
-      <!-- Header -->
-      <div class="flex items-center justify-between border-b border-surface-700 pb-4">
-        <div class="flex items-center gap-2">
-          <BookOpen class="h-5 w-5 text-accent-400" />
-          <h2 class="text-xl font-semibold text-surface-100">Active Lorebook Entries</h2>
+<ResponsiveModal.Root bind:open={ui.lorebookDebugOpen}>
+  <ResponsiveModal.Content class="max-w-2xl h-[80vh] flex flex-col p-0 gap-0 overflow-hidden">
+    <ResponsiveModal.Header class="px-6 py-4 border-b shrink-0" title="Active Lorebook Entries" />
+
+    <ScrollArea class="flex-1 min-h-0">
+        <div class="p-6 space-y-6">
+            {#if ui.lastLorebookRetrieval}
+                {@const result = ui.lastLorebookRetrieval}
+                {@const totalCount = result.tier1.length + result.tier2.length + result.tier3.length}
+
+                <!-- Summary Card -->
+                <Card class="bg-muted/40 shadow-sm">
+                    <CardContent class="p-4">
+                         <div class="flex items-center justify-between text-sm mb-4">
+                            <span class="text-muted-foreground font-medium">Total Active Entries</span>
+                            <span class="font-mono font-bold text-foreground bg-background px-2.5 py-0.5 rounded border">{totalCount}</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                             <Badge variant="outline" class="border-green-500/40 text-green-700 dark:text-green-400 bg-green-500/5 hover:bg-green-500/10 transition-colors">Tier 1: {result.tier1.length}</Badge>
+                             <Badge variant="outline" class="border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 transition-colors">Tier 2: {result.tier2.length}</Badge>
+                             <Badge variant="outline" class="border-purple-500/40 text-purple-700 dark:text-purple-400 bg-purple-500/5 hover:bg-purple-500/10 transition-colors">Tier 3: {result.tier3.length}</Badge>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {#if totalCount === 0}
+                    <div class="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                        <BookOpen class="h-12 w-12 opacity-10 mb-4" />
+                        <p class="font-medium">No active entries</p>
+                        <p class="text-sm mt-1 opacity-70">Generate a response to populate the lorebook.</p>
+                    </div>
+                {:else}
+                    <!-- Tier Sections -->
+                    {#each [1, 2, 3] as tier}
+                        {@const tierEntries = tier === 1 ? result.tier1 : tier === 2 ? result.tier2 : result.tier3}
+                         {#if tierEntries.length > 0}
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-2">
+                                     <div class={cn("w-2.5 h-2.5 rounded-full shadow-sm", tierIndicatorColors[tier as 1|2|3])}></div>
+                                     <h3 class="font-semibold text-sm">Tier {tier}: {tierLabels[tier as 1|2|3]} <span class="text-muted-foreground font-normal ml-1">({tierEntries.length})</span></h3>
+                                </div>
+                                <p class="text-xs text-muted-foreground pl-5">{tierDescriptions[tier as 1|2|3]}</p>
+                                
+                                <div class="grid gap-3">
+                                    {#each tierEntries as retrieved}
+                                        {@const Icon = getIcon(retrieved.entry.type)}
+                                        <Card class={cn("overflow-hidden transition-all hover:shadow-md", tierColors[tier as 1|2|3])}>
+                                            <CardContent class="p-3.5 flex items-start gap-3.5">
+                                                <div class="mt-0.5 p-1.5 rounded-md bg-background/60 backdrop-blur-sm shrink-0 border border-transparent shadow-sm">
+                                                    <Icon class="h-4 w-4" />
+                                                </div>
+                                                <div class="flex-1 min-w-0 space-y-1.5">
+                                                     <div class="flex items-center gap-2 justify-between">
+                                                         <span class="font-semibold text-sm truncate">{retrieved.entry.name}</span>
+                                                         <Badge variant="secondary" class="text-[10px] px-1.5 h-5 font-medium tracking-wide uppercase bg-background/60 hover:bg-background/90">{retrieved.entry.type}</Badge>
+                                                     </div>
+                                                     {#if retrieved.matchReason}
+                                                         <div class="text-xs bg-background/40 rounded px-2 py-1 inline-block border border-black/5 dark:border-white/5">
+                                                            <span class="opacity-70 font-medium">Match:</span> {retrieved.matchReason.replace(/^matched:\s*/i, '')}
+                                                         </div>
+                                                     {/if}
+                                                     <p class="text-xs opacity-80 line-clamp-2 leading-relaxed">
+                                                         {retrieved.entry.description}
+                                                     </p>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    {/each}
+                                </div>
+                            </div>
+                         {/if}
+                    {/each}
+                {/if}
+
+                <!-- Context Block Preview -->
+                {#if result.contextBlock}
+                    <Separator class="my-6" />
+                    <div class="space-y-3">
+                        <h3 class="text-sm font-medium flex items-center gap-2 text-foreground/80">
+                            <Package class="h-4 w-4" />
+                            Injected Context Block
+                        </h3>
+                         <div class="relative rounded-lg border bg-muted/30">
+                            <ScrollArea class="h-48 w-full rounded-lg">
+                                <div class="p-4">
+                                    <pre class="text-xs font-mono whitespace-pre-wrap break-words text-muted-foreground">{result.contextBlock}</pre>
+                                </div>
+                            </ScrollArea>
+                        </div>
+                    </div>
+                {/if}
+
+            {:else}
+                <div class="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                     <div class="h-20 w-20 rounded-full bg-muted/30 flex items-center justify-center mb-6">
+                        <BookOpen class="h-10 w-10 opacity-20" />
+                     </div>
+                     <p class="font-semibold text-lg">No Data Available</p>
+                     <p class="text-sm mt-2 opacity-70 max-w-xs text-center">Generate a story response to see active lorebook entries populated here.</p>
+                </div>
+            {/if}
         </div>
-        <button class="btn-ghost rounded-lg p-2" onclick={() => ui.closeLorebookDebug()}>
-          <X class="h-5 w-5" />
-        </button>
-      </div>
-
-      <!-- Content -->
-      <div class="max-h-[60vh] overflow-y-auto py-4">
-        {#if ui.lastLorebookRetrieval}
-          {@const result = ui.lastLorebookRetrieval}
-          {@const totalCount = result.tier1.length + result.tier2.length + result.tier3.length}
-
-          <!-- Summary -->
-          <div class="mb-4 p-3 rounded-lg bg-surface-800/50 border border-surface-700">
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-surface-300">Total Active Entries:</span>
-              <span class="font-medium text-surface-100">{totalCount}</span>
-            </div>
-            <div class="mt-2 flex gap-4 text-xs">
-              <span class={tierColors[1].split(' ')[0]}>Tier 1: {result.tier1.length}</span>
-              <span class={tierColors[2].split(' ')[0]}>Tier 2: {result.tier2.length}</span>
-              <span class={tierColors[3].split(' ')[0]}>Tier 3: {result.tier3.length}</span>
-            </div>
-          </div>
-
-          {#if totalCount === 0}
-            <p class="text-center text-surface-400 py-8">
-              No lorebook entries were activated for the last generation.
-            </p>
-          {:else}
-            <!-- Tier 1: Always Active -->
-            {#if result.tier1.length > 0}
-              <div class="mb-4">
-                <h3 class="text-sm font-medium text-green-400 mb-2 flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-green-400"></span>
-                  Tier 1: {tierLabels[1]} ({result.tier1.length})
-                </h3>
-                <p class="text-xs text-surface-500 mb-2 ml-4">{tierDescriptions[1]}</p>
-                <div class="space-y-2">
-                  {#each result.tier1 as retrieved}
-                    {@const Icon = getIcon(retrieved.entry.type)}
-                    <div class="p-3 rounded-lg border {tierColors[1]}">
-                      <div class="flex items-start gap-2">
-                        <Icon class="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-center gap-2">
-                            <span class="font-medium text-surface-100">{retrieved.entry.name}</span>
-                            <span class="text-xs px-1.5 py-0.5 rounded bg-surface-700 text-surface-400">
-                              {retrieved.entry.type}
-                            </span>
-                          </div>
-                          {#if retrieved.matchReason}
-                            <p class="text-xs text-surface-500 mt-0.5">Reason: {retrieved.matchReason}</p>
-                          {/if}
-                          <p class="text-sm text-surface-300 mt-1 line-clamp-2">
-                            {retrieved.entry.description}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-            {/if}
-
-            <!-- Tier 2: Keyword Matched -->
-            {#if result.tier2.length > 0}
-              <div class="mb-4">
-                <h3 class="text-sm font-medium text-amber-400 mb-2 flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-                  Tier 2: {tierLabels[2]} ({result.tier2.length})
-                </h3>
-                <p class="text-xs text-surface-500 mb-2 ml-4">{tierDescriptions[2]}</p>
-                <div class="space-y-2">
-                  {#each result.tier2 as retrieved}
-                    {@const Icon = getIcon(retrieved.entry.type)}
-                    <div class="p-3 rounded-lg border {tierColors[2]}">
-                      <div class="flex items-start gap-2">
-                        <Icon class="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-center gap-2">
-                            <span class="font-medium text-surface-100">{retrieved.entry.name}</span>
-                            <span class="text-xs px-1.5 py-0.5 rounded bg-surface-700 text-surface-400">
-                              {retrieved.entry.type}
-                            </span>
-                          </div>
-                          {#if retrieved.matchReason}
-                            <p class="text-xs text-surface-500 mt-0.5">Matched: {retrieved.matchReason}</p>
-                          {/if}
-                          <p class="text-sm text-surface-300 mt-1 line-clamp-2">
-                            {retrieved.entry.description}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-            {/if}
-
-            <!-- Tier 3: LLM Selected -->
-            {#if result.tier3.length > 0}
-              <div class="mb-4">
-                <h3 class="text-sm font-medium text-purple-400 mb-2 flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-purple-400"></span>
-                  Tier 3: {tierLabels[3]} ({result.tier3.length})
-                </h3>
-                <p class="text-xs text-surface-500 mb-2 ml-4">{tierDescriptions[3]}</p>
-                <div class="space-y-2">
-                  {#each result.tier3 as retrieved}
-                    {@const Icon = getIcon(retrieved.entry.type)}
-                    <div class="p-3 rounded-lg border {tierColors[3]}">
-                      <div class="flex items-start gap-2">
-                        <Icon class="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <div class="flex-1 min-w-0">
-                          <div class="flex items-center gap-2">
-                            <span class="font-medium text-surface-100">{retrieved.entry.name}</span>
-                            <span class="text-xs px-1.5 py-0.5 rounded bg-surface-700 text-surface-400">
-                              {retrieved.entry.type}
-                            </span>
-                          </div>
-                          {#if retrieved.matchReason}
-                            <p class="text-xs text-surface-500 mt-0.5">Reason: {retrieved.matchReason}</p>
-                          {/if}
-                          <p class="text-sm text-surface-300 mt-1 line-clamp-2">
-                            {retrieved.entry.description}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              </div>
-            {/if}
-          {/if}
-
-          <!-- Context Block Preview -->
-          {#if result.contextBlock}
-            <div class="mt-4 border-t border-surface-700 pt-4">
-              <h3 class="text-sm font-medium text-surface-300 mb-2">Injected Context Block</h3>
-              <pre class="p-3 rounded-lg bg-surface-900 text-xs text-surface-400 overflow-x-auto max-h-48 overflow-y-auto font-mono whitespace-pre-wrap">{result.contextBlock}</pre>
-            </div>
-          {/if}
-        {:else}
-          <p class="text-center text-surface-400 py-8">
-            No lorebook retrieval data available yet. Generate a response to see active entries.
-          </p>
-        {/if}
-      </div>
-    </div>
-  </div>
-{/if}
+    </ScrollArea>
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>

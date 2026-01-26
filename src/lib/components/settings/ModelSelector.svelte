@@ -1,6 +1,18 @@
 <script lang="ts">
-  import { settings } from '$lib/stores/settings.svelte';
-  import { ChevronDown, Server, Plus } from 'lucide-svelte';
+  import { settings } from "$lib/stores/settings.svelte";
+  import {
+    Server,
+    Check,
+    ChevronsUpDown,
+    Plus,
+    RefreshCw,
+  } from "lucide-svelte";
+  import * as Select from "$lib/components/ui/select";
+  import * as Command from "$lib/components/ui/command";
+  import * as Popover from "$lib/components/ui/popover";
+  import { Button } from "$lib/components/ui/button";
+  import { Label } from "$lib/components/ui/label";
+  import { cn } from "$lib/utils/cn";
 
   interface Props {
     profileId: string | null;
@@ -11,6 +23,9 @@
     onManageProfiles?: () => void;
     label?: string;
     placeholder?: string;
+    class?: string;
+    onRefreshModels?: () => void;
+    isRefreshingModels?: boolean;
   }
 
   let {
@@ -20,19 +35,22 @@
     onModelChange,
     showProfileSelector = true,
     onManageProfiles,
-    label = 'Model',
-    placeholder = 'Select or type model...',
+    label = "Model",
+    placeholder = "Select or type model...",
+    class: className,
+    onRefreshModels,
+    isRefreshingModels = false,
   }: Props = $props();
 
   // Local state for model search/input
-  let modelSearch = $state(model || '');
-  let showModelDropdown = $state(false);
-  let inputRef = $state<HTMLInputElement | null>(null);
-  let lastProfileId = $state(profileId);
+  let open = $state(false);
+  let inputValue = $state("");
 
   // Resolve the effective profile ID (with fallback to default)
   // This ensures models are available even if profileId is null
-  let effectiveProfileId = $derived(profileId || settings.getDefaultProfileIdForProvider());
+  let effectiveProfileId = $derived(
+    profileId || settings.getDefaultProfileIdForProvider(),
+  );
 
   // Get available models for the selected profile
   let availableModels = $derived.by(() => {
@@ -43,322 +61,163 @@
     return [...new Set([...profile.fetchedModels, ...profile.customModels])];
   });
 
-  // Filter models based on search
-  let filteredModels = $derived.by(() => {
-    if (!modelSearch.trim()) return availableModels;
-    const search = modelSearch.toLowerCase();
-    return availableModels.filter(m => m.toLowerCase().includes(search));
-  });
-
   // Get selected profile name
   let selectedProfileName = $derived.by(() => {
-    if (!profileId) return 'None';
+    if (!profileId) return "Select Profile";
     const profile = settings.getProfile(profileId);
-    return profile?.name || 'Unknown';
+    return profile?.name || "Unknown";
   });
 
-  // Sync model search with model prop (only when dropdown is closed)
-  $effect(() => {
-    if (model !== modelSearch && !showModelDropdown) {
-      modelSearch = model;
-    }
-  });
+  // Create framework options for Select
+  let profileOptions = $derived(
+    settings.apiSettings.profiles.map((p) => ({
+      value: p.id,
+      label:
+        p.name +
+        (settings.apiSettings.defaultProfileId === p.id ? " (Default)" : ""),
+    })),
+  );
 
-  // Handle profile changes - clear search and close dropdown
-  $effect(() => {
-    if (profileId !== lastProfileId) {
-      lastProfileId = profileId;
-      modelSearch = ''; // Clear search when profile changes
-      showModelDropdown = false; // Close dropdown during transition
-    }
-  });
-
-  function handleModelSelect(selectedModel: string) {
-    modelSearch = selectedModel;
-    onModelChange(selectedModel);
-    showModelDropdown = false;
-  }
-
-  function handleModelInputChange(e: Event) {
-    const value = (e.target as HTMLInputElement).value;
-    modelSearch = value;
-  }
-
-  function handleModelInputBlur() {
-    // Delay to allow click on dropdown item
-    setTimeout(() => {
-      showModelDropdown = false;
-      // If the search value is different from model, update it
-      if (modelSearch && modelSearch !== model) {
-        onModelChange(modelSearch);
-      }
-    }, 200);
-  }
-
-  function handleModelInputFocus() {
-    showModelDropdown = true;
-  }
-
-  function handleModelInputKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (modelSearch) {
-        onModelChange(modelSearch);
-      }
-      showModelDropdown = false;
-      inputRef?.blur();
-    } else if (e.key === 'Escape') {
-      showModelDropdown = false;
-      inputRef?.blur();
-    }
+  function handleSelectProfile(val: string) {
+    onProfileChange(val);
   }
 </script>
 
-<div class="model-selector">
+<div class={cn("grid gap-4", className)}>
   {#if showProfileSelector}
-    <div class="profile-row">
-      <label class="label">API Profile</label>
-      <div class="profile-select-container">
-        <select
-          class="input profile-select"
+    <div class="grid gap-2">
+      <Label>API Profile</Label>
+      <div class="flex gap-2">
+        <Select.Root
+          type="single"
           value={profileId || settings.getDefaultProfileIdForProvider()}
-          onchange={(e) => {
-            const value = e.currentTarget.value || null;
-            onProfileChange(value);
-          }}
+          onValueChange={handleSelectProfile}
         >
-          {#each settings.apiSettings.profiles as profile}
-            <option value={profile.id}>
-              {profile.name}{settings.apiSettings.defaultProfileId === profile.id ? ' (Default)' : ''}
-            </option>
-          {/each}
-        </select>
+          <Select.Trigger class="w-full">
+            {selectedProfileName}
+          </Select.Trigger>
+          <Select.Content>
+            {#each profileOptions as option}
+              <Select.Item value={option.value}>{option.label}</Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
         {#if onManageProfiles}
-          <button
-            type="button"
-            class="manage-btn"
+          <Button
+            variant="outline"
+            size="icon"
             onclick={onManageProfiles}
             title="Manage API Profiles"
+            class="shrink-0"
           >
-            <Server size={14} />
-          </button>
+            <Server class="h-4 w-4" />
+          </Button>
         {/if}
       </div>
     </div>
   {/if}
 
-  <div class="model-row">
-    <label class="label">{label}</label>
-    <div class="model-input-container">
-      <input
-        bind:this={inputRef}
-        type="text"
-        class="input model-input"
-        {placeholder}
-        value={modelSearch}
-        oninput={handleModelInputChange}
-        onfocus={handleModelInputFocus}
-        onblur={handleModelInputBlur}
-        onkeydown={handleModelInputKeyDown}
-      />
-      <button
-        type="button"
-        class="dropdown-toggle"
-        onclick={() => {
-          showModelDropdown = !showModelDropdown;
-          if (showModelDropdown) inputRef?.focus();
-        }}
-        tabindex="-1"
-      >
-        <ChevronDown size={14} />
-      </button>
-
-      {#if showModelDropdown}
-        <div class="model-dropdown">
-          {#if availableModels.length === 0}
-            <div class="dropdown-empty">No models in this profile. Type a model ID or add models to the profile.</div>
-          {:else if filteredModels.length === 0}
-            <div class="dropdown-empty">No matching models</div>
-          {:else}
-            {#each filteredModels as modelOption}
-              <button
-                type="button"
-                class="dropdown-item"
-                class:selected={modelOption === model}
-                onmousedown={(e) => {
-                  e.preventDefault();
-                  handleModelSelect(modelOption);
-                }}
-              >
-                {modelOption}
-              </button>
-            {/each}
-          {/if}
-        </div>
+  <div class="grid gap-2">
+    <div class="flex items-center justify-between">
+      <Label>{label}</Label>
+      {#if onRefreshModels}
+        <Button
+          variant="text"
+          size="sm"
+          class="h-auto p-0 text-xs text-muted-foreground hover:text-primary no-underline"
+          onclick={onRefreshModels}
+          disabled={isRefreshingModels}
+        >
+          <RefreshCw
+            class={cn("h-3 w-3 mr-1", isRefreshingModels && "animate-spin")}
+          />
+          Refresh
+        </Button>
       {/if}
     </div>
-    {#if availableModels.length === 0 && !showModelDropdown}
-      <p class="hint">No models available. Add models to the profile or type a model ID.</p>
+    <Popover.Root bind:open>
+      <Popover.Trigger>
+        {#snippet child({ props })}
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            class="w-full justify-between"
+            {...props}
+          >
+            {model || placeholder}
+            <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        {/snippet}
+      </Popover.Trigger>
+      <Popover.Content class="w-[var(--bits-popover-anchor-width)] p-0">
+        <Command.Root>
+          <Command.Input
+            bind:value={inputValue}
+            placeholder="Search or type model..."
+          />
+          <Command.List>
+            <Command.Empty>
+              {#if inputValue.length > 0}
+                <div class="p-1">
+                  <Button
+                    variant="ghost"
+                    class="w-full justify-start text-xs"
+                    onclick={() => {
+                      onModelChange(inputValue);
+                      open = false;
+                    }}
+                  >
+                    <Plus class="mr-2 h-4 w-4" />
+                    Use "{inputValue}"
+                  </Button>
+                </div>
+              {:else}
+                <div class="p-2 text-sm text-muted-foreground text-center">
+                  No models found.
+                </div>
+              {/if}
+            </Command.Empty>
+            <Command.Group>
+              {#each availableModels as modelOption}
+                <Command.Item
+                  value={modelOption}
+                  onSelect={() => {
+                    onModelChange(modelOption);
+                    open = false;
+                  }}
+                >
+                  <Check
+                    class={cn(
+                      "mr-2 h-4 w-4",
+                      model === modelOption ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {modelOption}
+                </Command.Item>
+              {/each}
+
+              {#if inputValue.length > 0 && !availableModels.some((m) => m.toLowerCase() === inputValue.toLowerCase())}
+                <Command.Item
+                  value={inputValue}
+                  onSelect={() => {
+                    onModelChange(inputValue);
+                    open = false;
+                  }}
+                >
+                  <Plus class="mr-2 h-4 w-4" />
+                  Use "{inputValue}"
+                </Command.Item>
+              {/if}
+            </Command.Group>
+          </Command.List>
+        </Command.Root>
+      </Popover.Content>
+    </Popover.Root>
+    {#if availableModels.length === 0}
+      <p class="text-[0.8rem] text-muted-foreground">
+        No models available. Add models to the profile.
+      </p>
     {/if}
   </div>
 </div>
-
-<style>
-  .model-selector {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .profile-row,
-  .model-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .label {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-  }
-
-  .profile-select-container {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-
-  .profile-select {
-    flex: 1;
-  }
-
-  .manage-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5rem;
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.15s ease;
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  .manage-btn:hover,
-  .manage-btn:active {
-    background: var(--surface-3);
-    color: var(--text-primary);
-  }
-
-  .model-input-container {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-
-  .model-input {
-    flex: 1;
-    padding-right: 2rem;
-  }
-
-  .dropdown-toggle {
-    position: absolute;
-    right: 0.25rem;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5rem;
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: color 0.15s ease;
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  .dropdown-toggle:hover,
-  .dropdown-toggle:active {
-    color: var(--text-primary);
-  }
-
-  .model-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    max-height: 200px;
-    overflow-y: auto;
-    background: rgb(40, 40, 45);
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    z-index: 100;
-    margin-top: 0.25rem;
-  }
-
-  .dropdown-item {
-    display: block;
-    width: 100%;
-    padding: 0.75rem;
-    text-align: left;
-    background: transparent;
-    border: none;
-    color: var(--text-primary);
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: background 0.15s ease;
-    min-height: 44px; /* Touch-friendly target size */
-  }
-
-  .dropdown-item:hover,
-  .dropdown-item:active {
-    background: rgb(55, 55, 60);
-  }
-
-  .dropdown-item.selected {
-    background: var(--accent);
-    color: var(--text-on-accent);
-  }
-
-  .dropdown-empty {
-    padding: 0.75rem;
-    text-align: center;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-  }
-
-  .hint {
-    font-size: 0.7rem;
-    color: var(--text-secondary);
-    margin-top: 0.25rem;
-  }
-
-  .input {
-    width: 100%;
-    padding: 0.625rem 0.75rem;
-    background-color: var(--surface-1);
-    border: 1px solid var(--border);
-    border-radius: 0.375rem;
-    color: var(--text-primary);
-    font-size: 1rem; /* 16px prevents iOS zoom on focus */
-    min-height: 44px; /* Touch-friendly target size */
-  }
-
-  .input:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-
-  @media (min-width: 640px) {
-    .input {
-      font-size: 0.875rem;
-    }
-  }
-</style>

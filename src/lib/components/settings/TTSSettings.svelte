@@ -1,5 +1,11 @@
 <script lang="ts">
   import { settings } from "$lib/stores/settings.svelte";
+  import { Switch } from "$lib/components/ui/switch";
+  import { Label } from "$lib/components/ui/label";
+  import { Input } from "$lib/components/ui/input";
+  import { Button } from "$lib/components/ui/button";
+  import * as Select from "$lib/components/ui/select";
+  import { Slider } from "$lib/components/ui/slider";
   import { Play, Square, RefreshCw, Loader2 } from "lucide-svelte";
   import {
     GOOGLE_TRANSLATE_LANGUAGES,
@@ -10,7 +16,11 @@
   let isLoadingPreview = $state(false);
   let previewError = $state<string | null>(null);
 
-  // Play preview of selected voice
+  const providers = [
+    { value: "openai", label: "OpenAI Compatible (OpenRouter, OpenAI, Local)" },
+    { value: "google", label: "Google Translate" },
+  ] as const;
+
   async function playVoicePreview() {
     if (
       !settings.systemServicesSettings.tts.enabled ||
@@ -21,7 +31,6 @@
 
     const tts = settings.systemServicesSettings.tts;
 
-    // Validate based on provider
     if (tts.provider === "openai") {
       if (!tts.endpoint || !tts.apiKey) {
         previewError = "Endpoint and API key are required";
@@ -36,15 +45,12 @@
       const previewText =
         "This is a preview of the selected voice. The story narration will sound like this.";
 
-      // Initialize service with current settings
       await aiTTSService.initialize(tts);
 
       isPlayingPreview = true;
       isLoadingPreview = false;
 
-      await aiTTSService.generateAndPlay(previewText, tts.voice, (progress) => {
-        // We could use progress if we had a progress bar
-      });
+      await aiTTSService.generateAndPlay(previewText, tts.voice, (progress) => {});
 
       isPlayingPreview = false;
     } catch (error) {
@@ -55,14 +61,12 @@
     }
   }
 
-  // Stop preview playback
   function stopPreview() {
     aiTTSService.stopPlayback();
     isPlayingPreview = false;
     isLoadingPreview = false;
   }
 
-  // Reset TTS settings to defaults
   function resetSettings() {
     settings.resetTTSSettings();
     previewError = null;
@@ -71,52 +75,34 @@
 
 <div class="space-y-4">
   <!-- Enable TTS Toggle -->
-  <div class="border-b border-surface-700 pb-4">
-    <div class="flex items-center justify-between">
-      <div>
-        <h3 class="text-sm font-medium text-surface-200">
-          Text-to-Speech Narration
-        </h3>
-        <p class="text-xs text-surface-500">
-          Generate audio narration of story events using TTS.
-        </p>
-      </div>
-      <button
-        class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
-        class:bg-accent-600={settings.systemServicesSettings.tts.enabled}
-        class:bg-surface-600={!settings.systemServicesSettings.tts.enabled}
-        onclick={() => {
-          settings.systemServicesSettings.tts.enabled =
-            !settings.systemServicesSettings.tts.enabled;
-          settings.saveSystemServicesSettings();
-        }}
-        aria-label="Toggle TTS"
-      >
-        <span
-          class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-          class:translate-x-6={settings.systemServicesSettings.tts.enabled}
-          class:translate-x-1={!settings.systemServicesSettings.tts.enabled}
-        ></span>
-      </button>
+  <div class="flex items-center justify-between">
+    <div>
+      <Label>Enable Text-to-Speech</Label>
+      <p class="text-xs text-muted-foreground">
+        Configure text-to-speech settings for narration.
+      </p>
     </div>
+    <Switch
+      checked={settings.systemServicesSettings.tts.enabled}
+      onCheckedChange={(v) => {
+        settings.systemServicesSettings.tts.enabled = v;
+        settings.saveSystemServicesSettings();
+      }}
+    />
   </div>
 
   {#if settings.systemServicesSettings.tts.enabled}
     <!-- Provider Selection -->
-    <div class="space-y-2">
-      <label class="text-sm font-medium text-surface-300"> TTS Provider </label>
-      <p class="text-xs text-surface-500">
-        Select the text-to-speech provider.
-      </p>
-      <select
-        class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+    <div>
+      <Label class="mb-2 block">TTS Provider</Label>
+      <Select.Root
+        type="single"
         value={settings.systemServicesSettings.tts.provider}
-        onchange={(e) => {
-          settings.systemServicesSettings.tts.provider = e.currentTarget
-            .value as "openai" | "google";
-          // Set default voice for Google if current voice is not a valid Google language
+        onValueChange={(v) => {
+          const provider = v as "openai" | "google";
+          settings.systemServicesSettings.tts.provider = provider;
           if (
-            settings.systemServicesSettings.tts.provider === "google" &&
+            provider === "google" &&
             !GOOGLE_TRANSLATE_LANGUAGES.some(
               (lang) => lang.id === settings.systemServicesSettings.tts.voice,
             )
@@ -126,44 +112,41 @@
           settings.saveSystemServicesSettings();
         }}
       >
-        <option value="openai"
-          >OpenAI Compatible (OpenRouter, OpenAI, Local)</option
-        >
-        <option value="google">Google Translate</option>
-      </select>
+        <Select.Trigger class="h-10 w-full">
+          {providers.find((p) => p.value === settings.systemServicesSettings.tts.provider)?.label ?? "Select provider"}
+        </Select.Trigger>
+        <Select.Content>
+          {#each providers as provider}
+            <Select.Item value={provider.value} label={provider.label}>
+              {provider.label}
+            </Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
     </div>
 
     {#if settings.systemServicesSettings.tts.provider === "openai"}
-      <!-- API Endpoint (Required for OpenAI) -->
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-surface-300">
-          API Endpoint
-        </label>
-        <p class="text-xs text-surface-500">
-          TTS API endpoint (e.g., https://api.openai.com/v1/audio/speech)
-        </p>
-        <input
+      <!-- API Endpoint -->
+      <div>
+        <Label class="mb-2 block">API Endpoint</Label>
+        <Input
           type="text"
-          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+          class="w-full"
           value={settings.systemServicesSettings.tts.endpoint}
           oninput={(e) => {
-            settings.systemServicesSettings.tts.endpoint =
-              e.currentTarget.value;
+            settings.systemServicesSettings.tts.endpoint = e.currentTarget.value;
             settings.saveSystemServicesSettings();
           }}
           placeholder="https://api.openai.com/v1/audio/speech"
         />
       </div>
 
-      <!-- API Key (Required for OpenAI) -->
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-surface-300"> API Key </label>
-        <p class="text-xs text-surface-500">
-          Your API key for the TTS endpoint
-        </p>
-        <input
+      <!-- API Key -->
+      <div>
+        <Label class="mb-2 block">API Key</Label>
+        <Input
           type="password"
-          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+          class="w-full"
           value={settings.systemServicesSettings.tts.apiKey}
           oninput={(e) => {
             settings.systemServicesSettings.tts.apiKey = e.currentTarget.value;
@@ -173,15 +156,12 @@
         />
       </div>
 
-      <!-- TTS Model (for OpenAI) -->
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-surface-300"> TTS Model </label>
-        <p class="text-xs text-surface-500">
-          Model to use for speech generation.
-        </p>
-        <input
+      <!-- TTS Model -->
+      <div>
+        <Label class="mb-2 block">TTS Model</Label>
+        <Input
           type="text"
-          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+          class="w-full"
           value={settings.systemServicesSettings.tts.model}
           oninput={(e) => {
             settings.systemServicesSettings.tts.model = e.currentTarget.value;
@@ -191,15 +171,12 @@
         />
       </div>
 
-      <!-- Voice (Text Input for OpenAI) -->
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-surface-300"> Voice </label>
-        <p class="text-xs text-surface-500">
-          Voice ID for narration (e.g., alloy, nova, onyx)
-        </p>
-        <input
+      <!-- Voice -->
+      <div>
+        <Label class="mb-2 block">Voice</Label>
+        <Input
           type="text"
-          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+          class="w-full"
           value={settings.systemServicesSettings.tts.voice}
           oninput={(e) => {
             settings.systemServicesSettings.tts.voice = e.currentTarget.value;
@@ -209,231 +186,174 @@
         />
       </div>
     {:else if settings.systemServicesSettings.tts.provider === "google"}
-      <!-- Language Selection (for Google) -->
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-surface-300"> Language </label>
-        <p class="text-xs text-surface-500">
-          Select the language for narration.
-        </p>
-        <select
-          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+      <!-- Language Selection -->
+      <div>
+        <Label class="mb-2 block">Language</Label>
+        <Select.Root
+          type="single"
           value={settings.systemServicesSettings.tts.voice}
-          onchange={(e) => {
-            settings.systemServicesSettings.tts.voice = e.currentTarget.value;
+          onValueChange={(v) => {
+            settings.systemServicesSettings.tts.voice = v;
             settings.saveSystemServicesSettings();
           }}
         >
-          {#each GOOGLE_TRANSLATE_LANGUAGES as lang}
-            <option value={lang.id}>{lang.name}</option>
-          {/each}
-        </select>
+          <Select.Trigger class="h-10 w-full">
+            {GOOGLE_TRANSLATE_LANGUAGES.find((l) => l.id === settings.systemServicesSettings.tts.voice)?.name ?? "Select language"}
+          </Select.Trigger>
+          <Select.Content>
+            {#each GOOGLE_TRANSLATE_LANGUAGES as lang}
+              <Select.Item value={lang.id} label={lang.name}>
+                {lang.name}
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
       </div>
     {/if}
 
     <!-- Voice Preview -->
-    <div class="border-t border-surface-700 pt-4">
-      <div class="flex gap-2">
-        <button
-          class="btn btn-primary btn-sm flex-1 gap-1 flex justify-center items-center"
-          onclick={isPlayingPreview ? stopPreview : playVoicePreview}
-          disabled={isLoadingPreview}
-        >
-          {#if isLoadingPreview}
-            <Loader2 class="h-4 w-4 animate-spin" />
-            <span>Loading...</span>
-          {:else if isPlayingPreview}
-            <Square class="h-4 w-4" />
-            <span>Stop</span>
-          {:else}
-            <Play class="h-4 w-4" />
-            <span>Preview Voice</span>
-          {/if}
-        </button>
-      </div>
+    <div>
+      <Button
+        variant="outline"
+        class="w-full"
+        onclick={isPlayingPreview ? stopPreview : playVoicePreview}
+        disabled={isLoadingPreview}
+      >
+        {#if isLoadingPreview}
+          <Loader2 class="h-4 w-4 mr-2 animate-spin" />
+          Loading...
+        {:else if isPlayingPreview}
+          <Square class="h-4 w-4 mr-2" />
+          Stop
+        {:else}
+          <Play class="h-4 w-4 mr-2" />
+          Preview Voice
+        {/if}
+      </Button>
       {#if previewError}
-        <p class="text-xs text-error mt-2">{previewError}</p>
+        <p class="text-xs text-destructive mt-2">{previewError}</p>
       {/if}
     </div>
 
     <!-- Speech Speed -->
-    <div class="space-y-2">
-      <label class="text-sm font-medium text-surface-300">
-        Speech Speed: <span class="text-accent-400"
-          >{settings.systemServicesSettings.tts.speed.toFixed(2)}x</span
-        >
-      </label>
-      <p class="text-xs text-surface-500">
+    <div>
+      <Label class="mb-2 block">
+        Speech Speed: {settings.systemServicesSettings.tts.speed.toFixed(2)}x
+      </Label>
+      <Slider
+        value={[settings.systemServicesSettings.tts.speed]}
+        onValueChange={(v) => {
+          settings.systemServicesSettings.tts.speed = v[0];
+          settings.saveSystemServicesSettings();
+        }}
+        min={0.25}
+        max={4}
+        step={0.05}
+        class="w-full"
+      />
+      <p class="mt-1 text-xs text-muted-foreground">
         Adjust the speed of speech generation (0.25-4.0).
       </p>
-      <input
-        type="range"
-        min="0.25"
-        max="4"
-        step="0.05"
-        class="range range-xs range-accent w-full"
-        value={settings.systemServicesSettings.tts.speed}
-        oninput={(e) => {
-          settings.systemServicesSettings.tts.speed = parseFloat(
-            e.currentTarget.value,
-          );
+    </div>
+
+    <!-- Auto-Play Toggle -->
+    <div class="flex items-center justify-between">
+      <div>
+        <Label>Auto-Play Narration</Label>
+        <p class="text-xs text-muted-foreground">
+          Automatically play TTS audio when story is narrated.
+        </p>
+      </div>
+      <Switch
+        checked={settings.systemServicesSettings.tts.autoPlay}
+        onCheckedChange={(v) => {
+          settings.systemServicesSettings.tts.autoPlay = v;
           settings.saveSystemServicesSettings();
         }}
       />
     </div>
 
-    <!-- Auto-Play Toggle -->
-    <div class="border-t border-surface-700 pt-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <h3 class="text-sm font-medium text-surface-200">
-            Auto-Play Narration
-          </h3>
-          <p class="text-xs text-surface-500">
-            Automatically play TTS audio when story is narrated.
-          </p>
-        </div>
-        <button
-          class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
-          class:bg-accent-600={settings.systemServicesSettings.tts.autoPlay}
-          class:bg-surface-600={!settings.systemServicesSettings.tts.autoPlay}
-          onclick={() => {
-            settings.systemServicesSettings.tts.autoPlay =
-              !settings.systemServicesSettings.tts.autoPlay;
-            settings.saveSystemServicesSettings();
-          }}
-          aria-label="Toggle auto-play"
-        >
-          <span
-            class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-            class:translate-x-6={settings.systemServicesSettings.tts.autoPlay}
-            class:translate-x-1={!settings.systemServicesSettings.tts.autoPlay}
-          ></span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Excluded Characters (Text Input) -->
-    <div class="space-y-2">
-      <label class="text-sm font-medium text-surface-300">
-        Excluded Characters
-      </label>
-      <p class="text-xs text-surface-500">
-        Characters excluded from TTS narration (comma-separated)
-      </p>
-      <input
+    <!-- Excluded Characters -->
+    <div>
+      <Label class="mb-2 block">Excluded Characters</Label>
+      <Input
         type="text"
-        class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+        class="w-full"
         value={settings.systemServicesSettings.tts.excludedCharacters}
         oninput={(e) => {
-          settings.systemServicesSettings.tts.excludedCharacters =
-            e.currentTarget.value;
+          settings.systemServicesSettings.tts.excludedCharacters = e.currentTarget.value;
           settings.saveSystemServicesSettings();
         }}
         placeholder="Comma-separated characters (e.g., *, #, _, ~)"
       />
+      <p class="mt-1 text-xs text-muted-foreground">
+        Characters excluded from TTS narration.
+      </p>
     </div>
 
-    <!-- HTML Tag Handling -->
-    <div class="flex items-center justify-between space-y-2 mt-4">
+    <!-- Remove HTML tags Toggle -->
+    <div class="flex items-center justify-between">
       <div>
-        <h3 class="text-sm font-medium text-surface-200">Remove HTML tags</h3>
-        <p class="text-xs text-surface-500">
-          Remove HTML tags from narrated text before sending to TTS. Always
-          removes content of &lt;style&gt; tags as well.
+        <Label>Remove HTML tags</Label>
+        <p class="text-xs text-muted-foreground">
+          Remove HTML tags from narrated text before sending to TTS.
         </p>
       </div>
-      <button
-        class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
-        class:bg-accent-600={settings.systemServicesSettings.tts.removeHtmlTags}
-        class:bg-surface-600={!settings.systemServicesSettings.tts
-          .removeHtmlTags}
-        onclick={() => {
-          settings.systemServicesSettings.tts.removeHtmlTags =
-            !settings.systemServicesSettings.tts.removeHtmlTags;
+      <Switch
+        checked={settings.systemServicesSettings.tts.removeHtmlTags}
+        onCheckedChange={(v) => {
+          settings.systemServicesSettings.tts.removeHtmlTags = v;
           settings.saveSystemServicesSettings();
         }}
-        aria-label="Toggle HTML tag remove"
-      >
-        <span
-          class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-          class:translate-x-6={settings.systemServicesSettings.tts
-            .removeHtmlTags}
-          class:translate-x-1={!settings.systemServicesSettings.tts
-            .removeHtmlTags}
-        ></span>
-      </button>
+      />
     </div>
 
     {#if settings.systemServicesSettings.tts.removeHtmlTags}
-      <!-- HTML tags to remove content from (Text Input) -->
-      <div class="space-y-2">
-        <label class="text-sm font-medium text-surface-300">
-          HTML tags to remove content from
-        </label>
-        <p class="text-xs text-surface-500">
-          Comma-separated list of HTML tags whose content should be removed
-          before narration.
-        </p>
-        <input
+      <!-- HTML tags to remove content from -->
+      <div>
+        <Label class="mb-2 block">HTML tags to remove content from</Label>
+        <Input
           type="text"
-          class="input input-sm w-full bg-surface-800 border-surface-600 text-surface-100"
+          class="w-full"
           value={settings.systemServicesSettings.tts.htmlTagsToRemoveContent}
           oninput={(e) => {
-            settings.systemServicesSettings.tts.htmlTagsToRemoveContent =
-              e.currentTarget.value;
+            settings.systemServicesSettings.tts.htmlTagsToRemoveContent = e.currentTarget.value;
             settings.saveSystemServicesSettings();
           }}
           placeholder="Comma-separated HTML tags (e.g., div, span, font)"
           disabled={settings.systemServicesSettings.tts.removeAllHtmlContent}
-          class:text-surface-600={settings.systemServicesSettings.tts
-            .removeAllHtmlContent}
         />
+        <p class="mt-1 text-xs text-muted-foreground">
+          Comma-separated list of HTML tags whose content should be removed before narration.
+        </p>
       </div>
 
-      <div class="space-y-2">
-        <div class="flex items-center justify-between">
-          <div>
-            <h3 class="text-sm font-medium text-surface-200">
-              Remove all tag content
-            </h3>
-            <p class="text-xs text-surface-500">
-              Removes content inside any HTML tag before narration.
-            </p>
-          </div>
-          <button
-            class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
-            class:bg-accent-600={settings.systemServicesSettings.tts
-              .removeAllHtmlContent}
-            class:bg-surface-600={!settings.systemServicesSettings.tts
-              .removeAllHtmlContent}
-            onclick={() => {
-              settings.systemServicesSettings.tts.removeAllHtmlContent =
-                !settings.systemServicesSettings.tts.removeAllHtmlContent;
-              settings.saveSystemServicesSettings();
-            }}
-            aria-label="Toggle full HTML content removal"
-          >
-            <span
-              class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-              class:translate-x-6={settings.systemServicesSettings.tts
-                .removeAllHtmlContent}
-              class:translate-x-1={!settings.systemServicesSettings.tts
-                .removeAllHtmlContent}
-            ></span>
-          </button>
+      <!-- Remove all tag content Toggle -->
+      <div class="flex items-center justify-between">
+        <div>
+          <Label>Remove all tag content</Label>
+          <p class="text-xs text-muted-foreground">
+            Removes content inside any HTML tag before narration.
+          </p>
         </div>
+        <Switch
+          checked={settings.systemServicesSettings.tts.removeAllHtmlContent}
+          onCheckedChange={(v) => {
+            settings.systemServicesSettings.tts.removeAllHtmlContent = v;
+            settings.saveSystemServicesSettings();
+          }}
+        />
       </div>
     {/if}
 
     <!-- Reset Button -->
-    <div class="border-t border-surface-700 pt-4 mt-4">
-      <button
-        class="btn btn-secondary text-xs flex items-center gap-1"
-        onclick={resetSettings}
-      >
-        <RefreshCw class="h-3 w-3 mr-1" />
-        Reset to Defaults
-      </button>
-    </div>
+    <Button
+      variant="outline"
+      size="sm"
+      onclick={resetSettings}
+    >
+      <RefreshCw class="h-3 w-3 mr-1" />
+      Reset to Defaults
+    </Button>
   {/if}
 </div>
