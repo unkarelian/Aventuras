@@ -62,11 +62,15 @@
     return String(imagesPerPollen);
   }
 
-  function getModelLabel(model: ImageModelInfo): string {
+  function getModelSuffix(model: ImageModelInfo): string {
     const cost = formatCost(model, includeImageInputCost);
-    const suffix = cost ? ` ~${cost}/day` : "";
+    const costSuffix = cost ? ` ~${cost}/day` : "";
     const img2img = model.supportsImg2Img ? " (+img2img)" : "";
-    return `${model.name}${img2img}${suffix}`;
+    return `${img2img}${costSuffix}`;
+  }
+
+  function getModelLabel(model: ImageModelInfo): string {
+    return `${model.name}${getModelSuffix(model)}`;
   }
 
   let selectedModel = $derived(models.find(m => m.id === selectedModelId));
@@ -93,7 +97,7 @@
           <div class="flex flex-col items-start gap-0.5">
             <span>{model.name}</span>
             <span class="text-xs text-muted-foreground">
-              {getModelLabel(model).replace(model.name, '')}
+              {getModelSuffix(model)}
             </span>
           </div>
         </Select.Item>
