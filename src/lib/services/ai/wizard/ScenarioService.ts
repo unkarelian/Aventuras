@@ -14,7 +14,7 @@ const log = createLogger('ScenarioService');
 export const SCENARIO_MODEL = 'deepseek/deepseek-v3.2';
 
 // Provider preference - prioritize Deepseek with fallbacks, require all parameters
-export const SCENARIO_PROVIDER = { order: ['deepseek'], require_parameters: true };
+export const SCENARIO_PROVIDER = { order: ['deepseek'], require_parameters: false };
 
 export type Genre = 'fantasy' | 'scifi' | 'modern' | 'horror' | 'mystery' | 'romance' | 'custom';
 export type Tense = 'past' | 'present';
@@ -784,7 +784,7 @@ class ScenarioService {
       maxTokens: presetConfig.maxTokens ?? 8192,
       extraBody: this.buildProcessExtraBody(
         presetConfig,
-        isZAI ? { order: ['z-ai'], require_parameters: true } : SCENARIO_PROVIDER,
+        isZAI ? { order: ['z-ai'], require_parameters: false } : SCENARIO_PROVIDER,
         'high'
       ),
     });
@@ -854,7 +854,7 @@ class ScenarioService {
       maxTokens: presetConfig.maxTokens ?? 8192,
       extraBody: this.buildProcessExtraBody(
         presetConfig,
-        isZAI ? { order: ['z-ai'], require_parameters: true } : SCENARIO_PROVIDER,
+        isZAI ? { order: ['z-ai'], require_parameters: false } : SCENARIO_PROVIDER,
         'high'
       ),
     });
@@ -900,7 +900,7 @@ class ScenarioService {
       maxTokens: presetConfig.maxTokens ?? 8192,
       extraBody: this.buildProcessExtraBody(
         presetConfig,
-        isZAI ? { order: ['z-ai'], require_parameters: true } : SCENARIO_PROVIDER,
+        isZAI ? { order: ['z-ai'], require_parameters: false } : SCENARIO_PROVIDER,
         'high'
       ),
     })) {

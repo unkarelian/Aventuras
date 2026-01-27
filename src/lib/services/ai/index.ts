@@ -118,7 +118,7 @@ class AIService {
       manualBody: settings.apiSettings.manualBody,
       reasoningEffort: settings.apiSettings.reasoningEffort,
       providerOnly: settings.apiSettings.providerOnly,
-      baseProvider: { order: ['z-ai'], require_parameters: true },
+      baseProvider: { order: ['z-ai'], require_parameters: false },
     });
 
     log('Messages built:', {
@@ -263,7 +263,7 @@ class AIService {
       manualBody: settings.apiSettings.manualBody,
       reasoningEffort: settings.apiSettings.reasoningEffort,
       providerOnly: settings.apiSettings.providerOnly,
-      baseProvider: { order: ['z-ai'], require_parameters: true },
+      baseProvider: { order: ['z-ai'], require_parameters: false },
     });
 
     log('Starting stream with', {
