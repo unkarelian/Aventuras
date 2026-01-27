@@ -659,11 +659,21 @@
     if (expandedImage.status === "complete" && expandedImage.imageData) {
       innerHtml += `<img src="data:image/png;base64,${expandedImage.imageData}" alt="${expandedImage.sourceText}" class="inline-image-content" />`;
     } else if (expandedImage.status === "generating") {
-      innerHtml += `<div class="inline-image-loading"><span class="spinner"></span><span>Generating image...</span></div>`;
+      innerHtml += `<div class="inline-image-placeholder generating">
+        <div class="placeholder-spinner"></div>
+        <span class="placeholder-status">Generating...</span>
+      </div>`;
     } else if (expandedImage.status === "pending") {
-      innerHtml += `<div class="inline-image-loading"><span>Image queued...</span></div>`;
+      innerHtml += `<div class="inline-image-placeholder pending">
+        <div class="placeholder-icon">⏳</div>
+        <span class="placeholder-status">Queued...</span>
+      </div>`;
     } else if (expandedImage.status === "failed") {
-      innerHtml += `<div class="inline-image-error"><span>Failed to generate image</span>${expandedImage.errorMessage ? `<span class="error-message">${expandedImage.errorMessage}</span>` : ""}</div>`;
+      innerHtml += `<div class="inline-image-placeholder failed">
+        <div class="placeholder-icon">⚠️</div>
+        <span class="placeholder-status">Generation Failed</span>
+        ${expandedImage.errorMessage ? `<span class="placeholder-text">${expandedImage.errorMessage}</span>` : ""}
+      </div>`;
     }
 
     container.innerHTML = innerHtml;
@@ -1387,40 +1397,146 @@
     margin: 0 auto;
   }
 
-  :global(.inline-image-loading) {
+  /* Inline Image Placeholders (Loading/Pending/Failed) */
+  :global(.inline-image-placeholder) {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     padding: 2rem;
+    margin: 1rem 0;
+    border-radius: 0.75rem;
+    background-color: var(--surface-800);
+    border: 2px dashed var(--surface-600);
     color: var(--surface-400);
-    font-size: 0.875rem;
+    text-align: center;
+    min-height: 150px;
+    transition: all 0.2s ease;
   }
 
-  :global(.inline-image-loading .spinner) {
-    width: 1.5rem;
-    height: 1.5rem;
-    border: 2px solid var(--surface-600);
-    border-top-color: var(--accent-400);
+  :global(.inline-image-placeholder.generating) {
+    border-color: var(--accent-500);
+    background-color: var(--surface-850);
+  }
+
+  :global(.inline-image-placeholder.failed) {
+    border-color: var(--color-red-500, #ef4444);
+    border-style: solid;
+  }
+
+  :global(.placeholder-spinner) {
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid var(--surface-700);
+    border-top-color: var(--accent-500);
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    margin-bottom: 0.5rem;
   }
 
-  :global(.inline-image-error) {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 2rem;
-    color: var(--color-red-400, #f87171);
+  :global(.placeholder-icon) {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+
+  :global(.placeholder-text) {
     font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--surface-200);
+    max-width: 80%;
+    margin-top: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
-  :global(.inline-image-error .error-message) {
+  :global(.placeholder-status) {
     font-size: 0.75rem;
-    color: var(--surface-500);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--surface-400);
+  }
+
+  :global(.generating .placeholder-status) {
+    color: var(--accent-400);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  :global(.failed .placeholder-status) {
+    color: var(--color-red-400, #f87171);
+  }
+
+  /* Inline Image Actions (Overlay) */
+  :global(.inline-generated-image) {
+    position: relative;
+    display: block; /* Change to block for better layout in prose */
+    margin: 1rem 0;
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  :global(.inline-image-actions) {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 10;
+  }
+
+  :global(.inline-generated-image:hover .inline-image-actions) {
+    opacity: 1;
+  }
+
+  /* Shared Inline Image Button Styles */
+  :global(.inline-image-btn) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+    color: white; /* Always white for visibility on images */
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.15s ease;
+    cursor: pointer;
+  }
+
+  :global(.inline-image-btn:hover) {
+    background-color: rgba(0, 0, 0, 0.8);
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.4);
+  }
+
+  :global(.inline-image-btn:active) {
+    transform: translateY(0);
+  }
+
+  :global(.inline-image-btn svg) {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* Placeholder (Failed/Loading) styles for the button */
+  :global(.inline-image-placeholder .inline-image-btn) {
+    margin-top: 0.5rem;
+    color: var(--foreground);
+    background-color: var(--surface-600);
+    border-color: var(--surface-500);
+  }
+
+  :global(.inline-image-placeholder .inline-image-btn:hover) {
+    background-color: var(--surface-500);
+    border-color: var(--surface-400);
   }
 
   @keyframes spin {
