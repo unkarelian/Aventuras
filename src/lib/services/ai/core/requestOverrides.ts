@@ -80,6 +80,7 @@ export function buildExtraBody(options: ExtraBodyOptions): Record<string, unknow
       const sanitized = sanitizeManualBody(parsed);
       return Object.keys(sanitized).length > 0 ? sanitized : undefined;
     }
+    return undefined;
   }
 
   const reasoning = buildReasoningConfig(options.reasoningEffort ?? 'off');
