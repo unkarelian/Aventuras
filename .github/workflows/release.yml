@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'  # Stable releases only (v1.0.0)
   workflow_dispatch:
     inputs:
       version:
@@ -160,7 +160,6 @@ jobs:
           path: aventura-release.apk
 
       - name: Upload to Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
           draft: true
