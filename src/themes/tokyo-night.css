@@ -1,0 +1,193 @@
+/* =============================================
+   TOKYO NIGHT THEME
+   Dark theme inspired by Tokyo's neon nights with vibrant blue/purple accents.
+   Based on Tokyo Night color scheme.
+   ============================================= */
+[data-theme="tokyo-night"] {
+  /*
+     Tokyo Night Surface Scale
+     From dark backgrounds to light text
+  */
+  --color-surface-50: #c0caf5;  /* Variables, Class names */
+  --color-surface-100: #a9b1d6; /* Editor Foreground */
+  --color-surface-200: #9aa5ce; /* Markdown Text */
+  --color-surface-300: #7e89b4; /* Interpolated */
+  --color-surface-400: #6b7599; /* Interpolated */
+  --color-surface-500: #565f89; /* Comments */
+  --color-surface-600: #484f73; /* Interpolated */
+  --color-surface-700: #3b415a; /* Interpolated */
+  --color-surface-800: #24283b; /* Storm Background */
+  --color-surface-850: #1f2231; /* Interpolated */
+  --color-surface-900: #1a1b26; /* Night Background */
+  --color-surface-950: #16161f; /* Darker */
+
+  /* Accent colors (Blue/Purple palette) */
+  --color-accent-50: #e0f2ff;
+  --color-accent-100: #c7e7ff;
+  --color-accent-200: #a9d9ff;
+  --color-accent-300: #7dcfff; /* Blue Bright */
+  --color-accent-400: #7aa2f7; /* Blue */
+  --color-accent-500: #2ac3de; /* Cyan */
+  --color-accent-600: #0f7ba6; /* Darker Cyan */
+  --color-accent-700: #0a5a7d; /* Interpolated */
+  --color-accent-800: #073f57; /* Interpolated */
+  --color-accent-900: #042431; /* Interpolated */
+  --color-accent-950: #021219; /* Darkest */
+
+  /* Tokyo Night accent colors */
+  --tokyo-red: #f7768e;
+  --tokyo-orange: #ff9e64;
+  --tokyo-yellow: #e0af68;
+  --tokyo-green: #9ece6a;
+  --tokyo-teal: #73daca;
+  --tokyo-cyan-bright: #b4f9f8;
+  --tokyo-cyan: #2ac3de;
+  --tokyo-blue-bright: #7dcfff;
+  --tokyo-blue: #7aa2f7;
+  --tokyo-purple: #bb9af7;
+
+  /* Semantic colors */
+  --bg-primary: #1a1b26;            /* Night Background */
+  --bg-secondary: #24283b;          /* Storm Background */
+  --bg-tertiary: #2e3247;           /* Elevated */
+  --text-primary: #c0caf5;          /* Variables */
+  --text-secondary: #a9b1d6;        /* Foreground */
+  --text-muted: #565f89;            /* Comments */
+  --text-accent: #7aa2f7;           /* Blue */
+  --border-primary: #3b415a;        /* Subtle */
+  --border-secondary: #2e3247;      /* Elevated */
+  --scrollbar-track: #24283b;
+  --scrollbar-thumb: #3b415a;
+  --scrollbar-thumb-hover: #565f89;
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #1a1b26;            /* Night Background */
+  --foreground: #c0caf5;            /* Variables */
+
+  --card: #24283b;                  /* Storm Background */
+  --card-foreground: #c0caf5;       /* Variables */
+
+  --popover: #24283b;               /* Storm Background */
+  --popover-foreground: #c0caf5;    /* Variables */
+
+  --primary: #7aa2f7;               /* Blue */
+  --primary-foreground: #1a1b26;    /* Night Background */
+
+  --secondary: #2e3247;             /* Elevated */
+  --secondary-foreground: #c0caf5;  /* Variables */
+
+  --muted: #2e3247;                 /* Elevated */
+  --muted-foreground: #a9b1d6;      /* Foreground */
+
+  --accent: #3b415a;                /* Subtle */
+  --accent-foreground: #7aa2f7;     /* Blue */
+
+  --destructive: #f7768e;           /* Red */
+  --destructive-foreground: #1a1b26; /* Night Background */
+
+  --border: #3b415a;                /* Subtle */
+  --input: #3b415a;                 /* Subtle */
+  --ring: #7aa2f7;                  /* Blue */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - Standard Dark Theme */
+
+[data-theme="tokyo-night"] .bg-surface-900 {
+  background-color: #1a1b26; /* Night Background */
+}
+
+[data-theme="tokyo-night"] .bg-surface-850 {
+  background-color: #24283b; /* Storm Background */
+}
+
+[data-theme="tokyo-night"] .bg-surface-800 {
+  background-color: #2e3247; /* Elevated */
+}
+
+[data-theme="tokyo-night"] .bg-surface-700 {
+  background-color: #3b415a; /* Subtle */
+}
+
+[data-theme="tokyo-night"] .bg-surface-600 {
+  background-color: #484f73; /* Lighter */
+}
+
+[data-theme="tokyo-night"] .bg-surface-500 {
+  background-color: #565f89;
+}
+
+[data-theme="tokyo-night"] .bg-surface-400 {
+  background-color: #3b415a;
+}
+
+[data-theme="tokyo-night"] .bg-surface-300 {
+  background-color: #2e3247;
+}
+
+[data-theme="tokyo-night"] .bg-surface-200 {
+  background-color: #24283b;
+}
+
+[data-theme="tokyo-night"] .bg-surface-100 {
+  background-color: #1a1b26;
+}
+
+[data-theme="tokyo-night"] .bg-surface-50 {
+  background-color: #1a1b26;
+}
+
+/* Text color overrides */
+[data-theme="tokyo-night"] .text-surface-50 {
+  color: #c0caf5;
+}
+
+[data-theme="tokyo-night"] .text-surface-100 {
+  color: #a9b1d6;
+}
+
+[data-theme="tokyo-night"] .text-surface-200 {
+  color: #9aa5ce;
+}
+
+[data-theme="tokyo-night"] .text-surface-300 {
+  color: #7e89b4;
+}
+
+[data-theme="tokyo-night"] .text-surface-400 {
+  color: #a9b1d6;
+}
+
+[data-theme="tokyo-night"] .text-surface-500 {
+  color: #c0caf5;
+}
+
+/* Border color overrides */
+[data-theme="tokyo-night"] .border-surface-700 {
+  border-color: #3b415a;
+}
+
+[data-theme="tokyo-night"] .border-surface-600 {
+  border-color: #484f73;
+}
+
+/* Select dropdown styling */
+[data-theme="tokyo-night"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c0caf5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="tokyo-night"] select.input option {
+  background-color: #24283b;
+  color: #c0caf5;
+}
+
+[data-theme="tokyo-night"] select.input option:checked {
+  background-color: #7aa2f7;
+  color: #1a1b26;
+}

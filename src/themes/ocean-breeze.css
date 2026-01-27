@@ -1,0 +1,183 @@
+/* =============================================
+   OCEAN BREEZE THEME
+   Coastal elegance with stormy teal depths and seafoam shimmer.
+   Crisp airiness meets warm coral accents for modern tranquility.
+   ============================================= */
+[data-theme="ocean-breeze"] {
+  /*
+     Ocean Scale (Cool Blue-Aqua Gradient)
+     50 = Alice Blue Sky (Main BG - Lightest)
+     100 = Morning Mist (Cards BG)
+     200-900 = Deepening Ocean to Stormy Depths
+  */
+  --color-surface-50: #f8fcfd;  /* Alice Blue Sky - Brightest (Main BG) */
+  --color-surface-100: #edf6f9; /* Alice Blue - Morning Mist (Card BG) */
+  --color-surface-200: #d4eff5; /* Gentle Wave (Borders/Secondary) */
+  --color-surface-300: #83c5be; /* Pearl Aqua - Seafoam Shimmer */
+  --color-surface-400: #5ba8a0; /* Medium Aqua */
+  --color-surface-500: #3d8b83; /* Deep Aqua */
+  --color-surface-600: #2a7169; /* Ocean Depth */
+  --color-surface-700: #1d5550; /* Teal Shadow (Secondary Text) */
+  --color-surface-800: #123d3a; /* Deep Teal */
+  --color-surface-850: #0d2e2c; /* Stormy Depth */
+  --color-surface-900: #006d77; /* Stormy Teal - Almost Black (Primary Text) */
+  --color-surface-950: #004047; /* Black Teal */
+
+  /* Accent colors (Warm Coral-Peach - Sunset on Water) */
+  --color-accent-50: #fff9f5;
+  --color-accent-100: #ffeee5;
+  --color-accent-200: #ffddd2; /* Almond Silk - Gentle Warmth */
+  --color-accent-300: #ffc4b0;
+  --color-accent-400: #f4a88f;
+  --color-accent-500: #e29578; /* Tangerine Dream - Citrus Burst */
+  --color-accent-600: #d17a5f; /* Deep Coral */
+  --color-accent-700: #b8623e; /* Burnt Coral (Primary Accent Text) */
+  --color-accent-800: #944d2d; /* Dark Coral */
+  --color-accent-900: #733b22; /* Deep Coral */
+  --color-accent-950: #4a2416; /* Black Coral */
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-50);    /* Main BG = Alice Blue Sky (Lighter) */
+  --bg-secondary: var(--color-surface-100); /* Cards = Morning Mist (More saturated) */
+  --bg-tertiary: var(--color-surface-200);  /* Inputs = Gentle Wave */
+  --text-primary: var(--color-surface-900); /* Primary Text = Stormy Teal */
+  --text-secondary: var(--color-surface-700); /* Secondary Text = Teal Shadow */
+  --text-muted: var(--color-surface-500);   /* Muted Text = Deep Aqua */
+  --text-accent: var(--color-accent-700);   /* Accent Text = Burnt Coral */
+  --border-primary: var(--color-surface-300); /* Pearl Aqua borders */
+  --border-secondary: var(--color-surface-200); /* Gentle Wave borders */
+  --scrollbar-track: var(--color-surface-100);
+  --scrollbar-thumb: var(--color-surface-300);
+  --scrollbar-thumb-hover: var(--color-surface-400);
+
+  /* Shadcn Variables (Ocean Breeze) */
+  --radius: 0.5rem;
+  --background: hsl(193 60% 91%);    /* Surface 100 approx */
+  --foreground: hsl(185 100% 23%);   /* Surface 900 - Stormy Teal */
+
+  --card: hsl(193 50% 96%);          /* Surface 50 - Alice Blue */
+  --card-foreground: hsl(185 100% 23%);
+
+  --popover: hsl(193 50% 96%);       /* Surface 50 */
+  --popover-foreground: hsl(185 100% 23%);
+
+  --primary: hsl(14 64% 68%);        /* Tangerine Dream (Accent 500) */
+  --primary-foreground: hsl(185 100% 23%);
+
+  --secondary: hsl(193 55% 82%);     /* Surface 200 approx */
+  --secondary-foreground: hsl(185 100% 23%);
+
+  --muted: hsl(193 55% 82%);         /* Surface 200 approx */
+  --muted-foreground: hsl(176 42% 42%); /* Surface 600 approx */
+
+  --accent: hsl(193 50% 85%);        /* Hover color (lighter aqua) */
+  --accent-foreground: hsl(14 64% 68%);
+
+  --destructive: hsl(0 72% 51%);     /* Red */
+  --destructive-foreground: hsl(193 50% 96%);
+
+  --border: hsl(193 55% 80%);        /* Surface 200 approx */
+  --input: hsl(193 55% 80%);         /* Surface 200 approx */
+  --ring: hsl(14 64% 68%);           /* Tangerine Dream focus ring */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - INVERTED Logic for Light Theme */
+
+[data-theme="ocean-breeze"] .bg-surface-900 {
+  background-color: var(--color-surface-50); /* Main Background (Lightest) */
+}
+
+[data-theme="ocean-breeze"] .bg-surface-850 {
+  background-color: var(--color-surface-100); /* Cards/Modals (More saturated) */
+}
+
+[data-theme="ocean-breeze"] .bg-surface-800 {
+  background-color: var(--color-surface-100); /* Cards/Panels (More saturated) */
+}
+
+[data-theme="ocean-breeze"] .bg-surface-700 {
+  background-color: var(--color-surface-200); /* Tertiary */
+}
+
+[data-theme="ocean-breeze"] .bg-surface-600 {
+  background-color: var(--color-surface-200);
+}
+
+[data-theme="ocean-breeze"] .bg-surface-500 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="ocean-breeze"] .bg-surface-400 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="ocean-breeze"] .bg-surface-300 {
+  background-color: var(--color-surface-400);
+}
+
+[data-theme="ocean-breeze"] .bg-surface-200 {
+  background-color: var(--color-surface-500);
+}
+
+[data-theme="ocean-breeze"] .bg-surface-100 {
+  background-color: var(--color-surface-600);
+}
+
+[data-theme="ocean-breeze"] .bg-surface-50 {
+  background-color: var(--color-surface-700);
+}
+
+/* Text color overrides - INVERT for light theme (light numbers = dark colors) */
+[data-theme="ocean-breeze"] .text-surface-50 {
+  color: var(--color-surface-950);
+}
+
+[data-theme="ocean-breeze"] .text-surface-100 {
+  color: var(--color-surface-900);
+}
+
+[data-theme="ocean-breeze"] .text-surface-200 {
+  color: var(--color-surface-800);
+}
+
+[data-theme="ocean-breeze"] .text-surface-300 {
+  color: var(--color-surface-700);
+}
+
+[data-theme="ocean-breeze"] .text-surface-400 {
+  color: var(--color-surface-600);
+}
+
+[data-theme="ocean-breeze"] .text-surface-500 {
+  color: var(--color-surface-600);
+}
+
+/* Border color overrides */
+[data-theme="ocean-breeze"] .border-surface-700 {
+  border-color: var(--color-surface-300);
+}
+
+[data-theme="ocean-breeze"] .border-surface-600 {
+  border-color: var(--color-surface-400);
+}
+
+/* Select dropdown styling */
+[data-theme="ocean-breeze"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%231d5550' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="ocean-breeze"] select.input option {
+  background-color: var(--color-surface-100);
+  color: var(--color-surface-900);
+}
+
+[data-theme="ocean-breeze"] select.input option:checked {
+  background-color: var(--color-accent-500);
+  color: white;
+}

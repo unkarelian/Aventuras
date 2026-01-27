@@ -1,0 +1,199 @@
+/* =============================================
+   GRUVBOX LIGHT THEME
+   Retro groove color scheme with warm, earthy tones.
+   Light variant with cream backgrounds.
+   ============================================= */
+[data-theme="gruvbox-light"] {
+  /*
+     Gruvbox Light Surface Scale
+     From dark text to light backgrounds
+  */
+  --color-surface-50: #f9f5d7;  /* light0_hard - Lightest */
+  --color-surface-100: #fbf1c7; /* light0 - Base */
+  --color-surface-200: #f2e5bc; /* light0_soft */
+  --color-surface-300: #ebdbb2; /* light1 */
+  --color-surface-400: #d5c4a1; /* light2 */
+  --color-surface-500: #3c3836; /* dark1 - Text */
+  --color-surface-600: #bdae93; /* light3 */
+  --color-surface-700: #a89984; /* light4 */
+  --color-surface-800: #928374; /* gray */
+  --color-surface-850: #7c6f64; /* dark4 */
+  --color-surface-900: #504945; /* dark2 */
+  --color-surface-950: #3c3836; /* dark1 - Darkest */
+
+  /* Accent colors (Aqua/Blue palette) */
+  --color-accent-50: #d9eeea;
+  --color-accent-100: #b8dfd6;
+  --color-accent-200: #a5d4c8;
+  --color-accent-300: #8ec07c; /* bright_aqua */
+  --color-accent-400: #689d6a; /* neutral_aqua */
+  --color-accent-500: #458588; /* neutral_blue */
+  --color-accent-600: #427b58; /* faded_aqua */
+  --color-accent-700: #076678; /* faded_blue */
+  --color-accent-800: #04525e; /* Darker */
+  --color-accent-900: #04424d; /* Darker */
+  --color-accent-950: #022127; /* Darkest */
+
+  /* Gruvbox neutral accent colors (for light mode) */
+  --gruvbox-red-neutral: #cc241d;
+  --gruvbox-green-neutral: #98971a;
+  --gruvbox-yellow-neutral: #d79921;
+  --gruvbox-blue-neutral: #458588;
+  --gruvbox-purple-neutral: #b16286;
+  --gruvbox-aqua-neutral: #689d6a;
+  --gruvbox-orange-neutral: #d65d0e;
+
+  /* Gruvbox faded accent colors */
+  --gruvbox-red-faded: #9d0006;
+  --gruvbox-green-faded: #79740e;
+  --gruvbox-yellow-faded: #b57614;
+  --gruvbox-blue-faded: #076678;
+  --gruvbox-purple-faded: #8f3f71;
+  --gruvbox-aqua-faded: #427b58;
+  --gruvbox-orange-faded: #af3a03;
+
+  /* Semantic colors */
+  --bg-primary: #fbf1c7;            /* light0 */
+  --bg-secondary: #f2e5bc;          /* light0_soft */
+  --bg-tertiary: #ebdbb2;           /* light1 */
+  --text-primary: #3c3836;          /* dark1 */
+  --text-secondary: #504945;        /* dark2 */
+  --text-muted: #7c6f64;            /* dark4 */
+  --text-accent: #458588;           /* neutral_blue */
+  --border-primary: #d5c4a1;        /* light2 */
+  --border-secondary: #ebdbb2;      /* light1 */
+  --scrollbar-track: #f2e5bc;
+  --scrollbar-thumb: #d5c4a1;
+  --scrollbar-thumb-hover: #bdae93;
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #fbf1c7;            /* light0 */
+  --foreground: #3c3836;            /* dark1 */
+
+  --card: #f2e5bc;                  /* light0_soft */
+  --card-foreground: #3c3836;       /* dark1 */
+
+  --popover: #f2e5bc;               /* light0_soft */
+  --popover-foreground: #3c3836;    /* dark1 */
+
+  --primary: #458588;               /* neutral_blue */
+  --primary-foreground: #fbf1c7;    /* light0 */
+
+  --secondary: #ebdbb2;             /* light1 */
+  --secondary-foreground: #3c3836;  /* dark1 */
+
+  --muted: #ebdbb2;                 /* light1 */
+  --muted-foreground: #504945;      /* dark2 */
+
+  --accent: #d5c4a1;                /* light2 */
+  --accent-foreground: #458588;     /* neutral_blue */
+
+  --destructive: #cc241d;           /* neutral_red */
+  --destructive-foreground: #fbf1c7; /* light0 */
+
+  --border: #d5c4a1;                /* light2 */
+  --input: #d5c4a1;                 /* light2 */
+  --ring: #458588;                  /* neutral_blue */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - INVERTED Logic for Light Theme */
+
+[data-theme="gruvbox-light"] .bg-surface-900 {
+  background-color: #fbf1c7; /* light0 */
+}
+
+[data-theme="gruvbox-light"] .bg-surface-850 {
+  background-color: #f2e5bc; /* light0_soft */
+}
+
+[data-theme="gruvbox-light"] .bg-surface-800 {
+  background-color: #f2e5bc; /* light0_soft */
+}
+
+[data-theme="gruvbox-light"] .bg-surface-700 {
+  background-color: #ebdbb2; /* light1 */
+}
+
+[data-theme="gruvbox-light"] .bg-surface-600 {
+  background-color: #e0d0a8; /* Interpolated */
+}
+
+[data-theme="gruvbox-light"] .bg-surface-500 {
+  background-color: #d5c4a1; /* light2 */
+}
+
+[data-theme="gruvbox-light"] .bg-surface-400 {
+  background-color: #d5c4a1;
+}
+
+[data-theme="gruvbox-light"] .bg-surface-300 {
+  background-color: #c8b899;
+}
+
+[data-theme="gruvbox-light"] .bg-surface-200 {
+  background-color: #bdae93;
+}
+
+[data-theme="gruvbox-light"] .bg-surface-100 {
+  background-color: #a89984;
+}
+
+[data-theme="gruvbox-light"] .bg-surface-50 {
+  background-color: #a89984;
+}
+
+/* Text color overrides - INVERT for light theme */
+[data-theme="gruvbox-light"] .text-surface-50 {
+  color: #282828;
+}
+
+[data-theme="gruvbox-light"] .text-surface-100 {
+  color: #3c3836;
+}
+
+[data-theme="gruvbox-light"] .text-surface-200 {
+  color: #3c3836;
+}
+
+[data-theme="gruvbox-light"] .text-surface-300 {
+  color: #504945;
+}
+
+[data-theme="gruvbox-light"] .text-surface-400 {
+  color: #665c54;
+}
+
+[data-theme="gruvbox-light"] .text-surface-500 {
+  color: #7c6f64;
+}
+
+/* Border color overrides */
+[data-theme="gruvbox-light"] .border-surface-700 {
+  border-color: #d5c4a1;
+}
+
+[data-theme="gruvbox-light"] .border-surface-600 {
+  border-color: #c8b899;
+}
+
+/* Select dropdown styling */
+[data-theme="gruvbox-light"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233c3836' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="gruvbox-light"] select.input option {
+  background-color: #f2e5bc;
+  color: #3c3836;
+}
+
+[data-theme="gruvbox-light"] select.input option:checked {
+  background-color: #458588;
+  color: #fbf1c7;
+}

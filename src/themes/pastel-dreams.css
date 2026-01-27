@@ -1,0 +1,184 @@
+/* =============================================
+   PASTEL DREAMS THEME
+   Dreamy pastel aesthetic with soft lavender-pink surfaces and sky-blue accents.
+   Perfect for gentle, imaginative, and cheerful atmospheres.
+   ============================================= */
+[data-theme="pastel-dreams"] {
+  /*
+     Pastel Scale (Lavender-Pink Gradient)
+     50 = Whisper Mist (Card BG - Lightest)
+     100 = Dream Haze (Main BG)
+     200-900 = Text and Borders
+  */
+  --color-surface-50: #faf7fc;  /* Whisper Mist (Card BG) */
+  --color-surface-100: #f3ebf8; /* Dream Haze (Main BG) */
+  --color-surface-200: #e5d5f0; /* Soft Lavender (Borders/Secondary) */
+  --color-surface-300: #cdb4db; /* Pink Orchid - Key Color */
+  --color-surface-400: #b89bc9; /* Medium Lavender */
+  --color-surface-500: #a082b7; /* Mid Lavender */
+  --color-surface-600: #866a95; /* Deep Lavender */
+  --color-surface-700: #6b5578; /* Muted Purple (Secondary Text) */
+  --color-surface-800: #53415d; /* Dark Purple */
+  --color-surface-850: #3e3046; /* Deep Purple */
+  --color-surface-900: #2b2132; /* Almost Black Purple (Primary Text) */
+  --color-surface-950: #1a141f; /* Black Purple */
+
+  /* Accent colors (Sky Blue - Cheerful & Free) */
+  --color-accent-50: #f5fbff;
+  --color-accent-100: #e8f5ff;
+  --color-accent-200: #bde0fe; /* Icy Blue - Key Color */
+  --color-accent-300: #a2d2ff; /* Sky Blue - Key Color */
+  --color-accent-400: #7dc2ff; /* Bright Sky */
+  --color-accent-500: #5ba8e8; /* Mid Sky Blue */
+  --color-accent-600: #4287c9; /* Deeper Sky */
+  --color-accent-700: #2f6ba8; /* Strong Blue (Primary Accent Text) */
+  --color-accent-800: #215287; /* Dark Blue */
+  --color-accent-900: #1a3f68; /* Deep Blue */
+  --color-accent-950: #0f2338; /* Black Blue */
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-100);   /* Main BG = Dream Haze */
+  --bg-secondary: var(--color-surface-50);  /* Cards = Whisper Mist */
+  --bg-tertiary: var(--color-surface-200);  /* Inputs = Soft Lavender */
+  --text-primary: var(--color-surface-900); /* Primary Text = Deep Purple */
+  --text-secondary: var(--color-surface-700); /* Secondary Text = Muted Purple */
+  --text-muted: var(--color-surface-500);   /* Muted Text = Mid Lavender */
+  --text-accent: var(--color-accent-700);   /* Accent Text = Strong Blue */
+  --border-primary: var(--color-surface-300); /* Pink Orchid borders */
+  --border-secondary: var(--color-surface-200); /* Soft Lavender borders */
+  --scrollbar-track: var(--color-surface-100);
+  --scrollbar-thumb: var(--color-surface-300);
+  --scrollbar-thumb-hover: var(--color-surface-400);
+
+  /* Shadcn Variables (Pastel Dreams) */
+  --radius: 0.5rem;
+  --background: hsl(285 40% 95%);    /* Surface 100 approx */
+  --foreground: hsl(285 20% 19%);    /* Surface 900 approx */
+
+  --card: hsl(285 50% 98%);          /* Surface 50 approx */
+  --card-foreground: hsl(285 20% 19%);
+
+  --popover: hsl(285 50% 98%);       /* Surface 50 approx */
+  --popover-foreground: hsl(285 20% 19%);
+
+  --primary: hsl(207 59% 42%);       /* Sky Blue (Accent 600) */
+  --primary-foreground: hsl(285 50% 98%);
+
+  --secondary: hsl(285 35% 90%);     /* Surface 200 approx */
+  --secondary-foreground: hsl(285 20% 19%);
+
+  --muted: hsl(285 35% 90%);         /* Surface 200 approx */
+  --muted-foreground: hsl(285 15% 48%); /* Surface 600 approx */
+
+  --accent: hsl(285 30% 88%);        /* Hover color (lighter lavender) */
+  --accent-foreground: hsl(207 59% 42%);
+
+  --destructive: hsl(350 70% 60%);   /* Soft Pink-Red */
+  --destructive-foreground: hsl(285 50% 98%);
+
+  --border: hsl(285 35% 88%);        /* Surface 200 approx */
+  --input: hsl(285 35% 88%);         /* Surface 200 approx */
+  --ring: hsl(207 59% 42%);          /* Sky Blue focus ring */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - INVERTED Logic for Light Theme
+   Main BG = surface-100, Cards = surface-50 (lighter than main) */
+
+[data-theme="pastel-dreams"] .bg-surface-900 {
+  background-color: var(--color-surface-100); /* Main Background */
+}
+
+[data-theme="pastel-dreams"] .bg-surface-850 {
+  background-color: var(--color-surface-50); /* Cards/Modals */
+}
+
+[data-theme="pastel-dreams"] .bg-surface-800 {
+  background-color: var(--color-surface-50); /* Cards/Panels */
+}
+
+[data-theme="pastel-dreams"] .bg-surface-700 {
+  background-color: var(--color-surface-200); /* Tertiary */
+}
+
+[data-theme="pastel-dreams"] .bg-surface-600 {
+  background-color: var(--color-surface-200);
+}
+
+[data-theme="pastel-dreams"] .bg-surface-500 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="pastel-dreams"] .bg-surface-400 {
+  background-color: var(--color-surface-300);
+}
+
+[data-theme="pastel-dreams"] .bg-surface-300 {
+  background-color: var(--color-surface-400);
+}
+
+[data-theme="pastel-dreams"] .bg-surface-200 {
+  background-color: var(--color-surface-500);
+}
+
+[data-theme="pastel-dreams"] .bg-surface-100 {
+  background-color: var(--color-surface-600);
+}
+
+[data-theme="pastel-dreams"] .bg-surface-50 {
+  background-color: var(--color-surface-700);
+}
+
+/* Text color overrides - INVERT for light theme (light numbers = dark colors) */
+[data-theme="pastel-dreams"] .text-surface-50 {
+  color: var(--color-surface-950);
+}
+
+[data-theme="pastel-dreams"] .text-surface-100 {
+  color: var(--color-surface-900);
+}
+
+[data-theme="pastel-dreams"] .text-surface-200 {
+  color: var(--color-surface-800);
+}
+
+[data-theme="pastel-dreams"] .text-surface-300 {
+  color: var(--color-surface-700);
+}
+
+[data-theme="pastel-dreams"] .text-surface-400 {
+  color: var(--color-surface-600);
+}
+
+[data-theme="pastel-dreams"] .text-surface-500 {
+  color: var(--color-surface-600);
+}
+
+/* Border color overrides */
+[data-theme="pastel-dreams"] .border-surface-700 {
+  border-color: var(--color-surface-300);
+}
+
+[data-theme="pastel-dreams"] .border-surface-600 {
+  border-color: var(--color-surface-400);
+}
+
+/* Select dropdown styling */
+[data-theme="pastel-dreams"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b5578' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="pastel-dreams"] select.input option {
+  background-color: var(--color-surface-100);
+  color: var(--color-surface-900);
+}
+
+[data-theme="pastel-dreams"] select.input option:checked {
+  background-color: var(--color-accent-500);
+  color: white;
+}

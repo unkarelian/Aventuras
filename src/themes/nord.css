@@ -1,0 +1,194 @@
+/* =============================================
+   NORD THEME
+   Arctic, north-bluish color palette with minimal and flat design.
+   Main dark variant.
+   ============================================= */
+[data-theme="nord"] {
+  /*
+     Nord Surface Scale
+     Based on Polar Night (dark) and Snow Storm (light) palettes
+  */
+  --color-surface-50: #d8dee9;  /* nord4 - UI component */
+  --color-surface-100: #bdc4d1; /* Interpolated */
+  --color-surface-200: #a2aab9; /* Interpolated */
+  --color-surface-300: #8791a1; /* Interpolated */
+  --color-surface-400: #6c7789; /* Interpolated */
+  --color-surface-500: #e5e9f0; /* nord5 - Text */
+  --color-surface-600: #4c566a; /* nord3 - Comments/Subtle */
+  --color-surface-700: #434c5e; /* nord2 - Active/Selection */
+  --color-surface-800: #3b4252; /* nord1 - Elevated UI */
+  --color-surface-850: #32394a; /* Interpolated */
+  --color-surface-900: #2e3440; /* nord0 - Base Background */
+  --color-surface-950: #242933; /* Darker */
+
+  /* Accent colors (Frost palette) */
+  --color-accent-50: #d5f0ef;
+  --color-accent-100: #b8e5e3;
+  --color-accent-200: #a2d8d5;
+  --color-accent-300: #8fbcbb; /* nord7 */
+  --color-accent-400: #88c0d0; /* nord8 - Primary */
+  --color-accent-500: #81a1c1; /* nord9 - Secondary */
+  --color-accent-600: #5e81ac; /* nord10 - Tertiary */
+  --color-accent-700: #4d6a8f;
+  --color-accent-800: #3c5372;
+  --color-accent-900: #2b3c55;
+  --color-accent-950: #1a2538;
+
+  /* Nord Frost colors */
+  --nord-frost-1: #8fbcbb; /* Teal - Classes, types */
+  --nord-frost-2: #88c0d0; /* Cyan - Primary accent */
+  --nord-frost-3: #81a1c1; /* Blue - Keywords */
+  --nord-frost-4: #5e81ac; /* Dark blue - Comments */
+
+  /* Nord Aurora colors */
+  --nord-aurora-red: #bf616a;    /* Error, deletion */
+  --nord-aurora-orange: #d08770; /* Annotations */
+  --nord-aurora-yellow: #ebcb8b; /* Warnings */
+  --nord-aurora-green: #a3be8c;  /* Success, strings */
+  --nord-aurora-purple: #b48ead; /* Numbers */
+
+  /* Semantic colors */
+  --bg-primary: #2e3440;            /* nord0 - Base */
+  --bg-secondary: #3b4252;          /* nord1 - Elevated */
+  --bg-tertiary: #434c5e;           /* nord2 - Active */
+  --text-primary: #eceff4;          /* nord6 - Brightest */
+  --text-secondary: #d8dee9;        /* nord4 - UI component */
+  --text-muted: #8791a1;            /* Muted gray */
+  --text-accent: #88c0d0;           /* nord8 - Cyan */
+  --border-primary: #4c566a;        /* nord3 - Subtle */
+  --border-secondary: #434c5e;      /* nord2 - Active */
+  --scrollbar-track: #3b4252;
+  --scrollbar-thumb: #4c566a;
+  --scrollbar-thumb-hover: #5e81ac;
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #2e3440;            /* nord0 */
+  --foreground: #eceff4;            /* nord6 */
+
+  --card: #3b4252;                  /* nord1 */
+  --card-foreground: #eceff4;       /* nord6 */
+
+  --popover: #3b4252;               /* nord1 */
+  --popover-foreground: #eceff4;    /* nord6 */
+
+  --primary: #88c0d0;               /* nord8 - Cyan */
+  --primary-foreground: #2e3440;    /* nord0 */
+
+  --secondary: #434c5e;             /* nord2 */
+  --secondary-foreground: #eceff4;  /* nord6 */
+
+  --muted: #434c5e;                 /* nord2 */
+  --muted-foreground: #d8dee9;      /* nord4 */
+
+  --accent: #4c566a;                /* nord3 */
+  --accent-foreground: #88c0d0;     /* nord8 */
+
+  --destructive: #bf616a;           /* Aurora Red */
+  --destructive-foreground: #2e3440; /* nord0 */
+
+  --border: #4c566a;                /* nord3 */
+  --input: #4c566a;                 /* nord3 */
+  --ring: #88c0d0;                  /* nord8 */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - Standard Dark Theme */
+
+[data-theme="nord"] .bg-surface-900 {
+  background-color: #2e3440; /* nord0 */
+}
+
+[data-theme="nord"] .bg-surface-850 {
+  background-color: #3b4252; /* nord1 */
+}
+
+[data-theme="nord"] .bg-surface-800 {
+  background-color: #434c5e; /* nord2 */
+}
+
+[data-theme="nord"] .bg-surface-700 {
+  background-color: #4c566a; /* nord3 */
+}
+
+[data-theme="nord"] .bg-surface-600 {
+  background-color: #5e6d82; /* Interpolated */
+}
+
+[data-theme="nord"] .bg-surface-500 {
+  background-color: #6c7789;
+}
+
+[data-theme="nord"] .bg-surface-400 {
+  background-color: #4c566a;
+}
+
+[data-theme="nord"] .bg-surface-300 {
+  background-color: #434c5e;
+}
+
+[data-theme="nord"] .bg-surface-200 {
+  background-color: #3b4252;
+}
+
+[data-theme="nord"] .bg-surface-100 {
+  background-color: #2e3440;
+}
+
+[data-theme="nord"] .bg-surface-50 {
+  background-color: #2e3440;
+}
+
+/* Text color overrides */
+[data-theme="nord"] .text-surface-50 {
+  color: #d8dee9;
+}
+
+[data-theme="nord"] .text-surface-100 {
+  color: #bdc4d1;
+}
+
+[data-theme="nord"] .text-surface-200 {
+  color: #a2aab9;
+}
+
+[data-theme="nord"] .text-surface-300 {
+  color: #8791a1;
+}
+
+[data-theme="nord"] .text-surface-400 {
+  color: #d8dee9;
+}
+
+[data-theme="nord"] .text-surface-500 {
+  color: #eceff4;
+}
+
+/* Border color overrides */
+[data-theme="nord"] .border-surface-700 {
+  border-color: #4c566a;
+}
+
+[data-theme="nord"] .border-surface-600 {
+  border-color: #5e6d82;
+}
+
+/* Select dropdown styling */
+[data-theme="nord"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23eceff4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="nord"] select.input option {
+  background-color: #3b4252;
+  color: #eceff4;
+}
+
+[data-theme="nord"] select.input option:checked {
+  background-color: #88c0d0;
+  color: #2e3440;
+}

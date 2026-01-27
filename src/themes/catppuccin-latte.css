@@ -1,0 +1,197 @@
+/* =============================================
+   CATPPUCCIN LATTE THEME
+   Light theme with warm, muted pastels inspired by café aesthetics.
+   Part of the Catppuccin color palette family.
+   ============================================= */
+[data-theme="catppuccin-latte"] {
+  /*
+     Catppuccin Latte Surface Scale
+     Based on official Catppuccin palette
+  */
+  --color-surface-50: #eff1f5;  /* Base */
+  --color-surface-100: #e6e9ef; /* Mantle */
+  --color-surface-200: #dce0e8; /* Crust */
+  --color-surface-300: #ccd0da; /* Surface 0 */
+  --color-surface-400: #bcc0cc; /* Surface 1 */
+  --color-surface-500: #acb0be; /* Surface 2 */
+  --color-surface-600: #9ca0b0; /* Overlay 0 */
+  --color-surface-700: #8c8fa1; /* Overlay 1 */
+  --color-surface-800: #7c7f93; /* Overlay 2 */
+  --color-surface-850: #6c6f85; /* Subtext 0 */
+  --color-surface-900: #4c4f69; /* Text */
+  --color-surface-950: #3c3f59; /* Darker Text */
+
+  /* Accent colors (Mauve/Blue palette) */
+  --color-accent-50: #eef2fd;
+  --color-accent-100: #dce5fb;
+  --color-accent-200: #b9cbf7;
+  --color-accent-300: #96b1f3;
+  --color-accent-400: #7397ef;
+  --color-accent-500: #1e66f5; /* Blue */
+  --color-accent-600: #1852c4;
+  --color-accent-700: #123e93;
+  --color-accent-800: #0c2a62;
+  --color-accent-900: #061631;
+  --color-accent-950: #030b19;
+
+  /* Catppuccin accent colors */
+  --catppuccin-rosewater: #dc8a78;
+  --catppuccin-flamingo: #dd7878;
+  --catppuccin-pink: #ea76cb;
+  --catppuccin-mauve: #8839ef;
+  --catppuccin-red: #d20f39;
+  --catppuccin-maroon: #e64553;
+  --catppuccin-peach: #fe640b;
+  --catppuccin-yellow: #df8e1d;
+  --catppuccin-green: #40a02b;
+  --catppuccin-teal: #179299;
+  --catppuccin-sky: #04a5e5;
+  --catppuccin-sapphire: #209fb5;
+  --catppuccin-blue: #1e66f5;
+  --catppuccin-lavender: #7287fd;
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-50);    /* Base */
+  --bg-secondary: var(--color-surface-100); /* Mantle */
+  --bg-tertiary: var(--color-surface-200);  /* Crust */
+  --text-primary: var(--color-surface-900); /* Text */
+  --text-secondary: var(--color-surface-800); /* Overlay 2 */
+  --text-muted: var(--color-surface-700);   /* Overlay 1 */
+  --text-accent: var(--catppuccin-blue);    /* Blue accent */
+  --border-primary: var(--color-surface-400); /* Surface 1 */
+  --border-secondary: var(--color-surface-300); /* Surface 0 */
+  --scrollbar-track: var(--color-surface-100);
+  --scrollbar-thumb: var(--color-surface-400);
+  --scrollbar-thumb-hover: var(--color-surface-500);
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #eff1f5;              /* Base */
+  --foreground: #4c4f69;              /* Text */
+
+  --card: #e6e9ef;                    /* Mantle */
+  --card-foreground: #4c4f69;         /* Text */
+
+  --popover: #e6e9ef;                 /* Mantle */
+  --popover-foreground: #4c4f69;      /* Text */
+
+  --primary: #1e66f5;                 /* Blue */
+  --primary-foreground: #eff1f5;      /* Base */
+
+  --secondary: #dce0e8;               /* Crust */
+  --secondary-foreground: #4c4f69;    /* Text */
+
+  --muted: #dce0e8;                   /* Crust */
+  --muted-foreground: #6c6f85;        /* Subtext 0 */
+
+  --accent: #ccd0da;                  /* Surface 0 */
+  --accent-foreground: #1e66f5;       /* Blue */
+
+  --destructive: #d20f39;             /* Red */
+  --destructive-foreground: #eff1f5;  /* Base */
+
+  --border: #ccd0da;                  /* Surface 0 */
+  --input: #ccd0da;                   /* Surface 0 */
+  --ring: #1e66f5;                    /* Blue */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - INVERTED Logic for Light Theme */
+
+[data-theme="catppuccin-latte"] .bg-surface-900 {
+  background-color: var(--color-surface-50); /* Base */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-850 {
+  background-color: var(--color-surface-100); /* Mantle */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-800 {
+  background-color: var(--color-surface-100); /* Mantle */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-700 {
+  background-color: var(--color-surface-200); /* Crust */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-600 {
+  background-color: var(--color-surface-300); /* Surface 0 */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-500 {
+  background-color: var(--color-surface-400); /* Surface 1 */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-400 {
+  background-color: var(--color-surface-400); /* Surface 1 */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-300 {
+  background-color: var(--color-surface-500); /* Surface 2 */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-200 {
+  background-color: var(--color-surface-600); /* Overlay 0 */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-100 {
+  background-color: var(--color-surface-700); /* Overlay 1 */
+}
+
+[data-theme="catppuccin-latte"] .bg-surface-50 {
+  background-color: var(--color-surface-800); /* Overlay 2 */
+}
+
+/* Text color overrides - INVERT for light theme */
+[data-theme="catppuccin-latte"] .text-surface-50 {
+  color: var(--color-surface-950);
+}
+
+[data-theme="catppuccin-latte"] .text-surface-100 {
+  color: var(--color-surface-900);
+}
+
+[data-theme="catppuccin-latte"] .text-surface-200 {
+  color: var(--color-surface-850);
+}
+
+[data-theme="catppuccin-latte"] .text-surface-300 {
+  color: var(--color-surface-800);
+}
+
+[data-theme="catppuccin-latte"] .text-surface-400 {
+  color: var(--color-surface-700);
+}
+
+[data-theme="catppuccin-latte"] .text-surface-500 {
+  color: var(--color-surface-700);
+}
+
+/* Border color overrides */
+[data-theme="catppuccin-latte"] .border-surface-700 {
+  border-color: var(--color-surface-300);
+}
+
+[data-theme="catppuccin-latte"] .border-surface-600 {
+  border-color: var(--color-surface-400);
+}
+
+/* Select dropdown styling */
+[data-theme="catppuccin-latte"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234c4f69' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="catppuccin-latte"] select.input option {
+  background-color: var(--color-surface-100);
+  color: var(--color-surface-900);
+}
+
+[data-theme="catppuccin-latte"] select.input option:checked {
+  background-color: var(--catppuccin-blue);
+  color: var(--color-surface-50);
+}

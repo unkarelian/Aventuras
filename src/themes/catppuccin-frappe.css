@@ -1,0 +1,197 @@
+/* =============================================
+   CATPPUCCIN FRAPPÉ THEME
+   Dark muted theme with soft pastels and warm undertones.
+   Part of the Catppuccin color palette family.
+   ============================================= */
+[data-theme="catppuccin-frappe"] {
+  /*
+     Catppuccin Frappé Surface Scale
+     Based on official Catppuccin palette
+  */
+  --color-surface-50: #737994;  /* Overlay 0 */
+  --color-surface-100: #838ba7; /* Overlay 1 */
+  --color-surface-200: #949cbb; /* Overlay 2 */
+  --color-surface-300: #a5adce; /* Subtext 0 */
+  --color-surface-400: #b5bfe2; /* Subtext 1 */
+  --color-surface-500: #c6d0f5; /* Text */
+  --color-surface-600: #626880; /* Surface 2 */
+  --color-surface-700: #51576d; /* Surface 1 */
+  --color-surface-800: #414559; /* Surface 0 */
+  --color-surface-850: #303446; /* Base */
+  --color-surface-900: #292c3c; /* Mantle */
+  --color-surface-950: #232634; /* Crust */
+
+  /* Accent colors (Blue/Lavender palette) */
+  --color-accent-50: #babbf1;   /* Lavender */
+  --color-accent-100: #a5a9ec;
+  --color-accent-200: #9097e7;
+  --color-accent-300: #7b85e2;
+  --color-accent-400: #6673dd;
+  --color-accent-500: #8caaee;  /* Blue */
+  --color-accent-600: #7089d4;
+  --color-accent-700: #5468ba;
+  --color-accent-800: #38479f;
+  --color-accent-900: #1c2685;
+  --color-accent-950: #0e1342;
+
+  /* Catppuccin accent colors */
+  --catppuccin-rosewater: #f2d5cf;
+  --catppuccin-flamingo: #eebebe;
+  --catppuccin-pink: #f4b8e4;
+  --catppuccin-mauve: #ca9ee6;
+  --catppuccin-red: #e78284;
+  --catppuccin-maroon: #ea999c;
+  --catppuccin-peach: #ef9f76;
+  --catppuccin-yellow: #e5c890;
+  --catppuccin-green: #a6d189;
+  --catppuccin-teal: #81c8be;
+  --catppuccin-sky: #99d1db;
+  --catppuccin-sapphire: #85c1dc;
+  --catppuccin-blue: #8caaee;
+  --catppuccin-lavender: #babbf1;
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-850);   /* Base */
+  --bg-secondary: var(--color-surface-900); /* Mantle */
+  --bg-tertiary: var(--color-surface-800);  /* Surface 0 */
+  --text-primary: var(--color-surface-500); /* Text */
+  --text-secondary: var(--color-surface-400); /* Subtext 1 */
+  --text-muted: var(--color-surface-300);   /* Subtext 0 */
+  --text-accent: var(--catppuccin-blue);    /* Blue accent */
+  --border-primary: var(--color-surface-700); /* Surface 1 */
+  --border-secondary: var(--color-surface-800); /* Surface 0 */
+  --scrollbar-track: var(--color-surface-900);
+  --scrollbar-thumb: var(--color-surface-700);
+  --scrollbar-thumb-hover: var(--color-surface-600);
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #303446;              /* Base */
+  --foreground: #c6d0f5;              /* Text */
+
+  --card: #292c3c;                    /* Mantle */
+  --card-foreground: #c6d0f5;         /* Text */
+
+  --popover: #292c3c;                 /* Mantle */
+  --popover-foreground: #c6d0f5;      /* Text */
+
+  --primary: #8caaee;                 /* Blue */
+  --primary-foreground: #303446;      /* Base */
+
+  --secondary: #414559;               /* Surface 0 */
+  --secondary-foreground: #c6d0f5;    /* Text */
+
+  --muted: #414559;                   /* Surface 0 */
+  --muted-foreground: #a5adce;        /* Subtext 0 */
+
+  --accent: #51576d;                  /* Surface 1 */
+  --accent-foreground: #8caaee;       /* Blue */
+
+  --destructive: #e78284;             /* Red */
+  --destructive-foreground: #303446;  /* Base */
+
+  --border: #51576d;                  /* Surface 1 */
+  --input: #51576d;                   /* Surface 1 */
+  --ring: #8caaee;                    /* Blue */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - Standard Dark Theme */
+
+[data-theme="catppuccin-frappe"] .bg-surface-900 {
+  background-color: var(--color-surface-900); /* Mantle */
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-850 {
+  background-color: var(--color-surface-850); /* Base */
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-800 {
+  background-color: var(--color-surface-800); /* Surface 0 */
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-700 {
+  background-color: var(--color-surface-700); /* Surface 1 */
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-600 {
+  background-color: var(--color-surface-600); /* Surface 2 */
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-500 {
+  background-color: var(--color-surface-600);
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-400 {
+  background-color: var(--color-surface-700);
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-300 {
+  background-color: var(--color-surface-800);
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-200 {
+  background-color: var(--color-surface-900);
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-100 {
+  background-color: var(--color-surface-950);
+}
+
+[data-theme="catppuccin-frappe"] .bg-surface-50 {
+  background-color: var(--color-surface-950);
+}
+
+/* Text color overrides */
+[data-theme="catppuccin-frappe"] .text-surface-50 {
+  color: var(--color-surface-50);
+}
+
+[data-theme="catppuccin-frappe"] .text-surface-100 {
+  color: var(--color-surface-100);
+}
+
+[data-theme="catppuccin-frappe"] .text-surface-200 {
+  color: var(--color-surface-200);
+}
+
+[data-theme="catppuccin-frappe"] .text-surface-300 {
+  color: var(--color-surface-300);
+}
+
+[data-theme="catppuccin-frappe"] .text-surface-400 {
+  color: var(--color-surface-400);
+}
+
+[data-theme="catppuccin-frappe"] .text-surface-500 {
+  color: var(--color-surface-500);
+}
+
+/* Border color overrides */
+[data-theme="catppuccin-frappe"] .border-surface-700 {
+  border-color: var(--color-surface-700);
+}
+
+[data-theme="catppuccin-frappe"] .border-surface-600 {
+  border-color: var(--color-surface-600);
+}
+
+/* Select dropdown styling */
+[data-theme="catppuccin-frappe"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c6d0f5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="catppuccin-frappe"] select.input option {
+  background-color: var(--color-surface-900);
+  color: var(--color-surface-500);
+}
+
+[data-theme="catppuccin-frappe"] select.input option:checked {
+  background-color: var(--catppuccin-blue);
+  color: var(--color-surface-850);
+}

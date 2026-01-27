@@ -1,0 +1,197 @@
+/* =============================================
+   CATPPUCCIN MOCHA THEME
+   Original dark theme with rich pastels and excellent contrast.
+   Part of the Catppuccin color palette family.
+   ============================================= */
+[data-theme="catppuccin-mocha"] {
+  /*
+     Catppuccin Mocha Surface Scale
+     Based on official Catppuccin palette
+  */
+  --color-surface-50: #6c7086;  /* Overlay 0 */
+  --color-surface-100: #7f849c; /* Overlay 1 */
+  --color-surface-200: #9399b2; /* Overlay 2 */
+  --color-surface-300: #a6adc8; /* Subtext 0 */
+  --color-surface-400: #bac2de; /* Subtext 1 */
+  --color-surface-500: #cdd6f4; /* Text */
+  --color-surface-600: #585b70; /* Surface 2 */
+  --color-surface-700: #45475a; /* Surface 1 */
+  --color-surface-800: #313244; /* Surface 0 */
+  --color-surface-850: #1e1e2e; /* Base */
+  --color-surface-900: #181825; /* Mantle */
+  --color-surface-950: #11111b; /* Crust */
+
+  /* Accent colors (Blue/Lavender palette) */
+  --color-accent-50: #b4befe;   /* Lavender */
+  --color-accent-100: #9fa7fb;
+  --color-accent-200: #8a90f8;
+  --color-accent-300: #7579f5;
+  --color-accent-400: #6062f2;
+  --color-accent-500: #89b4fa;  /* Blue */
+  --color-accent-600: #6d93e0;
+  --color-accent-700: #5172c6;
+  --color-accent-800: #3551ac;
+  --color-accent-900: #193092;
+  --color-accent-950: #0c1849;
+
+  /* Catppuccin accent colors */
+  --catppuccin-rosewater: #f5e0dc;
+  --catppuccin-flamingo: #f2cdcd;
+  --catppuccin-pink: #f5c2e7;
+  --catppuccin-mauve: #cba6f7;
+  --catppuccin-red: #f38ba8;
+  --catppuccin-maroon: #eba0ac;
+  --catppuccin-peach: #fab387;
+  --catppuccin-yellow: #f9e2af;
+  --catppuccin-green: #a6e3a1;
+  --catppuccin-teal: #94e2d5;
+  --catppuccin-sky: #89dceb;
+  --catppuccin-sapphire: #74c7ec;
+  --catppuccin-blue: #89b4fa;
+  --catppuccin-lavender: #b4befe;
+
+  /* Semantic colors */
+  --bg-primary: var(--color-surface-850);   /* Base */
+  --bg-secondary: var(--color-surface-900); /* Mantle */
+  --bg-tertiary: var(--color-surface-800);  /* Surface 0 */
+  --text-primary: var(--color-surface-500); /* Text */
+  --text-secondary: var(--color-surface-400); /* Subtext 1 */
+  --text-muted: var(--color-surface-300);   /* Subtext 0 */
+  --text-accent: var(--catppuccin-blue);    /* Blue accent */
+  --border-primary: var(--color-surface-700); /* Surface 1 */
+  --border-secondary: var(--color-surface-800); /* Surface 0 */
+  --scrollbar-track: var(--color-surface-900);
+  --scrollbar-thumb: var(--color-surface-700);
+  --scrollbar-thumb-hover: var(--color-surface-600);
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #1e1e2e;              /* Base */
+  --foreground: #cdd6f4;              /* Text */
+
+  --card: #181825;                    /* Mantle */
+  --card-foreground: #cdd6f4;         /* Text */
+
+  --popover: #181825;                 /* Mantle */
+  --popover-foreground: #cdd6f4;      /* Text */
+
+  --primary: #89b4fa;                 /* Blue */
+  --primary-foreground: #1e1e2e;      /* Base */
+
+  --secondary: #313244;               /* Surface 0 */
+  --secondary-foreground: #cdd6f4;    /* Text */
+
+  --muted: #313244;                   /* Surface 0 */
+  --muted-foreground: #a6adc8;        /* Subtext 0 */
+
+  --accent: #45475a;                  /* Surface 1 */
+  --accent-foreground: #89b4fa;       /* Blue */
+
+  --destructive: #f38ba8;             /* Red */
+  --destructive-foreground: #1e1e2e;  /* Base */
+
+  --border: #45475a;                  /* Surface 1 */
+  --input: #45475a;                   /* Surface 1 */
+  --ring: #89b4fa;                    /* Blue */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - Standard Dark Theme */
+
+[data-theme="catppuccin-mocha"] .bg-surface-900 {
+  background-color: var(--color-surface-900); /* Mantle */
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-850 {
+  background-color: var(--color-surface-850); /* Base */
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-800 {
+  background-color: var(--color-surface-800); /* Surface 0 */
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-700 {
+  background-color: var(--color-surface-700); /* Surface 1 */
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-600 {
+  background-color: var(--color-surface-600); /* Surface 2 */
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-500 {
+  background-color: var(--color-surface-600);
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-400 {
+  background-color: var(--color-surface-700);
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-300 {
+  background-color: var(--color-surface-800);
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-200 {
+  background-color: var(--color-surface-900);
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-100 {
+  background-color: var(--color-surface-950);
+}
+
+[data-theme="catppuccin-mocha"] .bg-surface-50 {
+  background-color: var(--color-surface-950);
+}
+
+/* Text color overrides */
+[data-theme="catppuccin-mocha"] .text-surface-50 {
+  color: var(--color-surface-50);
+}
+
+[data-theme="catppuccin-mocha"] .text-surface-100 {
+  color: var(--color-surface-100);
+}
+
+[data-theme="catppuccin-mocha"] .text-surface-200 {
+  color: var(--color-surface-200);
+}
+
+[data-theme="catppuccin-mocha"] .text-surface-300 {
+  color: var(--color-surface-300);
+}
+
+[data-theme="catppuccin-mocha"] .text-surface-400 {
+  color: var(--color-surface-400);
+}
+
+[data-theme="catppuccin-mocha"] .text-surface-500 {
+  color: var(--color-surface-500);
+}
+
+/* Border color overrides */
+[data-theme="catppuccin-mocha"] .border-surface-700 {
+  border-color: var(--color-surface-700);
+}
+
+[data-theme="catppuccin-mocha"] .border-surface-600 {
+  border-color: var(--color-surface-600);
+}
+
+/* Select dropdown styling */
+[data-theme="catppuccin-mocha"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23cdd6f4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="catppuccin-mocha"] select.input option {
+  background-color: var(--color-surface-900);
+  color: var(--color-surface-500);
+}
+
+[data-theme="catppuccin-mocha"] select.input option:checked {
+  background-color: var(--catppuccin-blue);
+  color: var(--color-surface-850);
+}

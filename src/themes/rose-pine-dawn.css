@@ -1,0 +1,189 @@
+/* =============================================
+   ROSÉ PINE DAWN THEME
+   All natural pine, faux fur and a bit of soho vibes.
+   Light variant with soft, warm colors for daytime comfort.
+   ============================================= */
+[data-theme="rose-pine-dawn"] {
+  /*
+     Rosé Pine Dawn Surface Scale
+     Based on official Rosé Pine palette
+  */
+  --color-surface-50: #faf4ed;  /* Base */
+  --color-surface-100: #fffaf3; /* Surface */
+  --color-surface-200: #f2e9e1; /* Overlay */
+  --color-surface-300: #dfdad9; /* Highlight Med */
+  --color-surface-400: #cecacd; /* Highlight High */
+  --color-surface-500: #797593; /* Subtle */
+  --color-surface-600: #9893a5; /* Muted */
+  --color-surface-700: #797593; /* Subtle */
+  --color-surface-800: #6e6a86; /* Darker Subtle */
+  --color-surface-850: #575279; /* Text */
+  --color-surface-900: #575279; /* Text */
+  --color-surface-950: #3d3a52; /* Darker Text */
+
+  /* Accent colors (Iris palette) */
+  --color-accent-50: #f4ede8;
+  --color-accent-100: #e8dbd1;
+  --color-accent-200: #d1b7a3;
+  --color-accent-300: #ba9375;
+  --color-accent-400: #a36f47;
+  --color-accent-500: #907aa9;  /* Iris */
+  --color-accent-600: #736287;
+  --color-accent-700: #564a65;
+  --color-accent-800: #393243;
+  --color-accent-900: #1c1a21;
+  --color-accent-950: #0e0d11;
+
+  /* Rosé Pine Dawn accent colors */
+  --rose-pine-love: #b4637a;
+  --rose-pine-gold: #ea9d34;
+  --rose-pine-rose: #d7827e;
+  --rose-pine-pine: #286983;
+  --rose-pine-foam: #56949f;
+  --rose-pine-iris: #907aa9;
+
+  /* Semantic colors */
+  --bg-primary: #faf4ed;            /* Base */
+  --bg-secondary: #fffaf3;          /* Surface */
+  --bg-tertiary: #f2e9e1;           /* Overlay */
+  --text-primary: #575279;          /* Text */
+  --text-secondary: #797593;        /* Subtle */
+  --text-muted: #9893a5;            /* Muted */
+  --text-accent: #907aa9;           /* Iris */
+  --border-primary: #dfdad9;        /* Highlight Med */
+  --border-secondary: #f2e9e1;      /* Overlay */
+  --scrollbar-track: #fffaf3;
+  --scrollbar-thumb: #dfdad9;
+  --scrollbar-thumb-hover: #cecacd;
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #faf4ed;            /* Base */
+  --foreground: #575279;            /* Text */
+
+  --card: #fffaf3;                  /* Surface */
+  --card-foreground: #575279;       /* Text */
+
+  --popover: #fffaf3;               /* Surface */
+  --popover-foreground: #575279;    /* Text */
+
+  --primary: #907aa9;               /* Iris */
+  --primary-foreground: #faf4ed;    /* Base */
+
+  --secondary: #f2e9e1;             /* Overlay */
+  --secondary-foreground: #575279;  /* Text */
+
+  --muted: #f2e9e1;                 /* Overlay */
+  --muted-foreground: #797593;      /* Subtle */
+
+  --accent: #dfdad9;                /* Highlight Med */
+  --accent-foreground: #907aa9;     /* Iris */
+
+  --destructive: #b4637a;           /* Love */
+  --destructive-foreground: #faf4ed; /* Base */
+
+  --border: #dfdad9;                /* Highlight Med */
+  --input: #dfdad9;                 /* Highlight Med */
+  --ring: #907aa9;                  /* Iris */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - INVERTED Logic for Light Theme */
+
+[data-theme="rose-pine-dawn"] .bg-surface-900 {
+  background-color: #faf4ed; /* Base */
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-850 {
+  background-color: #fffaf3; /* Surface */
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-800 {
+  background-color: #fffaf3; /* Surface */
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-700 {
+  background-color: #f2e9e1; /* Overlay */
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-600 {
+  background-color: #f4ede8; /* Highlight Low */
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-500 {
+  background-color: #dfdad9; /* Highlight Med */
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-400 {
+  background-color: #dfdad9;
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-300 {
+  background-color: #cecacd;
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-200 {
+  background-color: #9893a5;
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-100 {
+  background-color: #797593;
+}
+
+[data-theme="rose-pine-dawn"] .bg-surface-50 {
+  background-color: #797593;
+}
+
+/* Text color overrides - INVERT for light theme */
+[data-theme="rose-pine-dawn"] .text-surface-50 {
+  color: #3d3a52;
+}
+
+[data-theme="rose-pine-dawn"] .text-surface-100 {
+  color: #575279;
+}
+
+[data-theme="rose-pine-dawn"] .text-surface-200 {
+  color: #575279;
+}
+
+[data-theme="rose-pine-dawn"] .text-surface-300 {
+  color: #6e6a86;
+}
+
+[data-theme="rose-pine-dawn"] .text-surface-400 {
+  color: #797593;
+}
+
+[data-theme="rose-pine-dawn"] .text-surface-500 {
+  color: #797593;
+}
+
+/* Border color overrides */
+[data-theme="rose-pine-dawn"] .border-surface-700 {
+  border-color: #dfdad9;
+}
+
+[data-theme="rose-pine-dawn"] .border-surface-600 {
+  border-color: #cecacd;
+}
+
+/* Select dropdown styling */
+[data-theme="rose-pine-dawn"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23575279' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="rose-pine-dawn"] select.input option {
+  background-color: #fffaf3;
+  color: #575279;
+}
+
+[data-theme="rose-pine-dawn"] select.input option:checked {
+  background-color: #907aa9;
+  color: #faf4ed;
+}

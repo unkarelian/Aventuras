@@ -1,0 +1,199 @@
+/* =============================================
+   GRUVBOX DARK THEME
+   Retro groove color scheme with warm, earthy tones.
+   Based on official Gruvbox palette.
+   ============================================= */
+[data-theme="gruvbox-dark"] {
+  /*
+     Gruvbox Dark Surface Scale
+     From light text to dark backgrounds
+  */
+  --color-surface-50: #fbf1c7;  /* light0 - Lightest */
+  --color-surface-100: #ebdbb2; /* light1 - Foreground */
+  --color-surface-200: #d5c4a1; /* light2 */
+  --color-surface-300: #bdae93; /* light3 */
+  --color-surface-400: #a89984; /* light4 - Muted text */
+  --color-surface-500: #928374; /* gray - Comments */
+  --color-surface-600: #7c6f64; /* dark4 */
+  --color-surface-700: #665c54; /* dark3 */
+  --color-surface-800: #504945; /* dark2 */
+  --color-surface-850: #3c3836; /* dark1 */
+  --color-surface-900: #282828; /* dark0 - Base */
+  --color-surface-950: #1d2021; /* dark0_hard - Darkest */
+
+  /* Accent colors (Aqua/Blue palette) */
+  --color-accent-50: #d9eeea;
+  --color-accent-100: #b8dfd6;
+  --color-accent-200: #a5d4c8;
+  --color-accent-300: #8ec07c; /* bright_aqua */
+  --color-accent-400: #83a598; /* bright_blue */
+  --color-accent-500: #689d6a; /* neutral_aqua */
+  --color-accent-600: #458588; /* neutral_blue */
+  --color-accent-700: #427b58; /* faded_aqua */
+  --color-accent-800: #076678; /* faded_blue */
+  --color-accent-900: #04424d; /* Darker */
+  --color-accent-950: #022127; /* Darkest */
+
+  /* Gruvbox bright accent colors */
+  --gruvbox-red-bright: #fb4934;
+  --gruvbox-green-bright: #b8bb26;
+  --gruvbox-yellow-bright: #fabd2f;
+  --gruvbox-blue-bright: #83a598;
+  --gruvbox-purple-bright: #d3869b;
+  --gruvbox-aqua-bright: #8ec07c;
+  --gruvbox-orange-bright: #fe8019;
+
+  /* Gruvbox neutral accent colors */
+  --gruvbox-red-neutral: #cc241d;
+  --gruvbox-green-neutral: #98971a;
+  --gruvbox-yellow-neutral: #d79921;
+  --gruvbox-blue-neutral: #458588;
+  --gruvbox-purple-neutral: #b16286;
+  --gruvbox-aqua-neutral: #689d6a;
+  --gruvbox-orange-neutral: #d65d0e;
+
+  /* Semantic colors */
+  --bg-primary: #282828;            /* dark0 */
+  --bg-secondary: #3c3836;          /* dark1 */
+  --bg-tertiary: #504945;           /* dark2 */
+  --text-primary: #ebdbb2;          /* light1 */
+  --text-secondary: #d5c4a1;        /* light2 */
+  --text-muted: #a89984;            /* light4 */
+  --text-accent: #83a598;           /* bright_blue */
+  --border-primary: #665c54;        /* dark3 */
+  --border-secondary: #504945;      /* dark2 */
+  --scrollbar-track: #3c3836;
+  --scrollbar-thumb: #665c54;
+  --scrollbar-thumb-hover: #7c6f64;
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #282828;            /* dark0 */
+  --foreground: #ebdbb2;            /* light1 */
+
+  --card: #3c3836;                  /* dark1 */
+  --card-foreground: #ebdbb2;       /* light1 */
+
+  --popover: #3c3836;               /* dark1 */
+  --popover-foreground: #ebdbb2;    /* light1 */
+
+  --primary: #83a598;               /* bright_blue */
+  --primary-foreground: #282828;    /* dark0 */
+
+  --secondary: #504945;             /* dark2 */
+  --secondary-foreground: #ebdbb2;  /* light1 */
+
+  --muted: #504945;                 /* dark2 */
+  --muted-foreground: #d5c4a1;      /* light2 */
+
+  --accent: #665c54;                /* dark3 */
+  --accent-foreground: #83a598;     /* bright_blue */
+
+  --destructive: #fb4934;           /* bright_red */
+  --destructive-foreground: #282828; /* dark0 */
+
+  --border: #665c54;                /* dark3 */
+  --input: #665c54;                 /* dark3 */
+  --ring: #83a598;                  /* bright_blue */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - Standard Dark Theme */
+
+[data-theme="gruvbox-dark"] .bg-surface-900 {
+  background-color: #282828; /* dark0 */
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-850 {
+  background-color: #3c3836; /* dark1 */
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-800 {
+  background-color: #504945; /* dark2 */
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-700 {
+  background-color: #665c54; /* dark3 */
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-600 {
+  background-color: #7c6f64; /* dark4 */
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-500 {
+  background-color: #7c6f64;
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-400 {
+  background-color: #665c54;
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-300 {
+  background-color: #504945;
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-200 {
+  background-color: #3c3836;
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-100 {
+  background-color: #282828;
+}
+
+[data-theme="gruvbox-dark"] .bg-surface-50 {
+  background-color: #282828;
+}
+
+/* Text color overrides */
+[data-theme="gruvbox-dark"] .text-surface-50 {
+  color: #fbf1c7;
+}
+
+[data-theme="gruvbox-dark"] .text-surface-100 {
+  color: #ebdbb2;
+}
+
+[data-theme="gruvbox-dark"] .text-surface-200 {
+  color: #d5c4a1;
+}
+
+[data-theme="gruvbox-dark"] .text-surface-300 {
+  color: #bdae93;
+}
+
+[data-theme="gruvbox-dark"] .text-surface-400 {
+  color: #a89984;
+}
+
+[data-theme="gruvbox-dark"] .text-surface-500 {
+  color: #ebdbb2;
+}
+
+/* Border color overrides */
+[data-theme="gruvbox-dark"] .border-surface-700 {
+  border-color: #665c54;
+}
+
+[data-theme="gruvbox-dark"] .border-surface-600 {
+  border-color: #7c6f64;
+}
+
+/* Select dropdown styling */
+[data-theme="gruvbox-dark"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23ebdbb2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="gruvbox-dark"] select.input option {
+  background-color: #3c3836;
+  color: #ebdbb2;
+}
+
+[data-theme="gruvbox-dark"] select.input option:checked {
+  background-color: #83a598;
+  color: #282828;
+}

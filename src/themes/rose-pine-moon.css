@@ -1,0 +1,189 @@
+/* =============================================
+   ROSÉ PINE MOON THEME
+   All natural pine, faux fur and a bit of soho vibes.
+   Darker variant with higher contrast and cooler undertones.
+   ============================================= */
+[data-theme="rose-pine-moon"] {
+  /*
+     Rosé Pine Moon Surface Scale
+     Based on official Rosé Pine palette
+  */
+  --color-surface-50: #908caa;  /* Subtle */
+  --color-surface-100: #6e6a86; /* Muted */
+  --color-surface-200: #56526e; /* Highlight High */
+  --color-surface-300: #44415a; /* Highlight Med */
+  --color-surface-400: #2a283e; /* Highlight Low */
+  --color-surface-500: #e0def4; /* Text */
+  --color-surface-600: #56526e; /* Highlight High */
+  --color-surface-700: #44415a; /* Highlight Med */
+  --color-surface-800: #393552; /* Overlay */
+  --color-surface-850: #2a273f; /* Surface */
+  --color-surface-900: #232136; /* Base */
+  --color-surface-950: #13111d; /* Darker Base */
+
+  /* Accent colors (Iris/Pine palette) */
+  --color-accent-50: #e8dff7;
+  --color-accent-100: #d1bfef;
+  --color-accent-200: #ba9fe7;
+  --color-accent-300: #a37fdf;
+  --color-accent-400: #8c5fd7;
+  --color-accent-500: #c4a7e7;  /* Iris */
+  --color-accent-600: #9d86b9;
+  --color-accent-700: #76658b;
+  --color-accent-800: #4f445d;
+  --color-accent-900: #28232f;
+  --color-accent-950: #141118;
+
+  /* Rosé Pine Moon accent colors */
+  --rose-pine-love: #eb6f92;
+  --rose-pine-gold: #f6c177;
+  --rose-pine-rose: #ea9a97;
+  --rose-pine-pine: #3e8fb0;
+  --rose-pine-foam: #9ccfd8;
+  --rose-pine-iris: #c4a7e7;
+
+  /* Semantic colors */
+  --bg-primary: #232136;            /* Base */
+  --bg-secondary: #2a273f;          /* Surface */
+  --bg-tertiary: #393552;           /* Overlay */
+  --text-primary: #e0def4;          /* Text */
+  --text-secondary: #908caa;        /* Subtle */
+  --text-muted: #6e6a86;            /* Muted */
+  --text-accent: #c4a7e7;           /* Iris */
+  --border-primary: #44415a;        /* Highlight Med */
+  --border-secondary: #393552;      /* Overlay */
+  --scrollbar-track: #2a273f;
+  --scrollbar-thumb: #44415a;
+  --scrollbar-thumb-hover: #56526e;
+
+  /* Shadcn Variables */
+  --radius: 0.5rem;
+  --background: #232136;            /* Base */
+  --foreground: #e0def4;            /* Text */
+
+  --card: #2a273f;                  /* Surface */
+  --card-foreground: #e0def4;       /* Text */
+
+  --popover: #2a273f;               /* Surface */
+  --popover-foreground: #e0def4;    /* Text */
+
+  --primary: #c4a7e7;               /* Iris */
+  --primary-foreground: #232136;    /* Base */
+
+  --secondary: #393552;             /* Overlay */
+  --secondary-foreground: #e0def4;  /* Text */
+
+  --muted: #393552;                 /* Overlay */
+  --muted-foreground: #908caa;      /* Subtle */
+
+  --accent: #44415a;                /* Highlight Med */
+  --accent-foreground: #c4a7e7;     /* Iris */
+
+  --destructive: #eb6f92;           /* Love */
+  --destructive-foreground: #232136; /* Base */
+
+  --border: #44415a;                /* Highlight Med */
+  --input: #44415a;                 /* Highlight Med */
+  --ring: #c4a7e7;                  /* Iris */
+
+  /* Special effects */
+  --crt-scanline: transparent;
+  --crt-glow: none;
+  --crt-flicker: none;
+  --font-story: 'Georgia', 'Cambria', serif;
+}
+
+/* Background overrides - Standard Dark Theme */
+
+[data-theme="rose-pine-moon"] .bg-surface-900 {
+  background-color: #232136; /* Base */
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-850 {
+  background-color: #2a273f; /* Surface */
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-800 {
+  background-color: #393552; /* Overlay */
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-700 {
+  background-color: #44415a; /* Highlight Med */
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-600 {
+  background-color: #56526e; /* Highlight High */
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-500 {
+  background-color: #56526e;
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-400 {
+  background-color: #44415a;
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-300 {
+  background-color: #393552;
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-200 {
+  background-color: #2a273f;
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-100 {
+  background-color: #232136;
+}
+
+[data-theme="rose-pine-moon"] .bg-surface-50 {
+  background-color: #232136;
+}
+
+/* Text color overrides */
+[data-theme="rose-pine-moon"] .text-surface-50 {
+  color: #908caa;
+}
+
+[data-theme="rose-pine-moon"] .text-surface-100 {
+  color: #6e6a86;
+}
+
+[data-theme="rose-pine-moon"] .text-surface-200 {
+  color: #56526e;
+}
+
+[data-theme="rose-pine-moon"] .text-surface-300 {
+  color: #44415a;
+}
+
+[data-theme="rose-pine-moon"] .text-surface-400 {
+  color: #908caa;
+}
+
+[data-theme="rose-pine-moon"] .text-surface-500 {
+  color: #e0def4;
+}
+
+/* Border color overrides */
+[data-theme="rose-pine-moon"] .border-surface-700 {
+  border-color: #44415a;
+}
+
+[data-theme="rose-pine-moon"] .border-surface-600 {
+  border-color: #56526e;
+}
+
+/* Select dropdown styling */
+[data-theme="rose-pine-moon"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e0def4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme="rose-pine-moon"] select.input option {
+  background-color: #2a273f;
+  color: #e0def4;
+}
+
+[data-theme="rose-pine-moon"] select.input option:checked {
+  background-color: #c4a7e7;
+  color: #232136;
+}
