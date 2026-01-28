@@ -1263,6 +1263,7 @@ class SettingsStore {
     providerOnly: [],
     manualBody: '',
     enableThinking: false,
+    llmTimeoutMs: 180000, // 3 minutes default
   });
 
   uiSettings = $state<UISettings>({
@@ -1489,6 +1490,15 @@ class SettingsStore {
       const defaultProfileId = await database.getSetting('default_profile_id');
       if (defaultProfileId) {
         this.apiSettings.defaultProfileId = defaultProfileId;
+      }
+
+      // Load LLM timeout
+      const llmTimeoutMs = await database.getSetting('llm_timeout_ms');
+      if (llmTimeoutMs) {
+        const parsed = parseInt(llmTimeoutMs, 10);
+        if (!isNaN(parsed) && parsed >= 30000) {
+          this.apiSettings.llmTimeoutMs = parsed;
+        }
       }
 
       // Load provider preset (which provider's defaults to use)
@@ -1881,6 +1891,11 @@ class SettingsStore {
   async setMaxTokens(tokens: number) {
     this.apiSettings.maxTokens = tokens;
     await database.setSetting('max_tokens', tokens.toString());
+  }
+
+  async setLlmTimeout(timeoutMs: number) {
+    this.apiSettings.llmTimeoutMs = timeoutMs;
+    await database.setSetting('llm_timeout_ms', timeoutMs.toString());
   }
 
   async setEnableThinking(enabled: boolean) {
@@ -2743,6 +2758,7 @@ class SettingsStore {
       providerOnly: [],
       manualBody: '',
       enableThinking: false,
+      llmTimeoutMs: 180000,
     };
 
     // Reset UI settings

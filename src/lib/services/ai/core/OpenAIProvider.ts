@@ -70,10 +70,13 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const timeoutController = new AbortController();
+    // Ensure timeout is within reasonable bounds (30s to 10min)
+    const rawTimeout = this.settings.llmTimeoutMs ?? 180000;
+    const timeoutMs = Math.max(30000, Math.min(600000, rawTimeout));
     const timeoutId = setTimeout(() => {
-      log('Request timeout triggered (3 minutes)');
+      log(`Request timeout triggered (${timeoutMs / 1000}s)`);
       timeoutController.abort();
-    }, 180000);
+    }, timeoutMs);
 
     if (request.signal) {
       request.signal.addEventListener('abort', () => timeoutController.abort());
@@ -173,10 +176,13 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const timeoutController = new AbortController();
+    // Ensure timeout is within reasonable bounds (30s to 10min)
+    const rawTimeout = this.settings.llmTimeoutMs ?? 180000;
+    const timeoutMs = Math.max(30000, Math.min(600000, rawTimeout));
     const timeoutId = setTimeout(() => {
-      log('Tool request timeout triggered (3 minutes)');
+      log(`Tool request timeout triggered (${timeoutMs / 1000}s)`);
       timeoutController.abort();
-    }, 180000);
+    }, timeoutMs);
 
     if (request.signal) {
       request.signal.addEventListener('abort', () => timeoutController.abort());
@@ -309,10 +315,13 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const timeoutController = new AbortController();
+    // Ensure timeout is within reasonable bounds (30s to 10min)
+    const rawTimeout = this.settings.llmTimeoutMs ?? 180000;
+    const timeoutMs = Math.max(30000, Math.min(600000, rawTimeout));
     const timeoutId = setTimeout(() => {
-      log('Stream connection timeout triggered (3 minutes)');
+      log(`Stream connection timeout triggered (${timeoutMs / 1000}s)`);
       timeoutController.abort();
-    }, 180000);
+    }, timeoutMs);
 
     if (request.signal) {
       request.signal.addEventListener('abort', () => timeoutController.abort());
@@ -590,10 +599,13 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const timeoutController = new AbortController();
+    // Ensure timeout is within reasonable bounds (30s to 10min)
+    const rawTimeout = this.settings.llmTimeoutMs ?? 180000;
+    const timeoutMs = Math.max(30000, Math.min(600000, rawTimeout));
     const timeoutId = setTimeout(() => {
-      log('Stream connection timeout triggered (3 minutes)');
+      log(`Stream connection timeout triggered (${timeoutMs / 1000}s)`);
       timeoutController.abort();
-    }, 180000);
+    }, timeoutMs);
 
     if (request.signal) {
       request.signal.addEventListener('abort', () => timeoutController.abort());
