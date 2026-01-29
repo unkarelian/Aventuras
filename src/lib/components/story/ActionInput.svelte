@@ -2102,6 +2102,12 @@
     </div>
   {/if}
 
+  <!-- Grammar Check (shown in both modes) -->
+  <GrammarCheck
+    text={inputValue}
+    onApplySuggestion={(newText) => (inputValue = newText)}
+  />
+
   {#if isCreativeMode}
     <!-- Creative Writing Mode: Direction Input -->
     <div
@@ -2176,12 +2182,6 @@
       </div>
     </div>
   {:else}
-    <!-- Grammar Check -->
-    <GrammarCheck
-      text={inputValue}
-      onApplySuggestion={(newText) => (inputValue = newText)}
-    />
-
     <!-- Adventure Mode: Redesigned Input -->
     <div
       class="rounded-lg sm:border sm:border-border border-l-0 sm:border-l-4 sm:shadow-sm {ui.isGenerating
