@@ -27,14 +27,14 @@
   let abortController: AbortController | null = null;
 
   interface Props {
-    lorebook: VaultLorebook;
+    lorebookName: string;
     entries: VaultLorebookEntry[];
     onEntriesChange: (entries: VaultLorebookEntry[]) => void;
     onClose: () => void;
     onSave: () => Promise<void>;
   }
 
-  let { lorebook, entries, onEntriesChange, onClose, onSave }: Props = $props();
+  let { lorebookName, entries, onEntriesChange, onClose, onSave }: Props = $props();
 
   // Service instance
   let service: InteractiveLorebookService | null = $state(null);
@@ -81,13 +81,13 @@
 
       const provider = new OpenAIProvider(apiSettings);
       service = new InteractiveLorebookService(provider, presetId);
-      service.initialize(lorebook.name || 'New Lorebook', entries.length);
+      service.initialize(lorebookName || 'New Lorebook', entries.length);
 
       // Add initial greeting message (display-only, not sent to API)
       messages = [{
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Hello! I'm here to help you create and organize entries for "${lorebook.name || 'your new lorebook'}". You can describe characters, locations, items, or any other lore elements you'd like to add, and I'll help you structure them as lorebook entries.\n\nWhat would you like to create?`,
+        content: `Hello! I'm here to help you create and organize entries for "${lorebookName || 'your new lorebook'}". You can describe characters, locations, items, or any other lore elements you'd like to add, and I'll help you structure them as lorebook entries.\n\nWhat would you like to create?`,
         timestamp: Date.now(),
         isGreeting: true,
       }];

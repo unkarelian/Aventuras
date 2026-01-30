@@ -621,8 +621,8 @@
             )}
           >
             <InteractiveLorebookChat
-              {lorebook}
               {entries}
+              lorebookName={name}
               onEntriesChange={(newEntries) => {
                 entries = newEntries;
               }}
