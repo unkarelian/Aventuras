@@ -100,7 +100,7 @@ export class PollinationsImageProvider implements ImageProvider {
 				if (!response.ok) {
 					const errorData = await this.parseErrorResponse(response);
 					throw new ImageGenerationError(
-						`Pollinations image generation failed: ${response.status} ${response.statusText} - ${errorData}`,
+						`${errorData} (Pollinations ${response.status})`,
 						this.id,
 						response.status
 					);
@@ -197,9 +197,16 @@ export class PollinationsImageProvider implements ImageProvider {
 	 * the API routing (treating it as a file extension).
 	 */
 	private sanitizePrompt(prompt: string): string {
-		// Standard encoding, then manually encode characters that are not encoded by encodeURIComponent
-		// but can cause issues in URL paths.
-		return encodeURIComponent(prompt).replace(/[!'()*.]/g, (c) => {
+		// Normalize whitespace: convert multiple spaces/newlines to single space
+		// Remove trailing punctuation that can cause API routing issues
+		const trimmedPrompt = prompt
+			.replace(/\s+/g, ' ')  // Normalize multiple spaces/tabs/newlines to single space
+			.replace(/[.,;!?]+$/, '')  // Remove trailing punctuation
+			.trim();
+
+		// Standard encoding, then manually encode characters that encodeURIComponent ignores 
+		// but can cause issues in URL paths (like '.' which Pollinations treats as extension).
+		return encodeURIComponent(trimmedPrompt).replace(/[!'()*.]/g, (c) => {
 			return '%' + c.charCodeAt(0).toString(16).toUpperCase();
 		});
 	}
@@ -218,23 +225,41 @@ export class PollinationsImageProvider implements ImageProvider {
 	}
 
 	/**
-	 * Parse error response from API
+	 * Parse error response from API with recursive JSON unwrapping
 	 */
 	private async parseErrorResponse(response: Response): Promise<string> {
 		try {
 			const contentType = response.headers.get('content-type') || '';
 			if (contentType.includes('application/json')) {
 				const data = await response.json();
-				// Pollinations error format: { error: { code, message, details } }
-				if (data.error?.message) {
-					return data.error.message;
-				}
-				return JSON.stringify(data);
+				return this.extractErrorMessage(data);
 			}
 			return await response.text();
 		} catch {
 			return 'Unknown error';
 		}
+	}
+
+	/**
+	 * Recursively extract the most specific error message from nested JSON
+	 */
+	private extractErrorMessage(data: any, depth = 0): string {
+		if (depth > 5 || !data) return typeof data === 'object' ? JSON.stringify(data) : String(data);
+
+		if (typeof data === 'string') {
+			try {
+				return this.extractErrorMessage(JSON.parse(data), depth + 1);
+			} catch {
+				return data;
+			}
+		}
+
+		if (typeof data === 'object') {
+			const msg = data.error?.message || data.message || data.error;
+			if (msg) return this.extractErrorMessage(msg, depth + 1);
+		}
+
+		return JSON.stringify(data);
 	}
 
 	/**
@@ -245,7 +270,7 @@ export class PollinationsImageProvider implements ImageProvider {
 		const CHUNK_SIZE = 0x8000; // 32k
 		const chunks: string[] = [];
 		for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-			chunks.push(String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK_SIZE))));
+			chunks.push(String.fromCharCode(...bytes.subarray(i, i + CHUNK_SIZE)));
 		}
 		return btoa(chunks.join(''));
 	}
@@ -327,17 +352,7 @@ export class PollinationsImageProvider implements ImageProvider {
 			}
 
 			// Map API response to ImageModelInfo
-			const models: ImageModelInfo[] = data.map((model: {
-				name: string;
-				description?: string;
-				input_modalities?: string[];
-				output_modalities?: string[];
-				pricing?: {
-					completionImageTokens?: number;
-					promptTextTokens?: number;
-					promptImageTokens?: number;
-				};
-			}) => ({
+			const models: ImageModelInfo[] = data.map((model: any) => ({
 				id: model.name,
 				name: model.name,
 				description: model.description,
