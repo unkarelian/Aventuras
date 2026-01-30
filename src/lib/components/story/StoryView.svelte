@@ -111,6 +111,7 @@
     const __ = ui.generationStatus;
     const ___ = ui.isGenerating;
     const ____ = containerHeight;
+    const _____ = ui.actionChoicesLoading;
 
     // Detect if entries were added (vs deleted or unchanged)
     const wasAdded = currentCount > prevEntryCount;
