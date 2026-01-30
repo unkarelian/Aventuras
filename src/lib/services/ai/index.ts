@@ -13,8 +13,10 @@
 import { settings } from '$lib/stores/settings.svelte';
 import { story } from '$lib/stores/story.svelte';
 import type { PromptContext, StoryMode, POV, Tense } from '$lib/services/prompts';
-import type { ClassificationResult, ClassificationContext } from './generation/ClassifierService';
-import { MemoryService, type ChapterAnalysis, type ChapterSummary, type RetrievalDecision } from './generation/MemoryService';
+import { ClassifierService, type ClassificationContext } from './generation/ClassifierService';
+import type { ClassificationResult } from './sdk/schemas/classifier';
+import { MemoryService, type RetrievalContext } from './generation/MemoryService';
+import type { ChapterAnalysis, ChapterSummaryResult, RetrievalDecision } from './sdk/schemas/memory';
 import type { StorySuggestion, SuggestionsResult } from './generation/SuggestionsService';
 import type { ActionChoice, ActionChoicesResult } from './generation/ActionChoicesService';
 import type { StyleReviewResult } from './generation/StyleReviewerService';
@@ -105,7 +107,6 @@ class AIService {
 
   /**
    * Classify a narrative response to extract world state changes.
-   * @throws Error - Service not implemented during SDK migration
    */
   async classifyResponse(
     narrativeResponse: string,
@@ -115,7 +116,47 @@ class AIService {
     visibleEntries?: StoryEntry[],
     currentStoryTime?: TimeTracker | null
   ): Promise<ClassificationResult> {
-    throw new Error('AIService.classifyResponse() not implemented - awaiting SDK migration');
+    log('classifyResponse called', {
+      narrativeLength: narrativeResponse.length,
+      userActionLength: userAction.length,
+      hasStory: !!story,
+      hasVisibleEntries: !!visibleEntries,
+    });
+
+    if (!story) {
+      log('classifyResponse: No story provided, returning empty result');
+      return {
+        entryUpdates: {
+          characterUpdates: [],
+          locationUpdates: [],
+          itemUpdates: [],
+          storyBeatUpdates: [],
+          newCharacters: [],
+          newLocations: [],
+          newItems: [],
+          newStoryBeats: [],
+        },
+        scene: {
+          currentLocationName: null,
+          presentCharacterNames: [],
+          timeProgression: 'none',
+        },
+      };
+    }
+
+    const classifierService = serviceFactory.createClassifierService();
+    const context: ClassificationContext = {
+      storyId: story.id,
+      story,
+      narrativeResponse,
+      userAction,
+      existingCharacters: worldState.characters,
+      existingLocations: worldState.locations,
+      existingItems: worldState.items,
+      existingStoryBeats: worldState.storyBeats ?? [],
+    };
+
+    return classifierService.classify(context, visibleEntries, currentStoryTime);
   }
 
   /**
@@ -166,7 +207,6 @@ class AIService {
 
   /**
    * Analyze if a new chapter should be created.
-   * @throws Error - Service not implemented during SDK migration
    */
   async analyzeForChapter(
     entries: StoryEntry[],
@@ -177,20 +217,20 @@ class AIService {
     pov?: POV,
     tense?: Tense
   ): Promise<ChapterAnalysis> {
-    throw new Error('AIService.analyzeForChapter() not implemented - awaiting SDK migration');
+    const memoryService = serviceFactory.createMemoryService();
+    return memoryService.analyzeForChapter(entries, lastChapterEndIndex, tokensOutsideBuffer, mode, pov, tense);
   }
 
   /**
    * Generate a summary and metadata for a chapter.
-   * @throws Error - Service not implemented during SDK migration
    */
-  async summarizeChapter(entries: StoryEntry[], previousChapters?: Chapter[], mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): Promise<ChapterSummary> {
-    throw new Error('AIService.summarizeChapter() not implemented - awaiting SDK migration');
+  async summarizeChapter(entries: StoryEntry[], previousChapters?: Chapter[], mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): Promise<ChapterSummaryResult> {
+    const memoryService = serviceFactory.createMemoryService();
+    return memoryService.summarizeChapter(entries, previousChapters, mode, pov, tense);
   }
 
   /**
    * Resummarize an existing chapter.
-   * @throws Error - Service not implemented during SDK migration
    */
   async resummarizeChapter(
     chapter: Chapter,
@@ -199,13 +239,13 @@ class AIService {
     mode: StoryMode = 'adventure',
     pov?: POV,
     tense?: Tense
-  ): Promise<ChapterSummary> {
-    throw new Error('AIService.resummarizeChapter() not implemented - awaiting SDK migration');
+  ): Promise<ChapterSummaryResult> {
+    const memoryService = serviceFactory.createMemoryService();
+    return memoryService.summarizeChapter(entries, allChapters, mode, pov, tense);
   }
 
   /**
    * Decide which chapters are relevant for the current context.
-   * @throws Error - Service not implemented during SDK migration
    */
   async decideRetrieval(
     userInput: string,
@@ -216,7 +256,13 @@ class AIService {
     pov?: POV,
     tense?: Tense
   ): Promise<RetrievalDecision> {
-    throw new Error('AIService.decideRetrieval() not implemented - awaiting SDK migration');
+    const memoryService = serviceFactory.createMemoryService();
+    const context: RetrievalContext = {
+      userInput,
+      recentNarrative: recentEntries.map(e => e.content).join(' '),
+      availableChapters: chapters,
+    };
+    return memoryService.decideRetrieval(context, mode, pov, tense);
   }
 
   /**

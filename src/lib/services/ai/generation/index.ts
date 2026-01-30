@@ -23,30 +23,32 @@ export {
 } from './NarrativeService';
 
 // Classification
-export {
-  ClassifierService,
-  type ClassificationResult,
-  type ClassificationContext,
-  type ClassificationChatEntry,
-  type CharacterUpdate,
-  type LocationUpdate,
-  type ItemUpdate,
-  type StoryBeatUpdate,
-  type NewCharacter,
-  type NewLocation,
-  type NewItem,
-  type NewStoryBeat,
-} from './ClassifierService';
+export { ClassifierService, type ClassificationContext } from './ClassifierService';
+// Classifier output types - import from schema
+export type {
+  ClassificationResult,
+  EntryUpdates,
+  Scene,
+  CharacterUpdate,
+  NewCharacter,
+  LocationUpdate,
+  NewLocation,
+  ItemUpdate,
+  NewItem,
+  StoryBeatUpdate,
+  NewStoryBeat,
+} from '../sdk/schemas/classifier';
 
 // Memory
-export {
-  MemoryService,
-  DEFAULT_MEMORY_CONFIG,
-  type ChapterAnalysis,
-  type ChapterSummary,
-  type RetrievalDecision,
-  type RetrievedContext,
-} from './MemoryService';
+export { MemoryService, DEFAULT_MEMORY_CONFIG, type RetrievedContext, type RetrievalContext } from './MemoryService';
+// Memory output types - import from schema
+export type {
+  ChapterAnalysis,
+  ChapterSummaryResult,
+  RetrievalDecision,
+} from '../sdk/schemas/memory';
+// Backward compatibility alias
+export type { ChapterSummaryResult as ChapterSummary } from '../sdk/schemas/memory';
 
 // Suggestions and choices
 export {

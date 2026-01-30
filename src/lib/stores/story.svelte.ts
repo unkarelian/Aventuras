@@ -1,7 +1,7 @@
 import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, Checkpoint, Branch, MemoryConfig, StoryMode, StorySettings, Entry, TimeTracker, EmbeddedImage, PersistentCharacterSnapshot } from '$lib/types';
 import { database } from '$lib/services/database';
 import { ui } from './ui.svelte';
-import type { ClassificationResult } from '$lib/services/ai/generation/ClassifierService';
+import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier';
 import { DEFAULT_MEMORY_CONFIG } from '$lib/services/ai/generation/MemoryService';
 import { convertToEntries, type ImportedEntry } from '$lib/services/lorebookImporter';
 import { countTokens } from '$lib/services/tokenizer';
@@ -1389,10 +1389,10 @@ class StoryStore {
           id: crypto.randomUUID(),
           storyId,
           name: newChar.name,
-          description: newChar.description,
-          relationship: newChar.relationship,
-          traits: newChar.traits,
-          visualDescriptors: newChar.visualDescriptors || [],
+          description: newChar.description ?? null,
+          relationship: newChar.relationship ?? null,
+          traits: newChar.traits ?? [],
+          visualDescriptors: newChar.visualDescriptors ?? [],
           status: 'active',
           metadata: { source: 'classifier' },
           portrait: null,
@@ -1421,9 +1421,9 @@ class StoryStore {
           id: crypto.randomUUID(),
           storyId,
           name: newLoc.name,
-          description: newLoc.description,
-          visited: newLoc.visited,
-          current: newLoc.current,
+          description: newLoc.description ?? null,
+          visited: newLoc.visited ?? false,
+          current: newLoc.current ?? false,
           connections: [],
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,
@@ -1461,10 +1461,10 @@ class StoryStore {
           id: crypto.randomUUID(),
           storyId,
           name: newItem.name,
-          description: newItem.description,
-          quantity: newItem.quantity,
+          description: newItem.description ?? null,
+          quantity: newItem.quantity ?? 1,
           equipped: false,
-          location: newItem.location || 'inventory',
+          location: newItem.location ?? 'inventory',
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,
         };
@@ -1484,9 +1484,9 @@ class StoryStore {
           id: crypto.randomUUID(),
           storyId,
           title: newBeat.title,
-          description: newBeat.description,
-          type: newBeat.type,
-          status: newBeat.status,
+          description: newBeat.description ?? null,
+          type: newBeat.type ?? 'event',
+          status: newBeat.status ?? 'active',
           triggeredAt: Date.now(),
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,

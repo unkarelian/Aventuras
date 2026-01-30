@@ -2,117 +2,23 @@
  * Classifier Service
  *
  * Extracts world state from narrative responses (characters, locations, items, story beats).
+ * Uses the Vercel AI SDK for structured output with Zod schema validation.
  *
- * STATUS: STUBBED - Awaiting SDK migration
- * Original implementation preserved in comments below for reference.
+ * NOTE: For classifier output types (CharacterUpdate, NewCharacter, etc.),
+ * import directly from '$lib/services/ai/sdk/schemas/classifier'.
  */
 
-import type { Character, Location, Item, StoryBeat, Story, TimeTracker } from '$lib/types';
+import type { Story, StoryEntry, Character, Location, Item, StoryBeat, TimeTracker } from '$lib/types';
+import { promptService, type PromptContext } from '$lib/services/prompts';
 import { createLogger } from '../core/config';
+import { generateStructured } from '../sdk/generate';
+import { classificationResultSchema, type ClassificationResult } from '../sdk/schemas/classifier';
 
 const log = createLogger('Classifier');
 
-// Type definitions preserved from original
-
-// Entry update types (used by applyClassificationResult in story store)
-export interface CharacterUpdateEntry {
-  name: string;
-  changes: {
-    status?: 'active' | 'inactive' | 'deceased';
-    relationship?: string;
-    newTraits?: string[];
-    removeTraits?: string[];
-    replaceVisualDescriptors?: string[];
-    addVisualDescriptors?: string[];
-    removeVisualDescriptors?: string[];
-  };
-}
-
-export interface LocationUpdateEntry {
-  name: string;
-  changes: {
-    visited?: boolean;
-    current?: boolean;
-    description?: string;
-    descriptionAddition?: string;
-  };
-}
-
-export interface ItemUpdateEntry {
-  name: string;
-  changes: {
-    quantity?: number;
-    location?: string;
-    equipped?: boolean;
-  };
-}
-
-export interface StoryBeatUpdateEntry {
-  title: string;
-  changes: {
-    status?: 'pending' | 'active' | 'completed' | 'failed';
-    description?: string;
-  };
-}
-
-export interface NewCharacterEntry {
-  name: string;
-  description?: string;
-  relationship?: string;
-  traits?: string[];
-  visualDescriptors?: string[];
-  status?: 'active' | 'inactive' | 'deceased';
-}
-
-export interface NewLocationEntry {
-  name: string;
-  description?: string;
-  visited?: boolean;
-  current?: boolean;
-}
-
-export interface NewItemEntry {
-  name: string;
-  description?: string;
-  quantity?: number;
-  location?: string;
-  equipped?: boolean;
-}
-
-export interface NewStoryBeatEntry {
-  title: string;
-  description?: string;
-  type?: 'milestone' | 'quest' | 'revelation' | 'event' | 'plot_point';
-  status?: 'pending' | 'active' | 'completed' | 'failed';
-}
-
-export interface EntryUpdates {
-  characterUpdates: CharacterUpdateEntry[];
-  locationUpdates: LocationUpdateEntry[];
-  itemUpdates: ItemUpdateEntry[];
-  storyBeatUpdates: StoryBeatUpdateEntry[];
-  newCharacters: NewCharacterEntry[];
-  newLocations: NewLocationEntry[];
-  newItems: NewItemEntry[];
-  newStoryBeats: NewStoryBeatEntry[];
-}
-
-export interface ClassificationResult {
-  characters: Character[];
-  locations: Location[];
-  items: Item[];
-  storyBeats: StoryBeat[];
-  timeAdvancement?: TimeTracker;
-  entryUpdates: EntryUpdates;
-  scene?: {
-    location?: string;
-    presentCharacters?: string[];
-    mood?: string;
-    currentLocationName?: string;
-    timeProgression?: 'none' | 'minutes' | 'hours' | 'days';
-  };
-}
-
+/**
+ * Context for classification.
+ */
 export interface ClassificationContext {
   storyId: string;
   story: Story;
@@ -124,78 +30,8 @@ export interface ClassificationContext {
   existingStoryBeats: StoryBeat[];
 }
 
-// Additional type exports for compatibility
-export interface ClassificationChatEntry {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-export interface CharacterUpdate {
-  id: string;
-  name?: string;
-  description?: string;
-  relationship?: string;
-  traits?: string[];
-  status?: 'active' | 'inactive' | 'unknown';
-}
-
-export interface LocationUpdate {
-  id: string;
-  name?: string;
-  description?: string;
-  visited?: boolean;
-  current?: boolean;
-}
-
-export interface ItemUpdate {
-  id: string;
-  name?: string;
-  description?: string;
-  quantity?: number;
-  location?: string;
-  equipped?: boolean;
-}
-
-export interface StoryBeatUpdate {
-  id: string;
-  title?: string;
-  description?: string;
-  status?: 'pending' | 'active' | 'completed' | 'failed';
-}
-
-export interface NewCharacter {
-  name: string;
-  description?: string;
-  relationship?: string;
-  traits?: string[];
-  status?: 'active' | 'inactive' | 'unknown';
-}
-
-export interface NewLocation {
-  name: string;
-  description?: string;
-  visited?: boolean;
-  current?: boolean;
-}
-
-export interface NewItem {
-  name: string;
-  description?: string;
-  quantity?: number;
-  location?: string;
-  equipped?: boolean;
-}
-
-export interface NewStoryBeat {
-  title: string;
-  description?: string;
-  type?: 'quest' | 'event' | 'discovery' | 'milestone';
-  status?: 'pending' | 'active' | 'completed' | 'failed';
-}
-
 /**
- * Service that classifies narrative responses to extract world state.
- * NOTE: This service has been stubbed during SDK migration.
+ * Service that classifies narrative responses to extract world state changes.
  */
 export class ClassifierService {
   private presetId: string;
@@ -208,74 +44,164 @@ export class ClassifierService {
 
   /**
    * Classify a narrative response to extract world state changes.
-   * @throws Error - Service not implemented during SDK migration
    */
-  async classify(context: ClassificationContext): Promise<ClassificationResult> {
-    throw new Error('ClassifierService.classify() not implemented - awaiting SDK migration');
+  async classify(
+    context: ClassificationContext,
+    visibleEntries?: StoryEntry[],
+    currentStoryTime?: TimeTracker | null
+  ): Promise<ClassificationResult> {
+    log('classify', {
+      narrativeLength: context.narrativeResponse.length,
+      existingCharacters: context.existingCharacters.length,
+      existingLocations: context.existingLocations.length,
+      existingItems: context.existingItems.length,
+      existingStoryBeats: context.existingStoryBeats.length,
+    });
 
-    /* COMMENTED OUT - Original implementation for reference:
-    const config = settings.getPresetConfig(this.presetId);
+    const mode = context.story.mode ?? 'adventure';
+    const pov = context.story.settings?.pov ?? 'second';
+    const tense = context.story.settings?.tense ?? 'present';
+    const protagonist = context.existingCharacters.find(c => c.relationship === 'self');
 
-    // Build system prompt using prompt service
+    // Build prompt context
     const promptContext: PromptContext = {
-      mode: context.story.settings.mode,
-      pov: context.story.settings.pov,
-      tense: context.story.settings.tense,
-      protagonistName: context.story.settings.protagonistName,
+      mode,
+      pov,
+      tense,
+      protagonistName: protagonist?.name ?? 'the protagonist',
+      genre: context.story.genre ?? undefined,
     };
 
-    const systemPrompt = promptService.renderPrompt('classifier', promptContext, {
-      existingCharacters: JSON.stringify(context.existingCharacters.map(c => ({
-        id: c.id,
-        name: c.name,
-        status: c.status,
-        relationship: c.relationship,
-      }))),
-      existingLocations: JSON.stringify(context.existingLocations.map(l => ({
-        id: l.id,
-        name: l.name,
-        visited: l.visited,
-      }))),
-      existingItems: JSON.stringify(context.existingItems.map(i => ({
-        id: i.id,
-        name: i.name,
-        location: i.location,
-      }))),
-      existingStoryBeats: JSON.stringify(context.existingStoryBeats.map(b => ({
-        id: b.id,
-        title: b.title,
-        status: b.status,
-      }))),
-    });
+    // Format existing entities for the prompt
+    const existingCharacters = this.formatExistingCharacters(context.existingCharacters);
+    const existingLocations = context.existingLocations.map(l => l.name).join(', ') || '(none)';
+    const existingItems = context.existingItems.map(i => i.name).join(', ') || '(none)';
+    const existingBeats = this.formatExistingBeats(context.existingStoryBeats);
 
-    const userPrompt = promptService.renderUserPrompt('classifier', promptContext, {
+    // Build chat history block if entries provided
+    const chatHistoryBlock = visibleEntries
+      ? this.buildChatHistoryBlock(visibleEntries, currentStoryTime)
+      : '';
+
+    // Build time info
+    const currentTimeInfo = currentStoryTime
+      ? `Current story time: Year ${currentStoryTime.years}, Day ${currentStoryTime.days}, ${String(currentStoryTime.hours).padStart(2, '0')}:${String(currentStoryTime.minutes).padStart(2, '0')}`
+      : '';
+
+    // Get prompts
+    const system = promptService.renderPrompt('classifier', promptContext);
+    const prompt = promptService.renderUserPrompt('classifier', promptContext, {
+      genre: context.story.genre ? `Genre: ${context.story.genre}` : '',
+      mode,
+      entityCounts: `${context.existingCharacters.length} characters, ${context.existingLocations.length} locations, ${context.existingItems.length} items`,
+      currentTimeInfo,
+      chatHistoryBlock,
+      inputLabel: mode === 'creative-writing' ? 'Author Direction' : 'Player Action',
       userAction: context.userAction,
       narrativeResponse: context.narrativeResponse,
+      existingCharacters,
+      existingLocations,
+      existingItems,
+      existingBeats,
+      storyBeatTypes: 'milestone, quest, revelation, event, plot_point',
+      itemLocationOptions: 'inventory, worn, ground, or specific location name',
+      defaultItemLocation: 'inventory',
+      sceneLocationDesc: 'Name of current location if identifiable, null otherwise',
     });
 
-    const response = await this.provider.generateResponse({
-      model: config.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: config.temperature,
-      maxTokens: config.maxTokens,
-      extraBody: buildExtraBody({
-        manualMode: false,
-        manualBody: config.manualBody,
-        reasoningEffort: config.reasoningEffort,
-        providerOnly: config.providerOnly,
-      }),
-    });
+    try {
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: classificationResultSchema,
+        system,
+        prompt,
+      });
 
-    const parsed = tryParseJsonWithHealing<ClassificationResult>(response.content);
-    if (!parsed) {
-      log('Failed to parse classification response');
-      return { characters: [], locations: [], items: [], storyBeats: [] };
+      log('classify complete', {
+        characterUpdates: result.entryUpdates.characterUpdates.length,
+        newCharacters: result.entryUpdates.newCharacters.length,
+        locationUpdates: result.entryUpdates.locationUpdates.length,
+        newLocations: result.entryUpdates.newLocations.length,
+        itemUpdates: result.entryUpdates.itemUpdates.length,
+        newItems: result.entryUpdates.newItems.length,
+        storyBeatUpdates: result.entryUpdates.storyBeatUpdates.length,
+        newStoryBeats: result.entryUpdates.newStoryBeats.length,
+        timeProgression: result.scene.timeProgression,
+      });
+
+      return result;
+    } catch (error) {
+      log('classify failed', error);
+      // Return empty result on failure
+      return {
+        entryUpdates: {
+          characterUpdates: [],
+          locationUpdates: [],
+          itemUpdates: [],
+          storyBeatUpdates: [],
+          newCharacters: [],
+          newLocations: [],
+          newItems: [],
+          newStoryBeats: [],
+        },
+        scene: {
+          currentLocationName: null,
+          presentCharacterNames: [],
+          timeProgression: 'none',
+        },
+      };
     }
+  }
 
-    return this.normalizeResult(parsed, context);
-    */
+  /**
+   * Format existing characters for the prompt.
+   */
+  private formatExistingCharacters(characters: Character[]): string {
+    if (characters.length === 0) return '(none)';
+
+    return characters.map(c => {
+      let entry = `- ${c.name}`;
+      if (c.relationship) entry += ` (${c.relationship})`;
+      if (c.status && c.status !== 'active') entry += ` [${c.status}]`;
+      if (c.visualDescriptors?.length) {
+        entry += `\n  Appearance: ${c.visualDescriptors.join(', ')}`;
+      }
+      return entry;
+    }).join('\n');
+  }
+
+  /**
+   * Format existing story beats for the prompt.
+   */
+  private formatExistingBeats(beats: StoryBeat[]): string {
+    const activeBeats = beats.filter(b => b.status === 'active' || b.status === 'pending');
+    if (activeBeats.length === 0) return '(none)';
+
+    return activeBeats.map(b => {
+      let entry = `- "${b.title}" [${b.status}]`;
+      if (b.description) entry += `: ${b.description}`;
+      return entry;
+    }).join('\n');
+  }
+
+  /**
+   * Build chat history block for context.
+   */
+  private buildChatHistoryBlock(entries: StoryEntry[], currentTime?: TimeTracker | null): string {
+    if (entries.length === 0) return '';
+
+    const recentEntries = entries.slice(-this.chatHistoryTruncation);
+
+    const formatted = recentEntries.map(e => {
+      const prefix = e.type === 'user_action' ? '[ACTION]' : '[NARRATIVE]';
+      let timeInfo = '';
+      if (e.metadata?.timeStart) {
+        const t = e.metadata.timeStart;
+        timeInfo = ` (at Y${t.years}D${t.days} ${String(t.hours).padStart(2, '0')}:${String(t.minutes).padStart(2, '0')})`;
+      }
+      return `${prefix}${timeInfo} ${e.content.slice(0, 500)}${e.content.length > 500 ? '...' : ''}`;
+    }).join('\n\n');
+
+    return `## Recent Chat History\n${formatted}\n`;
   }
 }
