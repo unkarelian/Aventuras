@@ -6,16 +6,12 @@
  */
 
 import type { StoryEntry, StoryBeat, Entry } from '$lib/types';
-import { promptService, type PromptContext, type POV, type Tense } from '$lib/services/prompts';
+import { promptService, type PromptContext } from '$lib/services/prompts';
 import { createLogger, getContextConfig, getLorebookConfig } from '../core/config';
 import { generateStructured } from '../sdk/generate';
-import { suggestionsResultSchema, type SuggestionsResult, type Suggestion } from '../sdk/schemas/suggestions';
+import { suggestionsResultSchema, type SuggestionsResult } from '../sdk/schemas/suggestions';
 
 const log = createLogger('Suggestions');
-
-// Re-export types for backwards compatibility
-export type StorySuggestion = Suggestion;
-export type { SuggestionsResult };
 
 /**
  * Service for generating story direction suggestions.
@@ -41,17 +37,13 @@ export class SuggestionsService {
    * @param recentEntries - Recent story entries for context
    * @param activeThreads - Active story beats/threads
    * @param lorebookEntries - Optional lorebook entries for world context
-   * @param promptContext - Complete story context for macro expansion (preferred)
-   * @param pov - Point of view (deprecated, use promptContext)
-   * @param tense - Tense (deprecated, use promptContext)
+   * @param promptContext - Complete story context for macro expansion
    */
   async generateSuggestions(
     recentEntries: StoryEntry[],
     activeThreads: StoryBeat[],
     lorebookEntries?: Entry[],
-    promptContext?: PromptContext,
-    pov?: POV,
-    tense?: Tense
+    promptContext?: PromptContext
   ): Promise<SuggestionsResult> {
     log('generateSuggestions called', {
       recentEntriesCount: recentEntries.length,
@@ -90,8 +82,8 @@ export class SuggestionsService {
     // Use provided context or build minimal fallback
     const context: PromptContext = promptContext ?? {
       mode: 'creative-writing',
-      pov: pov ?? 'third',
-      tense: tense ?? 'past',
+      pov: 'third',
+      tense: 'past',
       protagonistName: 'the protagonist',
     };
 

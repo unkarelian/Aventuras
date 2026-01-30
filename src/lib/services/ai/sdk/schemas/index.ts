@@ -7,3 +7,5 @@
 export * from './suggestions';
 export * from './classifier';
 export * from './memory';
+export * from './actionchoices';
+export * from './timeline';

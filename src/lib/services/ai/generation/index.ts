@@ -47,21 +47,13 @@ export type {
   ChapterSummaryResult,
   RetrievalDecision,
 } from '../sdk/schemas/memory';
-// Backward compatibility alias
-export type { ChapterSummaryResult as ChapterSummary } from '../sdk/schemas/memory';
 
-// Suggestions and choices
-export {
-  SuggestionsService,
-  type StorySuggestion,
-  type SuggestionsResult,
-} from './SuggestionsService';
+// Suggestions and choices - types exported from schemas
+export { SuggestionsService } from './SuggestionsService';
+export type { Suggestion, SuggestionsResult } from '../sdk/schemas/suggestions';
 
-export {
-  ActionChoicesService,
-  type ActionChoice,
-  type ActionChoicesResult,
-} from './ActionChoicesService';
+export { ActionChoicesService } from './ActionChoicesService';
+export type { ActionChoice, ActionChoicesResult } from '../sdk/schemas/actionchoices';
 
 // Style analysis
 export {

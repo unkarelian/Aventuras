@@ -1157,8 +1157,7 @@ Determine how much narrative time elapsed during this passage. Consider what act
 2. Only extract what ACTUALLY HAPPENED, not what might happen
 3. Use the exact names from the text, don't invent or embellish
 4. ALWAYS check if active story beats should be marked completed or failed
-5. ALWAYS assess timeProgression - prefer incrementing time over "none" when activities occur
-6. Respond with valid JSON only - no markdown, no explanation`,
+5. ALWAYS assess timeProgression - prefer incrementing time over "none" when activities occur`,
   userContent: `Analyze this narrative passage and extract world state changes.
 
 ## Context
@@ -1292,12 +1291,6 @@ You are selecting which story entries are relevant for the next narrative respon
 ## Task
 Analyze the current scene, user input, and available entries to identify which entries are ACTUALLY relevant to this specific moment in the story.
 
-## Output Format
-Return ONLY a JSON array of numbers representing relevant entries.
-Example: [1, 3, 7]
-
-If no entries are relevant, return: []
-
 ## Selection Criteria
 Consider:
 - Characters who might be referenced or affected
@@ -1315,7 +1308,7 @@ Only include entries that have a clear connection to the current scene or user's
 # Available Entries
 {{entrySummaries}}
 
-Which entries (by number) are relevant to the current scene and user input? Return a JSON array of numbers.`,
+Which entries (by number) are relevant to the current scene and user input?`,
 };
 
 const suggestionsPromptTemplate: PromptTemplate = {
@@ -1332,9 +1325,7 @@ Examples:
 - "Continue with the group discovering the abandoned cabin, but something feels wrong about it"
 - "Have the protagonist finally reveal their secret to their companion, leading to an unexpected reaction"
 
-These should read like instructions an author gives to guide the next part of the story.
-
-Respond with valid JSON only.`,
+These should read like instructions an author gives to guide the next part of the story.`,
   userContent: `Based on the current story moment, suggest 3 distinct directions the overall narrative could develop.
 
 ## Recent Story Content
@@ -1377,16 +1368,7 @@ Each suggestion should be:
 - A narrative direction or plot beat, not a character micro-action
 - Grounded in the current story context and tone
 - Specific enough to write toward, vague enough to allow creativity
-- Appropriate to the established tone and genre
-
-Respond with JSON only:
-{
-  "suggestions": [
-    {"text": "Direction 1...", "type": "action|dialogue|revelation|twist"},
-    {"text": "Direction 2...", "type": "action|dialogue|revelation|twist"},
-    {"text": "Direction 3...", "type": "action|dialogue|revelation|twist"}
-  ]
-}`,
+- Appropriate to the established tone and genre`,
 };
 
 const styleReviewerPromptTemplate: PromptTemplate = {
@@ -1469,12 +1451,7 @@ Query based ONLY on the information visible in the chapter summaries or things t
 Existing chapter timeline:
 {{timeline}}
 
-Provide a JSON array where each item describes a question to ask about the timeline. Each item MUST be an object with:
-- "query": the question string.
-- EITHER "chapters": an array of chapter numbers to query,
-  OR both "startChapter" and "endChapter" integers defining an inclusive range.
-You may include both styles in the same array. The maximum number of chapters per query is 3.
-Return ONLY the JSON array, no code fences or commentary.`,
+Identify what information from past chapters would help understand the current scene. Generate queries about specific chapters or chapter ranges. The maximum number of chapters per query is 3.`,
 };
 
 const timelineFillAnswerPromptTemplate: PromptTemplate = {
@@ -2613,7 +2590,7 @@ const actionChoicesPromptTemplate: PromptTemplate = {
   name: 'Action Choices',
   category: 'service',
   description: 'Generates RPG-style action choices for the player based on current narrative',
-  content: `You are an RPG game master generating action choices for a player. The player has a character/persona that represents THEM in the story - when you generate choices, these are suggestions for what the PLAYER (the real person) might want their character to do next. Generate action options that fit the current narrative moment and MATCH THE PLAYER'S WRITING STYLE - if they write verbose actions, generate verbose choices; if they write terse commands, generate terse choices. Mimic their vocabulary, phrasing, and tone. Always respond with valid JSON only.`,
+  content: `You are an RPG game master generating action choices for a player. The player has a character/persona that represents THEM in the story - when you generate choices, these are suggestions for what the PLAYER (the real person) might want their character to do next. Generate action options that fit the current narrative moment and MATCH THE PLAYER'S WRITING STYLE - if they write verbose actions, generate verbose choices; if they write terse commands, generate terse choices. Mimic their vocabulary, phrasing, and tone.`,
   userContent: `Based on the current story moment, generate 3-4 RPG-style action choices.
 
 ## CRITICAL: Who is the Player?
@@ -2650,16 +2627,7 @@ Avoid choices like "Wait and see" or "Do nothing" - each option should lead to m
 
 {{lengthInstruction}}
 
-## Response Format (JSON only)
-{
-  "choices": [
-    {"text": "Action text here", "type": "action|dialogue|examine|move"},
-    {"text": "Action text here", "type": "action|dialogue|examine|move"},
-    {"text": "Action text here", "type": "action|dialogue|examine|move"}
-  ]
-}
-
-Types:
+## Choice Types
 - action: Physical actions (fight, take, use, give, etc.)
 - dialogue: Speaking to someone
 - examine: Looking at or investigating something

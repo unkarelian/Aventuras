@@ -217,8 +217,6 @@
         story.pendingQuests,
         activeLorebookEntries,
         promptContext,
-        story.pov,
-        story.tense,
       );
 
       // Translate suggestions if enabled

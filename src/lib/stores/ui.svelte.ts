@@ -1,6 +1,6 @@
 import type { ActivePanel, SidebarTab, UIState, EntryType, StoryEntry, Character, Location, Item, StoryBeat, Entry, ActionInputType, PersistentStyleReviewState, PersistentStyleReviewResult, TimeTracker, EmbeddedImage, PersistentCharacterSnapshot } from '$lib/types';
-import type { ActionChoice } from '$lib/services/ai/generation/ActionChoicesService';
-import type { StorySuggestion } from '$lib/services/ai/generation/SuggestionsService';
+import type { ActionChoice } from '$lib/services/ai/sdk/schemas/actionchoices';
+import type { Suggestion } from '$lib/services/ai/sdk/schemas/suggestions';
 import type { StyleReviewResult } from '$lib/services/ai/generation/StyleReviewerService';
 import type { EntryRetrievalResult, ActivationTracker } from '$lib/services/ai/retrieval/EntryRetrievalService';
 import type { SyncMode } from '$lib/types/sync';
@@ -77,7 +77,7 @@ interface PersistedActionChoices {
 // Persisted suggestions structure
 interface PersistedSuggestions {
   storyId: string;
-  suggestions: StorySuggestion[];
+  suggestions: Suggestion[];
 }
 
 // Persisted activation data structure (for lorebook stickiness)
@@ -174,7 +174,7 @@ class UIStore {
   pendingActionChoice = $state<string | null>(null);
 
   // Creative writing suggestions (displayed after narration)
-  suggestions = $state<StorySuggestion[]>([]);
+  suggestions = $state<Suggestion[]>([]);
   suggestionsLoading = $state(false);
 
   // Style reviewer state
@@ -907,7 +907,7 @@ class UIStore {
     return `story_suggestions:${storyId}`;
   }
 
-  setSuggestions(suggestions: StorySuggestion[], storyId?: string) {
+  setSuggestions(suggestions: Suggestion[], storyId?: string) {
     this.suggestions = suggestions;
     // Persist to database if we have a story ID
     if (storyId && suggestions.length > 0) {

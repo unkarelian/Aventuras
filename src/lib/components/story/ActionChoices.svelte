@@ -2,7 +2,7 @@
   import { story } from "$lib/stores/story.svelte";
   import { ui } from "$lib/stores/ui.svelte";
   import { Sword, MessageCircle, Search, MapPin, Loader2 } from "lucide-svelte";
-  import type { ActionChoice } from "$lib/services/ai/generation/ActionChoicesService";
+  import type { ActionChoice } from "$lib/services/ai/sdk/schemas/actionchoices";
   import { Button } from "$lib/components/ui/button";
   import { cn } from "$lib/utils/cn";
 

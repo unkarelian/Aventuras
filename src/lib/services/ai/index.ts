@@ -3,11 +3,22 @@
  *
  * Coordinates AI services for narrative generation, classification, memory, and more.
  *
- * STATUS: PARTIALLY MIGRATED
- * - streamNarrative(), generateNarrative() - WORKING (uses NarrativeService)
- * - generateSuggestions() - WORKING (uses SuggestionsService)
- * - buildTieredContext(), getRelevantLorebookEntries() - WORKING (Tier 1&2)
- * - Other AI-calling methods - STUBBED (awaiting migration)
+ * STATUS: Tier 0 & Tier 1 Complete
+ * WORKING (SDK-migrated):
+ * - streamNarrative(), generateNarrative() - NarrativeService
+ * - classifyResponse() - ClassifierService
+ * - analyzeForChapter(), summarizeChapter(), decideRetrieval() - MemoryService
+ * - generateSuggestions() - SuggestionsService
+ * - generateActionChoices() - ActionChoicesService
+ * - runTimelineFill(), answerChapterQuestion(), answerChapterRangeQuestion() - TimelineFillService
+ * - buildTieredContext(), getRelevantLorebookEntries() - ContextBuilder/EntryRetrievalService
+ *
+ * STUBBED (awaiting migration):
+ * - analyzeStyle() - StyleReviewerService
+ * - runLoreManagement() - LoreManagementService
+ * - runAgenticRetrieval() - AgenticRetrievalService
+ * - translate*() - TranslationService
+ * - generateImagesForNarrative() (analyzed mode) - ImageGenerationService
  */
 
 import { settings } from '$lib/stores/settings.svelte';
@@ -17,8 +28,8 @@ import { ClassifierService, type ClassificationContext } from './generation/Clas
 import type { ClassificationResult } from './sdk/schemas/classifier';
 import { MemoryService, type RetrievalContext } from './generation/MemoryService';
 import type { ChapterAnalysis, ChapterSummaryResult, RetrievalDecision } from './sdk/schemas/memory';
-import type { StorySuggestion, SuggestionsResult } from './generation/SuggestionsService';
-import type { ActionChoice, ActionChoicesResult } from './generation/ActionChoicesService';
+import type { SuggestionsResult } from './sdk/schemas/suggestions';
+import type { ActionChoicesResult } from './sdk/schemas/actionchoices';
 import type { StyleReviewResult } from './generation/StyleReviewerService';
 import type { AgenticRetrievalResult } from './retrieval/AgenticRetrievalService';
 import type { TimelineFillResult } from './retrieval/TimelineFillService';
@@ -161,15 +172,12 @@ class AIService {
 
   /**
    * Generate story direction suggestions for creative writing mode.
-   * NOTE: This method WORKS - uses SDK-based SuggestionsService.
    */
   async generateSuggestions(
     entries: StoryEntry[],
     activeThreads: StoryBeat[],
     lorebookEntries?: Entry[],
-    promptContext?: PromptContext,
-    pov?: POV,
-    tense?: Tense
+    promptContext?: PromptContext
   ): Promise<SuggestionsResult> {
     log('generateSuggestions called', {
       entriesCount: entries.length,
@@ -179,12 +187,11 @@ class AIService {
     });
 
     const suggestionsService = serviceFactory.createSuggestionsService();
-    return await suggestionsService.generateSuggestions(entries, activeThreads, lorebookEntries, promptContext, pov, tense);
+    return await suggestionsService.generateSuggestions(entries, activeThreads, lorebookEntries, promptContext);
   }
 
   /**
    * Generate RPG-style action choices for adventure mode.
-   * @throws Error - Service not implemented during SDK migration
    */
   async generateActionChoices(
     entries: StoryEntry[],
@@ -194,7 +201,48 @@ class AIService {
     promptContext?: PromptContext,
     pov?: 'first' | 'second' | 'third'
   ): Promise<ActionChoicesResult> {
-    throw new Error('AIService.generateActionChoices() not implemented - awaiting SDK migration');
+    log('generateActionChoices called', {
+      entriesCount: entries.length,
+      narrativeLength: narrativeResponse.length,
+      hasPromptContext: !!promptContext,
+      lorebookEntriesCount: lorebookEntries?.length ?? 0,
+    });
+
+    const actionChoicesService = serviceFactory.createActionChoicesService();
+
+    // Find protagonist
+    const protagonist = worldState.characters?.find(c => c.relationship === 'self');
+
+    // Find last user action
+    const lastUserAction = entries.filter(e => e.type === 'user_action').pop();
+
+    // Get present characters (NPCs, excluding the protagonist)
+    const presentCharacters = worldState.characters?.filter(c =>
+      c.relationship !== 'self' && c.status === 'active'
+    );
+
+    // Get inventory items (those that are equipped)
+    const inventory = worldState.items?.filter(i => i.equipped);
+
+    // Build context for the service
+    const context = {
+      narrativeResponse,
+      userAction: lastUserAction?.content ?? '',
+      recentEntries: entries.slice(-10),
+      protagonistName: protagonist?.name ?? promptContext?.protagonistName ?? 'the protagonist',
+      protagonistDescription: protagonist?.description,
+      mode: promptContext?.mode ?? 'adventure',
+      pov: pov ?? promptContext?.pov ?? 'second',
+      tense: promptContext?.tense ?? 'present',
+      currentLocation: worldState.currentLocation,
+      presentCharacters,
+      inventory,
+      activeQuests: worldState.storyBeats?.filter(b => b.status === 'pending' || b.status === 'active'),
+      lorebookEntries,
+    };
+
+    const choices = await actionChoicesService.generateChoices(context);
+    return { choices };
   }
 
   /**
@@ -419,8 +467,7 @@ class AIService {
   }
 
   /**
-   * Run timeline fill.
-   * @throws Error - Service not implemented during SDK migration
+   * Run timeline fill to gather context from past chapters.
    */
   async runTimelineFill(
     userInput: string,
@@ -432,12 +479,18 @@ class AIService {
     pov?: POV,
     tense?: Tense
   ): Promise<TimelineFillResult> {
-    throw new Error('AIService.runTimelineFill() not implemented - awaiting SDK migration');
+    log('runTimelineFill called', {
+      userInputLength: userInput.length,
+      visibleEntriesCount: visibleEntries.length,
+      chaptersCount: chapters.length,
+    });
+
+    const timelineFillService = serviceFactory.createTimelineFillService();
+    return timelineFillService.runTimelineFill(visibleEntries, chapters);
   }
 
   /**
    * Answer a specific chapter question.
-   * @throws Error - Service not implemented during SDK migration
    */
   async answerChapterQuestion(
     chapterNumber: number,
@@ -447,12 +500,19 @@ class AIService {
     signal?: AbortSignal,
     mode: StoryMode = 'adventure'
   ): Promise<string> {
-    throw new Error('AIService.answerChapterQuestion() not implemented - awaiting SDK migration');
+    log('answerChapterQuestion called', {
+      chapterNumber,
+      question,
+      chaptersCount: chapters.length,
+    });
+
+    const chapterQueryService = serviceFactory.createChapterQueryService();
+    const answer = await chapterQueryService.answerQuestion(question, chapters, [chapterNumber]);
+    return answer.answer;
   }
 
   /**
    * Answer a range question across chapters.
-   * @throws Error - Service not implemented during SDK migration
    */
   async answerChapterRangeQuestion(
     startChapter: number,
@@ -463,7 +523,22 @@ class AIService {
     signal?: AbortSignal,
     mode: StoryMode = 'adventure'
   ): Promise<string> {
-    throw new Error('AIService.answerChapterRangeQuestion() not implemented - awaiting SDK migration');
+    log('answerChapterRangeQuestion called', {
+      startChapter,
+      endChapter,
+      question,
+      chaptersCount: chapters.length,
+    });
+
+    // Build chapter numbers array for the range
+    const chapterNumbers: number[] = [];
+    for (let i = startChapter; i <= endChapter; i++) {
+      chapterNumbers.push(i);
+    }
+
+    const chapterQueryService = serviceFactory.createChapterQueryService();
+    const answer = await chapterQueryService.answerQuestion(question, chapters, chapterNumbers);
+    return answer.answer;
   }
 
   /**
@@ -480,7 +555,6 @@ class AIService {
 
   /**
    * Format timeline fill result for prompt injection.
-   * NOTE: This is just string formatting - works without SDK.
    */
   formatTimelineFillForPrompt(
     chapters: Chapter[],
@@ -489,8 +563,23 @@ class AIService {
     firstVisibleEntryPosition: number,
     locations?: Location[]
   ): string {
-    // Return empty since service is stubbed
-    return '';
+    if (!result.responses || result.responses.length === 0) {
+      return '';
+    }
+
+    const lines: string[] = ['## Retrieved Context from Past Chapters'];
+
+    for (const response of result.responses) {
+      if (response.answer && response.answer !== 'Not mentioned in these chapters.') {
+        lines.push(`\n**Q: ${response.query}**`);
+        lines.push(response.answer);
+        if (response.chapterNumbers.length > 0) {
+          lines.push(`(From chapter${response.chapterNumbers.length > 1 ? 's' : ''} ${response.chapterNumbers.join(', ')})`);
+        }
+      }
+    }
+
+    return lines.length > 1 ? lines.join('\n') : '';
   }
 
   /**

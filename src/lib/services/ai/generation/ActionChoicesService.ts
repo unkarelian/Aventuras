@@ -2,40 +2,35 @@
  * Action Choices Service
  *
  * Generates action choices for adventure mode gameplay.
- *
- * STATUS: STUBBED - Awaiting SDK migration
- * Original implementation preserved in comments below for reference.
+ * Uses the Vercel AI SDK for structured output with Zod schema validation.
  */
 
-import type { StoryEntry } from '$lib/types';
+import type { StoryEntry, Entry, Character, Location, Item, StoryBeat } from '$lib/types';
+import { promptService, type PromptContext, type POV } from '$lib/services/prompts';
 import { createLogger } from '../core/config';
+import { generateStructured } from '../sdk/generate';
+import { actionChoicesResultSchema, type ActionChoice } from '../sdk/schemas/actionchoices';
 
 const log = createLogger('ActionChoices');
-
-// Type definitions preserved from original
-export interface ActionChoice {
-  text: string;
-  type: 'action' | 'dialogue' | 'examine' | 'other';
-}
 
 export interface ActionChoicesContext {
   narrativeResponse: string;
   userAction: string;
   recentEntries: StoryEntry[];
   protagonistName: string;
+  protagonistDescription?: string | null;
   mode: string;
   pov: string;
   tense: string;
-}
-
-export interface ActionChoicesResult {
-  choices: ActionChoice[];
-  reasoning?: string;
+  currentLocation?: Location | null;
+  presentCharacters?: Character[];
+  inventory?: Item[];
+  activeQuests?: StoryBeat[];
+  lorebookEntries?: Entry[];
 }
 
 /**
  * Service that generates action choices for adventure mode.
- * NOTE: This service has been stubbed during SDK migration.
  */
 export class ActionChoicesService {
   private presetId: string;
@@ -46,57 +41,119 @@ export class ActionChoicesService {
 
   /**
    * Generate action choices based on current narrative context.
-   * @throws Error - Service not implemented during SDK migration
    */
   async generateChoices(context: ActionChoicesContext): Promise<ActionChoice[]> {
-    throw new Error('ActionChoicesService.generateChoices() not implemented - awaiting SDK migration');
+    log('generateChoices called', {
+      narrativeLength: context.narrativeResponse.length,
+      recentEntriesCount: context.recentEntries.length,
+      protagonist: context.protagonistName,
+    });
 
-    /* COMMENTED OUT - Original implementation for reference:
-    const config = settings.getPresetConfig(this.presetId);
-
+    // Build prompt context
     const promptContext: PromptContext = {
-      mode: context.mode as any,
-      pov: context.pov as any,
-      tense: context.tense as any,
+      mode: context.mode as 'adventure' | 'creative-writing',
+      pov: context.pov as POV,
+      tense: context.tense as 'past' | 'present',
       protagonistName: context.protagonistName,
     };
 
-    const systemPrompt = promptService.renderPrompt('action-choices', promptContext);
-
-    const recentContent = context.recentEntries
+    // Format recent context
+    const recentContext = context.recentEntries
       .slice(-5)
-      .map(e => `[${e.type}]: ${e.content}`)
+      .map(e => `[${e.type === 'user_action' ? 'ACTION' : 'NARRATIVE'}]: ${e.content}`)
       .join('\n\n');
 
-    const userPrompt = promptService.renderUserPrompt('action-choices', promptContext, {
-      recentContent,
-      userAction: context.userAction,
-      narrativeResponse: context.narrativeResponse,
-    });
+    // Format current location
+    const currentLocation = context.currentLocation?.name ?? 'Unknown';
 
-    const response = await this.provider.generateResponse({
-      model: config.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: config.temperature,
-      maxTokens: config.maxTokens,
-      extraBody: buildExtraBody({
-        manualMode: false,
-        manualBody: config.manualBody,
-        reasoningEffort: config.reasoningEffort,
-        providerOnly: config.providerOnly,
-      }),
-    });
+    // Format NPCs present (exclude self)
+    const npcsPresent = context.presentCharacters
+      ?.filter(c => c.relationship !== 'self')
+      .map(c => c.name)
+      .join(', ') || 'None';
 
-    const parsed = tryParseJsonWithHealing<ActionChoice[]>(response.content);
-    if (!parsed || !Array.isArray(parsed)) {
-      log('Failed to parse action choices response');
-      return [];
+    // Format inventory
+    const inventory = context.inventory
+      ?.map(i => i.name)
+      .join(', ') || 'None';
+
+    // Format active quests (pending or active, not completed or failed)
+    const activeQuests = context.activeQuests
+      ?.filter(q => q.status === 'pending' || q.status === 'active')
+      .map(q => `• ${q.title}${q.description ? `: ${q.description}` : ''}`)
+      .join('\n') || 'None';
+
+    // Format lorebook context
+    let lorebookContext = '';
+    if (context.lorebookEntries && context.lorebookEntries.length > 0) {
+      const entryDescriptions = context.lorebookEntries.slice(0, 10).map(e => {
+        let desc = `• ${e.name} (${e.type})`;
+        if (e.description) {
+          desc += `: ${e.description.substring(0, 100)}${e.description.length > 100 ? '...' : ''}`;
+        }
+        return desc;
+      }).join('\n');
+      lorebookContext = `\n## World Context\n${entryDescriptions}\n`;
     }
 
-    return parsed.slice(0, 4);
-    */
+    // Protagonist description
+    const protagonistDescription = context.protagonistDescription
+      ? ` (${context.protagonistDescription})`
+      : '';
+
+    // Style guidance based on recent user actions
+    const userActions = context.recentEntries
+      .filter(e => e.type === 'user_action')
+      .slice(-3);
+    let styleGuidance = '';
+    if (userActions.length > 0) {
+      const avgLength = userActions.reduce((sum, e) => sum + e.content.length, 0) / userActions.length;
+      if (avgLength < 30) {
+        styleGuidance = '\n## Style: Match the player\'s TERSE style - keep choices short and punchy (under 10 words each).\n';
+      } else if (avgLength > 100) {
+        styleGuidance = '\n## Style: Match the player\'s DETAILED style - include specific details in each choice.\n';
+      }
+    }
+
+    // POV instruction
+    const povInstruction = context.pov === 'first'
+      ? 'Use first person (I, me, my) for all action choices.'
+      : context.pov === 'second'
+        ? 'Use second person (you, your) for all action choices.'
+        : 'Use third person for all action choices.';
+
+    // Length instruction
+    const lengthInstruction = 'Keep each choice concise but specific - typically 5-15 words.';
+
+    // Build prompts
+    const system = promptService.renderPrompt('action-choices', promptContext);
+    const prompt = promptService.renderUserPrompt('action-choices', promptContext, {
+      narrativeResponse: context.narrativeResponse,
+      recentContext,
+      currentLocation,
+      npcsPresent,
+      inventory,
+      activeQuests,
+      lorebookContext,
+      protagonistDescription,
+      styleGuidance,
+      povInstruction,
+      lengthInstruction,
+    });
+
+    try {
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: actionChoicesResultSchema,
+        system,
+        prompt,
+      });
+
+      log('Action choices generated:', result.choices.length);
+      return result.choices.slice(0, 4);
+    } catch (error) {
+      log('Action choices generation failed:', error);
+      return [];
+    }
   }
 }

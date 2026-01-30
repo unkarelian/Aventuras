@@ -21,9 +21,7 @@ Examples:
 - "Continue with the group discovering the abandoned cabin, but something feels wrong about it"
 - "Have the protagonist finally reveal their secret to their companion, leading to an unexpected reaction"
 
-These should read like instructions an author gives to guide the next part of the story.
-
-Respond with valid JSON only.`,
+These should read like instructions an author gives to guide the next part of the story.`,
   userContent: `Based on the current story moment, suggest 3 distinct directions the overall narrative could develop.
 
 ## Recent Story Content
@@ -66,9 +64,7 @@ Each suggestion should be:
 - A narrative direction or plot beat, not a character micro-action
 - Grounded in the current story context and tone
 - Specific enough to write toward, vague enough to allow creativity
-- Appropriate to the established tone and genre
-
-Respond with JSON only.`,
+- Appropriate to the established tone and genre`,
 };
 
 export const SUGGESTIONS_TEMPLATES = [suggestionsTemplate];

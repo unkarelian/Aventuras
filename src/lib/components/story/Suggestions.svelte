@@ -9,11 +9,11 @@
     ChevronDown,
     ChevronUp,
   } from "lucide-svelte";
-  import type { StorySuggestion } from "$lib/services/ai/generation/SuggestionsService";
+  import type { Suggestion } from "$lib/services/ai/sdk/schemas/suggestions";
   import { swipe } from "$lib/utils/swipe";
 
   interface Props {
-    suggestions: StorySuggestion[];
+    suggestions: Suggestion[];
     loading: boolean;
     onSelect: (text: string) => void;
     onRefresh: () => void;
