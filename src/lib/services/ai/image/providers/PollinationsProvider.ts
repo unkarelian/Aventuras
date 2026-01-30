@@ -207,7 +207,7 @@ export class PollinationsImageProvider implements ImageProvider {
 
 		// Standard encoding, then manually encode characters that can cause issues in URL paths
 		// Including: ! ' ( ) * . ? # & = (all problematic in URL paths)
-		return encodeURIComponent(trimmedPrompt).replace(/[!'()*.?#&=]/g, (c) => {
+		return encodeURIComponent(trimmedPrompt).replace(/[!'()*.]/g, (c) => {
 			return '%' + c.charCodeAt(0).toString(16).toUpperCase();
 		});
 	}
