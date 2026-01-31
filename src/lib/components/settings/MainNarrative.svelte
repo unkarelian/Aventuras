@@ -3,11 +3,12 @@
     settings,
     DEFAULT_OPENROUTER_PROFILE_ID,
   } from "$lib/stores/settings.svelte";
-  import { Cpu, RefreshCw } from "lucide-svelte";
+  import { Cpu, RefreshCw, AlertTriangle } from "lucide-svelte";
   import ProviderOnlySelector from "./ProviderOnlySelector.svelte";
   import type { ProviderInfo } from "$lib/services/ai/core/types";
   import type { ReasoningEffort } from "$lib/types";
   import { cn } from "$lib/utils/cn";
+  import { fetchModelsFromProvider } from "$lib/services/ai/sdk/providers";
 
   // Shadcn Components
   import * as Card from "$lib/components/ui/card";
@@ -93,10 +94,18 @@
     modelError = null;
 
     try {
-      // Model fetching is not implemented during SDK migration
-      // Users should manually enter model names or use preset models
-      modelError = "Model fetching not available - awaiting SDK migration. Please enter model names manually.";
-      console.log("[MainNarrative] Model fetching not implemented");
+      const models = await fetchModelsFromProvider(
+        profile.providerType,
+        profile.baseUrl,
+        profile.apiKey
+      );
+
+      await settings.updateProfile(profile.id, {
+        ...profile,
+        fetchedModels: models,
+      });
+
+      console.log(`[MainNarrative] Fetched ${models.length} models from ${profile.providerType}`);
     } catch (error) {
       console.error("[MainNarrative] Failed to fetch models:", error);
       modelError =
@@ -165,6 +174,17 @@
   </Card.Header>
 
   <Card.Content class="grid gap-3 pt-4">
+    {#if settings.apiSettings.profiles.length === 0}
+      <div class="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-3 py-2">
+        <AlertTriangle class="h-4 w-4 shrink-0" />
+        No API profiles configured. Add one in the API tab.
+      </div>
+    {:else if !settings.apiSettings.defaultModel}
+      <div class="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 border border-dashed rounded px-3 py-2">
+        <AlertTriangle class="h-4 w-4 shrink-0" />
+        No model selected. Choose a model below or set one from the API tab.
+      </div>
+    {/if}
     <div class="grid gap-2">
       <ModelSelector
         class="grid-cols-1 md:grid-cols-2"

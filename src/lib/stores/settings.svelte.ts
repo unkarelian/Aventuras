@@ -1290,7 +1290,13 @@ class SettingsStore {
       const profilesJson = await database.getSetting('api_profiles');
       if (profilesJson) {
         try {
-          this.apiSettings.profiles = JSON.parse(profilesJson);
+          const parsed = JSON.parse(profilesJson) as import('$lib/types').APIProfile[];
+          // Ensure new fields have defaults for profiles saved before these fields existed
+          this.apiSettings.profiles = parsed.map(p => ({
+            ...p,
+            hiddenModels: p.hiddenModels ?? [],
+            favoriteModels: p.favoriteModels ?? [],
+          }));
         } catch {
           this.apiSettings.profiles = [];
         }
@@ -1743,6 +1749,8 @@ class SettingsStore {
     const newProfile: APIProfile = {
       ...profile,
       id: crypto.randomUUID(),
+      hiddenModels: (profile as any).hiddenModels ?? [],
+      favoriteModels: (profile as any).favoriteModels ?? [],
       createdAt: Date.now(),
     };
     this.apiSettings.profiles = [...this.apiSettings.profiles, newProfile];
@@ -2021,6 +2029,8 @@ class SettingsStore {
         apiKey: existingApiKey || '', // Migrate existing key if present
         customModels: allModels, // Include all models in use plus defaults
         fetchedModels: [], // Will be populated when user fetches from API
+        hiddenModels: [],
+        favoriteModels: [],
         createdAt: Date.now(),
       };
 
@@ -2681,6 +2691,8 @@ class SettingsStore {
       apiKey: apiKey,
       customModels: [],
       fetchedModels: [],
+      hiddenModels: [],
+      favoriteModels: [],
       createdAt: Date.now(),
     };
 

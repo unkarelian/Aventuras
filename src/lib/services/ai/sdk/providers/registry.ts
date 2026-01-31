@@ -20,7 +20,7 @@ const DEFAULT_TIMEOUT_MS = 180000;
  */
 const DEFAULT_BASE_URLS: Record<ProviderType, string | undefined> = {
   openrouter: 'https://openrouter.ai/api/v1',
-  openai: undefined,  // undefined = SDK default (api.openai.com)
+  openai: undefined,  // undefined = SDK default (api.openai.com) - also works for NIM, local LLMs, etc.
   anthropic: undefined,  // undefined = SDK default (api.anthropic.com)
   google: undefined,  // Google uses SDK default
 };

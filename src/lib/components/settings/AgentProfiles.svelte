@@ -22,6 +22,9 @@
     Plus,
     Trash2,
     Check,
+    Copy,
+    AlertCircle,
+    AlertTriangle,
   } from "lucide-svelte";
   import ModelSelector from "./ModelSelector.svelte";
 
@@ -387,6 +390,29 @@
     );
   }
 
+  async function handleApplyMainToAll() {
+    const confirmed = await ask(
+      "Apply the Main Narrative profile and model to all agent profiles?",
+      { title: "Apply Main to All", kind: "warning" },
+    );
+    if (!confirmed) return;
+
+    const mainProfileId = settings.apiSettings.mainNarrativeProfileId;
+    const mainModel = settings.apiSettings.defaultModel;
+
+    for (const preset of settings.generationPresets) {
+      const index = settings.generationPresets.findIndex((p) => p.id === preset.id);
+      if (index >= 0) {
+        settings.generationPresets[index] = {
+          ...settings.generationPresets[index],
+          profileId: mainProfileId,
+          model: mainModel,
+        };
+      }
+    }
+    await settings.saveGenerationPresets();
+  }
+
   async function handleResetProfiles() {
     await settings.resetGenerationPresets();
 
@@ -490,6 +516,16 @@
         >
           <RotateCcw class="h-3 w-3 mr-1" />
           Reset
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={handleApplyMainToAll}
+          title="Apply Main Narrative profile and model to all agent profiles"
+          class="text-xs"
+        >
+          <Copy class="h-3 w-3 mr-1" />
+          Apply Main
         </Button>
         <Button
           variant="secondary"
@@ -656,6 +692,24 @@
               >
                 {preset.model}
               </div>
+              {#if preset.profileId && !settings.getProfile(preset.profileId)}
+                <div class="flex items-center gap-1 text-xs text-destructive mt-0.5">
+                  <AlertCircle class="h-3 w-3" />
+                  No API profile
+                </div>
+              {:else if preset.model}
+                {@const _profile = settings.getProfile(preset.profileId || settings.getDefaultProfileIdForProvider() || "")}
+                {#if _profile}
+                  {@const _hidden = new Set(_profile.hiddenModels ?? [])}
+                  {@const _allModels = [...new Set([..._profile.fetchedModels, ..._profile.customModels])].filter(m => !_hidden.has(m))}
+                  {#if _allModels.length > 0 && !_allModels.includes(preset.model)}
+                    <div class="flex items-center gap-1 text-xs text-yellow-500 mt-0.5">
+                      <AlertTriangle class="h-3 w-3" />
+                      Model not in profile
+                    </div>
+                  {/if}
+                {/if}
+              {/if}
             </div>
             <div class="flex gap-1 shrink-0 ml-2">
               <Button

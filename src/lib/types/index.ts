@@ -630,7 +630,7 @@ export interface UIState {
 // Provider types matching Vercel AI SDK providers
 export type ProviderType =
   | 'openrouter'   // @openrouter/ai-sdk-provider
-  | 'openai'       // @ai-sdk/openai
+  | 'openai'       // @ai-sdk/openai (also for Azure, NIM, local LLMs, etc.)
   | 'anthropic'    // @ai-sdk/anthropic
   | 'google';      // @ai-sdk/google (future)
 
@@ -643,6 +643,8 @@ export interface APIProfile {
   apiKey: string;             // API key for this endpoint
   customModels: string[];     // Manually added models
   fetchedModels: string[];    // Auto-fetched from /models endpoint
+  hiddenModels: string[];     // Models hidden from selection lists
+  favoriteModels: string[];   // Models shown at the top of selection lists
   createdAt: number;          // Timestamp
 }
 
