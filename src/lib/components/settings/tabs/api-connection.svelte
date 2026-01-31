@@ -31,6 +31,7 @@
   import { Badge } from "$lib/components/ui/badge";
   import { Separator } from "$lib/components/ui/separator";
   import { Slider } from "$lib/components/ui/slider";
+  import { Switch } from "$lib/components/ui/switch";
   import * as Collapsible from "$lib/components/ui/collapsible";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Textarea } from "$lib/components/ui/textarea";
@@ -316,7 +317,7 @@
         <div class="flex gap-4 items-center">
           <div class="flex-1 flex flex-col gap-4">
             <Slider
-              bind:value={timeoutValue}
+              value={timeoutValue}
               min={LLM_TIMEOUT_MIN}
               max={LLM_TIMEOUT_MAX}
               step={LLM_TIMEOUT_STEP}
@@ -349,6 +350,23 @@
             />
           </div>
         </div>
+      </div>
+
+      <!-- Native Timeout Support -->
+      <div class="flex items-center justify-between space-x-2">
+        <div class="space-y-1 flex-1">
+          <Label for="native-timeout">Use Native Timeout (SDK compatible endpoints)</Label>
+          <p class="text-xs text-muted-foreground">
+            If enabled, passes timeout to the API's native parameter instead of using manual timeout. Enable this for modern SDK-compatible endpoints (Vercel AI SDK, OpenAI SDK v4+, etc.).
+          </p>
+        </div>
+        <Switch
+          id="native-timeout"
+          checked={settings.apiSettings.useNativeTimeout}
+          onCheckedChange={(checked) => {
+            settings.setUseNativeTimeout(checked);
+          }}
+        />
       </div>
     </CardContent>
   </Card>

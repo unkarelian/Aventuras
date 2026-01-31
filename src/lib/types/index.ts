@@ -646,6 +646,7 @@ export interface APISettings {
   manualBody: string; // Manual request body JSON for the main narrative model
   enableThinking: boolean; // Legacy toggle for reasoning (backward compatibility)
   llmTimeoutMs: number; // Request timeout in milliseconds (default: 180000 = 3 minutes)
+  useNativeTimeout: boolean; // If true, pass timeout to API's native timeout parameter (modern SDK-compatible endpoints)
 }
 
 export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high';

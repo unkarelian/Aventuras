@@ -32,6 +32,63 @@ export class OpenAIProvider implements AIProvider {
     this.settings = settings;
   }
 
+  /**
+   * Get normalized timeout value within bounds (30s to 10min)
+   */
+  private getTimeoutMs(): number {
+    const rawTimeout = this.settings.llmTimeoutMs ?? LLM_TIMEOUT_DEFAULT;
+    return Math.max(LLM_TIMEOUT_MIN, Math.min(LLM_TIMEOUT_MAX, rawTimeout));
+  }
+
+  /**
+   * Add native timeout parameter to request body if enabled.
+   * Compatible with modern AI SDKs (Vercel AI SDK, OpenAI SDK v4+, Anthropic SDK, etc.)
+   */
+  private addNativeTimeout(requestBody: Record<string, unknown>): void {
+    if (this.settings.useNativeTimeout) {
+      requestBody.timeout = this.getTimeoutMs();
+    }
+  }
+
+  /**
+   * Set up timeout controller with manual timeout if native timeout is disabled
+   */
+  private setupTimeout(
+    controller: AbortController,
+    requestSignal: AbortSignal | undefined,
+    logMessage: string
+  ): ReturnType<typeof setTimeout> | undefined {
+    // Link request signal to timeout controller
+    if (requestSignal) {
+      requestSignal.addEventListener('abort', () => controller.abort());
+    }
+
+    // Only use manual timeout when not using SDK's native timeout
+    if (!this.settings.useNativeTimeout) {
+      const timeoutMs = this.getTimeoutMs();
+      return setTimeout(() => {
+        log(logMessage);
+        controller.abort();
+      }, timeoutMs);
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Handle timeout-related errors in catch blocks
+   */
+  private handleTimeoutError(error: unknown, requestSignal: AbortSignal | undefined): never {
+    if (error instanceof Error && error.name === 'AbortError') {
+      if (requestSignal?.aborted) {
+        throw error;
+      }
+      const timeoutMs = this.getTimeoutMs();
+      throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
+    }
+    throw error;
+  }
+
   async generateResponse(request: GenerationRequest): Promise<GenerationResponse> {
     log('generateResponse called', {
       model: request.model,
@@ -54,6 +111,8 @@ export class OpenAIProvider implements AIProvider {
       requestBody.top_p = request.topP;
     }
 
+    this.addNativeTimeout(requestBody);
+
     log('Sending request to OpenRouter...');
 
     const baseUrl = this.settings.openaiApiURL.endsWith('/')
@@ -71,17 +130,11 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const timeoutController = new AbortController();
-    // Ensure timeout is within reasonable bounds (30s to 10min)
-    const rawTimeout = this.settings.llmTimeoutMs ?? LLM_TIMEOUT_DEFAULT;
-    const timeoutMs = Math.max(LLM_TIMEOUT_MIN, Math.min(LLM_TIMEOUT_MAX, rawTimeout));
-    const timeoutId = setTimeout(() => {
-      log(`Request timeout triggered (${timeoutMs / 1000}s)`);
-      timeoutController.abort();
-    }, timeoutMs);
-
-    if (request.signal) {
-      request.signal.addEventListener('abort', () => timeoutController.abort());
-    }
+    const timeoutId = this.setupTimeout(
+      timeoutController,
+      request.signal,
+      `Request timeout triggered (${this.getTimeoutMs() / 1000}s)`
+    );
 
     try {
       const response = await fetch(baseUrl + 'chat/completions', {
@@ -96,7 +149,7 @@ export class OpenAIProvider implements AIProvider {
         signal: timeoutController.signal,
       });
 
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
 
       log('Response received', { status: response.status, ok: response.ok });
 
@@ -130,11 +183,13 @@ export class OpenAIProvider implements AIProvider {
         } : undefined,
       };
     } catch (error) {
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
         if (request.signal?.aborted) {
           throw error;
         }
+        const rawTimeout = this.settings.llmTimeoutMs ?? LLM_TIMEOUT_DEFAULT;
+        const timeoutMs = Math.max(LLM_TIMEOUT_MIN, Math.min(LLM_TIMEOUT_MAX, rawTimeout));
         throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
       }
       throw error;
@@ -160,6 +215,8 @@ export class OpenAIProvider implements AIProvider {
       ...request.extraBody,
     };
 
+    this.addNativeTimeout(requestBody);
+
     log('Sending tool-enabled request to OpenRouter...');
 
     const baseUrl = this.settings.openaiApiURL.endsWith('/')
@@ -177,17 +234,11 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const timeoutController = new AbortController();
-    // Ensure timeout is within reasonable bounds (30s to 10min)
-    const rawTimeout = this.settings.llmTimeoutMs ?? LLM_TIMEOUT_DEFAULT;
-    const timeoutMs = Math.max(LLM_TIMEOUT_MIN, Math.min(LLM_TIMEOUT_MAX, rawTimeout));
-    const timeoutId = setTimeout(() => {
-      log(`Tool request timeout triggered (${timeoutMs / 1000}s)`);
-      timeoutController.abort();
-    }, timeoutMs);
-
-    if (request.signal) {
-      request.signal.addEventListener('abort', () => timeoutController.abort());
-    }
+    const timeoutId = this.setupTimeout(
+      timeoutController,
+      request.signal,
+      `Tool request timeout triggered (${this.getTimeoutMs() / 1000}s)`
+    );
 
     try {
       const response = await fetch(baseUrl + 'chat/completions', {
@@ -202,7 +253,7 @@ export class OpenAIProvider implements AIProvider {
         signal: timeoutController.signal,
       });
 
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
 
       log('Tool response received', { status: response.status, ok: response.ok });
 
@@ -268,11 +319,13 @@ export class OpenAIProvider implements AIProvider {
         reasoning_details,
       };
     } catch (error) {
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
         if (request.signal?.aborted) {
           throw error;
         }
+        const rawTimeout = this.settings.llmTimeoutMs ?? LLM_TIMEOUT_DEFAULT;
+        const timeoutMs = Math.max(LLM_TIMEOUT_MIN, Math.min(LLM_TIMEOUT_MAX, rawTimeout));
         throw new Error(`Request timed out after ${timeoutMs / 1000} seconds`);
       }
       throw error;
@@ -299,6 +352,8 @@ export class OpenAIProvider implements AIProvider {
       ...request.extraBody,
     };
 
+    this.addNativeTimeout(requestBody);
+
     log('Sending streaming tool-enabled request...');
 
     const baseUrl = this.settings.openaiApiURL.endsWith('/')
@@ -316,17 +371,11 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const timeoutController = new AbortController();
-    // Ensure timeout is within reasonable bounds (30s to 10min)
-    const rawTimeout = this.settings.llmTimeoutMs ?? LLM_TIMEOUT_DEFAULT;
-    const timeoutMs = Math.max(LLM_TIMEOUT_MIN, Math.min(LLM_TIMEOUT_MAX, rawTimeout));
-    const timeoutId = setTimeout(() => {
-      log(`Stream connection timeout triggered (${timeoutMs / 1000}s)`);
-      timeoutController.abort();
-    }, timeoutMs);
-
-    if (request.signal) {
-      request.signal.addEventListener('abort', () => timeoutController.abort());
-    }
+    const timeoutId = this.setupTimeout(
+      timeoutController,
+      request.signal,
+      `Stream connection timeout triggered (${this.getTimeoutMs() / 1000}s)`
+    );
 
     let response: Response;
     try {
@@ -342,17 +391,11 @@ export class OpenAIProvider implements AIProvider {
         signal: timeoutController.signal,
       });
     } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        if (request.signal?.aborted) {
-          throw error;
-        }
-        throw new Error(`Stream connection timed out after ${timeoutMs / 1000} seconds`);
-      }
-      throw error;
+      if (timeoutId) clearTimeout(timeoutId);
+      this.handleTimeoutError(error, request.signal);
     }
 
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
 
     log('Stream response received', { status: response.status, ok: response.ok });
 
@@ -585,6 +628,8 @@ export class OpenAIProvider implements AIProvider {
       requestBody.top_p = request.topP;
     }
 
+    this.addNativeTimeout(requestBody);
+
     const baseUrl = this.settings.openaiApiURL.endsWith('/')
       ? this.settings.openaiApiURL
       : this.settings.openaiApiURL + '/';
@@ -600,17 +645,11 @@ export class OpenAIProvider implements AIProvider {
     }
 
     const timeoutController = new AbortController();
-    // Ensure timeout is within reasonable bounds (30s to 10min)
-    const rawTimeout = this.settings.llmTimeoutMs ?? LLM_TIMEOUT_DEFAULT;
-    const timeoutMs = Math.max(LLM_TIMEOUT_MIN, Math.min(LLM_TIMEOUT_MAX, rawTimeout));
-    const timeoutId = setTimeout(() => {
-      log(`Stream connection timeout triggered (${timeoutMs / 1000}s)`);
-      timeoutController.abort();
-    }, timeoutMs);
-
-    if (request.signal) {
-      request.signal.addEventListener('abort', () => timeoutController.abort());
-    }
+    const timeoutId = this.setupTimeout(
+      timeoutController,
+      request.signal,
+      `Stream connection timeout triggered (${this.getTimeoutMs() / 1000}s)`
+    );
 
     let response: Response;
     try {
@@ -626,17 +665,11 @@ export class OpenAIProvider implements AIProvider {
         signal: timeoutController.signal,
       });
     } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        if (request.signal?.aborted) {
-          throw error;
-        }
-        throw new Error(`Stream connection timed out after ${timeoutMs / 1000} seconds`);
-      }
-      throw error;
+      if (timeoutId) clearTimeout(timeoutId);
+      this.handleTimeoutError(error, request.signal);
     }
 
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
 
     log('Stream response received', { status: response.status, ok: response.ok });
 
