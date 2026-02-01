@@ -57,8 +57,8 @@ try {
 
   // 6. Push
   console.log('Pushing changes to origin...');
-  // execSync(`git push origin release/v${newVersion}`);
-  // execSync(`git push origin v${newVersion}`);
+  execSync(`git push origin release/v${newVersion}`);
+  execSync(`git push origin v${newVersion}`);
 
   console.log(`\nSuccessfully managed release v${newVersion}!`);
   console.log(`Current branch: release/v${newVersion}`);
