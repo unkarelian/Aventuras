@@ -5,7 +5,6 @@
  */
 
 import { OPENROUTER_API_URL } from "../core/OpenAIProvider";
-import type { APIProfile } from "$lib/types";
 import { corsFetch } from "$lib/services/discovery/utils";
 
 // TTS Configuration - matches TTSServiceSettings in settings.svelte.ts
@@ -30,12 +29,6 @@ export interface TTSVoice {
   lang: string;
 }
 
-export interface TTSStreamChunk {
-  type: "data" | "end" | "error";
-  data?: ArrayBuffer;
-  error?: string;
-}
-
 /**
  * Base TTS Provider - extend this for custom implementations
  */
@@ -43,6 +36,7 @@ export abstract class TTSProvider {
   private currentAudio: HTMLAudioElement | null = null;
 
   abstract get name(): string;
+  abstract get maxChunkLength(): number;
 
   /**
    * Get available voices for this provider
@@ -50,46 +44,56 @@ export abstract class TTSProvider {
   abstract getAvailableVoices(): Promise<TTSVoice[]>;
 
   /**
-   * Generate TTS audio and return as blob
+   * Generate TTS audio for a single text chunk.
    */
-  abstract generateSpeech(text: string, voice: string): Promise<Blob>;
+  protected abstract generateChunk(text: string, voice: string): Promise<Blob>;
 
   /**
-   * Play audio blob using HTML Audio element
-   * IMPORTANT: We create a fresh audio element each time to avoid crashes
-   * on Linux with newer GStreamer versions when changing audio source.
-   * @param blob - The audio blob to play
-   * @param onProgress - Optional callback for playback progress
-   * @param playbackRate - Optional playback speed
+   * Generate TTS audio, splitting long text into chunks.
    */
-  async playAudio(
+  async generateSpeech(text: string, voice: string): Promise<Blob[]> {
+    if (!text || text.trim().length === 0) {
+      throw new Error("TTS: Cannot generate speech for empty text");
+    }
+
+    const chunks = splitTextForTTS(text, this.maxChunkLength);
+    const blobs: Blob[] = [];
+    for (const chunk of chunks) {
+      blobs.push(await this.generateChunk(chunk, voice));
+    }
+    return blobs;
+  }
+
+  private stopped = false;
+
+  /**
+   * Play a single audio blob using HTML Audio element.
+   * Creates a fresh element each time to avoid GStreamer crashes on Linux.
+   */
+  private playSingleBlob(
     blob: Blob,
-    onProgress?: (progress: number) => void,
+    onProgress?: (progress: number, duration: number) => void,
     playbackRate = 1.0,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      // Stop any previous playback and destroy old element
-      this.stopAudio();
-
       const url = URL.createObjectURL(blob);
-
-      // Create a FRESH audio element each time (workaround for GStreamer crash)
       const audio = new Audio();
       this.currentAudio = audio;
 
       const cleanup = () => {
-        URL.revokeObjectURL(url);
         audio.oncanplaythrough = null;
         audio.onended = null;
         audio.onerror = null;
         audio.ontimeupdate = null;
+        // Release the PulseAudio/PipeWire stream by fully detaching the source
+        audio.pause();
+        URL.revokeObjectURL(url);
+        audio.removeAttribute('src');
+        audio.load();
       };
 
       audio.onerror = (e) => {
-        // Only handle error if this is still the current audio element
-        // (prevents false errors when stopAudio() clears an old element)
         if (this.currentAudio !== audio) return;
-
         console.error("[TTS] Audio playback error:", e);
         cleanup();
         this.currentAudio = null;
@@ -97,9 +101,7 @@ export abstract class TTSProvider {
       };
 
       audio.onended = () => {
-        // Only handle ended if this is still the current audio element
         if (this.currentAudio !== audio) return;
-
         cleanup();
         this.currentAudio = null;
         resolve();
@@ -108,16 +110,13 @@ export abstract class TTSProvider {
       if (onProgress) {
         audio.ontimeupdate = () => {
           if (audio.duration) {
-            onProgress((audio.currentTime / audio.duration) * 100);
+            onProgress(audio.currentTime, audio.duration);
           }
         };
       }
 
-      // Wait for audio to be ready before setting playbackRate and playing
       audio.oncanplaythrough = () => {
-        // Only handle if this is still the current audio element
         if (this.currentAudio !== audio) return;
-
         try {
           if (playbackRate !== 1.0) {
             audio.playbackRate = playbackRate;
@@ -144,9 +143,104 @@ export abstract class TTSProvider {
   }
 
   /**
+   * Generate and play TTS audio in a streaming pipeline.
+   * Playback starts as soon as the first chunk is ready while remaining chunks
+   * are generated in the background.
+   */
+  async streamAndPlay(
+    text: string,
+    voice: string,
+    onProgress?: (progress: number) => void,
+    playbackRate = 1.0,
+  ): Promise<void> {
+    if (!text || text.trim().length === 0) {
+      throw new Error("TTS: Cannot generate speech for empty text");
+    }
+
+    this.stopAudio();
+    this.stopped = false;
+
+    const textChunks = splitTextForTTS(text, this.maxChunkLength);
+    const totalChunks = textChunks.length;
+
+    // Queue: generated blobs ready for playback
+    const ready: Blob[] = [];
+    let generationDone = false;
+    let generationError: Error | null = null;
+
+    // Signal mechanism for producer -> consumer notification
+    let notifyChunk: () => void;
+    let chunkAvailable = new Promise<void>(resolve => { notifyChunk = resolve; });
+    const signalChunk = () => {
+      notifyChunk();
+      chunkAvailable = new Promise<void>(resolve => { notifyChunk = resolve; });
+    };
+
+    // Producer: generate chunks in background with retry
+    const MAX_RETRIES = 2;
+    const produceAll = async () => {
+      try {
+        for (const chunk of textChunks) {
+          if (this.stopped) return;
+          let lastErr: Error | null = null;
+          for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+              const blob = await this.generateChunk(chunk, voice);
+              ready.push(blob);
+              signalChunk();
+              lastErr = null;
+              break;
+            } catch (err) {
+              lastErr = err instanceof Error ? err : new Error(String(err));
+              if (attempt < MAX_RETRIES) {
+                console.warn(`[TTS] Chunk generation failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}), retrying...`, lastErr);
+              }
+            }
+          }
+          if (lastErr) throw lastErr;
+        }
+      } catch (err) {
+        generationError = err instanceof Error ? err : new Error(String(err));
+      } finally {
+        generationDone = true;
+        signalChunk();
+      }
+    };
+
+    const generationPromise = produceAll();
+
+    // Consumer: play chunks as they become available
+    let playedIndex = 0;
+    while (true) {
+      if (this.stopped) return;
+
+      if (playedIndex < ready.length) {
+        const chunkProgress = onProgress
+          ? (currentTime: number, duration: number) => {
+              const base = (playedIndex / totalChunks) * 100;
+              const within = (currentTime / duration) * (1 / totalChunks) * 100;
+              onProgress(base + within);
+            }
+          : undefined;
+
+        await this.playSingleBlob(ready[playedIndex], chunkProgress, playbackRate);
+        playedIndex++;
+      } else if (generationDone) {
+        if (generationError) throw generationError;
+        break;
+      } else {
+        await chunkAvailable;
+      }
+    }
+
+    await generationPromise;
+  }
+
+  /**
    * Stop current playback
    */
   stopAudio(): void {
+    this.stopped = true;
     if (this.currentAudio) {
       const audio = this.currentAudio;
       // Clear reference FIRST to prevent callbacks from firing
@@ -160,7 +254,8 @@ export abstract class TTSProvider {
         audio.ontimeupdate = null;
 
         audio.pause();
-        audio.src = '';
+        audio.removeAttribute('src');
+        audio.load();
       } catch (e) {
         // Ignore errors during cleanup
       }
@@ -261,38 +356,28 @@ export class GoogleTranslateTTSProvider extends TTSProvider {
     return "Google Translate";
   }
 
+  override get maxChunkLength(): number {
+    return 200;
+  }
+
   override async getAvailableVoices(): Promise<TTSVoice[]> {
     return GOOGLE_TRANSLATE_LANGUAGES;
   }
 
-  override async generateSpeech(text: string, voice: string): Promise<Blob> {
-    if (!text || text.trim().length === 0) {
-      throw new Error("TTS: Cannot generate speech for empty text");
+  protected override async generateChunk(text: string, voice: string): Promise<Blob> {
+    const encodedText = encodeURIComponent(text);
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${voice}&client=tw-ob`;
+
+    const response = await corsFetch(url);
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(
+        `Google TTS generation failed: ${response.status} - ${error}`,
+      );
     }
 
-    // Split text into chunks for Google's ~200 char limit
-    const chunks = splitTextForTTS(text, 200);
-    const audioBuffers: ArrayBuffer[] = [];
-
-    for (const chunk of chunks) {
-      const encodedText = encodeURIComponent(chunk);
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodedText}&tl=${voice}&client=tw-ob`;
-
-      // Use corsFetch to bypass CORS restrictions in Tauri
-      const response = await corsFetch(url);
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(
-          `Google TTS generation failed: ${response.status} - ${error}`,
-        );
-      }
-
-      audioBuffers.push(await response.arrayBuffer());
-    }
-
-    // Concatenate all audio chunks into a single blob
-    return new Blob(audioBuffers, { type: "audio/mpeg" });
+    return response.blob();
   }
 }
 
@@ -311,6 +396,10 @@ export class OpenAICompatibleTTSProvider extends TTSProvider {
 
   override get name(): string {
     return "OpenAI Compatible";
+  }
+
+  override get maxChunkLength(): number {
+    return 300;
   }
 
   /**
@@ -408,12 +497,8 @@ export class OpenAICompatibleTTSProvider extends TTSProvider {
   /**
    * Generate TTS audio blob
    */
-  override async generateSpeech(text: string, voice: string): Promise<Blob> {
+  protected override async generateChunk(text: string, voice: string): Promise<Blob> {
     this.validateSettings();
-
-    if (!text || text.trim().length === 0) {
-      throw new Error("TTS: Cannot generate speech for empty text");
-    }
 
     const response = await fetch(this.getEndpoint(), {
       method: "POST",
@@ -422,7 +507,6 @@ export class OpenAICompatibleTTSProvider extends TTSProvider {
         model: this.settings.model,
         input: text,
         voice: voice,
-        speed: this.settings.speed,
         response_format: "mp3",
       }),
     });
@@ -444,7 +528,6 @@ export class AITTSService {
   private provider: TTSProvider | null = null;
   private settings: TTSSettings | null = null;
   private isPlaying = false;
-  private currentAudio: Blob | null = null;
 
   /**
    * Initialize service with settings
@@ -515,16 +598,13 @@ export class AITTSService {
     }
 
     const voiceToUse = voice || this.settings.voice;
-    // For Google TTS, speed is applied client-side via playbackRate
-    // For OpenAI-compatible APIs, speed is handled server-side during generation
-    const playbackRate =
-      this.settings.provider === "google" ? this.settings.speed : 1.0;
+    // Speed is always applied client-side via playbackRate since not all
+    // OpenAI-compatible servers (e.g. Kokoro) honor the speed parameter
+    const playbackRate = this.settings.speed;
 
     try {
       this.isPlaying = true;
-      const blob = await this.provider.generateSpeech(text, voiceToUse);
-      this.currentAudio = blob;
-      await this.provider.playAudio(blob, onProgress, playbackRate);
+      await this.provider.streamAndPlay(text, voiceToUse, onProgress, playbackRate);
     } finally {
       this.isPlaying = false;
     }
@@ -533,7 +613,7 @@ export class AITTSService {
   /**
    * Generate TTS audio without playing
    */
-  async generateSpeech(text: string, voice?: string): Promise<Blob> {
+  async generateSpeech(text: string, voice?: string): Promise<Blob[]> {
     if (!this.provider || !this.settings) {
       throw new Error("TTS service not ready");
     }
