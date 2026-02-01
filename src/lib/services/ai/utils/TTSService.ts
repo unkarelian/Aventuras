@@ -509,7 +509,6 @@ export class OpenAICompatibleTTSProvider extends TTSProvider {
         model: this.settings.model,
         input: text,
         voice: voice,
-        speed: this.settings.speed,
         response_format: "mp3",
       }),
     });
@@ -601,10 +600,9 @@ export class AITTSService {
     }
 
     const voiceToUse = voice || this.settings.voice;
-    // For Google TTS, speed is applied client-side via playbackRate
-    // For OpenAI-compatible APIs, speed is handled server-side during generation
-    const playbackRate =
-      this.settings.provider === "google" ? this.settings.speed : 1.0;
+    // Speed is always applied client-side via playbackRate since not all
+    // OpenAI-compatible servers (e.g. Kokoro) honor the speed parameter
+    const playbackRate = this.settings.speed;
 
     try {
       this.isPlaying = true;
