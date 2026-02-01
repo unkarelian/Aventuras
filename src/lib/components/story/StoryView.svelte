@@ -11,6 +11,8 @@
   import EmptyState from '$lib/components/ui/empty-state/empty-state.svelte';
 
   let storyContainer: HTMLDivElement;
+  let containerHeight = $state(0);
+  let innerHeight = $state(0);
 
   // Virtualization: Only render recent entries by default for performance
   // This dramatically improves performance with large stories (80k+ words)
@@ -82,18 +84,24 @@
   // Check if container is scrolled near bottom
   function isNearBottom(): boolean {
     if (!storyContainer) return true;
-    const threshold = 100; // pixels from bottom
+    const threshold = 50; // pixels from bottom
     return storyContainer.scrollHeight - storyContainer.scrollTop - storyContainer.clientHeight < threshold;
   }
   // Handle scroll events during streaming
   function handleScroll() {
+    if (!storyContainer) return;
+
     // Keep userScrolledUp in sync with actual scroll position
     // This allows re-engaging auto-scroll when the user scrolls back to bottom
     const nearBottom = isNearBottom();
-    if (nearBottom && ui.userScrolledUp) {
-      ui.setScrollBreak(false);
-    } else if (!nearBottom && !ui.userScrolledUp) {
-      ui.setScrollBreak(true);
+    
+    // Update the break state based on current scroll position
+    // If we are near bottom, we are NOT "scrolled up"
+    // If we are NOT near bottom, we ARE "scrolled up"
+    if (nearBottom) {
+      if (ui.userScrolledUp) ui.setScrollBreak(false);
+    } else {
+      if (!ui.userScrolledUp) ui.setScrollBreak(true);
     }
   }
 
@@ -104,11 +112,10 @@
 
 
   $effect(() => {
-    // Track entries, streaming state, and generation status for scroll
+    // Track primary scroll-inducing changes
     const currentCount = story.entries.length;
-    const _ = ui.streamingContent;
-    const __ = ui.generationStatus;
-    const ___ = ui.isGenerating;
+    const _ = innerHeight;
+    const __ = containerHeight;
 
     // Detect if entries were added (vs deleted or unchanged)
     const wasAdded = currentCount > prevEntryCount;
@@ -117,7 +124,8 @@
     // Detect if we should scroll: 
     // 1. We are NOT user-scrolled-up (pinned mode)
     // 2. OR on user action send message/retry
-    const shouldScroll = !ui.userScrolledUp || (wasAdded && ['user_action', 'retry'].includes(story.entries[story.entries.length - 1].type));
+    const lastEntry = story.entries[story.entries.length - 1];
+    const shouldScroll = !ui.userScrolledUp || (wasAdded && lastEntry && ['user_action', 'retry'].includes(lastEntry.type));
     
     if (!shouldScroll) return;
 
@@ -136,10 +144,11 @@
   <!-- Story entries container -->
   <div
     bind:this={storyContainer}
+    bind:clientHeight={containerHeight}
     class="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4"
     onscroll={handleScroll}
   >
-    <div class="mx-auto max-w-3xl space-y-3 sm:space-y-4">
+    <div class="mx-auto max-w-3xl space-y-3 sm:space-y-4" bind:clientHeight={innerHeight}>
       {#if story.entries.length === 0 && !ui.isStreaming}
         <EmptyState
           icon={BookOpen}
