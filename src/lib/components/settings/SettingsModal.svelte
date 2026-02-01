@@ -197,6 +197,11 @@
   <ResponsiveModal.Content
     class="max-w-6xl h-[90vh] flex flex-col overflow-hidden p-0"
   >
+    <div
+      class="absolute top-1 md:top-auto md:bottom-1 left-2 text-[10px] text-muted-foreground/30 font-mono z-[110]"
+    >
+      v{appVersion}
+    </div>
     <ResponsiveModal.Header class="px-6 pb-4">
       <div class="flex items-center gap-3">
         <div
@@ -205,9 +210,11 @@
           <Settings2 class="h-5 w-5 text-primary" />
         </div>
         <div class="flex-1 text-center md:text-left">
-          <ResponsiveModal.Title class="text-2xl sm:text-xl font-semibold"
-            >Settings</ResponsiveModal.Title
-          >
+          <div class="flex items-baseline justify-center md:justify-start gap-2">
+            <ResponsiveModal.Title class="text-2xl sm:text-xl font-semibold"
+              >Settings</ResponsiveModal.Title
+            >
+          </div>
           <p class="hidden md:block text-sm text-muted-foreground">
             Configure your Aventuras experience
           </p>
@@ -343,12 +350,6 @@
           </Toggle>
         {/each}
       </div>
-    </div>
-
-    <div
-      class="pointer-events-none absolute bottom-1 left-2 select-none text-[10px] text-muted-foreground/80 z-[100]"
-    >
-      v{appVersion}
     </div>
   </ResponsiveModal.Content>
 </ResponsiveModal.Root>
