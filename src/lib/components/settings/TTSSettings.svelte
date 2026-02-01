@@ -83,8 +83,7 @@
       if (typeof window === 'undefined' || !window.speechSynthesis) {
         return "Speech Synthesis API is not available in your browser";
       }
-      const voices = window.speechSynthesis.getVoices();
-      if (!voices.some(v => v.name === tts.voice)) {
+      if (systemVoices.length > 0 && !systemVoices.some(v => v.name === tts.voice)) {
         return `Voice "${tts.voice}" not found. Please select a different voice.`;
       }
     }
@@ -163,15 +162,21 @@
         value={settings.systemServicesSettings.tts.provider}
         onValueChange={(v) => {
           const provider = v as "openai" | "google" | "microsoft";
+          const previousProvider = settings.systemServicesSettings.tts.provider;
           settings.systemServicesSettings.tts.provider = provider;
-          if (
-            provider === "google" &&
-            !GOOGLE_TRANSLATE_LANGUAGES.some(
-              (lang) => lang.id === settings.systemServicesSettings.tts.voice,
-            )
-          ) {
-            settings.systemServicesSettings.tts.voice = "en";
+          
+          // Set appropriate default voice when switching providers
+          if (previousProvider !== provider) {
+            if (provider === "google") {
+              settings.systemServicesSettings.tts.voice = "en";
+            } else if (provider === "openai") {
+              settings.systemServicesSettings.tts.voice = "alloy";
+            } else if (provider === "microsoft") {
+              // Will be set when user selects from dropdown
+              settings.systemServicesSettings.tts.voice = "";
+            }
           }
+          
           settings.saveSystemServicesSettings();
         }}
       >
@@ -234,9 +239,7 @@
             placeholder="tts-1"
           />
         </div>
-      {/if}
 
-      {#if settings.systemServicesSettings.tts.provider === "openai"}
         <!-- Voice -->
         <div>
           <Label class="mb-2 block">Voice</Label>

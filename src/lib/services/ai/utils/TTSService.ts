@@ -573,7 +573,7 @@ export class MicrosoftSpeechProvider extends TTSProvider {
   override async streamAndPlay(
     text: string,
     voice: string,
-    onProgress?: (progress: number, duration: number) => void,
+    onProgress?: (progress: number) => void,
     playbackRate = 1.0,
   ): Promise<void> {
     await this.waitForVoices();
@@ -620,7 +620,7 @@ export class MicrosoftSpeechProvider extends TTSProvider {
           hasEnded = true;
           if (onProgress) {
             const progress = ((i + 1) / chunks.length) * 100;
-            onProgress(progress, chunks.length);
+            onProgress(progress);
           }
           resolve();
         };
@@ -631,7 +631,7 @@ export class MicrosoftSpeechProvider extends TTSProvider {
           if (onProgress && event.charIndex !== undefined) {
             const chunkProgress = (event.charIndex / chunks[i].length) * (1 / chunks.length) * 100;
             const overallProgress = (i / chunks.length) * 100 + chunkProgress;
-            onProgress(overallProgress, chunks.length);
+            onProgress(overallProgress);
           }
         };
 
