@@ -43,7 +43,10 @@
   }
 
   function stopResizing() {
+    if (!isResizing) return;
     isResizing = false;
+    // Persist the final width to the database now that resizing is complete.
+    settings.setSidebarWidth(settings.uiSettings.sidebarWidth);
   }
 
   function handleMouseMove(e: MouseEvent) {
@@ -54,7 +57,8 @@
     
     // Constraints
     if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * MAX_SIDEBAR_RATIO)) {
-      settings.setSidebarWidth(newWidth);
+      // For performance, update the reactive state directly without saving to the database on every mouse movement.
+      settings.uiSettings.sidebarWidth = newWidth;
     }
   }
 
