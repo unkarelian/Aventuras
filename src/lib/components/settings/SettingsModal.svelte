@@ -210,11 +210,9 @@
           <Settings2 class="h-5 w-5 text-primary" />
         </div>
         <div class="flex-1 text-center md:text-left">
-          <div class="flex items-baseline justify-center md:justify-start gap-2">
-            <ResponsiveModal.Title class="text-2xl sm:text-xl font-semibold"
-              >Settings</ResponsiveModal.Title
-            >
-          </div>
+          <ResponsiveModal.Title class="text-2xl sm:text-xl font-semibold"
+            >Settings</ResponsiveModal.Title
+          >
           <p class="hidden md:block text-sm text-muted-foreground">
             Configure your Aventuras experience
           </p>
