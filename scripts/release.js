@@ -79,7 +79,7 @@ try {
   execSync(`git tag v${newVersion}`);
 
   // 7. Push
-  console.log(`Pushing changes to ${REMOTE}...`);
+  console.log(`Pushing changes to remote '${REMOTE}'...`);
   execSync(`git push --atomic ${REMOTE} release/v${newVersion} v${newVersion}`);
 
   console.log(`\nSuccessfully managed release v${newVersion}!`);
