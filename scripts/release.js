@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import path from 'path';
 
 const newVersion = process.argv[2];
+const REMOTE = 'https://github.com/unkarelian/Aventuras.git';
 
 const rootDir = process.cwd();
 
@@ -21,6 +22,19 @@ const manualFiles = [
   }
 ];
 
+// Pre-check 1: Ensure version is specified
+if (!newVersion) {
+  console.error('Error: New version not specified.\nUsage: node scripts/release.js <version>');
+  process.exit(1);
+}
+
+// Pre-check 2: Ensure no uncommitted changes
+const gitStatus = execSync('git status --porcelain').toString();
+if (gitStatus) {
+  console.error('Error: Uncommitted changes found. Please commit or stash them before running the release script.');
+  process.exit(1);
+}
+
 try {
   // 1. Create release branch
   console.log(`Creating release branch: release/v${newVersion}...`);
@@ -34,7 +48,7 @@ try {
   for (const file of manualFiles) {
     console.log(`Updating ${path.basename(file.path)}...`);
     let content = fs.readFileSync(file.path, 'utf8');
-    
+
     if (file.type === 'json') {
       const json = JSON.parse(content);
       json[file.key] = newVersion;
@@ -42,23 +56,31 @@ try {
     } else if (file.type === 'toml') {
       content = content.replace(file.regex, file.replace);
     }
-    
+
     fs.writeFileSync(file.path, content);
   }
 
-  // 4. Commit changes
+  // 4. Update Cargo.lock
+  console.log('Updating Cargo.lock...');
+  try {
+    execSync('cargo update -p aventura --offline', { cwd: path.join(rootDir, 'src-tauri') });
+  } catch (e) {
+    console.error('Offline update failed, trying online...');
+    process.exit(1);
+  }
+
+  // 5. Commit changes
   console.log('Committing changes...');
   execSync('git add .');
   execSync(`git commit -m "chore: bump version to ${newVersion}"`);
 
-  // 5. Create tag
+  // 6. Create tag
   console.log(`Creating tag v${newVersion}...`);
   execSync(`git tag v${newVersion}`);
 
-  // 6. Push
-  console.log('Pushing changes to origin...');
-  execSync(`git push origin release/v${newVersion}`);
-  execSync(`git push origin v${newVersion}`);
+  // 7. Push
+  console.log(`Pushing changes to ${REMOTE}...`);
+  execSync(`git push --atomic ${REMOTE} release/v${newVersion} v${newVersion}`);
 
   console.log(`\nSuccessfully managed release v${newVersion}!`);
   console.log(`Current branch: release/v${newVersion}`);
