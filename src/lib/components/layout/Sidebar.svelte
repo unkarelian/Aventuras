@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ui } from '$lib/stores/ui.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import { Users, MapPin, Backpack, Scroll, Clock, GitBranch, BookOpen, BookMarked, Brain } from 'lucide-svelte';
   import CharacterPanel from '$lib/components/world/CharacterPanel.svelte';
 
@@ -41,9 +42,9 @@
     }
   }
 </script>
-
 <aside
-  class="flex h-full w-[calc(100vw-3rem)] max-w-72 flex-col border-l border-border bg-card/80 sm:w-72 backdrop-blur-[2px]"
+  class="flex h-full w-[calc(100vw-3rem)] flex-col border-l border-border bg-card/80 backdrop-blur-[2px]"
+  style="width: {typeof window !== 'undefined' && window.innerWidth > 768 ? settings.uiSettings.sidebarWidth + 'px' : ''}; max-width: {typeof window !== 'undefined' && window.innerWidth > 768 ? 'none' : '288px'}"
   use:swipe={{ onSwipeLeft: handleSwipeLeft, onSwipeRight: handleSwipeRight, threshold: 50 }}
 >
   <!-- Tab navigation -->

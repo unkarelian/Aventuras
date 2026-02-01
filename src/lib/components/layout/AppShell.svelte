@@ -32,7 +32,49 @@
       ui.toggleSidebar();
     }
   }
+
+  // Resizing logic
+  let isResizing = $state(false);
+
+  function startResizing(e: MouseEvent) {
+    isResizing = true;
+    e.preventDefault();
+  }
+
+  function stopResizing() {
+    isResizing = false;
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!isResizing) return;
+    
+    // Sidebar is on the right, so width is window.innerWidth - mouseX
+    const newWidth = window.innerWidth - e.clientX;
+    
+    // Constraints
+    if (newWidth >= 250 && newWidth <= Math.min(800, window.innerWidth * 0.6)) {
+      settings.setSidebarWidth(newWidth);
+    }
+  }
+
+  // Global cursor and selection handling while resizing
+  $effect(() => {
+    if (typeof document === 'undefined') return;
+    if (isResizing) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
 </script>
+
+<svelte:window 
+  onmousemove={handleMouseMove} 
+  onmouseup={stopResizing} 
+  onmouseleave={stopResizing}
+/>
 
 <div
   class="app-shell relative flex h-screen w-screen bg-surface-900"
@@ -80,7 +122,12 @@
 
   <!-- Sidebar (Right aligned) -->
   {#if ui.sidebarOpen && story.currentStory}
-    <div class="sidebar-container">
+    <div class="sidebar-container relative flex h-full">
+      <!-- Resizer Handle (Desktop only) -->
+      <div 
+        class="resizer-handle hidden h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors sm:block" 
+        onmousedown={startResizing}
+      ></div>
       <Sidebar />
     </div>
   {/if}
@@ -166,6 +213,22 @@
   /* Sidebar container for mobile positioning */
   .sidebar-container {
     z-index: 50;
+    flex-shrink: 0;
+  }
+
+  .resizer-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: col-resize;
+    z-index: 60;
+  }
+
+  .resizer-handle:hover {
+    background-color: var(--color-primary-500, #3b82f6);
+    opacity: 0.5;
   }
 
   /* Right edge swipe zone */

@@ -1280,6 +1280,7 @@ class SettingsStore {
     disableSuggestions: false,
     disableActionPrefixes: false,
     showReasoning: true,
+    sidebarWidth: 288,
   });
 
   advancedRequestSettings = $state<AdvancedRequestSettings>(getDefaultAdvancedRequestSettings());
@@ -1585,6 +1586,9 @@ class SettingsStore {
 
       const debugMode = await database.getSetting('debug_mode');
       if (debugMode !== null) this.uiSettings.debugMode = debugMode === 'true';
+      
+      const sidebarWidth = await database.getSetting('sidebar_width');
+      if (sidebarWidth) this.uiSettings.sidebarWidth = parseInt(sidebarWidth, 10);
 
       const manualMode = await database.getSetting('advanced_manual_mode');
       if (manualMode !== null) {
@@ -2460,7 +2464,12 @@ class SettingsStore {
 
   async setShowReasoning(show: boolean) {
     this.uiSettings.showReasoning = show;
-    await database.setSetting('show_reasoning', String(show));
+    await database.setSetting('show_reasoning', show.toString());
+  }
+
+  async setSidebarWidth(width: number) {
+    this.uiSettings.sidebarWidth = width;
+    await database.setSetting('sidebar_width', width.toString());
   }
 
   async setDebugMode(enabled: boolean) {
