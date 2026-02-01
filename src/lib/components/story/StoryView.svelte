@@ -83,9 +83,33 @@
   // Check if container is scrolled near bottom
   function isNearBottom(): boolean {
     if (!storyContainer) return true;
-    const threshold = 100; // pixels from bottom
+    const threshold = 50; // pixels from bottom
     return storyContainer.scrollHeight - storyContainer.scrollTop - storyContainer.clientHeight < threshold;
   }
+  // Handle wheel events to break auto-scroll on manual wheel-up
+  function handleWheel(e: WheelEvent) {
+    // Check if the wheel event originated from an inner scrollable element
+    // If so, and that element can still scroll in the given direction, we should ignore it
+    let current = e.target as HTMLElement;
+    while (current && current !== storyContainer) {
+      // Check if this ancestor is scrollable
+      const style = window.getComputedStyle(current);
+      const isScrollable = style.overflowY === 'auto' || style.overflowY === 'scroll';
+      
+      if (isScrollable && current.scrollHeight > current.clientHeight) {
+        // If we're scrolling UP and the element has space to scroll UP
+        if (e.deltaY < 0 && current.scrollTop > 0) return;
+        // If we're scrolling DOWN and the element has space to scroll DOWN
+        if (e.deltaY > 0 && current.scrollTop + current.clientHeight < current.scrollHeight) return;
+      }
+      current = current.parentElement as HTMLElement;
+    }
+
+    if (e.deltaY < 0 && !ui.userScrolledUp) {
+      ui.setScrollBreak(true);
+    }
+  }
+
   // Handle scroll events during streaming
   function handleScroll() {
     // Keep userScrolledUp in sync with actual scroll position
@@ -93,8 +117,6 @@
     const nearBottom = isNearBottom();
     if (nearBottom && ui.userScrolledUp) {
       ui.setScrollBreak(false);
-    } else if (!nearBottom && !ui.userScrolledUp) {
-      ui.setScrollBreak(true);
     }
   }
 
@@ -112,6 +134,8 @@
     const ___ = ui.isGenerating;
     const ____ = containerHeight;
     const _____ = ui.actionChoicesLoading;
+    const ______ = ui.isReasoningExpanded;
+    const _______ = ui.streamingReasoning
 
     // Detect if entries were added (vs deleted or unchanged)
     const wasAdded = currentCount > prevEntryCount;
@@ -141,6 +165,7 @@
     bind:clientHeight={containerHeight}
     class="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4"
     onscroll={handleScroll}
+    onwheel={handleWheel}
   >
     <div class="mx-auto max-w-3xl space-y-3 sm:space-y-4">
       {#if story.entries.length === 0 && !ui.isStreaming}
