@@ -1016,84 +1016,84 @@ class AIService {
     return defaultStyles[styleId] || defaultStyles['image-style-soft-anime'];
   }
 
-  // ===== Translation Methods (All Stubbed) =====
+  // ===== Translation Methods =====
 
   /**
    * Translate narrative content.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateNarration(
     content: string,
     targetLanguage: string,
     isVisualProse: boolean = false
   ): Promise<TranslationResult> {
-    throw new Error('AIService.translateNarration() not implemented - awaiting SDK migration');
+    const service = serviceFactory.createTranslationService('narration');
+    return service.translateNarration(content, targetLanguage, isVisualProse);
   }
 
   /**
    * Translate user input to English.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateInput(
     content: string,
     sourceLanguage: string
   ): Promise<TranslationResult> {
-    throw new Error('AIService.translateInput() not implemented - awaiting SDK migration');
+    const service = serviceFactory.createTranslationService('input');
+    return service.translateInput(content, sourceLanguage);
   }
 
   /**
    * Batch translate UI elements.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateUIElements(
     items: UITranslationItem[],
     targetLanguage: string
   ): Promise<UITranslationItem[]> {
-    throw new Error('AIService.translateUIElements() not implemented - awaiting SDK migration');
+    const service = serviceFactory.createTranslationService('ui');
+    return service.translateUIElements(items, targetLanguage);
   }
 
   /**
    * Translate suggestions.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateSuggestions<T extends { text: string; type?: string }>(
     suggestions: T[],
     targetLanguage: string
   ): Promise<T[]> {
-    throw new Error('AIService.translateSuggestions() not implemented - awaiting SDK migration');
+    const service = serviceFactory.createTranslationService('suggestions');
+    return service.translateSuggestions(suggestions, targetLanguage);
   }
 
   /**
    * Translate action choices.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateActionChoices<T extends { text: string; type?: string }>(
     choices: T[],
     targetLanguage: string
   ): Promise<T[]> {
-    throw new Error('AIService.translateActionChoices() not implemented - awaiting SDK migration');
+    const service = serviceFactory.createTranslationService('actionChoices');
+    return service.translateActionChoices(choices, targetLanguage);
   }
 
   /**
    * Translate wizard content.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateWizardContent(
     content: string,
     targetLanguage: string
   ): Promise<TranslationResult> {
-    throw new Error('AIService.translateWizardContent() not implemented - awaiting SDK migration');
+    const service = serviceFactory.createTranslationService('wizard');
+    return service.translateWizardContent(content, targetLanguage);
   }
 
   /**
    * Batch translate wizard content.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateWizardBatch(
     fields: Record<string, string>,
     targetLanguage: string
   ): Promise<Record<string, string>> {
-    throw new Error('AIService.translateWizardBatch() not implemented - awaiting SDK migration');
+    const service = serviceFactory.createTranslationService('wizard');
+    return service.translateWizardBatch(fields, targetLanguage);
   }
 }
 
