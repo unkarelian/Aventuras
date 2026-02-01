@@ -65,6 +65,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Get clean version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          # Remove 'v' prefix and strip anything after '-'
+          CLEAN=$(echo $VERSION | sed 's/^v//' | cut -d'-' -f1)
+          echo "clean_version=$CLEAN" >> $GITHUB_OUTPUT
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -80,7 +89,7 @@ jobs:
             This is a test/preview release. Use at your own risk.
           releaseDraft: false
           prerelease: true
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} --config '{"version":"${{ steps.get_version.outputs.clean_version }}"}'
 
   build-android:
     name: Build Android

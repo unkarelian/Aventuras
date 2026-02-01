@@ -1,6 +1,6 @@
 {
   "name": "aventura",
-  "version": "0.2.0-beta.1",
+  "version": "0.6.0-beta.3",
   "description": "AI-powered adventure and creative writing frontend",
   "type": "module",
   "scripts": {
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "release": "node scripts/release.js"
   },
   "license": "AGPL-3.0",
   "dependencies": {
