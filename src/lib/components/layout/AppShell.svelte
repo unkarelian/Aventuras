@@ -125,13 +125,12 @@
   {#if ui.sidebarOpen && story.currentStory}
     <div class="sidebar-container relative flex h-full">
       <!-- Resizer Handle (Desktop only) -->
-      <div 
+      <button 
+        type="button"
         class="resizer-handle hidden h-full sm:block" 
         onmousedown={startResizing}
-        role="separator"
-        aria-orientation="vertical"
         aria-label="Sidebar Resizer"
-      ></div>
+      ></button>
       <Sidebar />
     </div>
   {/if}
@@ -229,11 +228,20 @@
     cursor: col-resize;
     z-index: 60;
     transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    outline: none;
   }
 
-  .resizer-handle:hover {
+  .resizer-handle:hover, .resizer-handle:focus-visible {
     background-color: var(--color-primary-500, #3b82f6);
     opacity: 0.5;
+  }
+
+  .resizer-handle:focus-visible {
+    outline: 2px solid var(--color-primary-500, #3b82f6);
+    outline-offset: -2px;
   }
 
   /* Right edge swipe zone */

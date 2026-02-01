@@ -67,7 +67,7 @@
                 class="flex-1 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-muted/30 bg-transparent hover:bg-muted/20 text-muted-foreground transition-colors"
                 title={tab.label}
             >
-                <svelte:component this={tab.icon} class="h-4 w-4" />
+                <tab.icon class="h-4 w-4" />
             </Tabs.Trigger>
         {/each}
         </Tabs.List>
