@@ -17,8 +17,11 @@ export {
   TTSProvider,
   GoogleTranslateTTSProvider,
   OpenAICompatibleTTSProvider,
+  MicrosoftSpeechProvider,
   GOOGLE_TRANSLATE_LANGUAGES,
+  DEFAULT_SPEECH_RATE,
+  DEFAULT_PITCH,
+  DEFAULT_VOLUME,
   type TTSSettings,
   type TTSVoice,
-  type TTSStreamChunk,
 } from './TTSService';

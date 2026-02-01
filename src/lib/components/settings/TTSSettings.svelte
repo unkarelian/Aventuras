@@ -12,45 +12,108 @@
     aiTTSService,
   } from "$lib/services/ai/utils/TTSService";
 
+  const PREVIEW_TEXT = "This is a preview of the selected voice. The story narration will sound like this.";
+
   let isPlayingPreview = $state(false);
   let isLoadingPreview = $state(false);
   let previewError = $state<string | null>(null);
+  interface SystemVoice {
+    name: string;
+    lang: string;
+  }
+
+  let systemVoices = $state<SystemVoice[]>([]);
+  let isLoadingVoices = $state(false);
+
+  /**
+   * Load system voices when Microsoft provider is selected
+   * Uses the TTS service to ensure consistent voice handling
+   */
+  async function loadSystemVoices() {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      return;
+    }
+
+    isLoadingVoices = true;
+
+    try {
+      // Initialize the service to get properly formatted voices
+      await aiTTSService.initialize({
+        ...settings.systemServicesSettings.tts,
+        provider: 'microsoft'
+      });
+      
+      const voices = await aiTTSService.getAvailableVoices();
+      systemVoices = voices.map(v => ({ name: v.name, lang: v.lang }));
+    } catch (error) {
+      console.error('[TTSSettings] Failed to load system voices:', error);
+      systemVoices = [];
+    } finally {
+      isLoadingVoices = false;
+    }
+  }
+
+  // Load voices when provider changes to microsoft
+  $effect(() => {
+    if (settings.systemServicesSettings.tts.provider === 'microsoft') {
+      loadSystemVoices();
+    }
+  });
 
   const providers = [
     { value: "openai", label: "OpenAI Compatible (OpenRouter, OpenAI, Local)" },
     { value: "google", label: "Google Translate" },
+    { value: "microsoft", label: "Windows System TTS (Microsoft SAPI)" },
   ] as const;
 
-  async function playVoicePreview() {
-    if (
-      !settings.systemServicesSettings.tts.enabled ||
-      isPlayingPreview ||
-      isLoadingPreview
-    )
-      return;
-
+  /**
+   * Validate TTS settings before preview
+   */
+  function validateTTSSettings(): string | null {
     const tts = settings.systemServicesSettings.tts;
 
     if (tts.provider === "openai") {
       if (!tts.endpoint || !tts.apiKey) {
-        previewError = "Endpoint and API key are required";
-        return;
+        return "Endpoint and API key are required";
+      }
+    } else if (tts.provider === "microsoft") {
+      if (!tts.voice) {
+        return "Please select a system voice";
+      }
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
+        return "Speech Synthesis API is not available in your browser";
+      }
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.some(v => v.name === tts.voice)) {
+        return `Voice "${tts.voice}" not found. Please select a different voice.`;
       }
     }
+    return null;
+  }
+
+  async function playVoicePreview() {
+    if (!settings.systemServicesSettings.tts.enabled || isPlayingPreview || isLoadingPreview) {
+      return;
+    }
+
+    const validationError = validateTTSSettings();
+    if (validationError) {
+      previewError = validationError;
+      return;
+    }
+
+    const tts = settings.systemServicesSettings.tts;
 
     isLoadingPreview = true;
     previewError = null;
 
     try {
-      const previewText =
-        "This is a preview of the selected voice. The story narration will sound like this.";
-
       await aiTTSService.initialize(tts);
 
       isPlayingPreview = true;
       isLoadingPreview = false;
 
-      await aiTTSService.generateAndPlay(previewText, tts.voice, (progress) => {});
+      await aiTTSService.generateAndPlay(PREVIEW_TEXT, tts.voice);
 
       isPlayingPreview = false;
     } catch (error) {
@@ -99,7 +162,7 @@
         type="single"
         value={settings.systemServicesSettings.tts.provider}
         onValueChange={(v) => {
-          const provider = v as "openai" | "google";
+          const provider = v as "openai" | "google" | "microsoft";
           settings.systemServicesSettings.tts.provider = provider;
           if (
             provider === "google" &&
@@ -156,34 +219,74 @@
         />
       </div>
 
-      <!-- TTS Model -->
-      <div>
-        <Label class="mb-2 block">TTS Model</Label>
-        <Input
-          type="text"
-          class="w-full"
-          value={settings.systemServicesSettings.tts.model}
-          oninput={(e) => {
-            settings.systemServicesSettings.tts.model = e.currentTarget.value;
-            settings.saveSystemServicesSettings();
-          }}
-          placeholder="tts-1"
-        />
-      </div>
+      {#if settings.systemServicesSettings.tts.provider === "openai"}
+        <!-- TTS Model -->
+        <div>
+          <Label class="mb-2 block">TTS Model</Label>
+          <Input
+            type="text"
+            class="w-full"
+            value={settings.systemServicesSettings.tts.model}
+            oninput={(e) => {
+              settings.systemServicesSettings.tts.model = e.currentTarget.value;
+              settings.saveSystemServicesSettings();
+            }}
+            placeholder="tts-1"
+          />
+        </div>
+      {/if}
 
-      <!-- Voice -->
+      {#if settings.systemServicesSettings.tts.provider === "openai"}
+        <!-- Voice -->
+        <div>
+          <Label class="mb-2 block">Voice</Label>
+          <Input
+            type="text"
+            class="w-full"
+            value={settings.systemServicesSettings.tts.voice}
+            oninput={(e) => {
+              settings.systemServicesSettings.tts.voice = e.currentTarget.value;
+              settings.saveSystemServicesSettings();
+            }}
+            placeholder="alloy"
+          />
+        </div>
+      {/if}
+    {:else if settings.systemServicesSettings.tts.provider === "microsoft"}
+      <!-- Windows System Voice Selection -->
       <div>
-        <Label class="mb-2 block">Voice</Label>
-        <Input
-          type="text"
-          class="w-full"
-          value={settings.systemServicesSettings.tts.voice}
-          oninput={(e) => {
-            settings.systemServicesSettings.tts.voice = e.currentTarget.value;
-            settings.saveSystemServicesSettings();
-          }}
-          placeholder="alloy"
-        />
+        <Label class="mb-2 block">System Voice</Label>
+        {#if isLoadingVoices}
+          <div class="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Loading system voices...
+          </div>
+        {:else if systemVoices.length === 0}
+          <div class="text-sm text-muted-foreground">
+            No system voices found. Make sure you're running on Windows with TTS voices installed.
+          </div>
+        {:else}
+          <Select.Root
+            type="single"
+            value={settings.systemServicesSettings.tts.voice}
+            onValueChange={(v) => {
+              settings.systemServicesSettings.tts.voice = v;
+              settings.saveSystemServicesSettings();
+            }}
+          >
+            <Select.Trigger class="h-10 w-full">
+              {systemVoices.find((v) => v.name === settings.systemServicesSettings.tts.voice)?.name ?? "Select system voice"}
+            </Select.Trigger>
+            <Select.Content>
+              {#each systemVoices as voice}
+                <Select.Item value={voice.name} label={voice.name}>
+                  {voice.name}
+                  <span class="text-xs text-muted-foreground ml-2">({voice.lang})</span>
+                </Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+        {/if}
       </div>
     {:else if settings.systemServicesSettings.tts.provider === "google"}
       <!-- Language Selection -->

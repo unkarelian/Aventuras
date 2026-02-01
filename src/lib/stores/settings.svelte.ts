@@ -611,7 +611,7 @@ export interface TTSServiceSettings {
   removeHtmlTags: boolean;        // Removes HTML tags from text (default: false)
   removeAllHtmlContent: boolean;     // Removes content within all HTML tags (default: false)
   htmlTagsToRemoveContent: string; // Specific HTML tags to remove content from (default: span, div)
-  provider: 'openai' | 'google';   // TTS Provider (default: 'openai')
+  provider: 'openai' | 'google' | 'microsoft';   // TTS Provider (default: 'openai')
 }
 
 export function getDefaultTTSSettings(): TTSServiceSettings {

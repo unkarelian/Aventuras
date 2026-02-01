@@ -7,6 +7,11 @@
 import { OPENROUTER_API_URL } from "../core/OpenAIProvider";
 import { corsFetch } from "$lib/services/discovery/utils";
 
+// Constants
+export const DEFAULT_SPEECH_RATE = 1.0;
+export const DEFAULT_PITCH = 1.0;
+export const DEFAULT_VOLUME = 1.0;
+
 // TTS Configuration - matches TTSServiceSettings in settings.svelte.ts
 export interface TTSSettings {
   enabled: boolean;
@@ -20,13 +25,47 @@ export interface TTSSettings {
   removeHtmlTags: boolean;
   removeAllHtmlContent: boolean;
   htmlTagsToRemoveContent: string;
-  provider: "openai" | "google";
+  provider: "openai" | "google" | "microsoft";
 }
 
 export interface TTSVoice {
   name: string;
   id: string;
   lang: string;
+}
+
+/**
+ * Sort voices with Microsoft voices prioritized first
+ */
+function sortVoicesByPriority(voices: TTSVoice[]): TTSVoice[] {
+  return voices.sort((a, b) => {
+    const aMicrosoft = a.name.toLowerCase().includes('microsoft');
+    const bMicrosoft = b.name.toLowerCase().includes('microsoft');
+    if (aMicrosoft && !bMicrosoft) return -1;
+    if (!aMicrosoft && bMicrosoft) return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/**
+ * Map SpeechSynthesisError to user-friendly error message
+ */
+function mapSpeechErrorToMessage(error: string): string {
+  const errorMap: Record<string, string> = {
+    'canceled': 'Speech was canceled',
+    'interrupted': 'Speech was interrupted',
+    'audio-busy': 'Audio device is busy',
+    'audio-hardware': 'Audio hardware error',
+    'network': 'Network error during speech synthesis',
+    'synthesis-unavailable': 'Speech synthesis is unavailable',
+    'synthesis-failed': 'Speech synthesis failed',
+    'language-unavailable': 'Selected language is not available',
+    'voice-unavailable': 'Selected voice is not available',
+    'text-too-long': 'Text is too long for speech synthesis',
+    'invalid-argument': 'Invalid speech synthesis argument',
+    'not-allowed': 'Speech synthesis not allowed (may require user interaction)'
+  };
+  return errorMap[error] || 'Speech synthesis failed';
 }
 
 /**
@@ -64,7 +103,7 @@ export abstract class TTSProvider {
     return blobs;
   }
 
-  private stopped = false;
+  protected stopped = false;
 
   /**
    * Play a single audio blob using HTML Audio element.
@@ -382,6 +421,247 @@ export class GoogleTranslateTTSProvider extends TTSProvider {
 }
 
 /**
+ * Windows Built-in TTS Provider (SAPI)
+ * Uses Web Speech Synthesis API to access Windows system voices
+ * Supports voices like Microsoft Hazel Desktop, David, Zira, etc.
+ */
+export class MicrosoftSpeechProvider extends TTSProvider {
+  private settings: TTSSettings;
+  private systemVoices: SpeechSynthesisVoice[] = [];
+  private voicesLoaded: boolean = false;
+
+  constructor(settings: TTSSettings) {
+    super();
+    this.settings = settings;
+    this.initializeVoices();
+  }
+
+  override get name(): string {
+    return "Windows System TTS";
+  }
+
+  override get maxChunkLength(): number {
+    // Windows SAPI handles longer text well
+    return 500;
+  }
+
+  /**
+   * Initialize system voices
+   */
+  private async initializeVoices(): Promise<void> {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      console.warn('[TTS] Speech Synthesis API not available');
+      return;
+    }
+
+    // Load voices
+    const loadVoices = () => {
+      this.systemVoices = window.speechSynthesis.getVoices();
+      this.voicesLoaded = true;
+    };
+
+    // Voices may load asynchronously
+    if (window.speechSynthesis.getVoices().length > 0) {
+      loadVoices();
+    } else {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }
+
+  /**
+   * Wait for voices to be loaded
+   */
+  private async waitForVoices(): Promise<void> {
+    if (this.voicesLoaded && this.systemVoices.length > 0) {
+      return;
+    }
+
+    return new Promise((resolve) => {
+      const checkVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          this.systemVoices = voices;
+          this.voicesLoaded = true;
+          resolve();
+        } else {
+          setTimeout(checkVoices, 100);
+        }
+      };
+      checkVoices();
+    });
+  }
+
+  /**
+   * Get available system voices
+   */
+  override async getAvailableVoices(): Promise<TTSVoice[]> {
+    await this.waitForVoices();
+
+    if (this.systemVoices.length === 0) {
+      console.warn('[TTS] No system voices available');
+      return [];
+    }
+
+    // Convert SpeechSynthesisVoice to TTSVoice format
+    const voices = this.systemVoices
+      .filter(v => v.localService) // Only local/system voices
+      .map(v => ({
+        name: v.name,
+        id: v.name, // Use voice name as ID for Web Speech API
+        lang: v.lang,
+      }));
+    
+    return sortVoicesByPriority(voices);
+  }
+
+  /**
+   * Generate TTS audio using Web Speech Synthesis API
+   * Returns audio as a Blob by recording the output
+   */
+  protected override async generateChunk(text: string, voice: string): Promise<Blob> {
+    await this.waitForVoices();
+
+    if (!window.speechSynthesis) {
+      throw new Error('Speech Synthesis API not available');
+    }
+
+    // Find the voice
+    const selectedVoice = this.systemVoices.find(v => v.name === voice);
+    if (!selectedVoice) {
+      throw new Error(`Voice not found: ${voice}`);
+    }
+
+    return new Promise((resolve, reject) => {
+      // Create utterance
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = selectedVoice;
+      utterance.rate = this.settings.speed || DEFAULT_SPEECH_RATE;
+      utterance.pitch = DEFAULT_PITCH;
+      utterance.volume = DEFAULT_VOLUME;
+
+      // We need to capture the audio output
+      // Unfortunately, Web Speech API doesn't directly provide audio data
+      // We'll need to use a workaround: record the system audio output
+      // For now, we'll create a minimal WAV header and return empty blob
+      // The actual playback will happen via the streamAndPlay override
+
+      utterance.onerror = (event) => {
+        console.error('[TTS] Speech synthesis error in generateChunk:', event.error);
+        reject(new Error(`Speech synthesis failed: ${event.error}`));
+      };
+
+      utterance.onend = () => {
+        // Return a placeholder blob since Web Speech API doesn't provide audio data
+        // The actual synthesis happens in the streamAndPlay method
+        resolve(new Blob([new Uint8Array(0)], { type: 'audio/wav' }));
+      };
+
+      // Start synthesis with error handling
+      try {
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.error('[TTS] Failed to start speech synthesis:', err);
+        reject(new Error(`Failed to start speech synthesis: ${err instanceof Error ? err.message : 'Unknown error'}`));
+      }
+    });
+  }
+
+  /**
+   * Override streamAndPlay to use Web Speech API directly
+   * Since we can't capture audio, we play directly instead of streaming blobs
+   */
+  override async streamAndPlay(
+    text: string,
+    voice: string,
+    onProgress?: (progress: number, duration: number) => void,
+    playbackRate = 1.0,
+  ): Promise<void> {
+    await this.waitForVoices();
+
+    if (!window.speechSynthesis) {
+      throw new Error('Speech Synthesis API not available');
+    }
+
+    // Find the voice
+    const selectedVoice = this.systemVoices.find(v => v.name === voice);
+    if (!selectedVoice) {
+      throw new Error(`Voice not found: ${voice}`);
+    }
+
+    // Reset stopped flag
+    this.stopped = false;
+
+    // Split text into chunks
+    const chunks = splitTextForTTS(text, this.maxChunkLength);
+
+    // Speak each chunk sequentially
+    for (let i = 0; i < chunks.length; i++) {
+      if (this.stopped) break;
+
+      await new Promise<void>((resolve, reject) => {
+        const utterance = new SpeechSynthesisUtterance(chunks[i]);
+        utterance.voice = selectedVoice;
+        utterance.rate = playbackRate;
+        utterance.pitch = DEFAULT_PITCH;
+        utterance.volume = DEFAULT_VOLUME;
+
+        let hasEnded = false;
+        let hasErrored = false;
+
+        utterance.onerror = (event) => {
+          if (hasEnded || hasErrored) return; // Prevent duplicate error handling
+          hasErrored = true;
+          console.error('[TTS] Speech synthesis error:', event.error);
+          reject(new Error(mapSpeechErrorToMessage(event.error)));
+        };
+
+        utterance.onend = () => {
+          if (hasErrored) return; // Don't resolve if we already errored
+          hasEnded = true;
+          if (onProgress) {
+            const progress = ((i + 1) / chunks.length) * 100;
+            onProgress(progress, chunks.length);
+          }
+          resolve();
+        };
+
+        // Boundary event for progress tracking
+        utterance.onboundary = (event) => {
+          if (hasErrored) return;
+          if (onProgress && event.charIndex !== undefined) {
+            const chunkProgress = (event.charIndex / chunks[i].length) * (1 / chunks.length) * 100;
+            const overallProgress = (i / chunks.length) * 100 + chunkProgress;
+            onProgress(overallProgress, chunks.length);
+          }
+        };
+
+        // Wrap in try-catch to prevent any unhandled exceptions from showing dialogs
+        try {
+          window.speechSynthesis.speak(utterance);
+        } catch (err) {
+          hasErrored = true;
+          reject(new Error(`Failed to start speech synthesis: ${err instanceof Error ? err.message : 'Unknown error'}`));
+        }
+      });
+    }
+  }
+
+  /**
+   * Override stopAudio to cancel speech synthesis
+   */
+  override stopAudio(): void {
+    try {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    } catch (err) {
+      console.error('[TTS] Error canceling speech synthesis:', err);
+    }
+    this.stopped = true;
+  }
+}
+
+/**
  * OpenAI-compatible TTS Provider
  * Supports OpenAI, OpenRouter, and any OpenAI-compatible endpoint
  */
@@ -543,6 +823,8 @@ export class AITTSService {
     try {
       if (settings.provider === "google") {
         this.provider = new GoogleTranslateTTSProvider(settings);
+      } else if (settings.provider === "microsoft") {
+        this.provider = new MicrosoftSpeechProvider(settings);
       } else {
         this.provider = new OpenAICompatibleTTSProvider(settings);
       }
