@@ -65,7 +65,7 @@ try {
   try {
     execSync('cargo update -p aventura --offline', { cwd: path.join(rootDir, 'src-tauri') });
   } catch (e) {
-    console.error('Offline update failed, trying online...');
+    console.error('Offline update failed.');
     process.exit(1);
   }
 
