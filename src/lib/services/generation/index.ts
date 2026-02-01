@@ -28,10 +28,17 @@ export type {
 } from './types';
 
 // Phase services
-export { PreGenerationPhase, RetrievalPhase, NarrativePhase, ClassificationPhase, TranslationPhase, ImagePhase } from './phases';
+export { PreGenerationPhase, RetrievalPhase, NarrativePhase, ClassificationPhase, TranslationPhase, ImagePhase, PostGenerationPhase } from './phases';
 export type { RetryBackupData, PreGenerationResult, PreGenerationInput } from './phases';
 export type { RetrievalDependencies, RetrievalInput } from './phases';
 export type { NarrativeDependencies, NarrativeInput, NarrativeResult } from './phases';
 export type { ClassificationDependencies, ClassificationInput, ClassificationPhaseResult } from './phases';
 export type { TranslationDependencies, TranslationInput, TranslationResult2 } from './phases';
 export type { ImageDependencies, ImageSettings, ImageInput, ImageResult } from './phases';
+export type {
+  PromptContext,
+  PostWorldState,
+  PostGenerationDependencies,
+  PostGenerationInput,
+  PostGenerationResult,
+} from './phases';

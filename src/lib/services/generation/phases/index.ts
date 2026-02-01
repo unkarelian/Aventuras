@@ -20,3 +20,12 @@ export type { TranslationDependencies, TranslationInput, TranslationResult2 } fr
 
 export { ImagePhase } from './ImagePhase';
 export type { ImageDependencies, ImageSettings, ImageInput, ImageResult } from './ImagePhase';
+
+export { PostGenerationPhase } from './PostGenerationPhase';
+export type {
+  PromptContext,
+  PostWorldState,
+  PostGenerationDependencies,
+  PostGenerationInput,
+  PostGenerationResult,
+} from './PostGenerationPhase';
