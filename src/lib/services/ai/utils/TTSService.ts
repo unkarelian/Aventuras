@@ -5,7 +5,6 @@
  */
 
 import { OPENROUTER_API_URL } from "../core/OpenAIProvider";
-import type { APIProfile } from "$lib/types";
 import { corsFetch } from "$lib/services/discovery/utils";
 
 // TTS Configuration - matches TTSServiceSettings in settings.svelte.ts
@@ -28,12 +27,6 @@ export interface TTSVoice {
   name: string;
   id: string;
   lang: string;
-}
-
-export interface TTSStreamChunk {
-  type: "data" | "end" | "error";
-  data?: ArrayBuffer;
-  error?: string;
 }
 
 /**
@@ -175,6 +168,14 @@ export abstract class TTSProvider {
     let generationDone = false;
     let generationError: Error | null = null;
 
+    // Signal mechanism for producer -> consumer notification
+    let notifyChunk: () => void;
+    let chunkAvailable = new Promise<void>(resolve => { notifyChunk = resolve; });
+    const signalChunk = () => {
+      notifyChunk();
+      chunkAvailable = new Promise<void>(resolve => { notifyChunk = resolve; });
+    };
+
     // Producer: generate chunks in background with retry
     const MAX_RETRIES = 2;
     const produceAll = async () => {
@@ -186,6 +187,7 @@ export abstract class TTSProvider {
             try {
               const blob = await this.generateChunk(chunk, voice);
               ready.push(blob);
+              signalChunk();
               lastErr = null;
               break;
             } catch (err) {
@@ -201,6 +203,7 @@ export abstract class TTSProvider {
         generationError = err instanceof Error ? err : new Error(String(err));
       } finally {
         generationDone = true;
+        signalChunk();
       }
     };
 
@@ -212,10 +215,6 @@ export abstract class TTSProvider {
       if (this.stopped) return;
 
       if (playedIndex < ready.length) {
-        if (generationError && playedIndex >= ready.length) {
-          throw generationError;
-        }
-
         const chunkProgress = onProgress
           ? (currentTime: number, duration: number) => {
               const base = (playedIndex / totalChunks) * 100;
@@ -230,8 +229,7 @@ export abstract class TTSProvider {
         if (generationError) throw generationError;
         break;
       } else {
-        // Wait for next chunk to be ready
-        await new Promise((r) => setTimeout(r, 50));
+        await chunkAvailable;
       }
     }
 
