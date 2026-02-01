@@ -2,27 +2,22 @@
  * Style Reviewer Service
  *
  * Analyzes text for repetitive phrases and style issues.
- *
- * STATUS: STUBBED - Awaiting SDK migration
- * Original implementation preserved in comments below for reference.
+ * Uses the Vercel AI SDK for structured output with Zod schema validation.
  */
 
+import type { StoryEntry, StoryMode, POV, Tense } from '$lib/types';
+import { promptService, type PromptContext } from '$lib/services/prompts';
 import { createLogger } from '../core/config';
+import { generateStructured } from '../sdk/generate';
+import { styleReviewResultSchema, type PhraseAnalysis } from '../sdk/schemas/style';
 
 const log = createLogger('StyleReviewer');
 
-// Type definitions preserved from original
+// Re-export PhraseAnalysis for consumers
+export type { PhraseAnalysis };
 
-// PhraseAnalysis matches PersistentPhraseAnalysis from $lib/types
-export interface PhraseAnalysis {
-  phrase: string;
-  frequency: number;
-  severity: 'low' | 'medium' | 'high';
-  alternatives: string[];
-  contexts: string[];
-}
-
-// StyleReviewResult matches PersistentStyleReviewResult from $lib/types
+// Full result type including metadata added by the service
+// This extends the LLM output with reviewedEntryCount and timestamp
 export interface StyleReviewResult {
   phrases: PhraseAnalysis[];
   overallAssessment: string;
@@ -30,23 +25,8 @@ export interface StyleReviewResult {
   timestamp: number;
 }
 
-// Legacy aliases for backward compatibility
-export interface RepetitivePhrase {
-  phrase: string;
-  count: number;
-  severity: 'low' | 'medium' | 'high';
-  suggestions: string[];
-}
-
-export interface StyleAnalysis {
-  repetitivePhrases: RepetitivePhrase[];
-  overallScore: number;
-  summary: string;
-}
-
 /**
  * Service that analyzes text for style issues.
- * NOTE: This service has been stubbed during SDK migration.
  */
 export class StyleReviewerService {
   private presetId: string;
@@ -82,54 +62,73 @@ export class StyleReviewerService {
   }
 
   /**
-   * Analyze text for repetitive phrases and style issues.
-   * @throws Error - Service not implemented during SDK migration
+   * Analyze narration entries for repetitive phrases and style issues.
+   *
+   * @param entries - Story entries to analyze (filters to narration only)
+   * @param mode - Story mode for prompt context
+   * @param pov - Point of view for prompt context
+   * @param tense - Tense for prompt context
    */
-  async analyzeStyle(text: string): Promise<StyleAnalysis> {
-    throw new Error('StyleReviewerService.analyzeStyle() not implemented - awaiting SDK migration');
+  async analyzeStyle(
+    entries: StoryEntry[],
+    mode: StoryMode = 'adventure',
+    pov: POV = 'second',
+    tense: Tense = 'present'
+  ): Promise<StyleReviewResult> {
+    log('analyzeStyle', { entriesCount: entries.length });
 
-    /* COMMENTED OUT - Original implementation for reference:
-    const config = settings.getPresetConfig(this.presetId);
-
-    const promptContext: PromptContext = {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: '',
-    };
-
-    const systemPrompt = promptService.renderPrompt('style-analysis', promptContext);
-    const userPrompt = promptService.renderUserPrompt('style-analysis', promptContext, {
-      text,
-    });
-
-    const response = await this.provider.generateResponse({
-      model: config.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: config.temperature,
-      maxTokens: config.maxTokens,
-      extraBody: buildExtraBody({
-        manualMode: false,
-        manualBody: config.manualBody,
-        reasoningEffort: config.reasoningEffort,
-        providerOnly: config.providerOnly,
-      }),
-    });
-
-    const parsed = tryParseJsonWithHealing<StyleAnalysis>(response.content);
-    if (!parsed) {
-      log('Failed to parse style analysis response');
+    // Filter to narration entries only
+    const narrationEntries = entries.filter(e => e.type === 'narration');
+    if (narrationEntries.length === 0) {
       return {
-        repetitivePhrases: [],
-        overallScore: 100,
-        summary: 'Unable to analyze style',
+        phrases: [],
+        overallAssessment: 'No narration entries to analyze.',
+        reviewedEntryCount: 0,
+        timestamp: Date.now(),
       };
     }
 
-    return parsed;
-    */
+    // Format passages for analysis
+    const passages = narrationEntries.map((e, i) =>
+      `--- Passage ${i + 1} ---\n${e.content}`
+    ).join('\n\n');
+
+    const promptContext: PromptContext = {
+      mode,
+      pov,
+      tense,
+      protagonistName: '',
+    };
+
+    const system = promptService.renderPrompt('style-reviewer', promptContext);
+    const prompt = promptService.renderUserPrompt('style-reviewer', promptContext, {
+      passageCount: narrationEntries.length.toString(),
+      passages,
+    });
+
+    try {
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: styleReviewResultSchema,
+        system,
+        prompt,
+      });
+
+      log('analyzeStyle complete', { phrasesFound: result.phrases.length });
+
+      return {
+        ...result,
+        reviewedEntryCount: narrationEntries.length,
+        timestamp: Date.now(),
+      };
+    } catch (error) {
+      log('analyzeStyle failed', error);
+      return {
+        phrases: [],
+        overallAssessment: 'Analysis failed.',
+        reviewedEntryCount: narrationEntries.length,
+        timestamp: Date.now(),
+      };
+    }
   }
 }

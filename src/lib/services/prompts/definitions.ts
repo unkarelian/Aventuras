@@ -1414,18 +1414,16 @@ Identify overused phrases, sentence patterns, structural repetition, and stylist
 
 Return JSON with findings:
 {
-  "issues": [
+  "phrases": [
     {
-      "type": "phrase|structure|pattern|word_echo",
-      "description": "string - what the issue is",
-      "examples": ["string - specific examples from the text"],
-      "occurrences": number,
+      "phrase": "the repeated phrase or pattern",
+      "frequency": number,
       "severity": "low|medium|high",
-      "suggestions": ["string - alternative approaches"]
+      "alternatives": ["suggested alternatives"],
+      "contexts": ["example contexts from text"]
     }
   ],
-  "overallQuality": "good|needs_improvement|poor",
-  "summary": "string - brief overall assessment"
+  "overallAssessment": "brief overall style assessment"
 }`,
 };
 

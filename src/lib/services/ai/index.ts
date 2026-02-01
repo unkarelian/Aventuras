@@ -12,9 +12,9 @@
  * - generateActionChoices() - ActionChoicesService
  * - runTimelineFill(), answerChapterQuestion(), answerChapterRangeQuestion() - TimelineFillService
  * - buildTieredContext(), getRelevantLorebookEntries() - ContextBuilder/EntryRetrievalService
+ * - analyzeStyle() - StyleReviewerService
  *
  * STUBBED (awaiting migration):
- * - analyzeStyle() - StyleReviewerService
  * - runLoreManagement() - LoreManagementService
  * - runAgenticRetrieval() - AgenticRetrievalService
  * - translate*() - TranslationService
@@ -260,10 +260,10 @@ class AIService {
 
   /**
    * Analyze narration entries for style issues.
-   * @throws Error - Service not implemented during SDK migration
    */
   async analyzeStyle(entries: StoryEntry[], mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): Promise<StyleReviewResult> {
-    throw new Error('AIService.analyzeStyle() not implemented - awaiting SDK migration');
+    const service = serviceFactory.createStyleReviewerService();
+    return service.analyzeStyle(entries, mode, pov, tense);
   }
 
   /**
