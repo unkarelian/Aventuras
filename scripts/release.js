@@ -2,10 +2,37 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 import path from 'path';
 
-const newVersion = process.argv[2];
-const REMOTE = 'https://github.com/unkarelian/Aventuras.git';
-
 const rootDir = process.cwd();
+
+// Read current version from package.json
+const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
+const currentVersion = pkg.version;
+
+function bumpVersion(version, type) {
+  const [v, pre] = version.split('-');
+  const parts = v.split('.').map(Number);
+  
+  if (type === 'major') {
+    return `${parts[0] + 1}.0.0`;
+  }
+  if (type === 'minor') {
+    return `${parts[0]}.${parts[1] + 1}.0`;
+  }
+  if (type === 'patch') {
+    return `${parts[0]}.${parts[1]}.${parts[2] + 1}`;
+  }
+  if (type === 'prerelease') {
+    if (!pre) return `${v}-pre.1`;
+    const preMatch = pre.match(/^pre\.(\d+)$/);
+    if (!preMatch) return `${v}-pre.1`;
+    return `${v}-pre.${parseInt(preMatch[1], 10) + 1}`;
+  }
+  return type; // Direct version string
+}
+
+const inputArg = process.argv[2];
+const newVersion = bumpVersion(currentVersion, inputArg);
+const REMOTE = 'https://github.com/unkarelian/Aventuras.git';
 
 // Files to update manually
 const manualFiles = [
