@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import { getVersion } from "@tauri-apps/api/app";
   import { ui } from "$lib/stores/ui.svelte";
   import { settings } from "$lib/stores/settings.svelte";
   import type { ProviderInfo } from "$lib/services/ai/types";
@@ -176,6 +178,16 @@
       isResettingSettings = false;
     }
   }
+
+  let appVersion = $state("");
+
+  onMount(async () => {
+    try {
+      appVersion = await getVersion();
+    } catch (e) {
+      appVersion = "0.0.0-dev";
+    }
+  });
 </script>
 
 <ResponsiveModal.Root
@@ -331,6 +343,12 @@
           </Toggle>
         {/each}
       </div>
+    </div>
+
+    <div
+      class="pointer-events-none absolute bottom-1 left-2 select-none text-[10px] text-muted-foreground/80 z-[100]"
+    >
+      v{appVersion}
     </div>
   </ResponsiveModal.Content>
 </ResponsiveModal.Root>
