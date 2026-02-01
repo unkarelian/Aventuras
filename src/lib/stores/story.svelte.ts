@@ -2651,6 +2651,8 @@ settings: {
     this.allStories = [storyData, ...this.allStories];
     const storyId = storyData.id;
 
+    this.currentStory = storyData;
+
     // Add protagonist
     if (data.protagonist.name) {
       const protagonistTranslation = data.translations?.protagonist;
