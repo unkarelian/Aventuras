@@ -22,7 +22,6 @@
     ImageIcon,
     Loader2,
   } from "lucide-svelte";
-  import type { Chapter } from "$lib/types";
   import {
     hasDescriptors,
     descriptorsToString,
@@ -43,12 +42,15 @@
   import {
     GenerationPipeline,
     retryService,
+    BackgroundTaskCoordinator,
     type PipelineDependencies,
     type PipelineConfig,
     type GenerationContext,
     type GenerationEvent,
     type RetryStoreCallbacks,
     type RetryBackupData,
+    type BackgroundTaskDependencies,
+    type BackgroundTaskInput,
   } from "$lib/services/generation";
   import { InlineImageTracker } from "$lib/services/ai/image";
 
@@ -276,62 +278,6 @@
   }
 
   /**
-   * Check if style review should run (every N messages).
-   * Runs in background, non-blocking.
-   */
-  async function checkStyleReview(
-    shouldIncrement: boolean = true,
-    source: string = "new",
-  ) {
-    // Check if style reviewer is enabled
-    if (!settings.systemServicesSettings.styleReviewer.enabled) {
-      return;
-    }
-
-    const storyId = story.currentStory?.id;
-    if (!storyId) {
-      return;
-    }
-
-    // Increment counter for new messages only
-    if (shouldIncrement) {
-      ui.incrementStyleReviewCounter();
-    }
-
-    const triggerInterval =
-      settings.systemServicesSettings.styleReviewer.triggerInterval;
-
-    log("Style review counter", {
-      source,
-      storyId,
-      messagesSinceLastReview: ui.messagesSinceLastStyleReview,
-      triggerInterval,
-      incremented: shouldIncrement,
-    });
-
-    // Check if we've hit the interval threshold
-    if (ui.messagesSinceLastStyleReview >= triggerInterval) {
-      log("Triggering style review...");
-      ui.setStyleReviewLoading(true, storyId);
-
-      try {
-        const result = await aiService.analyzeStyle(
-          story.entries,
-          story.currentStory?.mode ?? "adventure",
-          story.pov,
-          story.tense,
-        );
-        ui.setStyleReview(result, storyId);
-        log("Style review complete", { phrasesFound: result.phrases.length });
-      } catch (error) {
-        log("Style review failed (non-fatal)", error);
-      } finally {
-        ui.setStyleReviewLoading(false, storyId);
-      }
-    }
-  }
-
-  /**
    * Build retry store callbacks for RetryService.
    */
   function buildRetryStoreCallbacks(): RetryStoreCallbacks {
@@ -381,217 +327,129 @@
   }
 
   /**
-   * Check if auto-summarization should create a new chapter.
-   * Runs in background after each response, per design doc section 3.1.2.
+   * Build dependencies for BackgroundTaskCoordinator.
    */
-  async function checkAutoSummarize() {
-    if (!story.currentStory) return;
-
-    const config = story.memoryConfig;
-    const tokensOutsideBuffer = story.tokensOutsideBuffer;
-
-    log("checkAutoSummarize", {
-      tokensSinceLastChapter: story.tokensSinceLastChapter,
-      tokensOutsideBuffer,
-      tokenThreshold: config.tokenThreshold,
-      messagesOutsideBuffer:
-        story.messagesSinceLastChapter - config.chapterBuffer,
-    });
-
-    // Skip if no tokens outside buffer (all messages are protected)
-    if (tokensOutsideBuffer === 0) {
-      log("No messages outside buffer, skipping");
-      return;
-    }
-
-    // Analyze if we should create a chapter (token-based)
-    const analysis = await aiService.analyzeForChapter(
-      story.entries,
-      story.lastChapterEndIndex,
-      config,
-      tokensOutsideBuffer,
-      story.currentStory?.mode ?? "adventure",
-      story.pov,
-      story.tense,
-    );
-
-    if (!analysis.shouldCreateChapter) {
-      log("No chapter needed yet");
-      return;
-    }
-
-    log("Creating new chapter", { optimalEndIndex: analysis.optimalEndIndex });
-
-    // Get entries for this chapter
-    const startIndex = story.lastChapterEndIndex;
-    const chapterEntries = story.entries.slice(
-      startIndex,
-      analysis.optimalEndIndex,
-    );
-
-    if (chapterEntries.length === 0) {
-      log("No entries for chapter");
-      return;
-    }
-
-    // Get previous chapters for context (branch-filtered)
-    const previousChapters = [...story.currentBranchChapters].sort(
-      (a, b) => a.number - b.number,
-    );
-
-    // Generate chapter summary with previous chapters as context
-    const summary = await aiService.summarizeChapter(
-      chapterEntries,
-      previousChapters,
-      story.currentStory?.mode ?? "adventure",
-      story.pov,
-      story.tense,
-    );
-
-    // Create the chapter - use database method to handle deletions correctly
-    const chapterNumber = await story.getNextChapterNumber();
-
-    // Extract time range from entries' metadata
-    const firstEntry = chapterEntries[0];
-    const lastEntry = chapterEntries[chapterEntries.length - 1];
-    const startTime = firstEntry.metadata?.timeStart ?? null;
-    const endTime = lastEntry.metadata?.timeEnd ?? null;
-
-    const chapter: Chapter = {
-      id: crypto.randomUUID(),
-      storyId: story.currentStory.id,
-      number: chapterNumber,
-      title: analysis.suggestedTitle ?? summary.title ?? null,
-      startEntryId: chapterEntries[0].id,
-      endEntryId: chapterEntries[chapterEntries.length - 1].id,
-      entryCount: chapterEntries.length,
-      summary: summary.summary,
-      startTime,
-      endTime,
-      keywords: summary.keywords,
-      characters: summary.characters,
-      locations: summary.locations,
-      plotThreads: summary.plotThreads,
-      emotionalTone: summary.emotionalTone ?? null,
-      branchId: story.currentStory.currentBranchId,
-      createdAt: Date.now(),
+  function buildBackgroundTaskDependencies(): BackgroundTaskDependencies {
+    return {
+      chapterService: {
+        analyzeForChapter: aiService.analyzeForChapter.bind(aiService),
+        summarizeChapter: aiService.summarizeChapter.bind(aiService),
+        getNextChapterNumber: story.getNextChapterNumber.bind(story),
+        addChapter: story.addChapter.bind(story),
+      },
+      loreManagement: {
+        runLoreManagement: aiService.runLoreManagement.bind(aiService),
+      },
+      styleReview: {
+        analyzeStyle: aiService.analyzeStyle.bind(aiService),
+      },
     };
-
-    await story.addChapter(chapter);
-    log("Chapter created", { number: chapterNumber, title: chapter.title });
-
-    // Trigger lore management after chapter creation
-    runLoreManagement().catch((err) => {
-      console.error("[ActionInput] Lore management failed:", err);
-      ui.finishLoreManagement();
-    });
   }
 
   /**
-   * Run lore management to review and update lorebook entries.
-   * Triggered after chapter creation per design doc section 3.4.
+   * Build input for BackgroundTaskCoordinator.
    */
-  async function runLoreManagement() {
-    if (!story.currentStory) return;
+  function buildBackgroundTaskInput(countStyleReview: boolean, styleReviewSource: string): BackgroundTaskInput {
+    const storyId = story.currentStory?.id ?? '';
+    const mode = story.currentStory?.mode ?? 'adventure';
 
-    log("Starting lore management...");
-    ui.startLoreManagement();
+    return {
+      // Style review input
+      styleReview: {
+        storyId,
+        entries: story.entries,
+        mode,
+        pov: story.pov,
+        tense: story.tense,
+        enabled: settings.systemServicesSettings.styleReviewer.enabled,
+        triggerInterval: settings.systemServicesSettings.styleReviewer.triggerInterval,
+        currentCounter: ui.messagesSinceLastStyleReview,
+        shouldIncrement: countStyleReview,
+        source: styleReviewSource,
+      },
+      styleReviewCallbacks: {
+        incrementCounter: ui.incrementStyleReviewCounter.bind(ui),
+        setLoading: ui.setStyleReviewLoading.bind(ui),
+        setResult: ui.setStyleReview.bind(ui),
+      },
 
-    let changeCount = 0;
-    const bumpChanges = (delta = 1) => {
-      changeCount += delta;
-      return changeCount;
-    };
+      // Chapter check input
+      chapterCheck: {
+        storyId,
+        currentBranchId: story.currentStory?.currentBranchId ?? null,
+        entries: story.entries,
+        lastChapterEndIndex: story.lastChapterEndIndex,
+        tokensSinceLastChapter: story.tokensSinceLastChapter,
+        tokensOutsideBuffer: story.tokensOutsideBuffer,
+        messagesSinceLastChapter: story.messagesSinceLastChapter,
+        memoryConfig: story.memoryConfig,
+        currentBranchChapters: story.currentBranchChapters,
+        mode,
+        pov: story.pov,
+        tense: story.tense,
+      },
 
-    try {
-      const result = await aiService.runLoreManagement(
-        story.currentStory.id,
-        story.currentStory.currentBranchId,
-        [...story.lorebookEntries], // Clone to avoid mutation issues
-        [], // Lore management runs without current chat history
-        story.currentBranchChapters, // Use branch-filtered chapters
-        {
-          onCreateEntry: async (entry) => {
-            await story.addLorebookEntry({
-              name: entry.name,
-              type: entry.type,
-              description: entry.description,
-              hiddenInfo: entry.hiddenInfo,
-              aliases: entry.aliases,
-              state: entry.state,
-              adventureState: entry.adventureState,
-              creativeState: entry.creativeState,
-              injection: entry.injection,
-              firstMentioned: entry.firstMentioned,
-              lastMentioned: entry.lastMentioned,
-              mentionCount: entry.mentionCount,
-              createdBy: entry.createdBy,
-              loreManagementBlacklisted: entry.loreManagementBlacklisted,
-            });
-            ui.updateLoreManagementProgress(
-              "Creating entries...",
-              bumpChanges(),
-            );
-          },
-          onUpdateEntry: async (id, updates) => {
-            await story.updateLorebookEntry(id, updates);
-            ui.updateLoreManagementProgress(
-              "Updating entries...",
-              bumpChanges(),
-            );
-          },
-          onDeleteEntry: async (id) => {
-            await story.deleteLorebookEntry(id);
-            ui.updateLoreManagementProgress(
-              "Cleaning up entries...",
-              bumpChanges(),
-            );
-          },
-          onMergeEntries: async (entryIds, mergedEntry) => {
-            // Delete old entries and create merged one
-            await story.deleteLorebookEntries(entryIds);
-            await story.addLorebookEntry({
-              name: mergedEntry.name,
-              type: mergedEntry.type,
-              description: mergedEntry.description,
-              hiddenInfo: mergedEntry.hiddenInfo,
-              aliases: mergedEntry.aliases,
-              state: mergedEntry.state,
-              adventureState: mergedEntry.adventureState,
-              creativeState: mergedEntry.creativeState,
-              injection: mergedEntry.injection,
-              firstMentioned: mergedEntry.firstMentioned,
-              lastMentioned: mergedEntry.lastMentioned,
-              mentionCount: mergedEntry.mentionCount,
-              createdBy: mergedEntry.createdBy,
-              loreManagementBlacklisted: mergedEntry.loreManagementBlacklisted,
-            });
-            ui.updateLoreManagementProgress(
-              "Merging entries...",
-              bumpChanges(),
-            );
-          },
+      // Lore management input
+      loreSession: {
+        storyId,
+        currentBranchId: story.currentStory?.currentBranchId ?? null,
+        lorebookEntries: story.lorebookEntries,
+        chapters: story.currentBranchChapters,
+        mode,
+        pov: story.pov,
+        tense: story.tense,
+      },
+      loreCallbacks: {
+        onCreateEntry: async (entry) => {
+          await story.addLorebookEntry({
+            name: entry.name,
+            type: entry.type,
+            description: entry.description,
+            hiddenInfo: entry.hiddenInfo,
+            aliases: entry.aliases,
+            state: entry.state,
+            adventureState: entry.adventureState,
+            creativeState: entry.creativeState,
+            injection: entry.injection,
+            firstMentioned: entry.firstMentioned,
+            lastMentioned: entry.lastMentioned,
+            mentionCount: entry.mentionCount,
+            createdBy: entry.createdBy,
+            loreManagementBlacklisted: entry.loreManagementBlacklisted,
+          });
         },
-        story.currentStory?.mode ?? "adventure",
-        story.pov,
-        story.tense,
-      );
-
-      log("Lore management complete", {
-        changesCount: result.changes.length,
-        summary: result.summary,
-      });
-
-      ui.updateLoreManagementProgress(
-        `Complete: ${result.summary}`,
-        result.changes.length,
-      );
-    } finally {
-      // Give user a moment to see the completion message
-      setTimeout(() => {
-        ui.finishLoreManagement();
-      }, 2000);
-    }
+        onUpdateEntry: async (id, updates) => {
+          await story.updateLorebookEntry(id, updates);
+        },
+        onDeleteEntry: async (id) => {
+          await story.deleteLorebookEntry(id);
+        },
+        onMergeEntries: async (entryIds, mergedEntry) => {
+          await story.deleteLorebookEntries(entryIds);
+          await story.addLorebookEntry({
+            name: mergedEntry.name,
+            type: mergedEntry.type,
+            description: mergedEntry.description,
+            hiddenInfo: mergedEntry.hiddenInfo,
+            aliases: mergedEntry.aliases,
+            state: mergedEntry.state,
+            adventureState: mergedEntry.adventureState,
+            creativeState: mergedEntry.creativeState,
+            injection: mergedEntry.injection,
+            firstMentioned: mergedEntry.firstMentioned,
+            lastMentioned: mergedEntry.lastMentioned,
+            mentionCount: mergedEntry.mentionCount,
+            createdBy: mergedEntry.createdBy,
+            loreManagementBlacklisted: mergedEntry.loreManagementBlacklisted,
+          });
+        },
+      },
+      loreUICallbacks: {
+        onStart: ui.startLoreManagement.bind(ui),
+        onProgress: ui.updateLoreManagementProgress.bind(ui),
+        onComplete: ui.finishLoreManagement.bind(ui),
+      },
+    };
   }
 
   // Get protagonist name for third person POV
@@ -887,12 +745,23 @@
       }
 
       // Post-generation tasks (background, non-blocking)
+      // Use coordinator if auto-summarize is enabled (it handles style review too)
       if (story.memoryConfig.autoSummarize) {
-        checkAutoSummarize().catch((err) => log("Auto-summarize check failed (non-fatal)", err));
+        const coordinator = new BackgroundTaskCoordinator(buildBackgroundTaskDependencies());
+        const input = buildBackgroundTaskInput(countStyleReview, styleReviewSource);
+        coordinator.runBackgroundTasks(input).catch((err) =>
+          log("Background tasks failed (non-fatal)", err)
+        );
+      } else {
+        // If auto-summarize disabled, still run style review via coordinator
+        const coordinator = new BackgroundTaskCoordinator(buildBackgroundTaskDependencies());
+        const input = buildBackgroundTaskInput(countStyleReview, styleReviewSource);
+        // Skip chapter check by setting tokensOutsideBuffer to 0
+        input.chapterCheck.tokensOutsideBuffer = 0;
+        coordinator.runBackgroundTasks(input).catch((err) =>
+          log("Background tasks failed (non-fatal)", err)
+        );
       }
-      checkStyleReview(countStyleReview, styleReviewSource).catch((err) =>
-        log("Style review check failed (non-fatal)", err),
-      );
 
     } catch (error) {
       if (stopRequested || (error instanceof Error && error.name === "AbortError")) {

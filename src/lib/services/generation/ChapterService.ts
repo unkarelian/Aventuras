@@ -3,7 +3,7 @@
  * Coordinates AI analysis and chapter creation without triggering lore management directly.
  */
 
-import type { Chapter, StoryEntry, MemoryConfig, TimeTracker } from '$lib/types';
+import type { Chapter, StoryEntry, MemoryConfig, TimeTracker, StoryMode, POV, Tense } from '$lib/types';
 import type { ChapterAnalysis, ChapterSummaryResult } from '$lib/services/ai/sdk/schemas/memory';
 
 function log(...args: unknown[]) {
@@ -23,9 +23,9 @@ export interface ChapterCheckInput {
   messagesSinceLastChapter: number;
   memoryConfig: MemoryConfig;
   currentBranchChapters: Chapter[];
-  mode: string;
-  pov: string;
-  tense: string;
+  mode: StoryMode;
+  pov: POV;
+  tense: Tense;
 }
 
 export interface ChapterServiceDependencies {
@@ -34,17 +34,17 @@ export interface ChapterServiceDependencies {
     lastChapterEndIndex: number,
     config: MemoryConfig,
     tokensOutsideBuffer: number,
-    mode: string,
-    pov: string,
-    tense: string
+    mode?: StoryMode,
+    pov?: POV,
+    tense?: Tense
   ) => Promise<ChapterAnalysisResult>;
 
   summarizeChapter: (
     entries: StoryEntry[],
-    previousChapters: Chapter[],
-    mode: string,
-    pov: string,
-    tense: string
+    previousChapters?: Chapter[],
+    mode?: StoryMode,
+    pov?: POV,
+    tense?: Tense
   ) => Promise<ChapterSummaryData>;
 
   getNextChapterNumber: () => Promise<number>;
