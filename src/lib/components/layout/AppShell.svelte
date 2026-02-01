@@ -16,6 +16,7 @@
   import SyncModal from '$lib/components/sync/SyncModal.svelte';
   import { swipe } from '$lib/utils/swipe';
   import { Bug } from 'lucide-svelte';
+  import { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout';
   import type { Snippet } from 'svelte';
 
   let { children }: { children?: Snippet } = $props();
@@ -52,7 +53,7 @@
     const newWidth = window.innerWidth - e.clientX;
     
     // Constraints
-    if (newWidth >= 250 && newWidth <= Math.min(800, window.innerWidth * 0.6)) {
+    if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * MAX_SIDEBAR_RATIO)) {
       settings.setSidebarWidth(newWidth);
     }
   }
@@ -125,8 +126,11 @@
     <div class="sidebar-container relative flex h-full">
       <!-- Resizer Handle (Desktop only) -->
       <div 
-        class="resizer-handle hidden h-full w-1 cursor-col-resize hover:bg-primary/50 transition-colors sm:block" 
+        class="resizer-handle hidden h-full sm:block" 
         onmousedown={startResizing}
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Sidebar Resizer"
       ></div>
       <Sidebar />
     </div>
@@ -224,6 +228,7 @@
     width: 4px;
     cursor: col-resize;
     z-index: 60;
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .resizer-handle:hover {

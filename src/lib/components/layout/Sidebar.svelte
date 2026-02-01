@@ -10,7 +10,8 @@
   import TimePanel from '$lib/components/world/TimePanel.svelte';
   import BranchPanel from '$lib/components/branch/BranchPanel.svelte';
   import { swipe } from '$lib/utils/swipe';
-
+  import { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout';
+  
   import * as Tabs from "$lib/components/ui/tabs";
   import { Button } from "$lib/components/ui/button";
 
@@ -41,10 +42,15 @@
       ui.toggleSidebar();
     }
   }
+
+  let innerWidth = $state(0);
 </script>
+
+<svelte:window bind:innerWidth />
 <aside
   class="flex h-full w-[calc(100vw-3rem)] flex-col border-l border-border bg-card/80 backdrop-blur-[2px]"
-  style="width: {typeof window !== 'undefined' && window.innerWidth > 768 ? settings.uiSettings.sidebarWidth + 'px' : ''}; max-width: {typeof window !== 'undefined' && window.innerWidth > 768 ? 'none' : '288px'}"
+  style:width={innerWidth > 768 ? settings.uiSettings.sidebarWidth + 'px' : ''}
+  style:max-width={innerWidth > 768 ? Math.min(MAX_SIDEBAR_WIDTH, innerWidth * MAX_SIDEBAR_RATIO) + 'px' : '288px'}
   use:swipe={{ onSwipeLeft: handleSwipeLeft, onSwipeRight: handleSwipeRight, threshold: 50 }}
 >
   <!-- Tab navigation -->
