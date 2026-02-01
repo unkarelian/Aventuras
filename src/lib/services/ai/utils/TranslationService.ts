@@ -1,14 +1,20 @@
 /**
  * Translation Service
  *
- * Handles translation of narrative content, user input, and UI elements.
- *
- * STATUS: STUBBED - Awaiting SDK migration
- * Original implementation preserved in comments below for reference.
+ * Handles translation of narrative content, user input, and UI elements
+ * using the Vercel AI SDK.
  */
 
 import type { TranslationSettings } from '$lib/types';
 import { createLogger } from '../core/config';
+import { generatePlainText, generateStructured } from '../sdk/generate';
+import { promptService, type PromptContext } from '$lib/services/prompts';
+import {
+  translatedUIResultSchema,
+  translatedSuggestionsResultSchema,
+  translatedActionChoicesResultSchema,
+  translatedWizardBatchResultSchema,
+} from '../sdk/schemas/translation';
 
 const log = createLogger('Translation');
 
@@ -34,9 +40,16 @@ export interface UITranslationItem {
   type: 'name' | 'description' | 'title';
 }
 
+// Minimal prompt context for translation (not story-dependent)
+const TRANSLATION_CONTEXT: PromptContext = {
+  mode: 'creative-writing',
+  pov: 'third',
+  tense: 'past',
+  protagonistName: '',
+};
+
 /**
  * Service that handles translation of narrative and UI content.
- * NOTE: This service has been stubbed during SDK migration.
  */
 export class TranslationService {
   private presetId: string;
@@ -59,44 +72,76 @@ export class TranslationService {
 
   /**
    * Translate narration (post-generation).
-   * @throws Error - Service not implemented during SDK migration
+   * Preserves HTML tags and <pic> tags in the content.
    */
   async translateNarration(
     content: string,
     targetLanguage: string,
-    isVisualProse: boolean = false
+    _isVisualProse: boolean = false
   ): Promise<TranslationResult> {
-    // Skip if target is English
-    if (targetLanguage === 'en') {
+    // Skip if target is English or content is empty
+    if (targetLanguage === 'en' || !content.trim()) {
       return { translatedContent: content };
     }
 
-    throw new Error('TranslationService.translateNarration() not implemented - awaiting SDK migration');
+    try {
+      const system = promptService.renderPrompt('translate-narration', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const prompt = promptService.renderUserPrompt('translate-narration', TRANSLATION_CONTEXT, {
+        content,
+      });
 
-    /* COMMENTED OUT - Original implementation for reference:
-    const promptContext: PromptContext = { ... };
-    const systemPrompt = promptService.renderPrompt('translate-narration', promptContext, {
-      targetLanguage: this.getLanguageName(targetLanguage),
-    });
-    const response = await this.provider.generateResponse({ ... });
-    return { translatedContent: response.content.trim() };
-    */
+      const translatedContent = await generatePlainText({
+        presetId: this.presetId,
+        system,
+        prompt,
+      });
+
+      log('Translated narration to', targetLanguage);
+      return { translatedContent: translatedContent.trim() };
+    } catch (error) {
+      log('Translation failed:', error);
+      return { translatedContent: content }; // Return original on failure
+    }
   }
 
   /**
    * Translate user input to English.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateInput(
     content: string,
     sourceLanguage: string
   ): Promise<TranslationResult> {
-    throw new Error('TranslationService.translateInput() not implemented - awaiting SDK migration');
+    // Skip if source is English or content is empty
+    if (sourceLanguage === 'en' || !content.trim()) {
+      return { translatedContent: content };
+    }
+
+    try {
+      const system = promptService.renderPrompt('translate-input', TRANSLATION_CONTEXT, {
+        sourceLanguage: this.getLanguageName(sourceLanguage),
+      });
+      const prompt = promptService.renderUserPrompt('translate-input', TRANSLATION_CONTEXT, {
+        content,
+      });
+
+      const translatedContent = await generatePlainText({
+        presetId: this.presetId,
+        system,
+        prompt,
+      });
+
+      log('Translated input from', sourceLanguage, 'to English');
+      return { translatedContent: translatedContent.trim(), detectedLanguage: sourceLanguage };
+    } catch (error) {
+      log('Input translation failed:', error);
+      return { translatedContent: content };
+    }
   }
 
   /**
    * Batch translate UI elements.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateUIElements(
     items: UITranslationItem[],
@@ -105,12 +150,41 @@ export class TranslationService {
     if (items.length === 0) return [];
     if (targetLanguage === 'en') return items;
 
-    throw new Error('TranslationService.translateUIElements() not implemented - awaiting SDK migration');
+    try {
+      const system = promptService.renderPrompt('translate-ui', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const elementsJson = JSON.stringify(items.map(item => ({
+        id: item.id,
+        text: item.text,
+        type: item.type,
+      })));
+      const prompt = promptService.renderUserPrompt('translate-ui', TRANSLATION_CONTEXT, {
+        elementsJson,
+      });
+
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: translatedUIResultSchema,
+        system,
+        prompt,
+      });
+
+      // Merge translated text back into original items
+      log('Translated', result.items.length, 'UI elements to', targetLanguage);
+      return items.map((original, index) => ({
+        ...original,
+        text: result.items[index]?.text ?? original.text,
+      }));
+    } catch (error) {
+      log('UI translation failed:', error);
+      return items; // Return original on failure
+    }
   }
 
   /**
    * Translate suggestions.
-   * @throws Error - Service not implemented during SDK migration
+   * Preserves the original object structure, only replacing the text field.
    */
   async translateSuggestions<T extends { text: string; type?: string }>(
     suggestions: T[],
@@ -119,12 +193,40 @@ export class TranslationService {
     if (suggestions.length === 0) return [];
     if (targetLanguage === 'en') return suggestions;
 
-    throw new Error('TranslationService.translateSuggestions() not implemented - awaiting SDK migration');
+    try {
+      const system = promptService.renderPrompt('translate-suggestions', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const suggestionsJson = JSON.stringify(suggestions.map(s => ({
+        text: s.text,
+        type: s.type,
+      })));
+      const prompt = promptService.renderUserPrompt('translate-suggestions', TRANSLATION_CONTEXT, {
+        suggestionsJson,
+      });
+
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: translatedSuggestionsResultSchema,
+        system,
+        prompt,
+      });
+
+      // Merge translated text back into original objects (preserves extra fields)
+      log('Translated', result.suggestions.length, 'suggestions to', targetLanguage);
+      return suggestions.map((original, index) => ({
+        ...original,
+        text: result.suggestions[index]?.text ?? original.text,
+      }));
+    } catch (error) {
+      log('Suggestions translation failed:', error);
+      return suggestions;
+    }
   }
 
   /**
    * Translate action choices.
-   * @throws Error - Service not implemented during SDK migration
+   * Preserves the original object structure, only replacing the text field.
    */
   async translateActionChoices<T extends { text: string; type?: string }>(
     choices: T[],
@@ -133,27 +235,72 @@ export class TranslationService {
     if (choices.length === 0) return [];
     if (targetLanguage === 'en') return choices;
 
-    throw new Error('TranslationService.translateActionChoices() not implemented - awaiting SDK migration');
+    try {
+      const system = promptService.renderPrompt('translate-action-choices', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const choicesJson = JSON.stringify(choices.map(c => ({
+        text: c.text,
+        type: c.type,
+      })));
+      const prompt = promptService.renderUserPrompt('translate-action-choices', TRANSLATION_CONTEXT, {
+        choicesJson,
+      });
+
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: translatedActionChoicesResultSchema,
+        system,
+        prompt,
+      });
+
+      // Merge translated text back into original objects (preserves extra fields)
+      log('Translated', result.choices.length, 'action choices to', targetLanguage);
+      return choices.map((original, index) => ({
+        ...original,
+        text: result.choices[index]?.text ?? original.text,
+      }));
+    } catch (error) {
+      log('Action choices translation failed:', error);
+      return choices;
+    }
   }
 
   /**
    * Translate wizard content.
-   * @throws Error - Service not implemented during SDK migration
    */
   async translateWizardContent(
     content: string,
     targetLanguage: string
   ): Promise<TranslationResult> {
-    if (targetLanguage === 'en') {
+    if (targetLanguage === 'en' || !content.trim()) {
       return { translatedContent: content };
     }
 
-    throw new Error('TranslationService.translateWizardContent() not implemented - awaiting SDK migration');
+    try {
+      const system = promptService.renderPrompt('translate-wizard-content', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const prompt = promptService.renderUserPrompt('translate-wizard-content', TRANSLATION_CONTEXT, {
+        content,
+      });
+
+      const translatedContent = await generatePlainText({
+        presetId: this.presetId,
+        system,
+        prompt,
+      });
+
+      log('Translated wizard content to', targetLanguage);
+      return { translatedContent: translatedContent.trim() };
+    } catch (error) {
+      log('Wizard content translation failed:', error);
+      return { translatedContent: content };
+    }
   }
 
   /**
-   * Batch translate wizard content.
-   * @throws Error - Service not implemented during SDK migration
+   * Batch translate wizard content fields.
    */
   async translateWizardBatch(
     fields: Record<string, string>,
@@ -163,7 +310,41 @@ export class TranslationService {
       return fields;
     }
 
-    throw new Error('TranslationService.translateWizardBatch() not implemented - awaiting SDK migration');
+    const entries = Object.entries(fields);
+    if (entries.length === 0) {
+      return fields;
+    }
+
+    try {
+      // Build a prompt that instructs the model to translate each field value
+      const system = promptService.renderPrompt('translate-wizard-content', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+
+      // Format as JSON object with field keys
+      const fieldsJson = JSON.stringify(fields);
+      const prompt = `Translate each value in this JSON object to ${this.getLanguageName(targetLanguage)}. Keep the keys unchanged. Return a JSON object with the same keys and translated values.
+
+${fieldsJson}`;
+
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: translatedWizardBatchResultSchema,
+        system,
+        prompt,
+      });
+
+      // Merge results with fallback to original values
+      log('Translated', Object.keys(result.translations).length, 'wizard fields to', targetLanguage);
+      const translated: Record<string, string> = {};
+      for (const [key, value] of entries) {
+        translated[key] = result.translations[key] ?? value;
+      }
+      return translated;
+    } catch (error) {
+      log('Wizard batch translation failed:', error);
+      return fields;
+    }
   }
 
   /**
