@@ -3,9 +3,7 @@ name: Pre-release
 on:
   push:
     tags:
-      - 'v*-alpha*'   # v0.5.5-alpha.1
-      - 'v*-beta*'    # v0.5.5-beta.1
-      - 'v*-rc*'      # v0.5.5-rc.1
+      - 'v*-pre*'   # v0.5.5-pre.1
   workflow_dispatch:
 
 env:
