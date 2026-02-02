@@ -66,9 +66,7 @@ export const translateUITemplate: PromptTemplate = {
 Translate each item in the JSON array below. For each item:
 - Translate the "text" field
 - Keep "id" unchanged
-- Preserve proper nouns and character names
-
-Respond with a JSON array in the same format with translated text.`,
+- Preserve proper nouns and character names`,
   userContent: `{{elementsJson}}`,
 };
 
@@ -87,9 +85,7 @@ Translate the JSON array of suggestions below. For each item:
 - Translate the "text" field (the suggestion content)
 - Keep the "type" field unchanged (action, dialogue, revelation, twist)
 - Preserve character names and proper nouns
-- Maintain the tone and creative intent
-
-Respond with a JSON array in the same format with translated text.`,
+- Maintain the tone and creative intent`,
   userContent: `{{suggestionsJson}}`,
 };
 
@@ -108,9 +104,7 @@ Translate the JSON array of action choices below. For each item:
 - Translate the "text" field (the action description)
 - Keep the "type" field unchanged (do, say, think, or custom)
 - Preserve character names and proper nouns
-- Match the tone and style (casual, urgent, dramatic, etc.)
-
-Respond with a JSON array in the same format with translated text.`,
+- Match the tone and style (casual, urgent, dramatic, etc.)`,
   userContent: `{{choicesJson}}`,
 };
 
