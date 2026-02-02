@@ -1,0 +1,62 @@
+import svelte from 'eslint-plugin-svelte'
+import globals from 'globals'
+import tseslint from 'typescript-eslint'
+import prettier from 'eslint-config-prettier'
+import unusedImports from 'eslint-plugin-unused-imports'
+
+/** @type {import('eslint').Linter.Config[]} */
+export default [
+  ...tseslint.configs.recommended,
+  ...svelte.configs['flat/recommended'],
+  prettier,
+  ...svelte.configs['flat/prettier'],
+  {
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+  },
+  {
+    files: ['**/*.svelte'],
+    languageOptions: {
+      parserOptions: {
+        parser: tseslint.parser,
+      },
+    },
+  },
+  {
+    files: ['**/*.svelte.ts'],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        project: true,
+        extraFileExtensions: ['.svelte'],
+      },
+    },
+  },
+  {
+    ignores: ['build/', '.svelte-kit/', 'dist/'],
+  },
+  {
+    plugins: {
+      'unused-imports': unusedImports,
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'unused-imports/no-unused-vars': [
+        'error',
+        {
+          vars: 'all',
+          varsIgnorePattern: '^_',
+          args: 'after-used',
+          argsIgnorePattern: '^_',
+        },
+      ],
+      'import/no-unresolved': 'off',
+      'unused-imports/no-unused-imports': 'error',
+      'prettier/prettier': 'warn',
+    },
+  },
+]
