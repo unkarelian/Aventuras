@@ -5,7 +5,7 @@
  * Extracted from definitions.ts as part of the modular prompt reorganization.
  */
 
-import type { PromptTemplate } from '../../types';
+import type { PromptTemplate } from '../types';
 
 export const suggestionsTemplate: PromptTemplate = {
   id: 'suggestions',
