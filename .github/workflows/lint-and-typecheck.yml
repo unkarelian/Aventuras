@@ -3,7 +3,7 @@ name: Lint and Type-check
 on:
   pull_request:
     branches:
-      - main
+      - master
       - develop
   workflow_dispatch:
 
