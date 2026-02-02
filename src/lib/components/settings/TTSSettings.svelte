@@ -257,7 +257,11 @@
           class="w-full"
           value={settings.systemServicesSettings.tts.voice}
           oninput={(e) => {
-            settings.systemServicesSettings.tts.voice = e.currentTarget.value;
+            const voice = e.currentTarget.value;
+            settings.systemServicesSettings.tts.voice = voice;
+            if (settings.systemServicesSettings.tts.providerVoices) {
+              settings.systemServicesSettings.tts.providerVoices['openai'] = voice;
+            }
             settings.saveSystemServicesSettings();
           }}
           placeholder="alloy"

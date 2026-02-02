@@ -533,18 +533,12 @@ export class MicrosoftSpeechProvider extends TTSProvider {
 
   /**
    * Generate TTS audio using Web Speech Synthesis API
-   * Web Speech API does not provide direct access to audio data as a Blob.
-   * The actual synthesis and playback are handled in the streamAndPlay override.
-   * This method returns a placeholder empty blob to satisfy the abstract contract.
+   * This method is not supported for MicrosoftSpeechProvider because the Web Speech API
+   * does not allow direct access to the generated audio data as a Blob.
+   * Playback must be handled via the overridden streamAndPlay method.
    */
   protected override async generateChunk(text: string, voice: string): Promise<Blob> {
-    await this.waitForVoices();
-
-    if (!this.systemVoices.find(v => v.name === voice)) {
-      throw new Error(`Voice not found: ${voice}`);
-    }
-    
-    return Promise.resolve(new Blob([], { type: 'audio/wav' }));
+    throw new Error("Generating audio blobs is not supported by the Windows System TTS provider.");
   }
 
   /**
