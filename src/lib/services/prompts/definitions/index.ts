@@ -1,12 +1,35 @@
 /**
- * Prompt Definitions - Domain Split Index
+ * Centralized Prompt System - Definitions Index
  *
- * Macros and templates are organized in subdirectories:
- * - ./macros/ - All macro definitions by domain
- * - ./templates/ - All template definitions by domain (in templates/ folder)
- *
- * This file will aggregate exports after migration completes.
+ * This module aggregates all macro and template definitions.
+ * Import from here to get the combined registries.
  */
 
-// Macros will be exported here after Task 1
-// Templates will continue to be exported from ../templates/ for now
+// Macros
+export {
+  BUILTIN_MACROS,
+  coreMacros,
+  contextMacros,
+  narrativeMacros,
+  featureMacros,
+  CONTEXT_PLACEHOLDERS,
+  getPlaceholderByToken,
+} from './macros';
+
+// Re-export individual macros for direct access
+export * from './macros/core';
+export * from './macros/context';
+export * from './macros/narrative';
+export * from './macros/features';
+
+// Templates will be added in Plan 02
+// For now, re-export from the original definitions.ts
+export {
+  PROMPT_TEMPLATES,
+  getTemplateById,
+  getMacroByToken,
+  getMacrosByType,
+  getTemplatesByCategory,
+  getImageStyleTemplates,
+  hasUserContent,
+} from '../definitions';
