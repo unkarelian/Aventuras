@@ -486,15 +486,22 @@ export class MicrosoftSpeechProvider extends TTSProvider {
       return;
     }
 
-    return new Promise((resolve) => {
+    const MAX_WAIT_TIME = 5000; // 5 seconds
+    const POLL_INTERVAL = 100;
+
+    return new Promise((resolve, reject) => {
+      let elapsedTime = 0;
       const checkVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
           this.systemVoices = voices;
           this.voicesLoaded = true;
           resolve();
+        } else if (elapsedTime < MAX_WAIT_TIME) {
+          elapsedTime += POLL_INTERVAL;
+          setTimeout(checkVoices, POLL_INTERVAL);
         } else {
-          setTimeout(checkVoices, 100);
+          reject(new Error("System voices failed to load within the time limit."));
         }
       };
       checkVoices();
@@ -526,54 +533,18 @@ export class MicrosoftSpeechProvider extends TTSProvider {
 
   /**
    * Generate TTS audio using Web Speech Synthesis API
-   * Returns audio as a Blob by recording the output
+   * Web Speech API does not provide direct access to audio data as a Blob.
+   * The actual synthesis and playback are handled in the streamAndPlay override.
+   * This method returns a placeholder empty blob to satisfy the abstract contract.
    */
   protected override async generateChunk(text: string, voice: string): Promise<Blob> {
     await this.waitForVoices();
 
-    if (!window.speechSynthesis) {
-      throw new Error('Speech Synthesis API not available');
-    }
-
-    // Find the voice
-    const selectedVoice = this.systemVoices.find(v => v.name === voice);
-    if (!selectedVoice) {
+    if (!this.systemVoices.find(v => v.name === voice)) {
       throw new Error(`Voice not found: ${voice}`);
     }
-
-    return new Promise((resolve, reject) => {
-      // Create utterance
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.voice = selectedVoice;
-      utterance.rate = this.settings.speed || DEFAULT_SPEECH_RATE;
-      utterance.pitch = DEFAULT_PITCH;
-      utterance.volume = this.settings.volumeOverride ? this.settings.volume : DEFAULT_VOLUME;
-
-      // We need to capture the audio output
-      // Unfortunately, Web Speech API doesn't directly provide audio data
-      // We'll need to use a workaround: record the system audio output
-      // For now, we'll create a minimal WAV header and return empty blob
-      // The actual playback will happen via the streamAndPlay override
-
-      utterance.onerror = (event) => {
-        console.error('[TTS] Speech synthesis error in generateChunk:', event.error);
-        reject(new Error(`Speech synthesis failed: ${event.error}`));
-      };
-
-      utterance.onend = () => {
-        // Return a placeholder blob since Web Speech API doesn't provide audio data
-        // The actual synthesis happens in the streamAndPlay method
-        resolve(new Blob([new Uint8Array(0)], { type: 'audio/wav' }));
-      };
-
-      // Start synthesis with error handling
-      try {
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        console.error('[TTS] Failed to start speech synthesis:', err);
-        reject(new Error(`Failed to start speech synthesis: ${err instanceof Error ? err.message : 'Unknown error'}`));
-      }
-    });
+    
+    return Promise.resolve(new Blob([], { type: 'audio/wav' }));
   }
 
   /**

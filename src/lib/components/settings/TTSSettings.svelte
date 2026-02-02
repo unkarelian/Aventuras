@@ -234,37 +234,35 @@
         />
       </div>
 
-      {#if settings.systemServicesSettings.tts.provider === "openai"}
-        <!-- TTS Model -->
-        <div>
-          <Label class="mb-2 block">TTS Model</Label>
-          <Input
-            type="text"
-            class="w-full"
-            value={settings.systemServicesSettings.tts.model}
-            oninput={(e) => {
-              settings.systemServicesSettings.tts.model = e.currentTarget.value;
-              settings.saveSystemServicesSettings();
-            }}
-            placeholder="tts-1"
-          />
-        </div>
+      <!-- TTS Model -->
+      <div>
+        <Label class="mb-2 block">TTS Model</Label>
+        <Input
+          type="text"
+          class="w-full"
+          value={settings.systemServicesSettings.tts.model}
+          oninput={(e) => {
+            settings.systemServicesSettings.tts.model = e.currentTarget.value;
+            settings.saveSystemServicesSettings();
+          }}
+          placeholder="tts-1"
+        />
+      </div>
 
-        <!-- Voice -->
-        <div>
-          <Label class="mb-2 block">Voice</Label>
-          <Input
-            type="text"
-            class="w-full"
-            value={settings.systemServicesSettings.tts.voice}
-            oninput={(e) => {
-              settings.systemServicesSettings.tts.voice = e.currentTarget.value;
-              settings.saveSystemServicesSettings();
-            }}
-            placeholder="alloy"
-          />
-        </div>
-      {/if}
+      <!-- Voice -->
+      <div>
+        <Label class="mb-2 block">Voice</Label>
+        <Input
+          type="text"
+          class="w-full"
+          value={settings.systemServicesSettings.tts.voice}
+          oninput={(e) => {
+            settings.systemServicesSettings.tts.voice = e.currentTarget.value;
+            settings.saveSystemServicesSettings();
+          }}
+          placeholder="alloy"
+        />
+      </div>
     {:else if settings.systemServicesSettings.tts.provider === "microsoft"}
       <!-- Windows System Voice Selection -->
       <div>
