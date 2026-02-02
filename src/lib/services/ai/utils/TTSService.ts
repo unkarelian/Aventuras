@@ -21,6 +21,8 @@ export interface TTSSettings {
   removeAllHtmlContent: boolean;
   htmlTagsToRemoveContent: string;
   provider: "openai" | "google";
+  volume: number;
+  volumeOverride: boolean;
 }
 
 export interface TTSVoice {
@@ -74,11 +76,16 @@ export abstract class TTSProvider {
     blob: Blob,
     onProgress?: (progress: number, duration: number) => void,
     playbackRate = 1.0,
+    volume = 1.0,
+    volumeOverride = false,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const url = URL.createObjectURL(blob);
       const audio = new Audio();
       this.currentAudio = audio;
+      if (volumeOverride) {
+        audio.volume = volume;
+      }
 
       const cleanup = () => {
         audio.oncanplaythrough = null;
@@ -152,6 +159,8 @@ export abstract class TTSProvider {
     voice: string,
     onProgress?: (progress: number) => void,
     playbackRate = 1.0,
+    volume = 1.0,
+    volumeOverride = false,
   ): Promise<void> {
     if (!text || text.trim().length === 0) {
       throw new Error("TTS: Cannot generate speech for empty text");
@@ -223,7 +232,7 @@ export abstract class TTSProvider {
             }
           : undefined;
 
-        await this.playSingleBlob(ready[playedIndex], chunkProgress, playbackRate);
+        await this.playSingleBlob(ready[playedIndex], chunkProgress, playbackRate, volume, volumeOverride);
         playedIndex++;
       } else if (generationDone) {
         if (generationError) throw generationError;
@@ -601,10 +610,12 @@ export class AITTSService {
     // Speed is always applied client-side via playbackRate since not all
     // OpenAI-compatible servers (e.g. Kokoro) honor the speed parameter
     const playbackRate = this.settings.speed;
+    const volume = this.settings.volume;
+    const volumeOverride = this.settings.volumeOverride;
 
     try {
       this.isPlaying = true;
-      await this.provider.streamAndPlay(text, voiceToUse, onProgress, playbackRate);
+      await this.provider.streamAndPlay(text, voiceToUse, onProgress, playbackRate, volume, volumeOverride);
     } finally {
       this.isPlaying = false;
     }

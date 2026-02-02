@@ -612,6 +612,8 @@ export interface TTSServiceSettings {
   removeAllHtmlContent: boolean;     // Removes content within all HTML tags (default: false)
   htmlTagsToRemoveContent: string; // Specific HTML tags to remove content from (default: span, div)
   provider: 'openai' | 'google';   // TTS Provider (default: 'openai')
+  volume: number;                  // TTS volume 0.0-1.0 (default: 1.0)
+  volumeOverride: boolean;         // Enable volume override (default: false)
 }
 
 export function getDefaultTTSSettings(): TTSServiceSettings {
@@ -628,6 +630,8 @@ export function getDefaultTTSSettings(): TTSServiceSettings {
     removeAllHtmlContent: false,
     htmlTagsToRemoveContent: 'span, div',
     provider: 'openai',
+    volume: 1.0,
+    volumeOverride: false,
   };
 }
 
@@ -645,6 +649,8 @@ export function getDefaultTTSSettingsForProvider(provider: ProviderPreset, custo
     removeAllHtmlContent: false,
     htmlTagsToRemoveContent: 'span, div',
     provider: 'openai',
+    volume: 1.0,
+    volumeOverride: false,
   };
 }
 
@@ -780,6 +786,7 @@ export interface TTSSpecificSettings {
   model: string;
   voice: string;
   speed: number;
+  volume: number;
 }
 
 export interface CharacterCardImportSpecificSettings {
@@ -900,6 +907,7 @@ export function getDefaultTTSSpecificSettings(): TTSSpecificSettings {
     model: 'tts-1',
     voice: 'alloy',
     speed: 1.0,
+    volume: 1.0,
   };
 }
 

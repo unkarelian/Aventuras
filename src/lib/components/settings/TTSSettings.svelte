@@ -235,6 +235,44 @@
       {/if}
     </div>
 
+    <!-- Volume Control -->
+    <div class="space-y-4 rounded-lg border border-border p-4 bg-muted/20">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label>Volume Override</Label>
+          <p class="text-xs text-muted-foreground">
+            Manually control TTS narration volume.
+          </p>
+        </div>
+        <Switch
+          checked={settings.systemServicesSettings.tts.volumeOverride}
+          onCheckedChange={(v) => {
+            settings.systemServicesSettings.tts.volumeOverride = v;
+            settings.saveSystemServicesSettings();
+          }}
+        />
+      </div>
+
+      {#if settings.systemServicesSettings.tts.volumeOverride}
+        <div>
+          <Label class="mb-2 block">
+            Narration Volume: {Math.round(settings.systemServicesSettings.tts.volume * 100)}%
+          </Label>
+          <Slider
+            value={[settings.systemServicesSettings.tts.volume]}
+            onValueChange={(v) => {
+              settings.systemServicesSettings.tts.volume = v[0];
+              settings.saveSystemServicesSettings();
+            }}
+            min={0}
+            max={1}
+            step={0.01}
+            class="w-full"
+          />
+        </div>
+      {/if}
+    </div>
+
     <!-- Speech Speed -->
     <div>
       <Label class="mb-2 block">
