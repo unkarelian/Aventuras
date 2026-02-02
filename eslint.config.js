@@ -54,7 +54,6 @@ export default [
           argsIgnorePattern: '^_',
         },
       ],
-      'import/no-unresolved': 'off',
       'unused-imports/no-unused-imports': 'error',
       'prettier/prettier': 'warn',
     },
