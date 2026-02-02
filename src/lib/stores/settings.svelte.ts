@@ -614,6 +614,7 @@ export interface TTSServiceSettings {
   provider: 'openai' | 'google';   // TTS Provider (default: 'openai')
   volume: number;                  // TTS volume 0.0-1.0 (default: 1.0)
   volumeOverride: boolean;         // Enable volume override (default: false)
+  providerVoices: Record<string, string>; // Provider-specific voices
 }
 
 export function getDefaultTTSSettings(): TTSServiceSettings {
@@ -632,6 +633,7 @@ export function getDefaultTTSSettings(): TTSServiceSettings {
     provider: 'openai',
     volume: 1.0,
     volumeOverride: false,
+    providerVoices: {'openai': 'alloy', 'google': 'en'},
   };
 }
 
@@ -651,6 +653,7 @@ export function getDefaultTTSSettingsForProvider(provider: ProviderPreset, custo
     provider: 'openai',
     volume: 1.0,
     volumeOverride: false,
+    providerVoices: {'openai': 'alloy', 'google': 'en'},
   };
 }
 
@@ -2805,6 +2808,7 @@ class SettingsStore {
       disableSuggestions: false,
       disableActionPrefixes: false,
       showReasoning: false,
+      sidebarWidth: 288,
     };
 
     // Reset font to default

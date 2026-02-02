@@ -100,15 +100,30 @@
         value={settings.systemServicesSettings.tts.provider}
         onValueChange={(v) => {
           const provider = v as "openai" | "google";
-          settings.systemServicesSettings.tts.provider = provider;
-          if (
-            provider === "google" &&
-            !GOOGLE_TRANSLATE_LANGUAGES.some(
-              (lang) => lang.id === settings.systemServicesSettings.tts.voice,
-            )
-          ) {
-            settings.systemServicesSettings.tts.voice = "en";
+          const tts = settings.systemServicesSettings.tts;
+          
+          // Save current voice to provider-specific slot
+          if (tts.providerVoices) {
+            tts.providerVoices[tts.provider] = tts.voice;
           }
+          
+          tts.provider = provider;
+          
+          // Restore provider-specific voice
+          if (tts.providerVoices?.[provider]) {
+            tts.voice = tts.providerVoices[provider];
+          } else {
+            // Fallbacks if not initialized
+            if (provider === "openai") tts.voice = "alloy";
+            else if (provider === "google") tts.voice = "en";
+          }
+          
+          // Ensure google voice is valid
+          if (provider === "google" && !GOOGLE_TRANSLATE_LANGUAGES.some(lang => lang.id === tts.voice)) {
+            tts.voice = "en";
+            if (tts.providerVoices) tts.providerVoices["google"] = "en";
+          }
+          
           settings.saveSystemServicesSettings();
         }}
       >
@@ -179,7 +194,11 @@
           class="w-full"
           value={settings.systemServicesSettings.tts.voice}
           oninput={(e) => {
-            settings.systemServicesSettings.tts.voice = e.currentTarget.value;
+            const val = e.currentTarget.value;
+            settings.systemServicesSettings.tts.voice = val;
+            if (settings.systemServicesSettings.tts.providerVoices) {
+              settings.systemServicesSettings.tts.providerVoices["openai"] = val;
+            }
             settings.saveSystemServicesSettings();
           }}
           placeholder="alloy"
@@ -194,6 +213,9 @@
           value={settings.systemServicesSettings.tts.voice}
           onValueChange={(v) => {
             settings.systemServicesSettings.tts.voice = v;
+            if (settings.systemServicesSettings.tts.providerVoices) {
+              settings.systemServicesSettings.tts.providerVoices["google"] = v;
+            }
             settings.saveSystemServicesSettings();
           }}
         >

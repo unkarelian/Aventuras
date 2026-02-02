@@ -23,6 +23,7 @@ export interface TTSSettings {
   provider: "openai" | "google";
   volume: number;
   volumeOverride: boolean;
+  providerVoices: Record<string, string>;
 }
 
 export interface TTSVoice {
