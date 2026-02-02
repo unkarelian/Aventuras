@@ -547,7 +547,7 @@ export class MicrosoftSpeechProvider extends TTSProvider {
       utterance.voice = selectedVoice;
       utterance.rate = this.settings.speed || DEFAULT_SPEECH_RATE;
       utterance.pitch = DEFAULT_PITCH;
-      utterance.volume = DEFAULT_VOLUME;
+      utterance.volume = this.settings.volumeOverride ? this.settings.volume : DEFAULT_VOLUME;
 
       // We need to capture the audio output
       // Unfortunately, Web Speech API doesn't directly provide audio data
@@ -585,6 +585,8 @@ export class MicrosoftSpeechProvider extends TTSProvider {
     voice: string,
     onProgress?: (progress: number) => void,
     playbackRate = 1.0,
+    volume = 1.0,
+    volumeOverride = false,
   ): Promise<void> {
     await this.waitForVoices();
 
@@ -613,7 +615,7 @@ export class MicrosoftSpeechProvider extends TTSProvider {
         utterance.voice = selectedVoice;
         utterance.rate = playbackRate;
         utterance.pitch = DEFAULT_PITCH;
-        utterance.volume = DEFAULT_VOLUME;
+        utterance.volume = volumeOverride ? volume : DEFAULT_VOLUME;
 
         let hasEnded = false;
         let hasErrored = false;
