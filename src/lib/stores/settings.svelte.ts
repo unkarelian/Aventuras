@@ -612,6 +612,9 @@ export interface TTSServiceSettings {
   removeAllHtmlContent: boolean;     // Removes content within all HTML tags (default: false)
   htmlTagsToRemoveContent: string; // Specific HTML tags to remove content from (default: span, div)
   provider: 'openai' | 'google' | 'microsoft';   // TTS Provider (default: 'openai')
+  volume: number;                  // TTS volume 0.0-1.0 (default: 1.0)
+  volumeOverride: boolean;         // Enable volume override (default: false)
+  providerVoices: Record<string, string>; // Provider-specific voices
 }
 
 export function getDefaultTTSSettings(): TTSServiceSettings {
@@ -628,6 +631,9 @@ export function getDefaultTTSSettings(): TTSServiceSettings {
     removeAllHtmlContent: false,
     htmlTagsToRemoveContent: 'span, div',
     provider: 'openai',
+    volume: 1.0,
+    volumeOverride: false,
+    providerVoices: {'openai': 'alloy', 'google': 'en', 'microsoft': ''},
   };
 }
 
@@ -645,6 +651,9 @@ export function getDefaultTTSSettingsForProvider(provider: ProviderPreset, custo
     removeAllHtmlContent: false,
     htmlTagsToRemoveContent: 'span, div',
     provider: 'openai',
+    volume: 1.0,
+    volumeOverride: false,
+    providerVoices: {'openai': 'alloy', 'google': 'en', 'microsoft': ''},
   };
 }
 
@@ -780,6 +789,7 @@ export interface TTSSpecificSettings {
   model: string;
   voice: string;
   speed: number;
+  volume: number;
 }
 
 export interface CharacterCardImportSpecificSettings {
@@ -900,6 +910,7 @@ export function getDefaultTTSSpecificSettings(): TTSSpecificSettings {
     model: 'tts-1',
     voice: 'alloy',
     speed: 1.0,
+    volume: 1.0,
   };
 }
 
@@ -1280,6 +1291,7 @@ class SettingsStore {
     disableSuggestions: false,
     disableActionPrefixes: false,
     showReasoning: true,
+    sidebarWidth: 288,
   });
 
   advancedRequestSettings = $state<AdvancedRequestSettings>(getDefaultAdvancedRequestSettings());
@@ -1585,6 +1597,9 @@ class SettingsStore {
 
       const debugMode = await database.getSetting('debug_mode');
       if (debugMode !== null) this.uiSettings.debugMode = debugMode === 'true';
+      
+      const sidebarWidth = await database.getSetting('sidebar_width');
+      if (sidebarWidth) this.uiSettings.sidebarWidth = parseInt(sidebarWidth, 10);
 
       const manualMode = await database.getSetting('advanced_manual_mode');
       if (manualMode !== null) {
@@ -2460,7 +2475,12 @@ class SettingsStore {
 
   async setShowReasoning(show: boolean) {
     this.uiSettings.showReasoning = show;
-    await database.setSetting('show_reasoning', String(show));
+    await database.setSetting('show_reasoning', show.toString());
+  }
+
+  async setSidebarWidth(width: number) {
+    this.uiSettings.sidebarWidth = width;
+    await database.setSetting('sidebar_width', width.toString());
   }
 
   async setDebugMode(enabled: boolean) {
@@ -2788,6 +2808,7 @@ class SettingsStore {
       disableSuggestions: false,
       disableActionPrefixes: false,
       showReasoning: false,
+      sidebarWidth: 288,
     };
 
     // Reset font to default

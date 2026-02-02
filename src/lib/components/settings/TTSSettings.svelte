@@ -162,19 +162,29 @@
         value={settings.systemServicesSettings.tts.provider}
         onValueChange={(v) => {
           const provider = v as "openai" | "google" | "microsoft";
-          const previousProvider = settings.systemServicesSettings.tts.provider;
-          settings.systemServicesSettings.tts.provider = provider;
+          const tts = settings.systemServicesSettings.tts;
           
-          // Set appropriate default voice when switching providers
-          if (previousProvider !== provider) {
-            if (provider === "google") {
-              settings.systemServicesSettings.tts.voice = "en";
-            } else if (provider === "openai") {
-              settings.systemServicesSettings.tts.voice = "alloy";
-            } else if (provider === "microsoft") {
-              // Will be set when user selects from dropdown
-              settings.systemServicesSettings.tts.voice = "";
-            }
+          // Save current voice to provider-specific slot
+          if (tts.providerVoices) {
+            tts.providerVoices[tts.provider] = tts.voice;
+          }
+          
+          tts.provider = provider;
+          
+          // Restore provider-specific voice
+          if (tts.providerVoices?.[provider]) {
+            tts.voice = tts.providerVoices[provider];
+          } else {
+            // Fallbacks if not initialized
+            if (provider === "openai") tts.voice = "alloy";
+            else if (provider === "google") tts.voice = "en";
+            else if (provider === "microsoft") tts.voice = ""; // Will be set when user selects from dropdown
+          }
+          
+          // Ensure google voice is valid
+          if (provider === "google" && !GOOGLE_TRANSLATE_LANGUAGES.some(lang => lang.id === tts.voice)) {
+            tts.voice = "en";
+            if (tts.providerVoices) tts.providerVoices["google"] = "en";
           }
           
           settings.saveSystemServicesSettings();
@@ -274,6 +284,9 @@
             value={settings.systemServicesSettings.tts.voice}
             onValueChange={(v) => {
               settings.systemServicesSettings.tts.voice = v;
+              if (settings.systemServicesSettings.tts.providerVoices) {
+                settings.systemServicesSettings.tts.providerVoices["microsoft"] = v;
+              }
               settings.saveSystemServicesSettings();
             }}
           >
@@ -300,6 +313,9 @@
           value={settings.systemServicesSettings.tts.voice}
           onValueChange={(v) => {
             settings.systemServicesSettings.tts.voice = v;
+            if (settings.systemServicesSettings.tts.providerVoices) {
+              settings.systemServicesSettings.tts.providerVoices["google"] = v;
+            }
             settings.saveSystemServicesSettings();
           }}
         >
@@ -338,6 +354,44 @@
       </Button>
       {#if previewError}
         <p class="text-xs text-destructive mt-2">{previewError}</p>
+      {/if}
+    </div>
+
+    <!-- Volume Control -->
+    <div class="space-y-4 rounded-lg border border-border p-4 bg-muted/20">
+      <div class="flex items-center justify-between">
+        <div>
+          <Label>Volume Override</Label>
+          <p class="text-xs text-muted-foreground">
+            Manually control TTS narration volume.
+          </p>
+        </div>
+        <Switch
+          checked={settings.systemServicesSettings.tts.volumeOverride}
+          onCheckedChange={(v) => {
+            settings.systemServicesSettings.tts.volumeOverride = v;
+            settings.saveSystemServicesSettings();
+          }}
+        />
+      </div>
+
+      {#if settings.systemServicesSettings.tts.volumeOverride}
+        <div>
+          <Label class="mb-2 block">
+            Narration Volume: {Math.round(settings.systemServicesSettings.tts.volume * 100)}%
+          </Label>
+          <Slider
+            value={[settings.systemServicesSettings.tts.volume]}
+            onValueChange={(v) => {
+              settings.systemServicesSettings.tts.volume = v[0];
+              settings.saveSystemServicesSettings();
+            }}
+            min={0}
+            max={1}
+            step={0.01}
+            class="w-full"
+          />
+        </div>
       {/if}
     </div>
 

@@ -16,6 +16,7 @@
   import SyncModal from '$lib/components/sync/SyncModal.svelte';
   import { swipe } from '$lib/utils/swipe';
   import { Bug } from 'lucide-svelte';
+  import { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout';
   import type { Snippet } from 'svelte';
 
   let { children }: { children?: Snippet } = $props();
@@ -32,7 +33,53 @@
       ui.toggleSidebar();
     }
   }
+
+  // Resizing logic
+  let isResizing = $state(false);
+
+  function startResizing(e: MouseEvent) {
+    isResizing = true;
+    e.preventDefault();
+  }
+
+  function stopResizing() {
+    if (!isResizing) return;
+    isResizing = false;
+    // Persist the final width to the database now that resizing is complete.
+    settings.setSidebarWidth(settings.uiSettings.sidebarWidth);
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!isResizing) return;
+    
+    // Sidebar is on the right, so width is window.innerWidth - mouseX
+    const newWidth = window.innerWidth - e.clientX;
+    
+    // Constraints
+    if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * MAX_SIDEBAR_RATIO)) {
+      // For performance, update the reactive state directly without saving to the database on every mouse movement.
+      settings.uiSettings.sidebarWidth = newWidth;
+    }
+  }
+
+  // Global cursor and selection handling while resizing
+  $effect(() => {
+    if (typeof document === 'undefined') return;
+    if (isResizing) {
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  });
 </script>
+
+<svelte:window 
+  onmousemove={handleMouseMove} 
+  onmouseup={stopResizing} 
+  onmouseleave={stopResizing}
+/>
 
 <div
   class="app-shell relative flex h-screen w-screen bg-surface-900"
@@ -80,7 +127,14 @@
 
   <!-- Sidebar (Right aligned) -->
   {#if ui.sidebarOpen && story.currentStory}
-    <div class="sidebar-container">
+    <div class="sidebar-container relative flex h-full">
+      <!-- Resizer Handle (Desktop only) -->
+      <button 
+        type="button"
+        class="resizer-handle hidden h-full sm:block" 
+        onmousedown={startResizing}
+        aria-label="Sidebar Resizer"
+      ></button>
       <Sidebar />
     </div>
   {/if}
@@ -166,6 +220,32 @@
   /* Sidebar container for mobile positioning */
   .sidebar-container {
     z-index: 50;
+    flex-shrink: 0;
+  }
+
+  .resizer-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    cursor: col-resize;
+    z-index: 60;
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    outline: none;
+  }
+
+  .resizer-handle:hover, .resizer-handle:focus-visible {
+    background-color: var(--color-primary-500, #3b82f6);
+    opacity: 0.5;
+  }
+
+  .resizer-handle:focus-visible {
+    outline: 2px solid var(--color-primary-500, #3b82f6);
+    outline-offset: -2px;
   }
 
   /* Right edge swipe zone */

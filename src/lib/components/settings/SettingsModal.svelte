@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from "svelte";
+  import { getVersion } from "@tauri-apps/api/app";
   import { ui } from "$lib/stores/ui.svelte";
   import { settings } from "$lib/stores/settings.svelte";
   import type { ProviderInfo } from "$lib/services/ai/types";
@@ -176,6 +178,16 @@
       isResettingSettings = false;
     }
   }
+
+  let appVersion = $state("");
+
+  onMount(async () => {
+    try {
+      appVersion = await getVersion();
+    } catch (e) {
+      appVersion = "0.0.0-dev";
+    }
+  });
 </script>
 
 <ResponsiveModal.Root
@@ -185,6 +197,11 @@
   <ResponsiveModal.Content
     class="max-w-6xl h-[90vh] flex flex-col overflow-hidden p-0"
   >
+    <div
+      class="absolute top-1 md:top-auto md:bottom-1 left-2 text-[10px] text-muted-foreground/30 font-mono z-[110]"
+    >
+      v{appVersion}
+    </div>
     <ResponsiveModal.Header class="px-6 pb-4">
       <div class="flex items-center gap-3">
         <div

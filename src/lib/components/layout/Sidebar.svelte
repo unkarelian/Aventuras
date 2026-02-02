@@ -1,5 +1,6 @@
 <script lang="ts">
   import { ui } from '$lib/stores/ui.svelte';
+  import { settings } from '$lib/stores/settings.svelte';
   import { Users, MapPin, Backpack, Scroll, Clock, GitBranch, BookOpen, BookMarked, Brain } from 'lucide-svelte';
   import CharacterPanel from '$lib/components/world/CharacterPanel.svelte';
 
@@ -9,7 +10,8 @@
   import TimePanel from '$lib/components/world/TimePanel.svelte';
   import BranchPanel from '$lib/components/branch/BranchPanel.svelte';
   import { swipe } from '$lib/utils/swipe';
-
+  import { DESKTOP_BREAKPOINT, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout';
+  
   import * as Tabs from "$lib/components/ui/tabs";
   import { Button } from "$lib/components/ui/button";
 
@@ -40,10 +42,15 @@
       ui.toggleSidebar();
     }
   }
+
+  let innerWidth = $state(0);
 </script>
 
+<svelte:window bind:innerWidth />
 <aside
-  class="flex h-full w-[calc(100vw-3rem)] max-w-72 flex-col border-l border-border bg-card/80 sm:w-72 backdrop-blur-[2px]"
+  class="flex h-full w-[calc(100vw-3rem)] flex-col border-l border-border bg-card/80 backdrop-blur-[2px]"
+  style:width={innerWidth > DESKTOP_BREAKPOINT ? settings.uiSettings.sidebarWidth + 'px' : ''}
+  style:max-width={innerWidth > DESKTOP_BREAKPOINT ? Math.min(MAX_SIDEBAR_WIDTH, innerWidth * MAX_SIDEBAR_RATIO) + 'px' : '288px'}
   use:swipe={{ onSwipeLeft: handleSwipeLeft, onSwipeRight: handleSwipeRight, threshold: 50 }}
 >
   <!-- Tab navigation -->
@@ -60,7 +67,7 @@
                 class="flex-1 py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-muted/30 bg-transparent hover:bg-muted/20 text-muted-foreground transition-colors"
                 title={tab.label}
             >
-                <svelte:component this={tab.icon} class="h-4 w-4" />
+                <tab.icon class="h-4 w-4" />
             </Tabs.Trigger>
         {/each}
         </Tabs.List>

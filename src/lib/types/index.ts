@@ -668,6 +668,7 @@ export interface UISettings {
   disableSuggestions: boolean;
   disableActionPrefixes: boolean;
   showReasoning: boolean;
+  sidebarWidth: number;
 }
 
 export interface UpdateSettings {
