@@ -70,8 +70,8 @@ export class MemoryService {
       ? `Previous chapters:\n${previousChapters.map(c => `Chapter ${c.number}: ${c.summary}`).join('\n\n')}`
       : '';
 
-    const system = promptService.renderPrompt('chapter-summary', promptContext);
-    const prompt = promptService.renderUserPrompt('chapter-summary', promptContext, {
+    const system = promptService.renderPrompt('chapter-summarization', promptContext);
+    const prompt = promptService.renderUserPrompt('chapter-summarization', promptContext, {
       entriesText,
       previousChaptersContext,
     });

@@ -79,6 +79,14 @@ export class ChapterService {
       return { created: false, loreManagementTriggered: false };
     }
 
+    if (tokensOutsideBuffer < memoryConfig.tokenThreshold) {
+      log('Tokens outside buffer below threshold, skipping', {
+        tokensOutsideBuffer,
+        tokenThreshold: memoryConfig.tokenThreshold,
+      });
+      return { created: false, loreManagementTriggered: false };
+    }
+
     const analysis = await this.deps.analyzeForChapter(
       entries,
       input.lastChapterEndIndex,
