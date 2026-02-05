@@ -5,6 +5,7 @@
   import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates';
   import * as Popover from "$lib/components/ui/popover";
   import * as Command from "$lib/components/ui/command";
+  import * as Select from "$lib/components/ui/select";
   import { Badge } from "$lib/components/ui/badge";
   import { Separator } from "$lib/components/ui/separator";
   import { cn } from "$lib/utils/cn.js";
@@ -23,6 +24,18 @@
   let scrollContainer: HTMLDivElement | null = $state(null);
   let savedScrollTop = 0;
   let savedScrollHeight = 0;
+
+  // Pagination
+  let currentPage = $state(1);
+  let pageSize = $state(20);
+
+  $effect(() => {
+    // Reset to page 1 when filters change, logs are cleared, or page size changes
+    void selectedCategories;
+    void logs;
+    void pageSize;
+    currentPage = 1;
+  });
 
   function formatTimestamp(timestamp: number): string {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -109,6 +122,13 @@
     }
 
     return groups.reverse();
+  });
+
+  let totalPages = $derived(Math.ceil(groupedLogs.length / pageSize) || 1);
+  
+  let pagedLogs = $derived.by(() => {
+    const start = (currentPage - 1) * pageSize;
+    return groupedLogs.slice(start, start + pageSize);
   });
 
   // Scroll management
@@ -254,13 +274,13 @@
 
   <!-- Logs Area -->
   <div class="flex-1 overflow-y-auto px-6 py-4" bind:this={scrollContainer}>
-    {#if groupedLogs.length === 0}
+    {#if pagedLogs.length === 0}
       <div class="flex flex-col items-center justify-center h-48 text-muted-foreground text-sm">
          <p>No API requests matching the current filter.</p>
       </div>
     {:else}
       <div class="space-y-4 pb-4">
-        {#each groupedLogs as group}
+        {#each pagedLogs as group}
           <div class="border border-border rounded-lg overflow-hidden bg-card">
             <!-- Request -->
             {#if group.request}
@@ -341,5 +361,67 @@
         {/each}
       </div>
     {/if}
+  </div>
+
+  <!-- Pagination Controls -->
+  <div class="flex items-center justify-between px-6 py-2 border-t border-border bg-card/50">
+    <div class="flex items-center gap-4">
+      <div class="text-xs text-muted-foreground whitespace-nowrap">
+        {#if groupedLogs.length > 0}
+          Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, groupedLogs.length)} of {groupedLogs.length}
+        {:else}
+          No entries
+        {/if}
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Size</span>
+        <Select.Root 
+          type="single" 
+          value={String(pageSize)} 
+          onValueChange={(v) => { if (v) pageSize = Number(v); }}
+        >
+          <Select.Trigger class="h-7 w-16 text-xs bg-muted/20 border-border">
+            {pageSize}
+          </Select.Trigger>
+          <Select.Content class="min-w-16">
+            <Select.Item value="10" label="10" class="text-xs">10</Select.Item>
+            <Select.Item value="20" label="20" class="text-xs">20</Select.Item>
+            <Select.Item value="50" label="50" class="text-xs">50</Select.Item>
+            <Select.Item value="100" label="100" class="text-xs">100</Select.Item>
+          </Select.Content>
+        </Select.Root>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        class="h-7 px-2 text-xs"
+        disabled={currentPage === 1}
+        onclick={() => {
+          currentPage--;
+          scrollContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      >
+        Previous
+      </Button>
+      <div class="text-xs font-medium px-2 min-w-[80px] text-center">
+        Page {currentPage} of {totalPages}
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        class="h-7 px-2 text-xs"
+        disabled={currentPage === totalPages}
+        onclick={() => {
+          currentPage++;
+          scrollContainer?.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      >
+        Next
+      </Button>
+    </div>
   </div>
 </div>
