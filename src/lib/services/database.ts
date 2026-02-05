@@ -1038,7 +1038,7 @@ class DatabaseService {
     await db.execute('DELETE FROM items WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM story_beats WHERE story_id = ?', [storyId]);
 
-    // Restore entries (Not necessary as we are only deleting the last entry)
+    // Restore entries not necessary as we are only deleting the last entry
 
     // Restore characters
     for (const character of characters) {
