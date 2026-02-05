@@ -489,7 +489,7 @@ function getImageModel(
     return (provider as ReturnType<typeof createChutes>).imageModel(modelId)
   }
   if ('image' in provider && typeof provider.image === 'function') {
-    return (provider as ReturnType<typeof createOpenAI>).image(modelId)
+    return (provider as unknown as ReturnType<typeof createOpenAI>).image(modelId)
   }
   throw new Error(`Provider ${providerType} does not support image generation`)
 }
