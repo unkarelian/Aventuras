@@ -67,6 +67,7 @@
     "eslint-plugin-svelte": "^3.14.0",
     "eslint-plugin-unused-imports": "^4.3.0",
     "globals": "^17.3.0",
+    "lefthook": "^2.1.0",
     "postcss": "^8.4.49",
     "prettier": "^3.8.1",
     "prettier-plugin-svelte": "^3.4.1",

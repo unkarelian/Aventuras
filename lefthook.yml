@@ -1,0 +1,6 @@
+pre-push:
+  commands:
+    lint:
+      run: npm run lint
+    check:
+      run: npm run check
