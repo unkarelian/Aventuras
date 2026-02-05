@@ -333,7 +333,7 @@ export function streamPlainText(options: BaseGenerateOptions, serviceId: string)
     providerOptions,
     abortSignal: signal,
     onFinish: (result) => {
-      ui.addDebugResponse(debugId, "narrative", {
+      ui.addDebugResponse(debugId, serviceId, {
         result: result.content,
         reasoning: result.reasoning,
         usage: result.usage,

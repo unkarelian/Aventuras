@@ -63,7 +63,13 @@ export function createTimeoutFetch(timeoutMs = 180000, serviceId: string, debugI
 
       if (!response.ok) {
         const error = await response.text();
-        ui.addDebugResponse(debugId, serviceId, { status: response.status, error: JSON.parse(error), statusText: response.statusText }, startTime, error);
+        let errorPayload;
+        try {
+          errorPayload = JSON.parse(error);
+        } catch {
+          errorPayload = error;
+        }
+        ui.addDebugResponse(debugId, serviceId, { status: response.status, error: errorPayload, statusText: response.statusText }, startTime, error);
       }
 
       if (!response.headers.get('content-type')?.includes('application/json')) {
@@ -73,10 +79,16 @@ export function createTimeoutFetch(timeoutMs = 180000, serviceId: string, debugI
       const text = await response.text();
 
       if (!parsedBody.stream) {
+        let responsePayload;
+        try {
+          responsePayload = JSON.parse(text);
+        } catch {
+          responsePayload = text;
+        }
         ui.addDebugResponse(debugId, serviceId, {
           url: input.toString(),
           method: init?.method ?? 'GET',
-          body: parsedBody,
+          body: responsePayload,
         },
         startTime);
       }
