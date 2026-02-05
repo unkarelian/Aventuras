@@ -2,6 +2,7 @@ import svelte from 'eslint-plugin-svelte'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 import prettier from 'eslint-config-prettier'
+import eslintPluginPrettier from 'eslint-plugin-prettier'
 import unusedImports from 'eslint-plugin-unused-imports'
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -37,11 +38,12 @@ export default [
     },
   },
   {
-    ignores: ['build/', '.svelte-kit/', 'dist/'],
+    ignores: ['build/', '.svelte-kit/', 'dist/', 'node_modules/','src-tauri/'],
   },
   {
     plugins: {
       'unused-imports': unusedImports,
+      'prettier': eslintPluginPrettier,
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
