@@ -68,7 +68,7 @@
               </div>
             </div>
           {:else}
-            <Alert variant="warning">
+            <Alert variant="default">
               <AlertTriangle class="h-4 w-4" />
               <AlertTitle>No Context</AlertTitle>
               <AlertDescription>

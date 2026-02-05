@@ -165,13 +165,13 @@
     <div class="flex items-center gap-2">
       <Filter class="text-muted-foreground h-3.5 w-3.5" />
       <Popover.Root>
-        <Popover.Trigger asChild>
-          {#snippet children({ builder })}
+        <Popover.Trigger>
+          {#snippet child({ props })}
             <Button
+              {...props}
               variant="outline"
               size="sm"
               class="bg-muted/20 h-8 gap-2 border-dashed"
-              builders={[builder]}
             >
               <CirclePlus class="h-4 w-4 opacity-50" />
               <span class="text-xs">Services</span>
@@ -186,7 +186,7 @@
                       {selectedCategories.length} selected
                     </Badge>
                   {:else}
-                    {#each selectedCategories as cat (cat)}
+                    {#each selectedCategories as cat, i (i)}
                       <Badge variant="secondary" class="rounded-sm px-1 font-normal">
                         {cat}
                       </Badge>
@@ -203,7 +203,7 @@
             <Command.List>
               <Command.Empty>No service found.</Command.Empty>
               <Command.Group>
-                {#each categories as cat (cat)}
+                {#each categories as cat, i (i)}
                   {@const isSelected = selectedCategories.includes(cat)}
                   <Command.Item
                     value={cat}
@@ -283,7 +283,7 @@
       </div>
     {:else}
       <div class="space-y-4 pb-4">
-        {#each pagedLogs as group (group.id)}
+        {#each pagedLogs as group (group.request?.id)}
           <div class="border-border bg-card overflow-hidden rounded-lg border">
             <!-- Request -->
             {#if group.request}

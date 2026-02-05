@@ -168,7 +168,7 @@
           <!-- Tags -->
           {#if card.tags.length > 0}
             <div class="flex flex-wrap gap-1.5">
-              {#each card.tags as tag (tag)}
+              {#each card.tags as tag, i (i)}
                 <Badge variant="secondary" class="px-2 py-0.5 text-xs font-normal">
                   {tag}
                 </Badge>

@@ -60,6 +60,8 @@
     ></div>
 
     <!-- Modal -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       class="border-surface-700 bg-surface-900 relative z-10 w-full max-w-md rounded-xl border shadow-2xl"
       onclick={(e) => e.stopPropagation()}

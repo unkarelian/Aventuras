@@ -136,7 +136,7 @@
             {selectedProfileName}
           </Select.Trigger>
           <Select.Content>
-            {#each profileOptions as option (option.value)}
+            {#each profileOptions as option, i (i)}
               <Select.Item value={option.value}>{option.label}</Select.Item>
             {/each}
           </Select.Content>

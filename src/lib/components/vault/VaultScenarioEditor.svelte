@@ -35,13 +35,13 @@
   let { scenario, onClose }: Props = $props()
 
   // Form State
-  let name = $state(scenario.name)
-  let description = $state(scenario.description || '')
-  let settingSeed = $state(scenario.settingSeed)
-  let npcs = $state<VaultScenarioNpc[]>(JSON.parse(JSON.stringify(scenario.npcs)))
-  let firstMessage = $state(scenario.firstMessage || '')
-  let alternateGreetings = $state<string[]>([...scenario.alternateGreetings])
-  let tags = $state<string[]>([...scenario.tags])
+  let name = $derived(scenario.name)
+  let description = $derived(scenario.description || '')
+  let settingSeed = $derived(scenario.settingSeed)
+  let npcs = $derived<VaultScenarioNpc[]>(JSON.parse(JSON.stringify(scenario.npcs)))
+  let firstMessage = $derived(scenario.firstMessage || '')
+  let alternateGreetings = $derived<string[]>([...scenario.alternateGreetings])
+  let tags = $derived<string[]>([...scenario.tags])
 
   let saving = $state(false)
   let error = $state<string | null>(null)
@@ -442,12 +442,7 @@
       <div class="border-b p-4">
         <div class="relative">
           <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            bind:value={charSearchQuery}
-            placeholder="Search characters..."
-            class="pl-9"
-            autoFocus
-          />
+          <Input bind:value={charSearchQuery} placeholder="Search characters..." class="pl-9" />
         </div>
       </div>
 

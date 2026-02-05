@@ -42,10 +42,10 @@
   let { lorebook, onClose }: Props = $props()
 
   // Local state for editing
-  let name = $state(lorebook.name)
-  let description = $state(lorebook.description ?? '')
-  let tags = $state<string[]>([...lorebook.tags])
-  let entries = $state<VaultLorebookEntry[]>(JSON.parse(JSON.stringify(lorebook.entries))) // Deep copy
+  let name = $derived(lorebook.name)
+  let description = $derived(lorebook.description ?? '')
+  let tags = $derived<string[]>([...lorebook.tags])
+  let entries = $derived<VaultLorebookEntry[]>(JSON.parse(JSON.stringify(lorebook.entries))) // Deep copy
 
   // UI State
   let searchQuery = $state('')

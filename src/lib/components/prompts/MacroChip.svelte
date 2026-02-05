@@ -15,7 +15,7 @@
 
   let { macro, interactive = true, onClick, class: className = '' }: Props = $props()
 
-  const isComplex = macro.type === 'complex'
+  const isComplex = $derived(macro.type === 'complex')
 </script>
 
 {#if interactive}

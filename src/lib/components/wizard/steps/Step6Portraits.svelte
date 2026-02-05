@@ -150,7 +150,7 @@
                 oninput={(e) => onProtagonistDescriptorsChange(e.currentTarget.value)}
                 placeholder="e.g., long silver hair, violet eyes, fair skin, elegant dark blue coat..."
                 class="min-h-[60px] resize-none text-xs"
-                rows="2"
+                rows={2}
               />
             </div>
 
@@ -229,7 +229,7 @@
       </div>
 
       <div class="grid grid-cols-1 gap-3">
-        {#each supportingCharacters as char (char.name)}
+        {#each supportingCharacters as char (char.name + char.role + char.description)}
           <Card.Root>
             <Card.Content class="p-3">
               <div class="flex gap-4">
@@ -283,7 +283,7 @@
                         onSupportingDescriptorsChange(char.name, e.currentTarget.value)}
                       placeholder="Appearance (e.g., short dark hair, green eyes)..."
                       class="min-h-[50px] resize-none text-xs"
-                      rows="2"
+                      rows={2}
                     />
                   </div>
 

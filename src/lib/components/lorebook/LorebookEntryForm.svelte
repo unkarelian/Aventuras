@@ -36,16 +36,16 @@
   let { entry = null, onSave, onCancel }: Props = $props()
 
   // Form state
-  let name = $state(entry?.name ?? '')
-  let type = $state<EntryType>(entry?.type ?? 'character')
-  let description = $state(entry?.description ?? '')
-  let hiddenInfo = $state(entry?.hiddenInfo ?? '')
-  let aliases = $state<string[]>(entry?.aliases ?? [])
-  let keywords = $state<string[]>(entry?.injection.keywords ?? [])
-  let injectionMode = $state<EntryInjectionMode>(entry?.injection.mode ?? 'keyword')
-  let priority = $state(entry?.injection.priority ?? 50)
-  let showHiddenInfo = $state(!!entry?.hiddenInfo)
-  let loreManagementBlacklisted = $state(entry?.loreManagementBlacklisted ?? false)
+  let name = $derived(entry?.name ?? '')
+  let type = $derived<EntryType>(entry?.type ?? 'character')
+  let description = $derived(entry?.description ?? '')
+  let hiddenInfo = $derived(entry?.hiddenInfo ?? '')
+  let aliases = $derived<string[]>(entry?.aliases ?? [])
+  let keywords = $derived<string[]>(entry?.injection.keywords ?? [])
+  let injectionMode = $derived<EntryInjectionMode>(entry?.injection.mode ?? 'keyword')
+  let priority = $derived(entry?.injection.priority ?? 50)
+  let showHiddenInfo = $derived(!!entry?.hiddenInfo)
+  let loreManagementBlacklisted = $derived(entry?.loreManagementBlacklisted ?? false)
 
   // Tag input states
   let newAlias = $state('')
@@ -230,7 +230,7 @@
         {entryTypes.find((t) => t.value === type)?.label ?? 'Select type'}
       </SelectTrigger>
       <SelectContent>
-        {#each entryTypes as option (option.value)}
+        {#each entryTypes as option ((option.value, option.label))}
           <SelectItem value={option.value}>{option.label}</SelectItem>
         {/each}
       </SelectContent>
@@ -327,7 +327,7 @@
       onValueChange={(v) => (injectionMode = v as EntryInjectionMode)}
       class="grid h-full grid-cols-1 gap-2 sm:grid-cols-3"
     >
-      {#each injectionModes as mode (mode.value)}
+      {#each injectionModes as mode ((mode.value, mode.label))}
         <div
           class={cn(
             'hover:bg-muted/50 flex h-full cursor-pointer items-start space-x-2 rounded-lg border transition-colors',
@@ -370,11 +370,12 @@
       <span class="w-8 text-right text-sm font-medium">{priority}</span>
     </div>
     <Slider
-      value={[priority]}
+      value={priority}
       min={0}
       max={100}
       step={1}
-      onValueChange={(vals) => (priority = vals[0])}
+      type="single"
+      onValueChange={(val) => (priority = val)}
     />
   </div>
 
@@ -392,9 +393,9 @@
   <!-- Hidden Info (collapsible) -->
   <Collapsible bind:open={showHiddenInfo}>
     <CollapsibleTrigger>
-      {#snippet children({ builder })}
+      {#snippet child({ props })}
         <Button
-          builders={[builder]}
+          {...props}
           variant="ghost"
           class="flex w-full justify-between px-0 hover:bg-transparent"
         >

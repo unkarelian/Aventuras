@@ -384,11 +384,12 @@
             Narration Volume: {Math.round(settings.systemServicesSettings.tts.volume * 100)}%
           </Label>
           <Slider
-            value={[settings.systemServicesSettings.tts.volume]}
+            value={settings.systemServicesSettings.tts.volume}
             onValueChange={(v) => {
-              settings.systemServicesSettings.tts.volume = v[0]
+              settings.systemServicesSettings.tts.volume = v
               settings.saveSystemServicesSettings()
             }}
+            type="single"
             min={0}
             max={1}
             step={0.01}
@@ -404,11 +405,12 @@
         Speech Speed: {settings.systemServicesSettings.tts.speed.toFixed(2)}x
       </Label>
       <Slider
-        value={[settings.systemServicesSettings.tts.speed]}
+        value={settings.systemServicesSettings.tts.speed}
         onValueChange={(v) => {
-          settings.systemServicesSettings.tts.speed = v[0]
+          settings.systemServicesSettings.tts.speed = v
           settings.saveSystemServicesSettings()
         }}
+        type="single"
         min={0.25}
         max={4}
         step={0.05}

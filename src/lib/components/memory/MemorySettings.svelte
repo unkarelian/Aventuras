@@ -62,11 +62,12 @@
 
           <Slider
             id="token-threshold"
-            value={[localThreshold]}
+            value={localThreshold}
             min={4000}
             max={100000}
             step={1000}
-            onValueChange={(vals) => scheduleThresholdSave(vals[0])}
+            type="single"
+            onValueChange={(vals) => scheduleThresholdSave(vals)}
           />
 
           <ToggleGroup
@@ -96,11 +97,12 @@
 
           <Slider
             id="buffer-messages"
-            value={[localBuffer]}
+            value={localBuffer}
+            type="single"
             min={0}
             max={50}
             step={1}
-            onValueChange={(vals) => scheduleBufferSave(vals[0])}
+            onValueChange={(val) => scheduleBufferSave(val)}
           />
 
           <p class="text-muted-foreground text-xs">

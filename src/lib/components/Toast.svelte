@@ -29,6 +29,8 @@
   function handleClick() {
     ui.hideToast()
   }
+
+  const Icon = $derived(getIcon())
 </script>
 
 {#if ui.toastVisible}
@@ -39,7 +41,7 @@
     onmouseleave={() => ui.setToastHovering(false)}
     onclick={handleClick}
   >
-    <svelte:component this={getIcon()} class="mt-0.5 h-5 w-5 shrink-0 text-white sm:h-6 sm:w-6" />
+    <Icon class="mt-0.5 h-5 w-5 shrink-0 text-white sm:h-6 sm:w-6" />
     <span class="flex-1 text-sm leading-snug font-medium text-white sm:text-base"
       >{ui.toastMessage}</span
     >

@@ -24,7 +24,7 @@
   const entries = $derived(availableEntries())
 
   // Selected entry index (relative to available entries)
-  let selectedIndex = $state(Math.max(0, entries.length - 1))
+  let selectedIndex = $derived(Math.max(0, entries.length - 1))
 
   // Ensure selectedIndex stays in bounds
   $effect(() => {

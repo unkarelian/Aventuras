@@ -413,28 +413,28 @@
   }
 
   // Proxy states for sliders when editing
-  let tempPresetTemperature = $state([0.7])
-  let tempPresetMaxTokens = $state([4096])
-  let tempPresetReasoning = $state([0])
+  let tempPresetTemperature = $state(0.7)
+  let tempPresetMaxTokens = $state(4096)
+  let tempPresetReasoning = $state(0)
 
   $effect(() => {
     if (tempPreset) {
-      tempPresetTemperature = [tempPreset.temperature]
-      tempPresetMaxTokens = [tempPreset.maxTokens]
-      tempPresetReasoning = [getReasoningIndex(tempPreset.reasoningEffort)]
+      tempPresetTemperature = tempPreset.temperature
+      tempPresetMaxTokens = tempPreset.maxTokens
+      tempPresetReasoning = getReasoningIndex(tempPreset.reasoningEffort)
     }
   })
 
-  function updateTempPresetTemperature(v: number[]) {
-    if (tempPreset) tempPreset.temperature = v[0]
+  function updateTempPresetTemperature(v: number) {
+    if (tempPreset) tempPreset.temperature = v
   }
 
-  function updateTempPresetMaxTokens(v: number[]) {
-    if (tempPreset) tempPreset.maxTokens = v[0]
+  function updateTempPresetMaxTokens(v: number) {
+    if (tempPreset) tempPreset.maxTokens = v
   }
 
-  function updateTempPresetReasoning(v: number[]) {
-    if (tempPreset) tempPreset.reasoningEffort = getReasoningValue(v[0]) as any
+  function updateTempPresetReasoning(v: number) {
+    if (tempPreset) tempPreset.reasoningEffort = getReasoningValue(v) as any
   }
 
   // Check if reasoning is supported for the currently editing preset
@@ -574,6 +574,7 @@
             </div>
             <Slider
               bind:value={tempPresetTemperature}
+              type="single"
               min={0}
               max={2}
               step={0.05}
@@ -588,6 +589,7 @@
             </div>
             <Slider
               bind:value={tempPresetMaxTokens}
+              type="single"
               min={256}
               max={32000}
               step={256}
@@ -603,6 +605,7 @@
             </div>
             <Slider
               bind:value={tempPresetReasoning}
+              type="single"
               min={0}
               max={3}
               step={1}

@@ -97,7 +97,7 @@
       <Command.List class="max-h-[200px]">
         <Command.Empty>No tags found.</Command.Empty>
         <Command.Group>
-          {#each availableTags as tag (tag.name)}
+          {#each availableTags as tag, i (i)}
             <Command.Item
               value={tag.name}
               onSelect={() => toggleTag(tag.name)}

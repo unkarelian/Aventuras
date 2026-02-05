@@ -144,6 +144,7 @@
 
 <div class="space-y-3">
   <div>
+    <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class="text-surface-300 mb-2 block text-sm font-medium"> Font Source </label>
     <select
       class="input"
@@ -167,6 +168,7 @@
 
   {#if fontSource === 'system'}
     <div>
+      <!-- svelte-ignore a11y_label_has_associated_control -->
       <label class="text-surface-300 mb-2 block text-sm font-medium"> System Font </label>
       {#if !fontsDetected}
         <div class="text-surface-400 flex items-center gap-2 py-2 text-sm">
@@ -209,6 +211,7 @@
       {/if}
 
       <div class="mt-3">
+        <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class="text-surface-300 mb-2 block text-sm font-medium">
           Or enter font name manually
         </label>
@@ -235,6 +238,7 @@
     </div>
   {:else if fontSource === 'google'}
     <div>
+      <!-- svelte-ignore a11y_label_has_associated_control -->
       <label class="text-surface-300 mb-2 block text-sm font-medium"> Popular Google Fonts </label>
       <select
         class="input"
@@ -250,6 +254,7 @@
     </div>
 
     <div>
+      <!-- svelte-ignore a11y_label_has_associated_control -->
       <label class="text-surface-300 mb-2 block text-sm font-medium">
         Or enter custom Google Font
       </label>

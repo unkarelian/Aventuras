@@ -150,7 +150,7 @@
     {#if asCharacter}
       {#if asCharacter.traits.length > 0}
         <div class="flex flex-wrap gap-1">
-          {#each asCharacter.traits.slice(0, 3) as trait (trait)}
+          {#each asCharacter.traits.slice(0, 3) as trait, i (i)}
             <Badge
               variant="outline"
               class="text-muted-foreground/80 border-muted-foreground/20 h-4 px-1.5 text-[10px] font-normal"
@@ -190,7 +190,7 @@
     {:else if asScenario}
       {#if asScenario.tags.length > 0}
         <div class="flex flex-wrap gap-1">
-          {#each asScenario.tags.slice(0, 3) as tag (tag)}
+          {#each asScenario.tags.slice(0, 3) as tag, i (i)}
             <TagBadge name={tag} color={tagStore.getColor(tag, 'scenario')} />
           {/each}
           {#if asScenario.tags.length > 3}

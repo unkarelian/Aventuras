@@ -380,7 +380,7 @@
                         </Command.Empty>
                         {#if tagSuggestions.length > 0}
                           <Command.Group heading="Suggestions">
-                            {#each tagSuggestions as tag (tag)}
+                            {#each tagSuggestions as tag, i (i)}
                               <Command.Item
                                 value={tag}
                                 onSelect={() => {
@@ -402,7 +402,7 @@
 
                         {#if popularTags.length > 0 && !tagInput}
                           <Command.Group heading="Popular">
-                            {#each popularTags as tag (tag)}
+                            {#each popularTags as tag, i (i)}
                               <Command.Item value={tag} onSelect={() => toggleTag(tag)}>
                                 <div
                                   class="mr-2 flex h-4 w-4 items-center justify-center opacity-0"
@@ -508,7 +508,7 @@
 
           {#if selectedTags.length > 0}
             <div class="flex flex-wrap items-center gap-2 border-t pt-3 text-sm">
-              {#each selectedTags as tag (tag)}
+              {#each selectedTags as tag, i (i)}
                 <Badge variant="secondary" class="h-7 items-center gap-1.5 pr-1.5 pl-2 font-normal">
                   {tag}
                   <Button

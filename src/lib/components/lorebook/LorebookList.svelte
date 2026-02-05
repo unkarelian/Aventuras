@@ -168,12 +168,8 @@
       <!-- Type filter -->
       <DropdownMenu>
         <DropdownMenuTrigger>
-          {#snippet children({ builder })}
-            <Button
-              builders={[builder]}
-              variant="outline"
-              class="w-full justify-between font-normal"
-            >
+          {#snippet child({ props })}
+            <Button {...props} variant="outline" class="w-full justify-between font-normal">
               <span class="flex items-center gap-2 capitalize">
                 <Filter class="text-muted-foreground h-4 w-4" />
                 {ui.lorebookTypeFilter === 'all' ? 'All Types' : ui.lorebookTypeFilter}
@@ -201,12 +197,8 @@
       <div class="flex-1">
         <DropdownMenu>
           <DropdownMenuTrigger>
-            {#snippet children({ builder })}
-              <Button
-                builders={[builder]}
-                variant="outline"
-                class="w-full justify-between font-normal"
-              >
+            {#snippet child({ props })}
+              <Button {...props} variant="outline" class="w-full justify-between font-normal">
                 <span class="flex items-center gap-2">
                   <ArrowUpDown class="text-muted-foreground h-4 w-4" />
                   {sortOptions.find((s) => s.value === ui.lorebookSortBy)?.label}

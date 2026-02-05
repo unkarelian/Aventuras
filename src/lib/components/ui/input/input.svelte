@@ -23,8 +23,8 @@
     type,
     files = $bindable(),
     class: className,
-    leftIcon,
-    rightIcon,
+    leftIcon: LeftIcon,
+    rightIcon: RightIcon,
     label,
     fullWidth = true,
     ...restProps
@@ -51,11 +51,11 @@
       />
     {:else if type === 'password'}
       <div class={cn('relative flex', fullWidth && 'w-full')}>
-        {#if leftIcon}
+        {#if LeftIcon}
           <div
             class="text-muted-foreground absolute top-1/2 left-3 flex -translate-y-1/2 items-center"
           >
-            <svelte:component this={leftIcon} class="h-4 w-4" />
+            <LeftIcon class="h-4 w-4" />
           </div>
         {/if}
         <input
@@ -63,7 +63,7 @@
           class={cn(
             'border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring flex h-10 rounded-md border px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
             fullWidth && 'w-full',
-            leftIcon && 'pl-10',
+            LeftIcon && 'pl-10',
             'pr-10',
             className,
           )}
@@ -89,11 +89,11 @@
       </div>
     {:else}
       <div class={cn('relative flex', fullWidth && 'w-full')}>
-        {#if leftIcon}
+        {#if LeftIcon}
           <div
             class="text-muted-foreground absolute top-1/2 left-3 flex -translate-y-1/2 items-center"
           >
-            <svelte:component this={leftIcon} class="h-4 w-4" />
+            <LeftIcon class="h-4 w-4" />
           </div>
         {/if}
         <input
@@ -101,20 +101,20 @@
           class={cn(
             'border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring flex h-10 rounded-md border px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
             fullWidth && 'w-full',
-            leftIcon && 'pl-10',
-            rightIcon && 'pr-10',
-            leftIcon && rightIcon && 'px-10',
+            LeftIcon && 'pl-10',
+            RightIcon && 'pr-10',
+            LeftIcon && RightIcon && 'px-10',
             className,
           )}
           {type}
           bind:value
           {...restProps}
         />
-        {#if rightIcon}
+        {#if RightIcon}
           <div
             class="text-muted-foreground absolute top-1/2 right-3 flex -translate-y-1/2 items-center"
           >
-            <svelte:component this={rightIcon} class="h-4 w-4" />
+            <RightIcon class="h-4 w-4" />
           </div>
         {/if}
       </div>
@@ -135,9 +135,9 @@
   />
 {:else if type === 'password'}
   <div class={cn('relative flex', fullWidth && 'w-full')}>
-    {#if leftIcon}
+    {#if LeftIcon}
       <div class="text-muted-foreground absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
-        <svelte:component this={leftIcon} class="h-4 w-4" />
+        <LeftIcon class="h-4 w-4" />
       </div>
     {/if}
     <input
@@ -145,7 +145,7 @@
       class={cn(
         'border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring flex h-10 rounded-md border px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
         fullWidth && 'w-full',
-        leftIcon && 'pl-10',
+        LeftIcon && 'pl-10',
         'pr-10',
         className,
       )}
@@ -169,9 +169,9 @@
   </div>
 {:else}
   <div class={cn('relative flex', fullWidth && 'w-full')}>
-    {#if leftIcon}
+    {#if LeftIcon}
       <div class="text-muted-foreground absolute top-1/2 left-3 flex -translate-y-1/2 items-center">
-        <svelte:component this={leftIcon} class="h-4 w-4" />
+        <LeftIcon class="h-4 w-4" />
       </div>
     {/if}
     <input
@@ -179,20 +179,20 @@
       class={cn(
         'border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring flex h-10 rounded-md border px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
         fullWidth && 'w-full',
-        leftIcon && 'pl-10',
-        rightIcon && 'pr-10',
-        leftIcon && rightIcon && 'px-10',
+        LeftIcon && 'pl-10',
+        RightIcon && 'pr-10',
+        LeftIcon && RightIcon && 'px-10',
         className,
       )}
       {type}
       bind:value
       {...restProps}
     />
-    {#if rightIcon}
+    {#if RightIcon}
       <div
         class="text-muted-foreground absolute top-1/2 right-3 flex -translate-y-1/2 items-center"
       >
-        <svelte:component this={rightIcon} class="h-4 w-4" />
+        <RightIcon class="h-4 w-4" />
       </div>
     {/if}
   </div>

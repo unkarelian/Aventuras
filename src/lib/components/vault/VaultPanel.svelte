@@ -76,7 +76,7 @@
     createLabel?: string
     createAction?: () => void
     importLabel: string
-    importAction: (e: Event) => Promise<void>
+    importAction: (e: Event) => void
   }
 
   const sections: VaultSectionConfig[] = [
@@ -350,8 +350,8 @@
             <section.icon class="h-4 w-4" />
             <span class="hidden sm:inline">{section.label}</span>
             <Badge variant="secondary" class="ml-1 h-5 px-1 py-0 text-[10px]">
-              <!-- @ts-expect-error - dynamic access -->
-              {section.store[section.id].length}
+              {// @ts-expect-error dynamic access
+              section.store[section.id].length}
             </Badge>
           </TabsTrigger>
         {/each}
@@ -455,7 +455,7 @@
               </div>
             {:else}
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" in:fade>
-                {#each filteredItems as item (item.id)}
+                {#each filteredItems as item, i (i)}
                   <UniversalVaultCard
                     {item}
                     type={section.type}

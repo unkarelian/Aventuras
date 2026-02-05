@@ -5,9 +5,10 @@
 
   let {
     ref = $bindable(null),
+    open = $bindable(false),
     class: className,
     ...restProps
   }: CollapsiblePrimitive.RootProps & { class?: ClassValue } = $props()
 </script>
 
-<CollapsiblePrimitive.Root bind:ref class={cn(className)} {...restProps} />
+<CollapsiblePrimitive.Root bind:ref bind:open class={cn(className)} {...restProps} />

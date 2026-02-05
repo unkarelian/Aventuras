@@ -204,7 +204,7 @@
 
           <!-- Entry type breakdown -->
           <div class="text-muted-foreground space-y-1 text-sm">
-            {#each Object.entries(typeCounts) as [type, count] (type)}
+            {#each Object.entries(typeCounts) as [type, count], i (i)}
               <div class="flex items-center justify-between">
                 <span class="capitalize">{type}</span>
                 <span>{count}</span>

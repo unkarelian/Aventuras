@@ -21,12 +21,14 @@
   let { character = null, onClose, onSaved }: Props = $props()
 
   // Form state
-  let name = $state(character?.name ?? '')
-  let description = $state(character?.description ?? '')
-  let traits = $state(character?.traits.join(', ') ?? '')
-  let visualDescriptors = $state(character ? descriptorsToString(character.visualDescriptors) : '')
-  let tags = $state<string[]>(character?.tags ?? [])
-  let portrait = $state<string | null>(character?.portrait ?? null)
+  let name = $derived(character?.name ?? '')
+  let description = $derived(character?.description ?? '')
+  let traits = $derived(character?.traits.join(', ') ?? '')
+  let visualDescriptors = $derived(
+    character ? descriptorsToString(character.visualDescriptors) : '',
+  )
+  let tags = $derived<string[]>(character?.tags ?? [])
+  let portrait = $derived<string | null>(character?.portrait ?? null)
 
   let saving = $state(false)
   let error = $state<string | null>(null)

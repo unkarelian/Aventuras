@@ -28,10 +28,10 @@
   let { onOpenManualBodyEditor }: Props = $props()
 
   // Timeout slider state
-  let timeoutValue = $derived([settings.apiSettings.llmTimeoutMs])
+  let timeoutValue = $derived(settings.apiSettings.llmTimeoutMs)
 
-  function updateTimeout(v: number[]) {
-    settings.setLlmTimeout(v[0])
+  function updateTimeout(v: number) {
+    settings.setLlmTimeout(v)
   }
 </script>
 
@@ -59,6 +59,7 @@
         <div class="flex items-center gap-4">
           <div class="flex flex-1 flex-col gap-4">
             <Slider
+              type="single"
               value={timeoutValue}
               min={LLM_TIMEOUT_MIN}
               max={LLM_TIMEOUT_MAX}

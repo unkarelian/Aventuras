@@ -1,13 +1,20 @@
 <script lang="ts">
   import { Collapsible as CollapsiblePrimitive } from 'bits-ui'
   import { cn } from '$lib/utils/cn.js'
+  import type { Snippet } from 'svelte'
   import type { ClassValue } from 'clsx'
 
   let {
     ref = $bindable(null),
     class: className,
+    child,
+    children,
     ...restProps
-  }: CollapsiblePrimitive.TriggerProps & { class?: ClassValue } = $props()
+  }: CollapsiblePrimitive.TriggerProps & {
+    class?: ClassValue
+    child?: Snippet<[{ props: Record<string, any> }]>
+    children?: Snippet
+  } = $props()
 </script>
 
 <CollapsiblePrimitive.Trigger
@@ -18,5 +25,9 @@
   )}
   {...restProps}
 >
-  <slot />
+  {#if child}
+    {@render child({ props: restProps })}
+  {:else}
+    {@render children?.()}
+  {/if}
 </CollapsiblePrimitive.Trigger>

@@ -251,7 +251,7 @@
           {#if macro.variesBy.mode}
             <div class="flex flex-wrap items-center gap-1">
               <span class="text-surface-500 mr-1 w-12 text-xs sm:w-auto">Mode:</span>
-              {#each Object.entries(modeLabels) as [mode, label] (mode)}
+              {#each Object.entries(modeLabels) as [mode, label], i (i)}
                 <button
                   class="tab-btn {selectedMode === mode ? 'tab-btn-active' : ''} {isActiveVariant(
                     mode,
@@ -275,7 +275,7 @@
           {#if macro.variesBy.pov}
             <div class="flex flex-wrap items-center gap-1">
               <span class="text-surface-500 mr-1 w-12 text-xs sm:w-auto">POV:</span>
-              {#each Object.entries(povLabels) as [pov, label] (pov)}
+              {#each Object.entries(povLabels) as [pov, label], i (i)}
                 <button
                   class="tab-btn {selectedPov === pov ? 'tab-btn-active' : ''} {isActiveVariant(
                     selectedMode,
@@ -299,7 +299,7 @@
           {#if macro.variesBy.tense}
             <div class="flex flex-wrap items-center gap-1">
               <span class="text-surface-500 mr-1 w-12 text-xs sm:w-auto">Tense:</span>
-              {#each Object.entries(tenseLabels) as [tense, label] (tense)}
+              {#each Object.entries(tenseLabels) as [tense, label], i (i)}
                 <button
                   class="tab-btn {selectedTense === tense ? 'tab-btn-active' : ''} {isActiveVariant(
                     selectedMode,

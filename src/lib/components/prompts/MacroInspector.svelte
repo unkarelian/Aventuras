@@ -233,7 +233,7 @@
                   {modeOptions.find((o) => o.value === selectedMode)?.label}
                 </Select.Trigger>
                 <Select.Content>
-                  {#each modeOptions as opt (opt.value)}
+                  {#each modeOptions as opt, i (i)}
                     <Select.Item value={opt.value} label={opt.label} />
                   {/each}
                 </Select.Content>
@@ -253,7 +253,7 @@
                   {povOptions.find((o) => o.value === selectedPov)?.label}
                 </Select.Trigger>
                 <Select.Content>
-                  {#each povOptions as opt (opt.value)}
+                  {#each povOptions as opt, i (i)}
                     <Select.Item value={opt.value} label={opt.label} />
                   {/each}
                 </Select.Content>
@@ -273,7 +273,7 @@
                   {tenseOptions.find((o) => o.value === selectedTense)?.label}
                 </Select.Trigger>
                 <Select.Content>
-                  {#each tenseOptions as opt (opt.value)}
+                  {#each tenseOptions as opt, i (i)}
                     <Select.Item value={opt.value} label={opt.label} />
                   {/each}
                 </Select.Content>

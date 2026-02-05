@@ -112,15 +112,17 @@
             >
               <RotateCcw class="h-3.5 w-3.5" />
             </Button>
-            <Collapsible.Trigger asChild let:builder>
-              <Button builders={[builder]} variant="ghost" size="icon" class="h-8 w-8">
-                {#if showLorebookImportSection}
-                  <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
-                {:else}
-                  <ChevronDown class="h-4 w-4 transition-transform duration-200" />
-                {/if}
-                <span class="sr-only">Toggle</span>
-              </Button>
+            <Collapsible.Trigger>
+              {#snippet child({ props })}
+                <Button {...props} variant="ghost" size="icon" class="h-8 w-8">
+                  {#if showLorebookImportSection}
+                    <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
+                  {:else}
+                    <ChevronDown class="h-4 w-4 transition-transform duration-200" />
+                  {/if}
+                  <span class="sr-only">Toggle</span>
+                </Button>
+              {/snippet}
             </Collapsible.Trigger>
           </div>
         </div>
@@ -136,12 +138,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.serviceSpecificSettings.lorebookClassifier?.batchSize ?? 50]}
+                value={settings.serviceSpecificSettings.lorebookClassifier?.batchSize ?? 50}
                 min={10}
                 max={100}
                 step={10}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.lorebookClassifier.batchSize = v[0]
+                  settings.serviceSpecificSettings.lorebookClassifier.batchSize = v
                   settings.saveServiceSpecificSettings()
                 }}
               />
@@ -162,12 +165,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.serviceSpecificSettings.lorebookClassifier?.maxConcurrent ?? 5]}
+                value={settings.serviceSpecificSettings.lorebookClassifier?.maxConcurrent ?? 5}
                 min={1}
                 max={10}
                 step={1}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.lorebookClassifier.maxConcurrent = v[0]
+                  settings.serviceSpecificSettings.lorebookClassifier.maxConcurrent = v
                   settings.saveServiceSpecificSettings()
                 }}
               />
@@ -208,15 +212,17 @@
             >
               <RotateCcw class="h-3.5 w-3.5" />
             </Button>
-            <Collapsible.Trigger asChild let:builder>
-              <Button builders={[builder]} variant="ghost" size="icon" class="h-8 w-8">
-                {#if showLoreManagementSection}
-                  <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
-                {:else}
-                  <ChevronDown class="h-4 w-4 transition-transform duration-200" />
-                {/if}
-                <span class="sr-only">Toggle</span>
-              </Button>
+            <Collapsible.Trigger>
+              {#snippet child({ props })}
+                <Button {...props} variant="ghost" size="icon" class="h-8 w-8">
+                  {#if showLoreManagementSection}
+                    <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
+                  {:else}
+                    <ChevronDown class="h-4 w-4 transition-transform duration-200" />
+                  {/if}
+                  <span class="sr-only">Toggle</span>
+                </Button>
+              {/snippet}
             </Collapsible.Trigger>
           </div>
         </div>
@@ -232,12 +238,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.systemServicesSettings.loreManagement?.maxIterations ?? 50]}
+                value={settings.systemServicesSettings.loreManagement?.maxIterations ?? 50}
                 min={10}
                 max={100}
                 step={5}
+                type="single"
                 onValueChange={(v) => {
-                  settings.systemServicesSettings.loreManagement.maxIterations = v[0]
+                  settings.systemServicesSettings.loreManagement.maxIterations = v
                   settings.saveSystemServicesSettings()
                 }}
               />
@@ -278,15 +285,17 @@
             >
               <RotateCcw class="h-3.5 w-3.5" />
             </Button>
-            <Collapsible.Trigger asChild let:builder>
-              <Button builders={[builder]} variant="ghost" size="icon" class="h-8 w-8">
-                {#if showClassifierSection}
-                  <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
-                {:else}
-                  <ChevronDown class="h-4 w-4 transition-transform duration-200" />
-                {/if}
-                <span class="sr-only">Toggle</span>
-              </Button>
+            <Collapsible.Trigger>
+              {#snippet child({ props })}
+                <Button {...props} variant="ghost" size="icon" class="h-8 w-8">
+                  {#if showClassifierSection}
+                    <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
+                  {:else}
+                    <ChevronDown class="h-4 w-4 transition-transform duration-200" />
+                  {/if}
+                  <span class="sr-only">Toggle</span>
+                </Button>
+              {/snippet}
             </Collapsible.Trigger>
           </div>
         </div>
@@ -304,12 +313,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.systemServicesSettings.classifier?.chatHistoryTruncation ?? 0]}
+                value={settings.systemServicesSettings.classifier?.chatHistoryTruncation ?? 0}
                 min={0}
                 max={500}
                 step={50}
+                type="single"
                 onValueChange={(v) => {
-                  settings.systemServicesSettings.classifier.chatHistoryTruncation = v[0]
+                  settings.systemServicesSettings.classifier.chatHistoryTruncation = v
                   settings.saveSystemServicesSettings()
                 }}
               />
@@ -350,15 +360,17 @@
             >
               <RotateCcw class="h-3.5 w-3.5" />
             </Button>
-            <Collapsible.Trigger asChild let:builder>
-              <Button builders={[builder]} variant="ghost" size="icon" class="h-8 w-8">
-                {#if showEntryRetrievalSection}
-                  <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
-                {:else}
-                  <ChevronDown class="h-4 w-4 transition-transform duration-200" />
-                {/if}
-                <span class="sr-only">Toggle</span>
-              </Button>
+            <Collapsible.Trigger>
+              {#snippet child({ props })}
+                <Button {...props} variant="ghost" size="icon" class="h-8 w-8">
+                  {#if showEntryRetrievalSection}
+                    <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
+                  {:else}
+                    <ChevronDown class="h-4 w-4 transition-transform duration-200" />
+                  {/if}
+                  <span class="sr-only">Toggle</span>
+                </Button>
+              {/snippet}
             </Collapsible.Trigger>
           </div>
         </div>
@@ -393,12 +405,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.systemServicesSettings.entryRetrieval?.maxTier3Entries ?? 0]}
+                value={settings.systemServicesSettings.entryRetrieval?.maxTier3Entries ?? 0}
                 min={0}
                 max={20}
                 step={1}
+                type="single"
                 onValueChange={(v) => {
-                  settings.systemServicesSettings.entryRetrieval.maxTier3Entries = v[0]
+                  settings.systemServicesSettings.entryRetrieval.maxTier3Entries = v
                   settings.saveSystemServicesSettings()
                 }}
               />
@@ -421,12 +434,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.systemServicesSettings.entryRetrieval?.maxWordsPerEntry ?? 0]}
+                value={settings.systemServicesSettings.entryRetrieval?.maxWordsPerEntry ?? 0}
                 min={0}
                 max={1000}
                 step={50}
+                type="single"
                 onValueChange={(v) => {
-                  settings.systemServicesSettings.entryRetrieval.maxWordsPerEntry = v[0]
+                  settings.systemServicesSettings.entryRetrieval.maxWordsPerEntry = v
                   settings.saveSystemServicesSettings()
                 }}
               />
@@ -472,15 +486,17 @@
             >
               <RotateCcw class="h-3.5 w-3.5" />
             </Button>
-            <Collapsible.Trigger asChild let:builder>
-              <Button builders={[builder]} variant="ghost" size="icon" class="h-8 w-8">
-                {#if showAgenticRetrievalSection}
-                  <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
-                {:else}
-                  <ChevronDown class="h-4 w-4 transition-transform duration-200" />
-                {/if}
-                <span class="sr-only">Toggle</span>
-              </Button>
+            <Collapsible.Trigger>
+              {#snippet child({ props })}
+                <Button {...props} variant="ghost" size="icon" class="h-8 w-8">
+                  {#if showAgenticRetrievalSection}
+                    <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
+                  {:else}
+                    <ChevronDown class="h-4 w-4 transition-transform duration-200" />
+                  {/if}
+                  <span class="sr-only">Toggle</span>
+                </Button>
+              {/snippet}
             </Collapsible.Trigger>
           </div>
         </div>
@@ -553,12 +569,13 @@
                     </span>
                   </div>
                   <Slider
-                    value={[settings.systemServicesSettings.timelineFill?.maxQueries ?? 5]}
+                    value={settings.systemServicesSettings.timelineFill?.maxQueries ?? 5}
                     min={1}
                     max={10}
                     step={1}
+                    type="single"
                     onValueChange={(v) => {
-                      settings.systemServicesSettings.timelineFill.maxQueries = v[0]
+                      settings.systemServicesSettings.timelineFill.maxQueries = v
                       settings.saveSystemServicesSettings()
                     }}
                   />
@@ -578,12 +595,13 @@
                     </span>
                   </div>
                   <Slider
-                    value={[settings.systemServicesSettings.agenticRetrieval?.maxIterations ?? 30]}
+                    value={settings.systemServicesSettings.agenticRetrieval?.maxIterations ?? 30}
                     min={1}
                     max={30}
                     step={1}
+                    type="single"
                     onValueChange={(v) => {
-                      settings.systemServicesSettings.agenticRetrieval.maxIterations = v[0]
+                      settings.systemServicesSettings.agenticRetrieval.maxIterations = v
                       settings.saveSystemServicesSettings()
                     }}
                   />
@@ -625,15 +643,17 @@
             >
               <RotateCcw class="h-3.5 w-3.5" />
             </Button>
-            <Collapsible.Trigger asChild let:builder>
-              <Button builders={[builder]} variant="ghost" size="icon" class="h-8 w-8">
-                {#if showContextWindowSection}
-                  <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
-                {:else}
-                  <ChevronDown class="h-4 w-4 transition-transform duration-200" />
-                {/if}
-                <span class="sr-only">Toggle</span>
-              </Button>
+            <Collapsible.Trigger>
+              {#snippet child({ props })}
+                <Button {...props} variant="ghost" size="icon" class="h-8 w-8">
+                  {#if showContextWindowSection}
+                    <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
+                  {:else}
+                    <ChevronDown class="h-4 w-4 transition-transform duration-200" />
+                  {/if}
+                  <span class="sr-only">Toggle</span>
+                </Button>
+              {/snippet}
             </Collapsible.Trigger>
           </div>
         </div>
@@ -649,14 +669,14 @@
                 </span>
               </div>
               <Slider
-                value={[
-                  settings.serviceSpecificSettings.contextWindow?.recentEntriesForRetrieval ?? 5,
-                ]}
+                value={settings.serviceSpecificSettings.contextWindow?.recentEntriesForRetrieval ??
+                  5}
                 min={2}
                 max={15}
                 step={1}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.contextWindow.recentEntriesForRetrieval = v[0]
+                  settings.serviceSpecificSettings.contextWindow.recentEntriesForRetrieval = v
                   settings.saveServiceSpecificSettings()
                 }}
               />
@@ -674,14 +694,13 @@
                 </span>
               </div>
               <Slider
-                value={[
-                  settings.serviceSpecificSettings.contextWindow?.recentEntriesForTiered ?? 10,
-                ]}
+                value={settings.serviceSpecificSettings.contextWindow?.recentEntriesForTiered ?? 10}
                 min={3}
                 max={20}
                 step={1}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.contextWindow.recentEntriesForTiered = v[0]
+                  settings.serviceSpecificSettings.contextWindow.recentEntriesForTiered = v
                   settings.saveServiceSpecificSettings()
                 }}
               />
@@ -697,14 +716,13 @@
                 </span>
               </div>
               <Slider
-                value={[
-                  settings.serviceSpecificSettings.contextWindow?.recentEntriesForChoices ?? 3,
-                ]}
+                value={settings.serviceSpecificSettings.contextWindow?.recentEntriesForChoices ?? 3}
                 min={1}
                 max={10}
                 step={1}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.contextWindow.recentEntriesForChoices = v[0]
+                  settings.serviceSpecificSettings.contextWindow.recentEntriesForChoices = v
                   settings.saveServiceSpecificSettings()
                 }}
               />
@@ -740,15 +758,17 @@
             >
               <RotateCcw class="h-3.5 w-3.5" />
             </Button>
-            <Collapsible.Trigger asChild let:builder>
-              <Button builders={[builder]} variant="ghost" size="icon" class="h-8 w-8">
-                {#if showLorebookLimitsSection}
-                  <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
-                {:else}
-                  <ChevronDown class="h-4 w-4 transition-transform duration-200" />
-                {/if}
-                <span class="sr-only">Toggle</span>
-              </Button>
+            <Collapsible.Trigger>
+              {#snippet child({ props })}
+                <Button {...props} variant="ghost" size="icon" class="h-8 w-8">
+                  {#if showLorebookLimitsSection}
+                    <ChevronDown class="h-4 w-4 rotate-180 transition-transform duration-200" />
+                  {:else}
+                    <ChevronDown class="h-4 w-4 transition-transform duration-200" />
+                  {/if}
+                  <span class="sr-only">Toggle</span>
+                </Button>
+              {/snippet}
             </Collapsible.Trigger>
           </div>
         </div>
@@ -764,12 +784,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.serviceSpecificSettings.lorebookLimits?.maxForSuggestions ?? 15]}
+                value={settings.serviceSpecificSettings.lorebookLimits?.maxForSuggestions ?? 15}
                 min={5}
                 max={30}
                 step={5}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.lorebookLimits.maxForSuggestions = v[0]
+                  settings.serviceSpecificSettings.lorebookLimits.maxForSuggestions = v
                   settings.saveServiceSpecificSettings()
                 }}
               />
@@ -785,12 +806,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.serviceSpecificSettings.lorebookLimits?.maxForActionChoices ?? 12]}
+                value={settings.serviceSpecificSettings.lorebookLimits?.maxForActionChoices ?? 12}
                 min={5}
                 max={25}
                 step={1}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.lorebookLimits.maxForActionChoices = v[0]
+                  settings.serviceSpecificSettings.lorebookLimits.maxForActionChoices = v
                   settings.saveServiceSpecificSettings()
                 }}
               />
@@ -806,12 +828,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.serviceSpecificSettings.lorebookLimits?.maxEntriesPerTier ?? 10]}
+                value={settings.serviceSpecificSettings.lorebookLimits?.maxEntriesPerTier ?? 10}
                 min={3}
                 max={20}
                 step={1}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.lorebookLimits.maxEntriesPerTier = v[0]
+                  settings.serviceSpecificSettings.lorebookLimits.maxEntriesPerTier = v
                   settings.saveServiceSpecificSettings()
                 }}
               />
@@ -827,12 +850,13 @@
                 </span>
               </div>
               <Slider
-                value={[settings.serviceSpecificSettings.lorebookLimits?.llmThreshold ?? 30]}
+                value={settings.serviceSpecificSettings.lorebookLimits?.llmThreshold ?? 30}
                 min={10}
                 max={100}
                 step={10}
+                type="single"
                 onValueChange={(v) => {
-                  settings.serviceSpecificSettings.lorebookLimits.llmThreshold = v[0]
+                  settings.serviceSpecificSettings.lorebookLimits.llmThreshold = v
                   settings.saveServiceSpecificSettings()
                 }}
               />

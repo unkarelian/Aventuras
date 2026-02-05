@@ -291,7 +291,7 @@
             <Command.List>
               <Command.Empty>No macro found.</Command.Empty>
               <Command.Group heading="Simple Macros">
-                {#each allMacros.filter((m) => m.type === 'simple') as macro (macro.id)}
+                {#each allMacros.filter((m) => m.type === 'simple') as macro, i (i)}
                   <Command.Item value={macro.name} onSelect={() => insertMacro(macro)}>
                     <span>{macro.name}</span>
                     <span class="text-muted-foreground ml-auto font-mono text-xs">
@@ -302,7 +302,7 @@
               </Command.Group>
               <Command.Separator />
               <Command.Group heading="Complex Macros">
-                {#each allMacros.filter((m) => m.type === 'complex') as macro (macro.id)}
+                {#each allMacros.filter((m) => m.type === 'complex') as macro, i (i)}
                   <Command.Item value={macro.name} onSelect={() => insertMacro(macro)}>
                     <span>{macro.name}</span>
                     <span class="text-muted-foreground ml-auto font-mono text-xs">
@@ -355,7 +355,7 @@
     <div
       class="bg-muted/30 max-h-[400px] min-h-[200px] overflow-y-auto rounded-md border p-3 text-sm leading-relaxed"
     >
-      {#each segments as segment (segment.content)}
+      {#each segments as segment, i (i)}
         {#if segment.type === 'text'}
           <span class="whitespace-pre-wrap">{segment.content}</span>
         {:else if segment.type === 'macro' && segment.macro}

@@ -135,7 +135,7 @@
                       <div
                         class="bg-background absolute top-full left-0 z-10 mt-2 hidden w-48 flex-wrap gap-1 rounded-lg border p-2 shadow-xl group-hover:flex"
                       >
-                        {#each colors as color (color)}
+                        {#each colors as color, i (color + i)}
                           <button
                             class={`h-5 w-5 rounded-full bg-${color} ring-white hover:ring-2`}
                             onclick={() => (editColor = color)}

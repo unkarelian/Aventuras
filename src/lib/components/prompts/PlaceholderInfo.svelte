@@ -26,6 +26,7 @@
       onClose()
     }
   }
+  const Icon = $derived(catInfo.icon)
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -45,6 +46,8 @@
     ></div>
 
     <!-- Modal -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       class="border-surface-700 bg-surface-900 relative z-10 w-full max-w-md rounded-xl border shadow-2xl"
       onclick={(e) => e.stopPropagation()}
@@ -54,7 +57,7 @@
       <div class="border-surface-700 flex items-center justify-between border-b px-4 py-3">
         <div class="flex items-center gap-2">
           <div class="bg-surface-800 rounded-lg p-1.5 {catInfo.color}">
-            <svelte:component this={catInfo.icon} class="h-4 w-4" />
+            <Icon class="h-4 w-4" />
           </div>
           <div>
             <h2 id="placeholder-info-title" class="text-surface-100 text-base font-semibold">
@@ -76,6 +79,7 @@
       <div class="space-y-4 p-4">
         <!-- Token display -->
         <div>
+          <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="text-surface-500 mb-1 block text-xs font-medium">Token</label>
           <code
             class="bg-surface-800 text-surface-300 block rounded-lg px-3 py-2 font-mono text-sm"
@@ -86,6 +90,7 @@
 
         <!-- Description -->
         <div>
+          <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="text-surface-500 mb-1 block text-xs font-medium">Description</label>
           <p class="text-surface-300 text-sm leading-relaxed">
             {placeholder.description}

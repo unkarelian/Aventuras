@@ -94,20 +94,20 @@
   })
 
   // Proxy states for sliders to ensure correct array type binding
-  let tempValue = $derived([settings.apiSettings.temperature])
-  let tokensValue = $derived([settings.apiSettings.maxTokens])
-  let reasoningValue = $derived([getReasoningIndex(settings.apiSettings.reasoningEffort)])
+  let tempValue = $derived(settings.apiSettings.temperature)
+  let tokensValue = $derived(settings.apiSettings.maxTokens)
+  let reasoningValue = $derived(getReasoningIndex(settings.apiSettings.reasoningEffort))
 
-  function updateTemperature(v: number[]) {
-    settings.setTemperature(v[0])
+  function updateTemperature(v: number) {
+    settings.setTemperature(v)
   }
 
-  function updateTokens(v: number[]) {
-    settings.setMaxTokens(v[0])
+  function updateTokens(v: number) {
+    settings.setMaxTokens(v)
   }
 
-  function updateReasoning(v: number[]) {
-    settings.setMainReasoningEffort(getReasoningValue(v[0]))
+  function updateReasoning(v: number) {
+    settings.setMainReasoningEffort(getReasoningValue(v))
   }
 </script>
 
@@ -140,7 +140,7 @@
         class="grid-cols-1 md:grid-cols-2"
         profileId={settings.apiSettings.mainNarrativeProfileId}
         model={settings.apiSettings.defaultModel}
-        onProfileChange={(id) => handleSetMainNarrativeProfile(id)}
+        onProfileChange={(id) => handleSetMainNarrativeProfile(id || '')}
         onModelChange={(m) => settings.setDefaultModel(m)}
         onRefreshModels={fetchModelsToProfile}
         isRefreshingModels={isLoadingModels}
@@ -166,6 +166,7 @@
         </div>
         <Slider
           bind:value={tempValue}
+          type="single"
           min={0}
           max={2}
           step={0.1}
@@ -185,6 +186,7 @@
           <div class="flex flex-1 flex-col gap-4.5">
             <Slider
               bind:value={tokensValue}
+              type="single"
               min={1024}
               max={128000}
               step={1024}
@@ -231,6 +233,7 @@
           </div>
           <Slider
             bind:value={reasoningValue}
+            type="single"
             min={0}
             max={3}
             step={1}

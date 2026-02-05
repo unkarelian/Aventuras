@@ -240,7 +240,7 @@
           <AlertTitle>Warnings</AlertTitle>
           <AlertDescription>
             <ul class="list-inside list-disc">
-              {#each parseResult.warnings as warning (warning)}
+              {#each parseResult.warnings as warning, i (i)}
                 <li>{warning}</li>
               {/each}
             </ul>
