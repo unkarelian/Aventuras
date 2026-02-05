@@ -116,7 +116,7 @@ export class TimelineFillService {
         schema: timelineQueriesResultSchema,
         system,
         prompt,
-      });
+      }, 'timeline-fill');
 
       log('Generated queries:', result.queries.length);
       return result.queries.slice(0, this.maxQueries);
@@ -192,7 +192,7 @@ export class TimelineFillService {
         presetId: this.presetId,
         system,
         prompt,
-      });
+      }, 'timeline-fill-answer');
 
       return {
         answer: answer.trim(),

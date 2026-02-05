@@ -81,7 +81,7 @@ export class MemoryService {
       schema: chapterSummaryResultSchema,
       system,
       prompt,
-    });
+    }, 'chapter-summarization');
 
     log('summarizeChapter complete', {
       hasSummary: !!result.summary,
@@ -126,7 +126,7 @@ export class MemoryService {
       schema: chapterAnalysisSchema,
       system,
       prompt,
-    });
+    }, 'chapter-analysis');
 
     log('analyzeForChapter complete', {
       shouldCreateChapter: result.shouldCreateChapter,
@@ -176,7 +176,7 @@ export class MemoryService {
       schema: retrievalDecisionSchema,
       system,
       prompt,
-    });
+    }, 'retrieval-decision');
 
     log('decideRetrieval complete', {
       shouldRetrieve: result.shouldRetrieve,

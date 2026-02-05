@@ -24,8 +24,8 @@ import { PROVIDERS, getBaseUrl } from './config';
 
 const DEFAULT_TIMEOUT_MS = 180000;
 
-export function createProviderFromProfile(profile: APIProfile) {
-  const fetch = createTimeoutFetch(DEFAULT_TIMEOUT_MS);
+export function createProviderFromProfile(profile: APIProfile, presetId: string) {
+  const fetch = createTimeoutFetch(DEFAULT_TIMEOUT_MS, presetId);
   const baseURL = profile.baseUrl || getBaseUrl(profile.providerType);
 
   switch (profile.providerType) {

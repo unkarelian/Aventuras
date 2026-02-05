@@ -5,6 +5,7 @@
  * Patches common provider response issues before SDK validation.
  */
 
+import { ui } from '$lib/stores/ui.svelte';
 import { fetch as tauriHttpFetch } from '@tauri-apps/plugin-http';
 
 function normalizeHeaders(headers: RequestInit['headers']): Record<string, string> {
@@ -43,14 +44,21 @@ function patchResponseJson(json: Record<string, unknown>): Record<string, unknow
   return json;
 }
 
-export function createTimeoutFetch(timeoutMs = 180000) {
+export function createTimeoutFetch(timeoutMs = 180000, serviceId: string) {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     init?.signal?.addEventListener('abort', () => controller.abort());
-
+    console.log('presetId :>> ', serviceId);
     try {
+      const startTime = Date.now();
+      const parsedBody = JSON.parse(init?.body?.toString() || "");
+      const debugId = ui.addDebugRequest(serviceId, {
+        url: input.toString(),
+        method: init?.method ?? 'GET',
+        body: parsedBody,
+      });
       const response = await tauriFetch(input, { ...init, signal: controller.signal });
 
       if (!response.headers.get('content-type')?.includes('application/json')) {
@@ -58,6 +66,16 @@ export function createTimeoutFetch(timeoutMs = 180000) {
       }
 
       const text = await response.text();
+
+      if (!parsedBody.stream) {
+        ui.addDebugResponse(debugId, serviceId, {
+          url: input.toString(),
+          method: init?.method ?? 'GET',
+          body: parsedBody,
+        },
+        startTime);
+      }
+
       try {
         const json = JSON.parse(text);
         const patched = JSON.stringify(patchResponseJson(json));

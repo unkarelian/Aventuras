@@ -106,7 +106,7 @@ export class SuggestionsService {
         schema: suggestionsResultSchema,
         system,
         prompt,
-      });
+      }, 'suggestions');
 
       log('Suggestions generated:', result.suggestions.length);
       return result;

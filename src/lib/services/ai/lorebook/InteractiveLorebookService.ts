@@ -223,7 +223,7 @@ export class InteractiveLorebookService {
     });
 
     // Resolve agent config
-    const { model, providerOptions, preset } = resolveAgentConfig(this.presetId);
+    const { model, providerOptions, preset } = resolveAgentConfig(this.presetId, 'interactive-lorebook');
 
     try {
       // Use streamText for streaming with tools

@@ -211,7 +211,7 @@ class ScenarioService {
       schema: expandedSettingSchema,
       system,
       prompt,
-    });
+    },'setting-expansion');
 
     log('expandSetting complete');
 
@@ -272,7 +272,7 @@ class ScenarioService {
       schema: expandedSettingSchema,
       system,
       prompt,
-    });
+    }, 'setting-refinement');
 
     log('refineSetting complete');
 
@@ -341,7 +341,7 @@ class ScenarioService {
       schema: generatedProtagonistSchema,
       system,
       prompt,
-    });
+    }, 'character-elaboration');
 
     log('elaborateCharacter complete');
 
@@ -402,7 +402,7 @@ class ScenarioService {
       schema: generatedProtagonistSchema,
       system,
       prompt,
-    });
+    }, 'character-refinement');
 
     log('refineCharacter complete');
 
@@ -452,7 +452,7 @@ class ScenarioService {
       schema: generatedProtagonistSchema,
       system,
       prompt,
-    });
+    }, 'protagonist-generation');
 
     log('generateProtagonist complete');
 
@@ -492,7 +492,7 @@ class ScenarioService {
       schema: generatedCharactersSchema,
       system,
       prompt,
-    });
+    }, 'supporting-characters');
 
     log('generateCharacters complete');
 
@@ -517,14 +517,14 @@ class ScenarioService {
     });
 
     const presetConfig = settings.getPresetConfig(presetId || '', 'Opening Generation');
-    const { system, prompt } = this.buildOpeningPrompts(wizardData, lorebookEntries, 'json');
+    const { system, prompt, templateId } = this.buildOpeningPrompts(wizardData, lorebookEntries, 'json');
 
     const result = await generateStructured({
       presetId: presetConfig.id,
       schema: generatedOpeningSchema,
       system,
       prompt,
-    });
+    }, templateId);
 
     log('generateOpening complete');
 
@@ -549,7 +549,7 @@ class ScenarioService {
     });
 
     const presetConfig = settings.getPresetConfig(presetId || '', 'Opening Refinement');
-    const { system, prompt } = this.buildOpeningRefinementPrompts(
+    const { system, prompt, templateId } = this.buildOpeningRefinementPrompts(
         wizardData,
         currentOpening,
         lorebookEntries,
@@ -561,7 +561,7 @@ class ScenarioService {
       schema: generatedOpeningSchema,
       system,
       prompt,
-    });
+    }, templateId);
 
     log('refineOpening complete');
 
@@ -572,7 +572,7 @@ class ScenarioService {
       wizardData: WizardData,
       lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
       outputMode: 'json' | 'stream' = 'json'
-  ): { system: string; prompt: string } {
+  ): { system: string; prompt: string; templateId: string } {
     const { mode, genre, customGenre, expandedSetting, protagonist, characters, writingStyle, title } = wizardData;
     const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
     const protagonistName = protagonist?.name || 'the protagonist';
@@ -632,7 +632,7 @@ class ScenarioService {
       openingInstruction,
     });
 
-    return { system, prompt };
+    return { system, prompt, templateId };
   }
 
   private buildOpeningRefinementPrompts(
@@ -640,7 +640,7 @@ class ScenarioService {
       currentOpening: GeneratedOpening,
       lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
       outputMode: 'json' | 'stream' = 'json'
-  ): { system: string; prompt: string } {
+  ): { system: string; prompt: string; templateId: string } {
     const { mode, genre, customGenre, expandedSetting, protagonist, characters, writingStyle, title } = wizardData;
     const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
     const protagonistName = protagonist?.name || 'the protagonist';
@@ -712,7 +712,7 @@ class ScenarioService {
       currentOpening: currentOpeningBlock,
     });
 
-    return { system, prompt };
+    return { system, prompt, templateId };
   }
 
   private buildOpeningLorebookContext(

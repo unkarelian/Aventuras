@@ -368,7 +368,7 @@ export class ContextBuilder {
         schema: entitySelectionSchema,
         system,
         prompt,
-      });
+      },'tier3-entry-selection');
 
       // Map selected IDs back to RelevantEntry objects
       const selectedSet = new Set(result.selectedIds);

@@ -173,7 +173,7 @@ export class AgenticRetrievalService {
       tools,
       stopWhen: stopOnTerminalTool('finish_retrieval', this.maxIterations),
       signal,
-    });
+    }, 'agentic-retrieval');
 
     // Run the agent
     const result = await agent.generate({ prompt: userPrompt });

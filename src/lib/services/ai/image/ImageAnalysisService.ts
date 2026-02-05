@@ -133,7 +133,7 @@ ${context.translatedNarrative}`;
         schema: sceneAnalysisResultSchema,
         system,
         prompt,
-      });
+      }, templateId);
 
       // Sort by priority (highest first)
       const sortedScenes = result.scenes.sort((a, b) => b.priority - a.priority);

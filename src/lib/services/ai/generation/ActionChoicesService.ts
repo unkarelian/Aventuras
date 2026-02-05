@@ -147,7 +147,7 @@ export class ActionChoicesService {
         schema: actionChoicesResultSchema,
         system,
         prompt,
-      });
+      }, 'action-choices');
 
       log('Action choices generated:', result.choices.length);
       return result.choices.slice(0, 4);

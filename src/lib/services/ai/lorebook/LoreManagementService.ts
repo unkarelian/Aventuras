@@ -181,7 +181,7 @@ ${context.narrativeResponse}
       tools,
       stopWhen: stopOnTerminalTool('finish_lore_management', this.maxIterations),
       signal,
-    });
+    }, 'lore-management');
 
     // Run the agent
     const result = await agent.generate({ prompt: userPrompt });

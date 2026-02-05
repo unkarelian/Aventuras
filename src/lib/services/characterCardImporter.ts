@@ -313,7 +313,8 @@ export async function convertCardToScenario(
     schema: cardImportResultSchema,
     system,
     prompt,
-  });
+    
+  },"character-card-import");
 
   // Convert LLM result to CardImportResult format
   const npcs: GeneratedCharacter[] = result.npcs.map(npc => ({
@@ -379,7 +380,7 @@ export async function sanitizeCharacterCard(
     schema: vaultCharacterImportSchema,
     system,
     prompt,
-  });
+  },'vault-character-import');
 
   log('Character sanitization successful', { name: result.name });
 

@@ -217,7 +217,7 @@ export async function classifyEntriesWithLLM(
       schema: lorebookClassificationResultSchema,
       system,
       prompt,
-    });
+    }, 'lorebook-classifier');
 
     // Apply classifications to batch
     for (const classification of classifications) {

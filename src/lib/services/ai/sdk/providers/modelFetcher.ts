@@ -34,7 +34,7 @@ export async function fetchModelsFromProvider(
   }
 
   const requiresAuth = !NO_AUTH_PATTERNS.some((p) => effectiveBaseUrl.toLowerCase().includes(p));
-  const fetch = createTimeoutFetch(30000);
+  const fetch = createTimeoutFetch(30000, "model-fetch");
   const modelsUrl = effectiveBaseUrl.replace(/\/$/, '') + '/models';
 
   const response = await fetch(modelsUrl, {
@@ -63,7 +63,7 @@ async function fetchAnthropicModels(baseUrl?: string, apiKey?: string): Promise<
   const modelsUrl = effectiveBaseUrl.replace(/\/$/, '') + '/models';
 
   try {
-    const fetchFn = createTimeoutFetch(30000);
+    const fetchFn = createTimeoutFetch(30000, "model-fetch");
     const headers: Record<string, string> = { 'anthropic-version': '2023-06-01' };
     if (apiKey) headers['x-api-key'] = apiKey;
 
@@ -103,7 +103,7 @@ async function fetchGoogleModels(baseUrl?: string, apiKey?: string): Promise<str
   const modelsUrl = effectiveBaseUrl.replace(/\/$/, '') + '/models?key=' + apiKey;
 
   try {
-    const fetchFn = createTimeoutFetch(30000);
+    const fetchFn = createTimeoutFetch(30000, "model-fetch");
     const response = await fetchFn(modelsUrl, { method: 'GET' });
 
     if (!response.ok) {
@@ -135,7 +135,7 @@ async function fetchChutesModels(baseUrl?: string, apiKey?: string): Promise<str
   const effectiveBaseUrl = baseUrl || PROVIDERS.chutes.baseUrl;
   const chutesUrl = effectiveBaseUrl.replace(/\/$/, '') + '/chutes';
 
-  const fetchFn = createTimeoutFetch(30000);
+  const fetchFn = createTimeoutFetch(30000, "model-fetch");
   const response = await fetchFn(chutesUrl, {
     method: 'GET',
     headers: { Authorization: `Bearer ${apiKey}` },
@@ -161,7 +161,7 @@ async function fetchOllamaModels(baseUrl?: string): Promise<string[]> {
   const tagsUrl = effectiveBaseUrl.replace(/\/$/, '').replace(/\/api$/, '') + '/api/tags';
 
   try {
-    const fetchFn = createTimeoutFetch(10000);
+    const fetchFn = createTimeoutFetch(10000, "model-fetch");
     const response = await fetchFn(tagsUrl, { method: 'GET' });
 
     if (!response.ok) {
@@ -192,7 +192,7 @@ async function fetchZhipuModels(baseUrl?: string, apiKey?: string): Promise<stri
   const modelsUrl = effectiveBaseUrl.replace(/\/$/, '') + '/models';
 
   try {
-    const fetchFn = createTimeoutFetch(30000);
+    const fetchFn = createTimeoutFetch(30000, "model-fetch");
     const response = await fetchFn(modelsUrl, {
       method: 'GET',
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -226,7 +226,7 @@ async function fetchMistralModels(baseUrl?: string, apiKey?: string): Promise<st
   const modelsUrl = effectiveBaseUrl.replace(/\/$/, '') + '/models';
 
   try {
-    const fetchFn = createTimeoutFetch(30000);
+    const fetchFn = createTimeoutFetch(30000, "model-fetch");
     const response = await fetchFn(modelsUrl, {
       method: 'GET',
       headers: { Authorization: `Bearer ${apiKey}` },

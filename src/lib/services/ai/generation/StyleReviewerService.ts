@@ -112,7 +112,7 @@ export class StyleReviewerService {
         schema: styleReviewResultSchema,
         system,
         prompt,
-      });
+      }, 'style-reviewer');
 
       log('analyzeStyle complete', { phrasesFound: result.phrases.length });
 

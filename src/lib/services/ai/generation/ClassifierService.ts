@@ -115,7 +115,7 @@ export class ClassifierService {
         schema: classificationResultSchema,
         system,
         prompt,
-      });
+      }, 'classifier');
 
       log('classify complete', {
         characterUpdates: result.entryUpdates.characterUpdates.length,

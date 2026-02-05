@@ -592,7 +592,7 @@ export class EntryRetrievalService {
         system,
         prompt,
         signal,
-      });
+      },'tier3-entry-selection');
 
       // Map selected IDs back to RetrievedEntry objects
       const selectedSet = new Set(result.selectedIds);

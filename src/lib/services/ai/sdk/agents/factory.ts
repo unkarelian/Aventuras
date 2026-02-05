@@ -33,7 +33,7 @@ export interface ResolvedAgentConfig {
  *
  * @param presetId - The preset ID (e.g., 'agentic', 'loreManagement')
  */
-export function resolveAgentConfig(presetId: string): ResolvedAgentConfig {
+export function resolveAgentConfig(presetId: string, serviceId: string): ResolvedAgentConfig {
   const preset = settings.getPresetConfig(presetId);
   const profileId = preset.profileId ?? settings.apiSettings.mainNarrativeProfileId;
   const profile = settings.getProfile(profileId);
@@ -42,7 +42,7 @@ export function resolveAgentConfig(presetId: string): ResolvedAgentConfig {
     throw new Error(`Profile not found: ${profileId}`);
   }
 
-  const provider = createProviderFromProfile(profile);
+  const provider = createProviderFromProfile(profile, serviceId);
   // Call provider directly - all providers support provider(modelId) syntax
   const model = provider(preset.model) as LanguageModelV3;
   const providerOptions = buildProviderOptions(preset, profile.providerType);
@@ -94,10 +94,11 @@ export interface AgentWithSignal<TTools extends ToolSet> {
  * ```
  */
 export function createAgentFromPreset<TTools extends ToolSet>(
-  options: CreateAgentOptions<TTools>
+  options: CreateAgentOptions<TTools>,
+   serviceId: string
 ): AgentWithSignal<TTools> {
   const { presetId, instructions, tools, stopWhen, signal } = options;
-  const { preset, providerType, model, providerOptions } = resolveAgentConfig(presetId);
+  const { preset, providerType, model, providerOptions } = resolveAgentConfig(presetId, serviceId);
 
   log('createAgentFromPreset', {
     presetId,

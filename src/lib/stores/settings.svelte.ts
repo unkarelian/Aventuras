@@ -1239,6 +1239,7 @@ class SettingsStore {
             ...p,
             hiddenModels: p.hiddenModels ?? [],
             favoriteModels: p.favoriteModels ?? [],
+            providerType: p.providerType ?? 'openai-compatible'
           }));
         } catch {
           this.apiSettings.profiles = [];

@@ -96,7 +96,7 @@ export class TranslationService {
         presetId: this.presetId,
         system,
         prompt,
-      });
+      }, 'translate-narration');
 
       log('Translated narration to', targetLanguage);
       return { translatedContent: translatedContent.trim() };
@@ -130,7 +130,7 @@ export class TranslationService {
         presetId: this.presetId,
         system,
         prompt,
-      });
+      }, 'translate-input');
 
       log('Translated input from', sourceLanguage, 'to English');
       return { translatedContent: translatedContent.trim(), detectedLanguage: sourceLanguage };
@@ -168,7 +168,7 @@ export class TranslationService {
         schema: translatedUIResultSchema,
         system,
         prompt,
-      });
+      }, 'translate-ui');
 
       // Merge translated text back into original items
       log('Translated', result.items.length, 'UI elements to', targetLanguage);
@@ -210,7 +210,7 @@ export class TranslationService {
         schema: translatedSuggestionsResultSchema,
         system,
         prompt,
-      });
+      }, 'translate-suggestions');
 
       // Merge translated text back into original objects (preserves extra fields)
       log('Translated', result.suggestions.length, 'suggestions to', targetLanguage);
@@ -252,7 +252,7 @@ export class TranslationService {
         schema: translatedActionChoicesResultSchema,
         system,
         prompt,
-      });
+      }, 'translate-action-choices');
 
       // Merge translated text back into original objects (preserves extra fields)
       log('Translated', result.choices.length, 'action choices to', targetLanguage);
@@ -289,7 +289,7 @@ export class TranslationService {
         presetId: this.presetId,
         system,
         prompt,
-      });
+      }, 'translate-wizard-content');
 
       log('Translated wizard content to', targetLanguage);
       return { translatedContent: translatedContent.trim() };
@@ -332,7 +332,7 @@ ${fieldsJson}`;
         schema: translatedWizardBatchResultSchema,
         system,
         prompt,
-      });
+      }, 'translate-wizard-content');
 
       // Merge results with fallback to original values
       log('Translated', Object.keys(result.translations).length, 'wizard fields to', targetLanguage);
