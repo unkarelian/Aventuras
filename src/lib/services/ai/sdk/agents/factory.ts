@@ -149,9 +149,10 @@ export function extractToolResults<T, TTools extends ToolSet = ToolSet>(
   for (const step of steps) {
     if (!step.toolResults) continue;
 
-    for (const result of step.toolResults) {
-      if (result.toolName === toolName && 'result' in result) {
-        results.push(result.result as T);
+    for (const toolResult of step.toolResults) {
+      // AI SDK uses 'output' property for tool results (not 'result')
+      if (toolResult.toolName === toolName && 'output' in toolResult) {
+        results.push(toolResult.output as T);
       }
     }
   }
@@ -173,9 +174,12 @@ export function extractTerminalToolResult<T, TTools extends ToolSet = ToolSet>(
   for (const step of steps) {
     if (!step.toolResults) continue;
 
-    for (const result of step.toolResults) {
-      if (result.toolName === toolName && 'result' in result) {
-        return result.result as T;
+    for (const toolResult of step.toolResults) {
+      if (toolResult.toolName === toolName) {
+        // AI SDK uses 'output' property for tool results (not 'result')
+        if ('output' in toolResult) {
+          return toolResult.output as T;
+        }
       }
     }
   }

@@ -341,7 +341,9 @@ class AIService {
     decision: RetrievalDecision
   ): string {
     const memory = new MemoryService('memory');
-    return memory.buildRetrievedContextBlock(chapters, decision);
+    // Pass callback to fetch full chapter entries for richer context
+    const getChapterEntries = (chapter: Chapter) => story.getChapterEntries(chapter);
+    return memory.buildRetrievedContextBlock(chapters, decision, getChapterEntries);
   }
 
   /**
@@ -453,10 +455,15 @@ class AIService {
       ? recentActions[recentActions.length - 1].content
       : '';
 
-    // Build chapter summaries if available
-    const chapterSummaries = chapters.length > 0
-      ? chapters.map(c => `Chapter ${c.number}: ${c.summary}`).join('\n\n')
-      : undefined;
+    // Build chapters info for lore management
+    // Deep clone to avoid Svelte proxy issues with AI SDK structured cloning
+    const chapterInfos = JSON.parse(JSON.stringify(chapters.map(c => ({
+      number: c.number,
+      title: c.title,
+      summary: c.summary,
+      keywords: c.keywords,
+      characters: c.characters,
+    }))));
 
     // Create service and run session
     const service = serviceFactory.createLoreManagementService();
@@ -465,7 +472,8 @@ class AIService {
       narrativeResponse,
       userAction,
       existingEntries: entries,
-      chapterSummaries,
+      chapters: chapterInfos,
+      queryChapter: callbacks.onQueryChapter,
     });
 
     // Build changes array for the result
@@ -536,14 +544,8 @@ class AIService {
       recentNarrative,
       availableEntries: entries,
       chapters,
-      // Adapt the chapter query callback if provided
-      getChapterContent: onQueryChapter
-        ? async (chapterId: string) => {
-            const chapter = chapters.find(c => c.id === chapterId);
-            if (!chapter) return 'Chapter not found';
-            return onQueryChapter(chapter.number, 'Provide the full content of this chapter');
-          }
-        : undefined,
+      // Pass through the chapter query callback directly
+      queryChapter: onQueryChapter,
     };
 
     const result = await service.runRetrieval(context, signal);
@@ -589,7 +591,9 @@ class AIService {
     });
 
     const timelineFillService = serviceFactory.createTimelineFillService();
-    return timelineFillService.runTimelineFill(visibleEntries, chapters);
+    // Pass callback to fetch full chapter entries for richer context
+    const getChapterEntries = (chapter: Chapter) => story.getChapterEntries(chapter);
+    return timelineFillService.runTimelineFill(visibleEntries, chapters, getChapterEntries);
   }
 
   /**
@@ -607,7 +611,9 @@ class AIService {
     });
 
     const chapterQueryService = serviceFactory.createChapterQueryService();
-    const answer = await chapterQueryService.answerQuestion(question, chapters, [chapterNumber]);
+    // Pass callback to fetch full chapter entries for richer context
+    const getChapterEntries = (chapter: Chapter) => story.getChapterEntries(chapter);
+    const answer = await chapterQueryService.answerQuestion(question, chapters, [chapterNumber], getChapterEntries);
     return answer.answer;
   }
 
@@ -634,7 +640,9 @@ class AIService {
     }
 
     const chapterQueryService = serviceFactory.createChapterQueryService();
-    const answer = await chapterQueryService.answerQuestion(question, chapters, chapterNumbers);
+    // Pass callback to fetch full chapter entries for richer context
+    const getChapterEntries = (chapter: Chapter) => story.getChapterEntries(chapter);
+    const answer = await chapterQueryService.answerQuestion(question, chapters, chapterNumbers, getChapterEntries);
     return answer.answer;
   }
 

@@ -89,10 +89,11 @@ export class RetrievalPhase {
       }));
     }
 
-    // Task 2: Lorebook entry retrieval
+    // Task 2: Lorebook entry retrieval (skip if agentic retrieval handles it)
+    const useAgenticRetrieval = dependencies.shouldUseAgenticRetrieval(chapters.length);
     const hasLoreContent = lorebookEntries.length > 0 || characters.length > 0 ||
       locations.length > 0 || items.length > 0;
-    if (hasLoreContent) {
+    if (hasLoreContent && !useAgenticRetrieval) {
       tasks.push(
         dependencies.getRelevantLorebookEntries(
           lorebookEntries, userAction.content, visibleEntries.slice(-10),

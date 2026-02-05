@@ -20,15 +20,15 @@ export interface RetrievalToolContext {
   chapters: Chapter[];
   /** Callback to record selected entry indices */
   onSelectEntry: (index: number) => void;
-  /** Get full chapter content */
-  getChapterContent?: (chapterId: string) => Promise<string>;
+  /** Ask a question about a specific chapter and get an answer */
+  queryChapter?: (chapterNumber: number, question: string) => Promise<string>;
 }
 
 /**
  * Create retrieval tools with the given context.
  */
 export function createRetrievalTools(context: RetrievalToolContext) {
-  const { entries, chapters, onSelectEntry, getChapterContent } = context;
+  const { entries, chapters, onSelectEntry, queryChapter } = context;
 
   return {
     /**
@@ -43,7 +43,6 @@ export function createRetrievalTools(context: RetrievalToolContext) {
         const limitedChapters = chapters.slice(0, limit ?? 20);
         return {
           chapters: limitedChapters.map(ch => ({
-            id: ch.id,
             number: ch.number,
             title: ch.title,
             summary: ch.summary.slice(0, 500) + (ch.summary.length > 500 ? '...' : ''),
@@ -59,47 +58,43 @@ export function createRetrievalTools(context: RetrievalToolContext) {
     }),
 
     /**
-     * Get full content of a chapter.
+     * Ask a question about a specific chapter.
      */
     query_chapter: tool({
-      description: 'Get the full summary and metadata of a specific chapter by ID. Use this to understand detailed context.',
+      description: 'Ask a specific question about a chapter to get relevant information. Do NOT ask for "the full content" - instead ask targeted questions like "What happened to [character]?" or "How did [event] unfold?" The query AI will read the chapter and answer your question.',
       inputSchema: z.object({
-        chapterId: z.string().describe('The chapter ID to query'),
+        chapterNumber: z.number().describe('The chapter number to query'),
+        question: z.string().describe('A specific question about the chapter content (e.g., "What did the protagonist discover?" or "How did the battle end?")'),
       }),
-      execute: async ({ chapterId }: { chapterId: string }) => {
-        const chapter = chapters.find(ch => ch.id === chapterId);
+      execute: async ({ chapterNumber, question }: { chapterNumber: number; question: string }) => {
+        const chapter = chapters.find(ch => ch.number === chapterNumber);
         if (!chapter) {
           return {
             found: false,
-            error: `Chapter ${chapterId} not found`,
+            error: `Chapter ${chapterNumber} not found`,
           };
         }
 
-        let content: string | undefined;
-        if (getChapterContent) {
+        let answer: string | undefined;
+        if (queryChapter) {
           try {
-            content = await getChapterContent(chapterId);
+            answer = await queryChapter(chapterNumber, question);
           } catch {
-            // Content fetch failed, return summary only
+            // Query failed, return summary only
           }
         }
 
         return {
           found: true,
           chapter: {
-            id: chapter.id,
             number: chapter.number,
             title: chapter.title,
             summary: chapter.summary,
             keywords: chapter.keywords,
             characters: chapter.characters,
-            locations: chapter.locations,
-            plotThreads: chapter.plotThreads,
-            emotionalTone: chapter.emotionalTone,
-            startTime: chapter.startTime,
-            endTime: chapter.endTime,
           },
-          content,
+          question,
+          answer: answer ?? 'Unable to answer - using summary only',
         };
       },
     }),
@@ -191,13 +186,14 @@ export function createRetrievalTools(context: RetrievalToolContext) {
      * Returns the final synthesis and signals completion.
      */
     finish_retrieval: tool({
-      description: 'Call this when you have finished selecting all relevant entries. Provide a synthesis explaining your selections.',
+      description: 'Call this when you have finished gathering context. Provide a synthesis of your selections AND a summary of information learned from chapter queries.',
       inputSchema: z.object({
         synthesis: z.string().describe('Explanation of why selected entries are relevant to the current context'),
+        chapterSummary: z.string().optional().describe('Summary of key information learned from chapter queries that is relevant to the current situation (character states, past events, relationships, etc.)'),
         confidence: z.enum(['low', 'medium', 'high']).describe('Confidence level in the selection'),
         additionalContext: z.string().optional().describe('Any additional context notes for the narrative'),
       }),
-      execute: async (args: { synthesis: string; confidence: 'low' | 'medium' | 'high'; additionalContext?: string }) => {
+      execute: async (args: { synthesis: string; chapterSummary?: string; confidence: 'low' | 'medium' | 'high'; additionalContext?: string }) => {
         // This tool's execution signals completion of the retrieval loop
         return {
           completed: true,

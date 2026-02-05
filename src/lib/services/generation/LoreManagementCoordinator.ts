@@ -14,6 +14,7 @@ export interface LoreManagementCallbacks {
   onUpdateEntry: (id: string, updates: Partial<Entry>) => Promise<void>;
   onDeleteEntry: (id: string) => Promise<void>;
   onMergeEntries: (entryIds: string[], mergedEntry: Entry) => Promise<void>;
+  onQueryChapter?: (chapterNumber: number, question: string) => Promise<string>;
 }
 
 export interface LoreManagementUICallbacks {
@@ -44,6 +45,7 @@ export interface LoreManagementDependencies {
       onUpdateEntry: (id: string, updates: Partial<Entry>) => Promise<void>;
       onDeleteEntry: (id: string) => Promise<void>;
       onMergeEntries: (entryIds: string[], mergedEntry: Entry) => Promise<void>;
+      onQueryChapter?: (chapterNumber: number, question: string) => Promise<string>;
     },
     mode: StoryMode,
     pov?: POV,
@@ -103,6 +105,7 @@ export class LoreManagementCoordinator {
             await callbacks.onMergeEntries(entryIds, mergedEntry);
             uiCallbacks?.onProgress('Merging entries...', bumpChanges());
           },
+          onQueryChapter: callbacks.onQueryChapter,
         },
         input.mode,
         input.pov,

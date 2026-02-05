@@ -667,13 +667,13 @@
                   <div class="flex justify-between">
                     <Label>Max Iterations</Label>
                     <span class="text-xs font-medium bg-muted px-2 py-0.5 rounded">
-                      {settings.systemServicesSettings.agenticRetrieval?.maxIterations ?? 3}
+                      {settings.systemServicesSettings.agenticRetrieval?.maxIterations ?? 30}
                     </span>
                   </div>
                   <Slider
-                    value={[settings.systemServicesSettings.agenticRetrieval?.maxIterations ?? 3]}
+                    value={[settings.systemServicesSettings.agenticRetrieval?.maxIterations ?? 30]}
                     min={1}
-                    max={10}
+                    max={30}
                     step={1}
                     onValueChange={(v) => {
                       settings.systemServicesSettings.agenticRetrieval.maxIterations = v[0];
@@ -742,34 +742,6 @@
 
         <Collapsible.Content>
           <div class="border-t bg-muted/10 p-4 space-y-6">
-            <!-- Narrative Context -->
-            <div class="space-y-3">
-              <div class="flex justify-between">
-                <Label>Narrative Context</Label>
-                <span class="text-xs font-medium bg-muted px-2 py-0.5 rounded">
-                  {settings.serviceSpecificSettings.contextWindow
-                    ?.recentEntriesForNarrative ?? 20} entries
-                </span>
-              </div>
-              <Slider
-                value={[
-                  settings.serviceSpecificSettings.contextWindow
-                    ?.recentEntriesForNarrative ?? 20,
-                ]}
-                min={5}
-                max={50}
-                step={5}
-                onValueChange={(v) => {
-                  settings.serviceSpecificSettings.contextWindow.recentEntriesForNarrative =
-                    v[0];
-                  settings.saveServiceSpecificSettings();
-                }}
-              />
-              <p class="text-xs text-muted-foreground">
-                Entries sent to the narrator for story generation
-              </p>
-            </div>
-
             <!-- Retrieval Context -->
             <div class="space-y-3">
               <div class="flex justify-between">

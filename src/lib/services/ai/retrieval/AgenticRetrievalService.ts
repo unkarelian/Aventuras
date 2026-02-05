@@ -40,8 +40,8 @@ export interface RetrievalContext {
   availableEntries: Entry[];
   /** Chapter summaries for context */
   chapters?: Chapter[];
-  /** Optional callback to get full chapter content */
-  getChapterContent?: (chapterId: string) => Promise<string>;
+  /** Optional callback to ask a question about a chapter */
+  queryChapter?: (chapterNumber: number, question: string) => Promise<string>;
 }
 
 // Alias for export compatibility
@@ -58,7 +58,7 @@ export interface AgenticRetrievalSettings {
 export function getDefaultAgenticRetrievalSettings(): AgenticRetrievalSettings {
   return {
     enabled: true,
-    maxIterations: 3,
+    maxIterations: 30,
   };
 }
 
@@ -70,6 +70,7 @@ export type AgenticRetrievalResult = RetrievalResult;
 interface FinishRetrievalResult {
   completed: boolean;
   synthesis: string;
+  chapterSummary?: string;
   confidence: 'low' | 'medium' | 'high';
   additionalContext?: string;
 }
@@ -82,7 +83,7 @@ export class AgenticRetrievalService {
   private presetId: string;
   private maxIterations: number;
 
-  constructor(presetId: string = 'agentic', maxIterations: number = 3) {
+  constructor(presetId: string = 'agentic', maxIterations: number = 30) {
     this.presetId = presetId;
     this.maxIterations = maxIterations;
   }
@@ -109,19 +110,24 @@ export class AgenticRetrievalService {
     const queriedChapterIds = new Set<string>();
     const queryHistory: string[] = [];
 
+    // Create plain deep copies of reactive arrays to avoid DataCloneError in AI SDK
+    // (Svelte reactive proxies cannot be structured cloned)
+    const plainEntries = JSON.parse(JSON.stringify(context.availableEntries));
+    const plainChapters = JSON.parse(JSON.stringify(context.chapters ?? []));
+
     // Create tool context with chapter tracking
     const toolContext: RetrievalToolContext = {
-      entries: context.availableEntries,
-      chapters: context.chapters ?? [],
+      entries: plainEntries,
+      chapters: plainChapters,
       onSelectEntry: (index) => {
         selectedIndices.add(index);
-        log('Entry selected', { index, name: context.availableEntries[index]?.name });
+        log('Entry selected', { index, name: plainEntries[index]?.name });
       },
-      getChapterContent: context.getChapterContent
-        ? async (chapterId: string) => {
-            queriedChapterIds.add(chapterId);
-            queryHistory.push(`Queried chapter: ${chapterId}`);
-            return context.getChapterContent!(chapterId);
+      queryChapter: context.queryChapter
+        ? async (chapterNumber: number, question: string) => {
+            queriedChapterIds.add(String(chapterNumber));
+            queryHistory.push(`Queried chapter ${chapterNumber}: ${question}`);
+            return context.queryChapter!(chapterNumber, question);
           }
         : undefined,
     };
@@ -185,13 +191,14 @@ export class AgenticRetrievalService {
       iterations,
       selectedCount: selectedIndices.size,
       queriedChapters: queriedChapterIds.size,
-      terminalResult,
+      hasTerminalResult: !!terminalResult,
+      hasChapterSummary: !!terminalResult?.chapterSummary,
     });
 
-    // Build the selected entries array
+    // Build the selected entries array (use plainEntries to avoid proxy issues)
     const selectedEntries = Array.from(selectedIndices)
-      .filter(idx => idx >= 0 && idx < context.availableEntries.length)
-      .map(idx => context.availableEntries[idx]);
+      .filter(idx => idx >= 0 && idx < plainEntries.length)
+      .map(idx => plainEntries[idx]);
 
     // Build reasoning from terminal result
     let reasoning = terminalResult?.synthesis;
@@ -201,10 +208,14 @@ export class AgenticRetrievalService {
         : terminalResult.additionalContext;
     }
 
-    // Build context string from selected entries
+    // Build context string from selected entries and chapter summary
     const contextParts: string[] = [];
     if (reasoning) {
       contextParts.push(`[Retrieved Context - ${reasoning}]`);
+    }
+    // Include chapter summary if provided
+    if (terminalResult?.chapterSummary) {
+      contextParts.push(`## Past Story Context\n${terminalResult.chapterSummary}`);
     }
     for (const entry of selectedEntries) {
       contextParts.push(`## ${entry.name} (${entry.type})\n${entry.description}`);

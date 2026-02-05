@@ -126,6 +126,8 @@ Your tasks:
 4. Update relationship statuses and character states
 
 Guidelines:
+- Use list_chapters and query_chapter to understand what happened in the story
+- Ask specific questions when querying chapters (e.g., "What did [character] reveal?" not "Give me the full content")
 - Be conservative - only create entries for elements that are genuinely important to the story
 - Use exact names from the story text
 - When merging, combine all relevant information
@@ -206,7 +208,10 @@ export const agenticRetrievalPromptTemplate: PromptTemplate = {
 
 Guidelines:
 1. Start by reviewing the chapter list to understand the story structure
-2. Query specific chapters that seem relevant to the current user input
+2. Query specific chapters by asking targeted questions - do NOT ask for "full content" or "everything that happened"
+   - Good: "What did the protagonist learn about the artifact?"
+   - Good: "How did the confrontation with the villain end?"
+   - Bad: "Give me the full content of this chapter"
 3. Focus on gathering context about:
    - Characters mentioned or involved
    - Locations being revisited
@@ -214,9 +219,12 @@ Guidelines:
    - Items or information from the past
    - Relationship history
 4. Be selective - only gather truly relevant information
-5. When you have enough context, call finish_retrieval with a synthesized summary
+5. Search and select lorebook entries that are relevant to the current context
+6. When you have enough context, call finish_retrieval with:
+   - synthesis: Why you selected these entries
+   - chapterSummary: A summary of key facts learned from chapter queries (character states, past events, relationships, plot points) that the narrator needs to know
 
-  The context you provide will be injected into the narrator's prompt to help maintain story consistency.`,
+The chapterSummary is crucial - it's how information from past chapters reaches the narrator. Include specific details, not just "I learned about X."`,
   userContent: `# Current Situation
 
 USER INPUT:

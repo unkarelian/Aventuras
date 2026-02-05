@@ -335,6 +335,9 @@
           await story.deleteLorebookEntries(entryIds);
           await story.addLorebookEntry(mergedEntry);
         },
+        onQueryChapter: async (chapterNumber, question) => {
+          return aiService.answerChapterQuestion(chapterNumber, question, story.currentBranchChapters);
+        },
       },
       loreUICallbacks: {
         onStart: ui.startLoreManagement.bind(ui),

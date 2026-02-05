@@ -24,6 +24,17 @@ export interface LoreManagementResult {
 }
 
 /**
+ * Chapter info for lore management.
+ */
+export interface LoreManagementChapter {
+  number: number;
+  title: string | null;
+  summary: string;
+  keywords?: string[];
+  characters?: string[];
+}
+
+/**
  * Context for running lore management.
  */
 export interface LoreManagementContext {
@@ -31,8 +42,10 @@ export interface LoreManagementContext {
   narrativeResponse: string;
   userAction: string;
   existingEntries: Entry[];
-  /** Optional chapter summaries for context */
-  chapterSummaries?: string;
+  /** Available chapters for querying */
+  chapters?: LoreManagementChapter[];
+  /** Callback to query a chapter with a question */
+  queryChapter?: (chapterNumber: number, question: string) => Promise<string>;
 }
 
 /**
@@ -103,9 +116,11 @@ export class LoreManagementService {
     let changeIdCounter = 0;
 
     // Convert entries to vault format for tools
-    const vaultEntries = context.existingEntries.map(entryToVaultEntry);
+    // Deep clone to avoid Svelte proxy issues with AI SDK structured cloning
+    const vaultEntries = JSON.parse(JSON.stringify(context.existingEntries.map(entryToVaultEntry)));
+    const plainChapters = context.chapters ? JSON.parse(JSON.stringify(context.chapters)) : undefined;
 
-    // Create tool context
+    // Create tool context with chapter querying
     const toolContext: LorebookToolContext = {
       entries: vaultEntries,
       onPendingChange: (change) => {
@@ -115,14 +130,16 @@ export class LoreManagementService {
         log('Auto-approved change', { type: change.type, id: change.id });
       },
       generateId: () => `lm-${++changeIdCounter}`,
+      chapters: plainChapters,
+      queryChapter: context.queryChapter,
     };
 
     // Create tools
     const tools = createLorebookTools(toolContext);
 
-    // Build entry summaries for user prompt
+    // Build entry summaries for user prompt (use 0-based indices to match tool expectations)
     const entrySummary = context.existingEntries
-      .map((e, i) => `${i + 1}. [${e.type}] ${e.name}: ${e.description?.slice(0, 100) || 'No description'}`)
+      .map((e, i) => `[${i}] [${e.type}] ${e.name}: ${e.description?.slice(0, 100) || 'No description'}`)
       .join('\n') || 'No entries yet.';
 
     // Build recent story section
@@ -144,10 +161,17 @@ ${context.narrativeResponse}
 
     const systemPrompt = promptService.renderPrompt('lore-management', dummyContext);
 
+    // Build chapter summary from chapters array
+    const chapterSummary = context.chapters && context.chapters.length > 0
+      ? context.chapters.map(ch =>
+          `Chapter ${ch.number}${ch.title ? `: ${ch.title}` : ''} - ${ch.summary.slice(0, 200)}...`
+        ).join('\n')
+      : 'No chapters available. Use list_chapters and query_chapter tools to explore story history.';
+
     const userPrompt = promptService.renderUserPrompt('lore-management', dummyContext, {
       entrySummary,
       recentStorySection,
-      chapterSummary: context.chapterSummaries || 'No chapter summaries available.',
+      chapterSummary,
     });
 
     // Create the agent

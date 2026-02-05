@@ -72,8 +72,8 @@ export class MemoryService {
 
     const system = promptService.renderPrompt('chapter-summarization', promptContext);
     const prompt = promptService.renderUserPrompt('chapter-summarization', promptContext, {
-      entriesText,
-      previousChaptersContext,
+      chapterContent: entriesText,
+      previousContext: previousChaptersContext,
     });
 
     const result = await generateStructured({
@@ -116,9 +116,9 @@ export class MemoryService {
 
     const system = promptService.renderPrompt('chapter-analysis', promptContext);
     const prompt = promptService.renderUserPrompt('chapter-analysis', promptContext, {
-      entriesText,
-      tokensOutsideBuffer: tokensOutsideBuffer.toString(),
-      lastChapterEndIndex: lastChapterEndIndex.toString(),
+      messagesInRange: entriesText,
+      firstValidId: (lastChapterEndIndex + 1).toString(),
+      lastValidId: (lastChapterEndIndex + entries.length).toString(),
     });
 
     const result = await generateStructured({
@@ -166,8 +166,9 @@ export class MemoryService {
     const system = promptService.renderPrompt('retrieval-decision', promptContext);
     const prompt = promptService.renderUserPrompt('retrieval-decision', promptContext, {
       userInput: context.userInput,
-      recentNarrative: context.recentNarrative,
-      availableChapters: chapterSummaries,
+      recentContext: context.recentNarrative,
+      chapterSummaries,
+      maxChaptersPerRetrieval: DEFAULT_MEMORY_CONFIG.maxChaptersPerRetrieval.toString(),
     });
 
     const result = await generateStructured({
@@ -187,8 +188,13 @@ export class MemoryService {
 
   /**
    * Build context block from retrieved chapters.
+   * @param getChapterEntries Optional callback to fetch full chapter entries for richer context
    */
-  buildRetrievedContextBlock(chapters: Chapter[], decision: RetrievalDecision): string {
+  buildRetrievedContextBlock(
+    chapters: Chapter[],
+    decision: RetrievalDecision,
+    getChapterEntries?: (chapter: Chapter) => StoryEntry[]
+  ): string {
     if (!decision.shouldRetrieve || decision.relevantChapterIds.length === 0) {
       return '';
     }
@@ -203,7 +209,21 @@ export class MemoryService {
 
     for (const chapter of relevantChapters) {
       block += `\n--- Chapter ${chapter.number} ---\n`;
-      block += chapter.summary;
+
+      // Use full entries if callback provided, otherwise use summary
+      if (getChapterEntries) {
+        const entries = getChapterEntries(chapter);
+        if (entries.length > 0) {
+          block += entries
+            .map(e => `[${e.type === 'user_action' ? 'ACTION' : 'NARRATIVE'}]: ${e.content}`)
+            .join('\n\n');
+        } else {
+          block += chapter.summary;
+        }
+      } else {
+        block += chapter.summary;
+      }
+
       if (chapter.keywords && chapter.keywords.length > 0) {
         block += `\n[Keywords: ${chapter.keywords.join(', ')}]`;
       }

@@ -16,6 +16,17 @@ import {
 } from '../schemas/lorebook';
 
 /**
+ * Chapter info for lore management context.
+ */
+export interface ChapterInfo {
+  number: number;
+  title: string | null;
+  summary: string;
+  keywords?: string[];
+  characters?: string[];
+}
+
+/**
  * Context provided to lorebook tools.
  * Tools are factory functions that capture this context.
  */
@@ -26,6 +37,10 @@ export interface LorebookToolContext {
   onPendingChange: (change: PendingChangeSchema) => void;
   /** Generate unique ID for pending changes */
   generateId: () => string;
+  /** Available chapters for querying */
+  chapters?: ChapterInfo[];
+  /** Callback to query a chapter with a question */
+  queryChapter?: (chapterNumber: number, question: string) => Promise<string>;
 }
 
 /**
@@ -33,9 +48,76 @@ export interface LorebookToolContext {
  * Each invocation creates fresh tools bound to the current entries.
  */
 export function createLorebookTools(context: LorebookToolContext) {
-  const { entries, onPendingChange, generateId } = context;
+  const { entries, onPendingChange, generateId, chapters, queryChapter } = context;
 
   return {
+    /**
+     * List available chapters for querying.
+     */
+    list_chapters: tool({
+      description: 'List all available chapters with their summaries. Use this to understand the story timeline before making lore updates.',
+      inputSchema: z.object({
+        limit: z.number().optional().default(20).describe('Maximum chapters to return'),
+      }),
+      execute: async ({ limit }: { limit?: number }) => {
+        if (!chapters || chapters.length === 0) {
+          return { chapters: [], total: 0, message: 'No chapters available' };
+        }
+        const limitedChapters = chapters.slice(0, limit ?? 20);
+        return {
+          chapters: limitedChapters.map(ch => ({
+            number: ch.number,
+            title: ch.title,
+            summary: ch.summary.slice(0, 500) + (ch.summary.length > 500 ? '...' : ''),
+            keywords: ch.keywords,
+            characters: ch.characters,
+          })),
+          total: chapters.length,
+        };
+      },
+    }),
+
+    /**
+     * Ask a question about a specific chapter.
+     */
+    query_chapter: tool({
+      description: 'Ask a specific question about a chapter to understand story events for lore updates. Ask targeted questions like "What did [character] do?" or "What was revealed about [item]?"',
+      inputSchema: z.object({
+        chapterNumber: z.number().describe('The chapter number to query'),
+        question: z.string().describe('A specific question about the chapter content'),
+      }),
+      execute: async ({ chapterNumber, question }: { chapterNumber: number; question: string }) => {
+        if (!chapters || chapters.length === 0) {
+          return { found: false, error: 'No chapters available' };
+        }
+
+        const chapter = chapters.find(ch => ch.number === chapterNumber);
+        if (!chapter) {
+          return { found: false, error: `Chapter ${chapterNumber} not found` };
+        }
+
+        let answer: string | undefined;
+        if (queryChapter) {
+          try {
+            answer = await queryChapter(chapterNumber, question);
+          } catch {
+            // Query failed, return summary only
+          }
+        }
+
+        return {
+          found: true,
+          chapter: {
+            number: chapter.number,
+            title: chapter.title,
+            summary: chapter.summary,
+          },
+          question,
+          answer: answer ?? 'Unable to answer - using summary only',
+        };
+      },
+    }),
+
     /**
      * List all lorebook entries with optional type filter.
      */

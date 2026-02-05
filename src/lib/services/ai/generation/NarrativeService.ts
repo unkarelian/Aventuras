@@ -11,7 +11,7 @@
 
 import { streamNarrative, generateNarrative } from '../sdk/generate';
 import { buildSystemPrompt, buildPrimingMessage, type WorldStateContext } from '../prompts/systemBuilder';
-import { createLogger, getContextConfig } from '../core/config';
+import { createLogger } from '../core/config';
 import type { StreamChunk } from '../core/types';
 import type { Story, StoryEntry, Entry } from '$lib/types';
 import type { StyleReviewResult } from './StyleReviewerService';
@@ -199,12 +199,12 @@ export class NarrativeService {
 	 * Formats entries as a conversation history with the current action highlighted.
 	 */
 	private buildUserPrompt(entries: StoryEntry[], mode: 'adventure' | 'creative-writing'): string {
-		const contextConfig = getContextConfig();
-		const recentEntries = entries.slice(-contextConfig.recentEntriesForNarrative);
+		// Use all entries passed - these are already the visible (non-summarized) entries
+		// Truncation/context management happens upstream via the memory system
 
 		// Format entries based on mode
 		const historyParts: string[] = [];
-		for (const entry of recentEntries) {
+		for (const entry of entries) {
 			if (entry.type === 'user_action') {
 				const prefix = mode === 'creative-writing' ? '[DIRECTION]' : '[ACTION]';
 				historyParts.push(`${prefix} ${entry.content}`);

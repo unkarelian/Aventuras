@@ -128,16 +128,19 @@ export class TimelineFillService {
 
   /**
    * Answer a question about the story timeline.
+   * @param getChapterEntries Optional callback to fetch full chapter entries for richer context
    */
   async answerQuestion(
     query: string,
     chapters: Chapter[],
-    chapterNumbers?: number[]
+    chapterNumbers?: number[],
+    getChapterEntries?: (chapter: Chapter) => StoryEntry[]
   ): Promise<TimelineAnswer> {
     log('answerQuestion called', {
       query,
       chaptersCount: chapters.length,
       targetChapters: chapterNumbers,
+      hasEntriesCallback: !!getChapterEntries,
     });
 
     // Filter to specific chapters if provided
@@ -153,10 +156,23 @@ export class TimelineFillService {
       };
     }
 
-    // Build chapter content
-    const chapterContent = targetChapters.map(c =>
-      `## Chapter ${c.number}${c.title ? `: ${c.title}` : ''}\n${c.summary}`
-    ).join('\n\n');
+    // Build chapter content - use full entries if callback provided, otherwise use summary
+    const chapterContent = targetChapters.map(c => {
+      const header = `## Chapter ${c.number}${c.title ? `: ${c.title}` : ''}`;
+
+      if (getChapterEntries) {
+        const entries = getChapterEntries(c);
+        if (entries.length > 0) {
+          const entriesText = entries
+            .map(e => `[${e.type === 'user_action' ? 'ACTION' : 'NARRATIVE'}]: ${e.content}`)
+            .join('\n\n');
+          return `${header}\n${entriesText}`;
+        }
+      }
+
+      // Fallback to summary
+      return `${header}\n${c.summary}`;
+    }).join('\n\n');
 
     const promptContext: PromptContext = {
       mode: 'adventure',
@@ -195,14 +211,17 @@ export class TimelineFillService {
 
   /**
    * Run the full timeline fill process.
+   * @param getChapterEntries Optional callback to fetch full chapter entries for richer context
    */
   async runTimelineFill(
     visibleEntries: StoryEntry[],
-    chapters: Chapter[]
+    chapters: Chapter[],
+    getChapterEntries?: (chapter: Chapter) => StoryEntry[]
   ): Promise<TimelineFillResult> {
     log('runTimelineFill called', {
       visibleEntriesCount: visibleEntries.length,
       chaptersCount: chapters.length,
+      hasEntriesCallback: !!getChapterEntries,
     });
 
     if (chapters.length === 0) {
@@ -230,7 +249,7 @@ export class TimelineFillService {
         }
       }
 
-      const answer = await this.answerQuestion(q.query, chapters, chapterNumbers);
+      const answer = await this.answerQuestion(q.query, chapters, chapterNumbers, getChapterEntries);
 
       responses.push({
         query: q.query,
