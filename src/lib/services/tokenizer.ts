@@ -6,13 +6,13 @@
  * provides a good approximation for most modern LLMs and is far more accurate
  * than simple character-based estimation.
  */
-import { countTokens as gptCountTokens, encode } from 'gpt-tokenizer';
+import { countTokens as gptCountTokens, encode } from 'gpt-tokenizer'
 
-const DEBUG = false;
+const DEBUG = false
 
 function log(...args: unknown[]) {
   if (DEBUG) {
-    console.log('[Tokenizer]', ...args);
+    console.log('[Tokenizer]', ...args)
   }
 }
 
@@ -22,11 +22,11 @@ function log(...args: unknown[]) {
  * @returns The number of tokens
  */
 export function countTokens(text: string): number {
-  if (!text) return 0;
+  if (!text) return 0
 
-  const count = gptCountTokens(text);
-  log('countTokens', { textLength: text.length, tokenCount: count });
-  return count;
+  const count = gptCountTokens(text)
+  log('countTokens', { textLength: text.length, tokenCount: count })
+  return count
 }
 
 /**
@@ -36,8 +36,8 @@ export function countTokens(text: string): number {
  * @returns Array of token IDs
  */
 export function encodeText(text: string): number[] {
-  if (!text) return [];
-  return encode(text);
+  if (!text) return []
+  return encode(text)
 }
 
 /**
@@ -47,10 +47,10 @@ export function encodeText(text: string): number[] {
  * @returns The ratio of characters to tokens
  */
 export function getCharPerTokenRatio(text: string): number {
-  if (!text) return 4; // Default fallback
-  const tokens = countTokens(text);
-  if (tokens === 0) return 4;
-  return text.length / tokens;
+  if (!text) return 4 // Default fallback
+  const tokens = countTokens(text)
+  if (tokens === 0) return 4
+  return text.length / tokens
 }
 
 // Export a singleton-like interface for consistency with other services
@@ -58,4 +58,4 @@ export const tokenizer = {
   countTokens,
   encodeText,
   getCharPerTokenRatio,
-};
+}

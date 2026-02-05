@@ -1,100 +1,93 @@
 <script lang="ts">
-  import { story } from "$lib/stores/story.svelte";
-  import { ui } from "$lib/stores/ui.svelte";
-  import { exportService } from "$lib/services/export";
-  import { ask } from "@tauri-apps/plugin-dialog";
-  import { BookOpen, Upload, RefreshCw, Archive, Plus } from "lucide-svelte";
-  import SetupWizard from "../wizard/SetupWizard.svelte";
+  import { story } from '$lib/stores/story.svelte'
+  import { ui } from '$lib/stores/ui.svelte'
+  import { exportService } from '$lib/services/export'
+  import { ask } from '@tauri-apps/plugin-dialog'
+  import { BookOpen, Upload, RefreshCw, Archive, Plus } from 'lucide-svelte'
+  import SetupWizard from '../wizard/SetupWizard.svelte'
 
-  import { Button } from "$lib/components/ui/button";
-  import EmptyState from "$lib/components/ui/empty-state/empty-state.svelte";
-  import StoryCard from "$lib/components/story/StoryCard.svelte";
+  import { Button } from '$lib/components/ui/button'
+  import EmptyState from '$lib/components/ui/empty-state/empty-state.svelte'
+  import StoryCard from '$lib/components/story/StoryCard.svelte'
 
   // File input for import (HTML-based for mobile compatibility)
-  let importFileInput: HTMLInputElement;
+  let importFileInput: HTMLInputElement
 
-  let showSetupWizard = $state(false);
-  let setupWizardKey = $state(0);
+  let showSetupWizard = $state(false)
+  let setupWizardKey = $state(0)
 
   // Load stories on mount
   $effect(() => {
-    story.loadAllStories();
-  });
+    story.loadAllStories()
+  })
 
   function openSetupWizard() {
-    setupWizardKey += 1;
-    showSetupWizard = true;
+    setupWizardKey += 1
+    showSetupWizard = true
   }
 
   async function openStory(storyId: string) {
-    ui.resetScrollBreak();
-    await story.loadStory(storyId);
-    ui.setActivePanel("story");
+    ui.resetScrollBreak()
+    await story.loadStory(storyId)
+    ui.setActivePanel('story')
   }
 
   async function deleteStory(storyId: string, event: MouseEvent) {
-    event.stopPropagation();
+    event.stopPropagation()
     const confirmed = await ask(
-      "Are you sure you want to delete this story? This action cannot be undone.",
+      'Are you sure you want to delete this story? This action cannot be undone.',
       {
-        title: "Delete Story",
-        kind: "warning",
+        title: 'Delete Story',
+        kind: 'warning',
       },
-    );
+    )
     if (confirmed) {
-      await story.deleteStory(storyId);
+      await story.deleteStory(storyId)
     }
   }
 
   function triggerImport() {
-    importFileInput?.click();
+    importFileInput?.click()
   }
 
   async function handleImportFileSelect(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
 
     try {
-      const content = await file.text();
-      const result = await exportService.importFromContent(content);
+      const content = await file.text()
+      const result = await exportService.importFromContent(content)
 
       if (result.success && result.storyId) {
-        await story.loadAllStories();
-        await story.loadStory(result.storyId);
-        ui.setActivePanel("story");
+        await story.loadAllStories()
+        await story.loadStory(result.storyId)
+        ui.setActivePanel('story')
       } else if (result.error) {
-        ui.showToast(result.error, "error");
+        ui.showToast(result.error, 'error')
       }
     } catch (error) {
-      ui.showToast(
-        error instanceof Error ? error.message : "Failed to read file",
-        "error",
-      );
+      ui.showToast(error instanceof Error ? error.message : 'Failed to read file', 'error')
     }
 
     // Reset file input for re-selection
-    input.value = "";
+    input.value = ''
   }
 </script>
 
-<div class="h-full overflow-y-auto p-4 sm:p-6 relative bg-background">
-  <div class="mx-auto max-w-5xl min-h-full flex flex-col">
+<div class="bg-background relative h-full overflow-y-auto p-4 sm:p-6">
+  <div class="mx-auto flex min-h-full max-w-5xl flex-col">
     <!-- Header -->
-    <div
-      class="mb-6 sm:mb-8 flex flex-row items-start justify-between gap-3 sm:gap-4"
-    >
-      <div class="flex-1 min-w-0 mr-2">
-        <h1
-          class="pb-1 text-xl sm:text-3xl font-bold tracking-tight text-foreground truncate"
-        >
+    <div class="mb-6 flex flex-row items-start justify-between gap-3 sm:mb-8 sm:gap-4">
+      <div class="mr-2 min-w-0 flex-1">
+        <h1 class="text-foreground truncate pb-1 text-xl font-bold tracking-tight sm:text-3xl">
           Story Library
         </h1>
-        <p class="-mt-1 text-sm sm:text-base text-muted-foreground truncate">
+        <p class="text-muted-foreground -mt-1 truncate text-sm sm:text-base">
           Your adventures await...
         </p>
       </div>
-      <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
         <Button
           icon={RefreshCw}
           label="Sync"
@@ -107,7 +100,7 @@
           label="Vault"
           variant="outline"
           title="Vault"
-          onclick={() => ui.setActivePanel("vault")}
+          onclick={() => ui.setActivePanel('vault')}
         />
         <Button
           icon={Upload}
@@ -144,9 +137,7 @@
         class="pb-20"
       />
     {:else}
-      <div
-        class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      >
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {#each story.allStories as s (s.id)}
           <StoryCard story={s} onOpen={openStory} onDelete={deleteStory} />
         {/each}
@@ -159,7 +150,7 @@
     href="https://discord.gg/DqVzhSPC46"
     target="_blank"
     rel="noopener noreferrer"
-    class="hidden sm:flex fixed bottom-6 left-6 items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground shadow-lg transition-all hover:bg-secondary/80 hover:scale-105 z-40"
+    class="bg-secondary text-secondary-foreground hover:bg-secondary/80 fixed bottom-6 left-6 z-40 hidden items-center gap-2 rounded-lg px-3 py-2 text-sm shadow-lg transition-all hover:scale-105 sm:flex"
   >
     <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
       <path

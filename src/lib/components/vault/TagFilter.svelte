@@ -1,44 +1,44 @@
 <script lang="ts">
-  import { tagStore } from "$lib/stores/tags.svelte";
-  import type { VaultType } from "$lib/types";
-  import { Filter, Check, X } from "lucide-svelte";
-  import { Button } from "$lib/components/ui/button";
-  import { Badge } from "$lib/components/ui/badge";
-  import * as Command from "$lib/components/ui/command";
-  import * as Popover from "$lib/components/ui/popover";
-  import { cn } from "$lib/utils/cn";
+  import { tagStore } from '$lib/stores/tags.svelte'
+  import type { VaultType } from '$lib/types'
+  import { Filter, Check, X } from 'lucide-svelte'
+  import { Button } from '$lib/components/ui/button'
+  import { Badge } from '$lib/components/ui/badge'
+  import * as Command from '$lib/components/ui/command'
+  import * as Popover from '$lib/components/ui/popover'
+  import { cn } from '$lib/utils/cn'
 
   interface Props {
-    selectedTags: string[];
-    logic: "AND" | "OR";
-    type: VaultType;
-    onUpdate: (tags: string[], logic: "AND" | "OR") => void;
+    selectedTags: string[]
+    logic: 'AND' | 'OR'
+    type: VaultType
+    onUpdate: (tags: string[], logic: 'AND' | 'OR') => void
   }
 
-  let { selectedTags, logic, type, onUpdate }: Props = $props();
+  let { selectedTags, logic, type, onUpdate }: Props = $props()
 
-  let open = $state(false);
+  let open = $state(false)
 
-  const availableTags = $derived(tagStore.getTagsForType(type));
+  const availableTags = $derived(tagStore.getTagsForType(type))
 
   function toggleTag(tagName: string) {
     if (selectedTags.includes(tagName)) {
       onUpdate(
         selectedTags.filter((t) => t !== tagName),
         logic,
-      );
+      )
     } else {
-      onUpdate([...selectedTags, tagName], logic);
+      onUpdate([...selectedTags, tagName], logic)
     }
   }
 
   function clearTags() {
-    onUpdate([], logic);
-    open = false;
+    onUpdate([], logic)
+    open = false
   }
 
   function toggleLogic() {
-    onUpdate(selectedTags, logic === "AND" ? "OR" : "AND");
+    onUpdate(selectedTags, logic === 'AND' ? 'OR' : 'AND')
   }
 </script>
 
@@ -46,12 +46,9 @@
   <Popover.Trigger>
     {#snippet child({ props })}
       <Button
-        variant={selectedTags.length > 0 ? "secondary" : "outline"}
+        variant={selectedTags.length > 0 ? 'secondary' : 'outline'}
         size="default"
-        class={cn(
-          "gap-2",
-          selectedTags.length > 0 && "bg-secondary text-secondary-foreground",
-        )}
+        class={cn('gap-2', selectedTags.length > 0 && 'bg-secondary text-secondary-foreground')}
         {...props}
       >
         <Filter class="h-3 w-3" />
@@ -67,16 +64,14 @@
   <Popover.Content class="w-70 p-0" align="end">
     <!-- Logic Toggle Header -->
     <div class="flex items-center justify-between border-b px-3 py-2">
-      <span class="text-xs font-medium text-muted-foreground"
-        >Filter Logic:</span
-      >
-      <div class="flex items-center rounded-md bg-muted p-0.5">
+      <span class="text-muted-foreground text-xs font-medium">Filter Logic:</span>
+      <div class="bg-muted flex items-center rounded-md p-0.5">
         <button
           class={cn(
-            "rounded-sm px-2 py-0.5 text-[10px] font-bold transition-all",
-            logic === "AND"
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
+            'rounded-sm px-2 py-0.5 text-[10px] font-bold transition-all',
+            logic === 'AND'
+              ? 'bg-background text-primary shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
           )}
           onclick={toggleLogic}
         >
@@ -84,10 +79,10 @@
         </button>
         <button
           class={cn(
-            "rounded-sm px-2 py-0.5 text-[10px] font-bold transition-all",
-            logic === "OR"
-              ? "bg-background text-primary shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
+            'rounded-sm px-2 py-0.5 text-[10px] font-bold transition-all',
+            logic === 'OR'
+              ? 'bg-background text-primary shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
           )}
           onclick={toggleLogic}
         >
@@ -110,13 +105,13 @@
             >
               <div
                 class={cn(
-                  "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                  'border-primary mr-2 flex h-4 w-4 items-center justify-center rounded-sm border',
                   selectedTags.includes(tag.name)
-                    ? "bg-primary text-primary-foreground"
-                    : "opacity-50 [&_svg]:invisible",
+                    ? 'bg-primary text-primary-foreground'
+                    : 'opacity-50 [&_svg]:invisible',
                 )}
               >
-                <Check class={cn("h-4 w-4")} />
+                <Check class={cn('h-4 w-4')} />
               </div>
               <span>{tag.name}</span>
             </Command.Item>
@@ -131,7 +126,7 @@
         <Button
           variant="ghost"
           size="sm"
-          class="w-full justify-center text-xs h-8"
+          class="h-8 w-full justify-center text-xs"
           onclick={clearTags}
         >
           <X class="mr-2 h-3 w-3" />

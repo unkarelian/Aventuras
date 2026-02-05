@@ -1,55 +1,55 @@
 <script lang="ts">
-  import type { VaultCharacter } from "$lib/types";
-  import { descriptorsToString, stringToDescriptors } from "$lib/utils/visualDescriptors";
-  import { characterVault } from "$lib/stores/characterVault.svelte";
-  import { X, User, Users, ImageUp, Loader2 } from "lucide-svelte";
-  import { normalizeImageDataUrl } from "$lib/utils/image";
-  import TagInput from "$lib/components/tags/TagInput.svelte";
-  import { cn } from "$lib/utils/cn";
+  import type { VaultCharacter } from '$lib/types'
+  import { descriptorsToString, stringToDescriptors } from '$lib/utils/visualDescriptors'
+  import { characterVault } from '$lib/stores/characterVault.svelte'
+  import { X, User, Users, ImageUp, Loader2 } from 'lucide-svelte'
+  import { normalizeImageDataUrl } from '$lib/utils/image'
+  import TagInput from '$lib/components/tags/TagInput.svelte'
+  import { cn } from '$lib/utils/cn'
 
-  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
-  import { Input } from "$lib/components/ui/input";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import { Button } from "$lib/components/ui/button";
-  import { Label } from "$lib/components/ui/label";
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
+  import { Input } from '$lib/components/ui/input'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { Button } from '$lib/components/ui/button'
+  import { Label } from '$lib/components/ui/label'
 
   interface Props {
-    character?: VaultCharacter | null;
-    onClose: () => void;
-    onSaved?: (character: VaultCharacter) => void;
+    character?: VaultCharacter | null
+    onClose: () => void
+    onSaved?: (character: VaultCharacter) => void
   }
 
-  let { character = null, onClose, onSaved }: Props = $props();
+  let { character = null, onClose, onSaved }: Props = $props()
 
   // Form state
-  let name = $state(character?.name ?? "");
-  let description = $state(character?.description ?? "");
-  let traits = $state(character?.traits.join(", ") ?? "");
-  let visualDescriptors = $state(character ? descriptorsToString(character.visualDescriptors) : "");
-  let tags = $state<string[]>(character?.tags ?? []);
-  let portrait = $state<string | null>(character?.portrait ?? null);
+  let name = $state(character?.name ?? '')
+  let description = $state(character?.description ?? '')
+  let traits = $state(character?.traits.join(', ') ?? '')
+  let visualDescriptors = $state(character ? descriptorsToString(character.visualDescriptors) : '')
+  let tags = $state<string[]>(character?.tags ?? [])
+  let portrait = $state<string | null>(character?.portrait ?? null)
 
-  let saving = $state(false);
-  let error = $state<string | null>(null);
-  let uploadingPortrait = $state(false);
+  let saving = $state(false)
+  let error = $state<string | null>(null)
+  let uploadingPortrait = $state(false)
 
-  const isEditing = $derived(!!character);
+  const isEditing = $derived(!!character)
 
   async function handleSubmit() {
     if (!name.trim()) {
-      error = "Name is required";
-      return;
+      error = 'Name is required'
+      return
     }
 
-    saving = true;
-    error = null;
+    saving = true
+    error = null
 
     try {
       const traitsArray = traits
-        .split(",")
+        .split(',')
         .map((t) => t.trim())
-        .filter(Boolean);
-      const visualDescriptorsObj = stringToDescriptors(visualDescriptors);
+        .filter(Boolean)
+      const visualDescriptorsObj = stringToDescriptors(visualDescriptors)
 
       if (isEditing && character) {
         // Update existing
@@ -60,8 +60,8 @@
           visualDescriptors: visualDescriptorsObj,
           tags,
           portrait,
-        });
-        onSaved?.(characterVault.getById(character.id)!);
+        })
+        onSaved?.(characterVault.getById(character.id)!)
       } else {
         // Create new
         const newCharacter = await characterVault.add({
@@ -72,74 +72,70 @@
           tags,
           portrait,
           favorite: false,
-          source: "manual",
+          source: 'manual',
           originalStoryId: null,
           metadata: null,
-        });
-        onSaved?.(newCharacter);
+        })
+        onSaved?.(newCharacter)
       }
-      onClose();
+      onClose()
     } catch (e) {
-      error = e instanceof Error ? e.message : "Failed to save character";
+      error = e instanceof Error ? e.message : 'Failed to save character'
     } finally {
-      saving = false;
+      saving = false
     }
   }
 
   function handlePortraitUpload(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
 
-    if (!file.type.startsWith("image/")) {
-      error = "Please select an image file";
-      return;
+    if (!file.type.startsWith('image/')) {
+      error = 'Please select an image file'
+      return
     }
 
-    uploadingPortrait = true;
-    const reader = new FileReader();
+    uploadingPortrait = true
+    const reader = new FileReader()
     reader.onload = (e) => {
-      portrait = e.target?.result as string;
-      uploadingPortrait = false;
-    };
+      portrait = e.target?.result as string
+      uploadingPortrait = false
+    }
     reader.onerror = () => {
-      error = "Failed to read image file";
-      uploadingPortrait = false;
-    };
-    reader.readAsDataURL(file);
-    input.value = "";
+      error = 'Failed to read image file'
+      uploadingPortrait = false
+    }
+    reader.readAsDataURL(file)
+    input.value = ''
   }
 
   function removePortrait() {
-    portrait = null;
+    portrait = null
   }
 </script>
 
 <ResponsiveModal.Root
   open={true}
   onOpenChange={(open) => {
-    if (!open) onClose();
+    if (!open) onClose()
   }}
 >
-  <ResponsiveModal.Content
-    class="md:max-w-150 flex flex-col md:h-auto md:max-h-[90vh]"
-  >
-    <ResponsiveModal.Header
-      title={isEditing ? "Edit Character" : "New Character"}
-    />
+  <ResponsiveModal.Content class="flex flex-col md:h-auto md:max-h-[90vh] md:max-w-150">
+    <ResponsiveModal.Header title={isEditing ? 'Edit Character' : 'New Character'} />
 
     <div class="flex-1 overflow-y-auto px-4 sm:pr-4">
       <form
         id="character-form"
         onsubmit={(e) => {
-          e.preventDefault();
-          handleSubmit();
+          e.preventDefault()
+          handleSubmit()
         }}
         class="space-y-4 py-2"
       >
         {#if error}
           <div
-            class="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive"
+            class="bg-destructive/10 border-destructive/20 text-destructive rounded-md border p-3 text-sm"
           >
             {error}
           </div>
@@ -148,12 +144,7 @@
         <!-- Name -->
         <div class="space-y-2">
           <Label for="name">Name *</Label>
-          <Input
-            id="name"
-            type="text"
-            bind:value={name}
-            placeholder="Character name"
-          />
+          <Input id="name" type="text" bind:value={name} placeholder="Character name" />
         </div>
 
         <!-- Description -->
@@ -177,9 +168,7 @@
             bind:value={traits}
             placeholder="Brave, Curious, Stubborn (comma-separated)"
           />
-          <p class="text-[0.8rem] text-muted-foreground">
-            Comma-separated personality traits
-          </p>
+          <p class="text-muted-foreground text-[0.8rem]">Comma-separated personality traits</p>
         </div>
 
         <!-- Visual Descriptors -->
@@ -191,9 +180,7 @@
             bind:value={visualDescriptors}
             placeholder="Tall, dark hair, blue eyes (comma-separated)"
           />
-          <p class="text-[0.8rem] text-muted-foreground">
-            Used for portrait generation
-          </p>
+          <p class="text-muted-foreground text-[0.8rem]">Used for portrait generation</p>
         </div>
 
         <!-- Portrait -->
@@ -201,15 +188,15 @@
           <Label>Portrait</Label>
           <div class="flex items-start gap-4">
             {#if portrait}
-              <div class="relative group">
+              <div class="group relative">
                 <img
-                  src={normalizeImageDataUrl(portrait) ?? ""}
+                  src={normalizeImageDataUrl(portrait) ?? ''}
                   alt="Portrait preview"
-                  class="h-20 w-20 rounded-md object-cover ring-1 ring-border"
+                  class="ring-border h-20 w-20 rounded-md object-cover ring-1"
                 />
                 <button
                   type="button"
-                  class="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/90 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                  class="bg-destructive text-destructive-foreground hover:bg-destructive/90 absolute -top-2 -right-2 rounded-full p-1 opacity-0 shadow-sm transition-opacity group-hover:opacity-100"
                   onclick={removePortrait}
                 >
                   <X class="h-3 w-3" />
@@ -217,16 +204,16 @@
               </div>
             {:else}
               <div
-                class="flex h-20 w-20 items-center justify-center rounded-md bg-muted ring-1 ring-border"
+                class="bg-muted ring-border flex h-20 w-20 items-center justify-center rounded-md ring-1"
               >
-                <User class="h-8 w-8 text-muted-foreground" />
+                <User class="text-muted-foreground h-8 w-8" />
               </div>
             {/if}
 
             <div class="flex-1">
               <Button
                 variant="outline"
-                class="w-full relative cursor-pointer"
+                class="relative w-full cursor-pointer"
                 disabled={uploadingPortrait}
               >
                 {#if uploadingPortrait}
@@ -238,7 +225,7 @@
                 <input
                   type="file"
                   accept="image/*"
-                  class="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                  class="absolute inset-0 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
                   onchange={handlePortraitUpload}
                   disabled={uploadingPortrait}
                 />
@@ -256,25 +243,18 @@
             onChange={(newTags) => (tags = newTags)}
             placeholder="Add tags..."
           />
-          <p class="text-[0.8rem] text-muted-foreground">
-            For organizing your vault
-          </p>
+          <p class="text-muted-foreground text-[0.8rem]">For organizing your vault</p>
         </div>
       </form>
     </div>
 
     <!-- Actions -->
     <ResponsiveModal.Footer class="gap-2 sm:gap-0">
-      <Button
-        type="submit"
-        form="character-form"
-        disabled={saving || !name.trim()}
-        class="w-full"
-      >
+      <Button type="submit" form="character-form" disabled={saving || !name.trim()} class="w-full">
         {#if saving}
           <Loader2 class="h-4 w-4 animate-spin" />
         {/if}
-        {isEditing ? "Save Changes" : "Create Character"}
+        {isEditing ? 'Save Changes' : 'Create Character'}
       </Button>
     </ResponsiveModal.Footer>
   </ResponsiveModal.Content>

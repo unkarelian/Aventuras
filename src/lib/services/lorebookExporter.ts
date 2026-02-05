@@ -4,61 +4,61 @@
  * Exports lorebook entries to various formats.
  */
 
-import type { Entry, EntryType, EntryInjectionMode } from '$lib/types';
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeTextFile } from '@tauri-apps/plugin-fs';
+import type { Entry, EntryType, EntryInjectionMode } from '$lib/types'
+import { save } from '@tauri-apps/plugin-dialog'
+import { writeTextFile } from '@tauri-apps/plugin-fs'
 
-export type ExportFormat = 'aventura' | 'sillytavern' | 'text';
+export type ExportFormat = 'aventura' | 'sillytavern' | 'text'
 
 export interface LorebookExportOptions {
-  format: ExportFormat;
-  entries: Entry[];
-  filename?: string;
+  format: ExportFormat
+  entries: Entry[]
+  filename?: string
 }
 
 // SillyTavern export format
 interface SillyTavernEntry {
-  uid: number;
-  key: string[];
-  keysecondary: string[];
-  comment: string;
-  content: string;
-  constant: boolean;
-  vectorized: boolean;
-  selective: boolean;
-  selectiveLogic: number;
-  addMemo: boolean;
-  order: number;
-  position: number;
-  disable: boolean;
-  excludeRecursion: boolean;
-  preventRecursion: boolean;
-  delayUntilRecursion: number;
-  probability: number;
-  useProbability: boolean;
-  depth: number;
-  group: string;
-  groupOverride: boolean;
-  groupWeight: number;
-  scanDepth: number | null;
-  caseSensitive: boolean | null;
-  matchWholeWords: boolean | null;
-  useGroupScoring: boolean | null;
-  automationId: string;
-  role: string | null;
-  sticky: boolean | null;
-  cooldown: number | null;
-  delay: number | null;
-  displayIndex: number;
+  uid: number
+  key: string[]
+  keysecondary: string[]
+  comment: string
+  content: string
+  constant: boolean
+  vectorized: boolean
+  selective: boolean
+  selectiveLogic: number
+  addMemo: boolean
+  order: number
+  position: number
+  disable: boolean
+  excludeRecursion: boolean
+  preventRecursion: boolean
+  delayUntilRecursion: number
+  probability: number
+  useProbability: boolean
+  depth: number
+  group: string
+  groupOverride: boolean
+  groupWeight: number
+  scanDepth: number | null
+  caseSensitive: boolean | null
+  matchWholeWords: boolean | null
+  useGroupScoring: boolean | null
+  automationId: string
+  role: string | null
+  sticky: boolean | null
+  cooldown: number | null
+  delay: number | null
+  displayIndex: number
 }
 
 interface SillyTavernLorebook {
-  entries: Record<string, SillyTavernEntry>;
-  name?: string;
-  description?: string;
-  scan_depth?: number;
-  token_budget?: number;
-  recursive_scanning?: boolean;
+  entries: Record<string, SillyTavernEntry>
+  name?: string
+  description?: string
+  scan_depth?: number
+  token_budget?: number
+  recursive_scanning?: boolean
 }
 
 /**
@@ -66,7 +66,7 @@ interface SillyTavernLorebook {
  */
 function entryToSillyTavern(entry: Entry, index: number): SillyTavernEntry {
   // Combine name and aliases as keywords
-  const keywords = [entry.name, ...entry.aliases, ...entry.injection.keywords];
+  const keywords = [entry.name, ...entry.aliases, ...entry.injection.keywords]
 
   return {
     uid: index,
@@ -101,25 +101,25 @@ function entryToSillyTavern(entry: Entry, index: number): SillyTavernEntry {
     cooldown: null,
     delay: null,
     displayIndex: index,
-  };
+  }
 }
 
 /**
  * Export entries to Aventura JSON format (full Entry objects)
  */
 function exportToAventura(entries: Entry[]): string {
-  return JSON.stringify(entries, null, 2);
+  return JSON.stringify(entries, null, 2)
 }
 
 /**
  * Export entries to SillyTavern format
  */
 function exportToSillyTavern(entries: Entry[], name?: string): string {
-  const stEntries: Record<string, SillyTavernEntry> = {};
+  const stEntries: Record<string, SillyTavernEntry> = {}
 
   entries.forEach((entry, index) => {
-    stEntries[index.toString()] = entryToSillyTavern(entry, index);
-  });
+    stEntries[index.toString()] = entryToSillyTavern(entry, index)
+  })
 
   const lorebook: SillyTavernLorebook = {
     entries: stEntries,
@@ -128,9 +128,9 @@ function exportToSillyTavern(entries: Entry[], name?: string): string {
     scan_depth: 2,
     token_budget: 2048,
     recursive_scanning: false,
-  };
+  }
 
-  return JSON.stringify(lorebook, null, 2);
+  return JSON.stringify(lorebook, null, 2)
 }
 
 /**
@@ -142,42 +142,45 @@ function exportToText(entries: Entry[]): string {
     `# Exported on ${new Date().toLocaleDateString()}`,
     `# Total entries: ${entries.length}`,
     '',
-  ];
+  ]
 
   // Group by type
-  const grouped = entries.reduce((acc, entry) => {
-    if (!acc[entry.type]) {
-      acc[entry.type] = [];
-    }
-    acc[entry.type].push(entry);
-    return acc;
-  }, {} as Record<EntryType, Entry[]>);
+  const grouped = entries.reduce(
+    (acc, entry) => {
+      if (!acc[entry.type]) {
+        acc[entry.type] = []
+      }
+      acc[entry.type].push(entry)
+      return acc
+    },
+    {} as Record<EntryType, Entry[]>,
+  )
 
-  const typeOrder: EntryType[] = ['character', 'location', 'item', 'faction', 'concept', 'event'];
+  const typeOrder: EntryType[] = ['character', 'location', 'item', 'faction', 'concept', 'event']
 
   for (const type of typeOrder) {
-    const typeEntries = grouped[type];
-    if (!typeEntries || typeEntries.length === 0) continue;
+    const typeEntries = grouped[type]
+    if (!typeEntries || typeEntries.length === 0) continue
 
-    lines.push(`## ${type.charAt(0).toUpperCase() + type.slice(1)}s`);
-    lines.push('');
+    lines.push(`## ${type.charAt(0).toUpperCase() + type.slice(1)}s`)
+    lines.push('')
 
     for (const entry of typeEntries) {
-      lines.push(`### ${entry.name}`);
+      lines.push(`### ${entry.name}`)
       if (entry.aliases.length > 0) {
-        lines.push(`Aliases: ${entry.aliases.join(', ')}`);
+        lines.push(`Aliases: ${entry.aliases.join(', ')}`)
       }
-      lines.push('');
-      lines.push(entry.description);
+      lines.push('')
+      lines.push(entry.description)
       if (entry.hiddenInfo) {
-        lines.push('');
-        lines.push(`Hidden: ${entry.hiddenInfo}`);
+        lines.push('')
+        lines.push(`Hidden: ${entry.hiddenInfo}`)
       }
-      lines.push('');
+      lines.push('')
     }
   }
 
-  return lines.join('\n');
+  return lines.join('\n')
 }
 
 /**
@@ -186,11 +189,11 @@ function exportToText(entries: Entry[]): string {
 function getFileExtension(format: ExportFormat): string {
   switch (format) {
     case 'aventura':
-      return '.json';
+      return '.json'
     case 'sillytavern':
-      return '.json';
+      return '.json'
     case 'text':
-      return '.txt';
+      return '.txt'
   }
 }
 
@@ -205,15 +208,15 @@ async function saveFile(content: string, defaultPath: string): Promise<boolean> 
         { name: 'Aventura Lorebook', extensions: ['json'] },
         { name: 'Text', extensions: ['txt'] },
       ],
-    });
+    })
 
-    if (!filePath) return false;
+    if (!filePath) return false
 
-    await writeTextFile(filePath, content);
-    return true;
+    await writeTextFile(filePath, content)
+    return true
   } catch (error) {
-    console.error('[LorebookExporter] Failed to save file:', error);
-    throw error;
+    console.error('[LorebookExporter] Failed to save file:', error)
+    throw error
   }
 }
 
@@ -221,54 +224,58 @@ async function saveFile(content: string, defaultPath: string): Promise<boolean> 
  * Export lorebook entries to the specified format
  */
 export async function exportLorebook(options: LorebookExportOptions): Promise<boolean> {
-  const { format, entries, filename } = options;
+  const { format, entries, filename } = options
 
   if (entries.length === 0) {
-    throw new Error('No entries to export');
+    throw new Error('No entries to export')
   }
 
-  let content: string;
-  const baseFilename = filename ?? `lorebook-${new Date().toISOString().split('T')[0]}`;
-  const extension = getFileExtension(format);
+  let content: string
+  const baseFilename = filename ?? `lorebook-${new Date().toISOString().split('T')[0]}`
+  const extension = getFileExtension(format)
   // Mime type not needed for Tauri save
 
   switch (format) {
     case 'aventura':
-      content = exportToAventura(entries);
-      break;
+      content = exportToAventura(entries)
+      break
     case 'sillytavern':
-      content = exportToSillyTavern(entries, baseFilename);
-      break;
+      content = exportToSillyTavern(entries, baseFilename)
+      break
     case 'text':
-      content = exportToText(entries);
-      break;
+      content = exportToText(entries)
+      break
   }
 
-  return await saveFile(content, baseFilename + extension);
+  return await saveFile(content, baseFilename + extension)
 }
 
 /**
  * Get export format display info
  */
-export function getFormatInfo(format: ExportFormat): { label: string; description: string; extension: string } {
+export function getFormatInfo(format: ExportFormat): {
+  label: string
+  description: string
+  extension: string
+} {
   switch (format) {
     case 'aventura':
       return {
         label: 'Aventura JSON',
         description: 'Full entry data, can be re-imported with all fields',
         extension: '.json',
-      };
+      }
     case 'sillytavern':
       return {
         label: 'SillyTavern',
         description: 'Compatible with SillyTavern and other tools',
         extension: '.json',
-      };
+      }
     case 'text':
       return {
         label: 'Plain Text',
         description: 'Simple readable format, not importable',
         extension: '.txt',
-      };
+      }
   }
 }

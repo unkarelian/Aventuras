@@ -1,6 +1,3 @@
-import Root from "./empty-state.svelte";
+import Root from './empty-state.svelte'
 
-export {
-    Root,
-    Root as EmptyState,
-};
+export { Root, Root as EmptyState }

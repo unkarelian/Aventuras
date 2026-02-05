@@ -1,25 +1,25 @@
 <script lang="ts">
-  import * as RadioGroup from "$lib/components/ui/radio-group";
-  import { Button } from "$lib/components/ui/button";
-  import { Label } from "$lib/components/ui/label";
-  import { Input } from "$lib/components/ui/input";
-  import { Switch } from "$lib/components/ui/switch";
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
-  import { BookOpen, User, Eye } from "lucide-svelte";
-  import type { POV, Tense } from "$lib/types";
+  import * as RadioGroup from '$lib/components/ui/radio-group'
+  import { Button } from '$lib/components/ui/button'
+  import { Label } from '$lib/components/ui/label'
+  import { Input } from '$lib/components/ui/input'
+  import { Switch } from '$lib/components/ui/switch'
+  import { ScrollArea } from '$lib/components/ui/scroll-area'
+  import { BookOpen, User, Eye } from 'lucide-svelte'
+  import type { POV, Tense } from '$lib/types'
 
   interface Props {
-    selectedPOV: POV;
-    selectedTense: Tense;
-    tone: string;
-    visualProseMode: boolean;
-    imageGenerationEnabled: boolean;
-    imageGenerationMode: "none" | "auto" | "inline";
-    onPOVChange: (v: POV) => void;
-    onTenseChange: (v: Tense) => void;
-    onToneChange: (v: string) => void;
-    onVisualProseModeChange: (v: boolean) => void;
-    onImageGenerationModeChange: (v: "none" | "auto" | "inline") => void;
+    selectedPOV: POV
+    selectedTense: Tense
+    tone: string
+    visualProseMode: boolean
+    imageGenerationEnabled: boolean
+    imageGenerationMode: 'none' | 'auto' | 'inline'
+    onPOVChange: (v: POV) => void
+    onTenseChange: (v: Tense) => void
+    onToneChange: (v: string) => void
+    onVisualProseModeChange: (v: boolean) => void
+    onImageGenerationModeChange: (v: 'none' | 'auto' | 'inline') => void
   }
 
   let {
@@ -34,14 +34,14 @@
     onToneChange,
     onVisualProseModeChange,
     onImageGenerationModeChange,
-  }: Props = $props();
+  }: Props = $props()
 
   // Force "none" mode when image generation is disabled
   $effect(() => {
-    if (!imageGenerationEnabled && imageGenerationMode !== "none") {
-      onImageGenerationModeChange("none");
+    if (!imageGenerationEnabled && imageGenerationMode !== 'none') {
+      onImageGenerationModeChange('none')
     }
-  });
+  })
 </script>
 
 <div class="flex h-full flex-col gap-4 p-1">
@@ -69,24 +69,20 @@
             onValueChange={(v) => onPOVChange(v as POV)}
             class="grid grid-cols-3 gap-2"
           >
-            {#each ["first", "second", "third"] as pov}
+            {#each ['first', 'second', 'third'] as pov}
               <Label
                 for={`pov-${pov}`}
-                class="flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 text-center"
+                class="border-muted bg-popover hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 p-3 text-center"
               >
-                <RadioGroup.Item
-                  value={pov}
-                  id={`pov-${pov}`}
-                  class="sr-only"
-                />
+                <RadioGroup.Item value={pov} id={`pov-${pov}`} class="sr-only" />
                 <span class="font-medium capitalize">{pov}</span>
               </Label>
             {/each}
           </RadioGroup.Root>
-          <p class="text-xs text-muted-foreground h-4">
-            {#if selectedPOV === "first"}
+          <p class="text-muted-foreground h-4 text-xs">
+            {#if selectedPOV === 'first'}
               "I draw my sword..."
-            {:else if selectedPOV === "second"}
+            {:else if selectedPOV === 'second'}
               "You draw your sword..."
             {:else}
               "He/She/They draw their sword..."
@@ -105,22 +101,18 @@
             onValueChange={(v) => onTenseChange(v as Tense)}
             class="grid grid-cols-2 gap-2"
           >
-            {#each ["present", "past"] as tense}
+            {#each ['present', 'past'] as tense}
               <Label
                 for={`tense-${tense}`}
-                class="flex cursor-pointer flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-3 hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 text-center"
+                class="border-muted bg-popover hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 p-3 text-center"
               >
-                <RadioGroup.Item
-                  value={tense}
-                  id={`tense-${tense}`}
-                  class="sr-only"
-                />
+                <RadioGroup.Item value={tense} id={`tense-${tense}`} class="sr-only" />
                 <span class="font-medium capitalize">{tense}</span>
               </Label>
             {/each}
           </RadioGroup.Root>
-          <p class="text-xs text-muted-foreground h-4">
-            {#if selectedTense === "present"}
+          <p class="text-muted-foreground h-4 text-xs">
+            {#if selectedTense === 'present'}
               Action happens now.
             {:else}
               Action happened in the past.
@@ -141,13 +133,8 @@
           />
         </div>
         <div class="flex flex-wrap gap-2">
-          {#each ["Dark Fantasy", "High Adventure", "Cozy", "Horror", "Cyberpunk", "Mystery"] as t}
-            <Button
-              variant="outline"
-              size="sm"
-              class="h-7 text-xs"
-              onclick={() => onToneChange(t)}
-            >
+          {#each ['Dark Fantasy', 'High Adventure', 'Cozy', 'Horror', 'Cyberpunk', 'Mystery'] as t}
+            <Button variant="outline" size="sm" class="h-7 text-xs" onclick={() => onToneChange(t)}>
               {t}
             </Button>
           {/each}
@@ -156,71 +143,66 @@
 
       <!-- Visuals Configuration -->
       {#if imageGenerationEnabled}
-      <section class="space-y-2 pt-1">
-        <Label class="flex items-center gap-2 text-base font-semibold">
-          <Eye class="h-4 w-4" />
-          Visual Experience
-        </Label>
+        <section class="space-y-2 pt-1">
+          <Label class="flex items-center gap-2 text-base font-semibold">
+            <Eye class="h-4 w-4" />
+            Visual Experience
+          </Label>
 
-        <RadioGroup.Root
-          value={imageGenerationMode}
-          onValueChange={(v) =>
-            onImageGenerationModeChange(v as "none" | "auto" | "inline")}
-          class="grid grid-cols-1 gap-4 md:grid-cols-3"
-        >
-          <!-- No Images -->
-          <div class="relative">
-            <Label
-              for="img-none"
-              class="flex h-full cursor-pointer flex-col justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
-            >
-              <div class="flex items-start justify-between w-full mb-2">
-                <span class="font-semibold">Text Only</span>
-                <RadioGroup.Item value="none" id="img-none" class="sr-only" />
-              </div>
-              <div class="text-xs text-muted-foreground font-normal">
-                Pure text adventure. No images will be generated.
-              </div>
-            </Label>
-          </div>
+          <RadioGroup.Root
+            value={imageGenerationMode}
+            onValueChange={(v) => onImageGenerationModeChange(v as 'none' | 'auto' | 'inline')}
+            class="grid grid-cols-1 gap-4 md:grid-cols-3"
+          >
+            <!-- No Images -->
+            <div class="relative">
+              <Label
+                for="img-none"
+                class="border-muted bg-popover hover:bg-accent has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 flex h-full cursor-pointer flex-col justify-between rounded-xl border-2 p-4"
+              >
+                <div class="mb-2 flex w-full items-start justify-between">
+                  <span class="font-semibold">Text Only</span>
+                  <RadioGroup.Item value="none" id="img-none" class="sr-only" />
+                </div>
+                <div class="text-muted-foreground text-xs font-normal">
+                  Pure text adventure. No images will be generated.
+                </div>
+              </Label>
+            </div>
 
-          <!-- Agent Mode -->
-          <div class="relative">
-            <Label
-              for="img-auto"
-              class="flex h-full cursor-pointer flex-col justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
-            >
-              <div class="flex items-start justify-between w-full mb-2">
-                <span class="font-semibold">Agent Mode</span>
-                <RadioGroup.Item value="auto" id="img-auto" class="sr-only" />
-              </div>
-              <div class="text-xs text-muted-foreground font-normal">
-                AI decides when to generate images based on the story.
-              </div>
-            </Label>
-          </div>
+            <!-- Agent Mode -->
+            <div class="relative">
+              <Label
+                for="img-auto"
+                class="border-muted bg-popover hover:bg-accent has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 flex h-full cursor-pointer flex-col justify-between rounded-xl border-2 p-4"
+              >
+                <div class="mb-2 flex w-full items-start justify-between">
+                  <span class="font-semibold">Agent Mode</span>
+                  <RadioGroup.Item value="auto" id="img-auto" class="sr-only" />
+                </div>
+                <div class="text-muted-foreground text-xs font-normal">
+                  AI decides when to generate images based on the story.
+                </div>
+              </Label>
+            </div>
 
-          <!-- Inline Mode -->
-          <div class="relative">
-            <Label
-              for="img-inline"
-              class="flex h-full cursor-pointer flex-col justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5"
-            >
-              <div class="flex items-start justify-between w-full mb-2">
-                <span class="font-semibold">Inline Mode</span>
-                <RadioGroup.Item
-                  value="inline"
-                  id="img-inline"
-                  class="sr-only"
-                />
-              </div>
-              <div class="text-xs text-muted-foreground font-normal">
-                Images are embedded directly in the text flow.
-              </div>
-            </Label>
-          </div>
-        </RadioGroup.Root>
-      </section>
+            <!-- Inline Mode -->
+            <div class="relative">
+              <Label
+                for="img-inline"
+                class="border-muted bg-popover hover:bg-accent has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 flex h-full cursor-pointer flex-col justify-between rounded-xl border-2 p-4"
+              >
+                <div class="mb-2 flex w-full items-start justify-between">
+                  <span class="font-semibold">Inline Mode</span>
+                  <RadioGroup.Item value="inline" id="img-inline" class="sr-only" />
+                </div>
+                <div class="text-muted-foreground text-xs font-normal">
+                  Images are embedded directly in the text flow.
+                </div>
+              </Label>
+            </div>
+          </RadioGroup.Root>
+        </section>
       {/if}
 
       <!-- Visual Prose Styling -->
@@ -233,9 +215,8 @@
           />
           <div class="grid gap-1.5 leading-none">
             <Label for="visual-prose">Visual Prose Styling</Label>
-            <p class="text-xs text-muted-foreground">
-              Enable rich text formatting (colors, fonts) for dialogue and
-              actions.
+            <p class="text-muted-foreground text-xs">
+              Enable rich text formatting (colors, fonts) for dialogue and actions.
             </p>
           </div>
         </div>

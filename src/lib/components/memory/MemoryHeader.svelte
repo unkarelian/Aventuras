@@ -1,82 +1,91 @@
 <script lang="ts">
-  import { story } from '$lib/stores/story.svelte';
-  import { ui } from '$lib/stores/ui.svelte';
-  import { Plus, Settings } from 'lucide-svelte';
-  import { Button } from '$lib/components/ui/button';
-  import { Card, CardContent } from '$lib/components/ui/card';
-  import { Progress } from '$lib/components/ui/progress';
-  import { Switch } from '$lib/components/ui/switch';
-  import { Label } from '$lib/components/ui/label';
-  import { cn } from '$lib/utils/cn';
+  import { story } from '$lib/stores/story.svelte'
+  import { ui } from '$lib/stores/ui.svelte'
+  import { Plus, Settings } from 'lucide-svelte'
+  import { Button } from '$lib/components/ui/button'
+  import { Card, CardContent } from '$lib/components/ui/card'
+  import { Progress } from '$lib/components/ui/progress'
+  import { Switch } from '$lib/components/ui/switch'
+  import { Label } from '$lib/components/ui/label'
+  import { cn } from '$lib/utils/cn'
 
   interface Props {
-    onCreateChapter?: () => void;
+    onCreateChapter?: () => void
   }
 
-  let { onCreateChapter }: Props = $props();
+  let { onCreateChapter }: Props = $props()
 
-  const tokensSinceLastChapter = $derived(story.tokensSinceLastChapter);
-  const tokensOutsideBuffer = $derived(story.tokensOutsideBuffer);
-  const threshold = $derived(story.memoryConfig.tokenThreshold);
-  const autoSummarize = $derived(story.memoryConfig.autoSummarize);
-  const messagesSinceLastChapter = $derived(story.messagesSinceLastChapter);
-  const bufferSize = $derived(story.memoryConfig.chapterBuffer);
+  const tokensSinceLastChapter = $derived(story.tokensSinceLastChapter)
+  const tokensOutsideBuffer = $derived(story.tokensOutsideBuffer)
+  const threshold = $derived(story.memoryConfig.tokenThreshold)
+  const autoSummarize = $derived(story.memoryConfig.autoSummarize)
+  const messagesSinceLastChapter = $derived(story.messagesSinceLastChapter)
+  const bufferSize = $derived(story.memoryConfig.chapterBuffer)
 
-  const percentage = $derived(threshold > 0 ? Math.min(100, Math.round((tokensOutsideBuffer / threshold) * 100)) : 0);
-  const isNearThreshold = $derived(percentage >= 80);
-  const isOverThreshold = $derived(percentage >= 100);
+  const percentage = $derived(
+    threshold > 0 ? Math.min(100, Math.round((tokensOutsideBuffer / threshold) * 100)) : 0,
+  )
+  const isNearThreshold = $derived(percentage >= 80)
+  const isOverThreshold = $derived(percentage >= 100)
 
   function formatNumber(num: number): string {
-    return num.toLocaleString();
+    return num.toLocaleString()
   }
 
   async function toggleAutoSummarize() {
-    await story.updateMemoryConfig({ autoSummarize: !autoSummarize });
+    await story.updateMemoryConfig({ autoSummarize: !autoSummarize })
   }
 
   function handleCreateChapter() {
     if (onCreateChapter) {
-      onCreateChapter();
+      onCreateChapter()
     } else {
-      ui.openManualChapterModal();
+      ui.openManualChapterModal()
     }
   }
 </script>
 
 <Card>
-  <CardContent class="p-4 space-y-4">
+  <CardContent class="space-y-4 p-4">
     <!-- Token Usage Section -->
     <div class="space-y-3">
       <div class="flex items-center justify-between">
         <Label class="text-muted-foreground">Context Usage</Label>
         <div class="flex items-center gap-2">
-          <Label for="auto-summarize" class="text-xs cursor-pointer {autoSummarize ? 'text-primary' : 'text-muted-foreground'}">
+          <Label
+            for="auto-summarize"
+            class="cursor-pointer text-xs {autoSummarize
+              ? 'text-primary'
+              : 'text-muted-foreground'}"
+          >
             Auto-summarize
           </Label>
-          <Switch 
+          <Switch
             id="auto-summarize"
-            checked={autoSummarize} 
-            onCheckedChange={toggleAutoSummarize} 
+            checked={autoSummarize}
+            onCheckedChange={toggleAutoSummarize}
           />
         </div>
       </div>
 
       <!-- Progress Bar -->
-      <Progress 
-        value={percentage} 
+      <Progress
+        value={percentage}
         class="h-3"
         indicatorClass={cn(
-          "transition-all duration-300",
-          !isNearThreshold && "bg-primary",
-          isNearThreshold && !isOverThreshold && "bg-amber-500",
-          isOverThreshold && "bg-red-500"
+          'transition-all duration-300',
+          !isNearThreshold && 'bg-primary',
+          isNearThreshold && !isOverThreshold && 'bg-amber-500',
+          isOverThreshold && 'bg-red-500',
         )}
       />
 
       <!-- Token Count -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-0 text-sm">
+      <div
+        class="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-0"
+      >
         <span class="text-muted-foreground">
-          <span class="font-medium text-foreground">{formatNumber(tokensOutsideBuffer)}</span>
+          <span class="text-foreground font-medium">{formatNumber(tokensOutsideBuffer)}</span>
           <span class="text-muted-foreground/70"> / {formatNumber(threshold)}</span>
           <span class="text-muted-foreground/70"> tokens</span>
         </span>
@@ -103,7 +112,7 @@
       <Button
         variant="ghost"
         size="icon"
-        class={cn(ui.memorySettingsOpen && "bg-accent text-accent-foreground")}
+        class={cn(ui.memorySettingsOpen && 'bg-accent text-accent-foreground')}
         onclick={() => ui.toggleMemorySettings()}
         title="Memory Settings"
       >
@@ -112,4 +121,3 @@
     </div>
   </CardContent>
 </Card>
-

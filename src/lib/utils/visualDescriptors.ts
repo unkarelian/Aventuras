@@ -5,11 +5,17 @@
  * and display strings (for UI editing).
  */
 
-import type { VisualDescriptors } from '$lib/types';
+import type { VisualDescriptors } from '$lib/types'
 
 const CATEGORY_ORDER: (keyof VisualDescriptors)[] = [
-  'face', 'hair', 'eyes', 'build', 'clothing', 'accessories', 'distinguishing'
-];
+  'face',
+  'hair',
+  'eyes',
+  'build',
+  'clothing',
+  'accessories',
+  'distinguishing',
+]
 
 const CATEGORY_LABELS: Record<keyof VisualDescriptors, string> = {
   face: 'Face',
@@ -19,63 +25,65 @@ const CATEGORY_LABELS: Record<keyof VisualDescriptors, string> = {
   clothing: 'Clothing',
   accessories: 'Accessories',
   distinguishing: 'Distinguishing',
-};
+}
 
 /**
  * Convert VisualDescriptors object to a display string for editing.
  */
 export function descriptorsToString(descriptors: VisualDescriptors | null | undefined): string {
-  if (!descriptors) return '';
+  if (!descriptors) return ''
 
-  const parts: string[] = [];
+  const parts: string[] = []
   for (const key of CATEGORY_ORDER) {
     if (descriptors[key]) {
-      parts.push(`${CATEGORY_LABELS[key]}: ${descriptors[key]}`);
+      parts.push(`${CATEGORY_LABELS[key]}: ${descriptors[key]}`)
     }
   }
-  return parts.join(', ');
+  return parts.join(', ')
 }
 
 /**
  * Parse an edit string back to VisualDescriptors object.
  */
 export function stringToDescriptors(input: string): VisualDescriptors {
-  if (!input.trim()) return {};
+  if (!input.trim()) return {}
 
-  const result: VisualDescriptors = {};
-  const categoryPattern = /\b(Face|Hair|Eyes|Build|Clothing|Accessories|Distinguishing):\s*/gi;
+  const result: VisualDescriptors = {}
+  const categoryPattern = /\b(Face|Hair|Eyes|Build|Clothing|Accessories|Distinguishing):\s*/gi
 
-  const parts = input.split(categoryPattern).filter(Boolean);
+  const parts = input.split(categoryPattern).filter(Boolean)
   for (let i = 0; i < parts.length - 1; i += 2) {
-    const category = parts[i].toLowerCase() as keyof VisualDescriptors;
-    const value = parts[i + 1].replace(/,\s*$/, '').trim();
+    const category = parts[i].toLowerCase() as keyof VisualDescriptors
+    const value = parts[i + 1].replace(/,\s*$/, '').trim()
     if (value && category in CATEGORY_LABELS) {
-      result[category] = value;
+      result[category] = value
     }
   }
 
-  return result;
+  return result
 }
 
 /**
  * Check if a VisualDescriptors object has any content.
  */
 export function hasDescriptors(descriptors: VisualDescriptors | null | undefined): boolean {
-  if (!descriptors) return false;
-  return Object.values(descriptors).some(v => v && v.trim());
+  if (!descriptors) return false
+  return Object.values(descriptors).some((v) => v && v.trim())
 }
 
 /**
  * Format descriptors for display in prompts/context.
  */
-export function formatDescriptorsForPrompt(descriptors: VisualDescriptors | null | undefined): string {
-  if (!descriptors) return '';
+export function formatDescriptorsForPrompt(
+  descriptors: VisualDescriptors | null | undefined,
+): string {
+  if (!descriptors) return ''
 
-  const parts: string[] = [];
+  const parts: string[] = []
   for (const key of CATEGORY_ORDER) {
     if (descriptors[key]) {
-      parts.push(`${CATEGORY_LABELS[key]}: ${descriptors[key]}`);
+      parts.push(`${CATEGORY_LABELS[key]}: ${descriptors[key]}`)
     }
   }
-  return parts.join(', ');
+  return parts.join(', ')
 }

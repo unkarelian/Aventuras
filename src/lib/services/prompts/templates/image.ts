@@ -5,7 +5,7 @@
  * scene analysis, and portrait generation.
  */
 
-import type { PromptTemplate } from '../types';
+import type { PromptTemplate } from '../types'
 
 /**
  * Soft Anime style template
@@ -17,7 +17,7 @@ export const softAnimeStyleTemplate: PromptTemplate = {
   category: 'image-style',
   description: 'Soft cel-shading, muted pastels, dreamy atmosphere',
   content: `Soft cel-shaded anime illustration with muted pastel color palette. Low saturation, gentle lighting with diffused ambient glow. Subtle linework that blends into the coloring rather than hard outlines. Smooth gradients on shadows, slight bloom effect on highlights and light sources. Dreamy, airy, cozy atmosphere. Studio Ghibli-inspired aesthetic with soft watercolor texture hints in background. Smooth blending on hair and skin with no visible harsh texture. Avoid high contrast, sharp shadows, or dark gritty environments.`,
-};
+}
 
 /**
  * Semi-realistic Anime style template
@@ -29,7 +29,7 @@ export const semiRealisticAnimeStyleTemplate: PromptTemplate = {
   category: 'image-style',
   description: 'Polished, cinematic, detailed rendering',
   content: `Digital anime art with polished, detailed rendering. NOT photorealistic - this is stylized anime/digital art with refined details. Anime-style eyes and facial features with expressive proportions. Detailed hair with visible strands, smooth skin with subtle shading, fabric with weight and texture. Clear directional lighting with soft falloff. Cinematic composition with depth of field. Rich colors with professional color grading. Clean linework with painterly rendering. Atmospheric and polished digital illustration style. Think high-quality anime key visual or game CG art. Avoid photorealism, 3D renders, or uncanny valley faces.`,
-};
+}
 
 /**
  * Photorealistic style template
@@ -41,7 +41,7 @@ export const photorealisticStyleTemplate: PromptTemplate = {
   category: 'image-style',
   description: 'True-to-life rendering with natural lighting',
   content: `Photorealistic digital art with true-to-life rendering. Natural lighting with accurate shadows and highlights. Detailed textures on skin, fabric, and materials. Accurate human proportions and anatomy. Professional photography aesthetic with cinematic depth of field. High dynamic range with realistic contrast. Detailed environments with accurate perspective. Materials rendered with proper reflectance and subsurface scattering where appropriate. Film grain optional for cinematic feel. 8K quality, hyperrealistic detail.`,
-};
+}
 
 /**
  * Image Prompt Analysis template (legacy mode - full character descriptions)
@@ -117,7 +117,7 @@ Analyze the narrative and identify up to {{maxImages}} key visual moments (0 = u
 {{translatedNarrativeBlock}}
 
 Identify the most visually striking moments and return the JSON array. Remember: sourceText must come from the Display Narrative (translated if provided), but prompts must ALWAYS be in English.`,
-};
+}
 
 /**
  * Image Prompt Analysis (Reference Mode) template
@@ -293,7 +293,7 @@ Match the angle to the emotional tone: action scenes benefit from low/dutch angl
 {{translatedNarrativeBlock}}
 
 Identify visually striking moments. Return JSON array. Remember: NEVER use character names in prompts - describe by visual traits only. Keep prompts concise. sourceText must come from the Display Narrative (translated if provided), but prompts must ALWAYS be in English.`,
-};
+}
 
 /**
  * Portrait Generation template
@@ -306,7 +306,7 @@ export const imagePortraitGenerationTemplate: PromptTemplate = {
   description: 'Direct image prompt template for character portraits',
   content: `Full body portrait of a character: {{visualDescriptors}}. Standing in a relaxed natural pose, facing the viewer, full body visible from head to feet. Neutral expression or slight smile. Plain solid color gradient background only, no objects, no environment, no scenery. Portrait composition, centered framing, professional lighting. {{imageStylePrompt}}`,
   userContent: '',
-};
+}
 
 /**
  * Image templates array for registration
@@ -318,4 +318,4 @@ export const imageTemplates: PromptTemplate[] = [
   imagePromptAnalysisTemplate,
   imagePromptAnalysisReferenceTemplate,
   imagePortraitGenerationTemplate,
-];
+]

@@ -20,8 +20,13 @@
  * ```
  */
 
-import { macroEngine } from './macros';
-import { BUILTIN_MACROS, PROMPT_TEMPLATES, CONTEXT_PLACEHOLDERS, getTemplateById } from './definitions';
+import { macroEngine } from './macros'
+import {
+  BUILTIN_MACROS,
+  PROMPT_TEMPLATES,
+  CONTEXT_PLACEHOLDERS,
+  getTemplateById,
+} from './definitions'
 import type {
   Macro,
   PromptTemplate,
@@ -29,14 +34,14 @@ import type {
   MacroOverride,
   PromptOverride,
   PromptSettings,
-} from './types';
+} from './types'
 
 /**
  * Main prompt service - the public API for the prompt system
  */
 class PromptService {
-  private templateOverrides: Map<string, string> = new Map();
-  private initialized = false;
+  private templateOverrides: Map<string, string> = new Map()
+  private initialized = false
 
   /**
    * Initialize the prompt service with saved settings
@@ -45,28 +50,28 @@ class PromptService {
    */
   init(settings: PromptSettings): void {
     // Validate all templates on init (fail fast)
-    this.validateAllTemplates();
+    this.validateAllTemplates()
 
     // Register custom macros
-    macroEngine.setCustomMacros(settings.customMacros);
+    macroEngine.setCustomMacros(settings.customMacros)
 
     // Register global macro overrides
-    macroEngine.setGlobalOverrides(settings.macroOverrides);
+    macroEngine.setGlobalOverrides(settings.macroOverrides)
 
     // Register template overrides
-    this.templateOverrides.clear();
+    this.templateOverrides.clear()
     for (const override of settings.templateOverrides) {
-      this.templateOverrides.set(override.templateId, override.content);
+      this.templateOverrides.set(override.templateId, override.content)
     }
 
-    this.initialized = true;
+    this.initialized = true
   }
 
   /**
    * Check if the service has been initialized
    */
   isInitialized(): boolean {
-    return this.initialized;
+    return this.initialized
   }
 
   // ===========================================================================
@@ -80,7 +85,7 @@ class PromptService {
    * @returns True if the template exists
    */
   hasTemplate(templateId: string): boolean {
-    return getTemplateById(templateId) !== undefined;
+    return getTemplateById(templateId) !== undefined
   }
 
   /**
@@ -92,22 +97,20 @@ class PromptService {
    * @returns The fully expanded prompt string, or empty string if template not found
    * @note Use hasTemplate() to check if a template exists before calling this method
    */
-  getPrompt(
-    templateId: string,
-    context: PromptContext,
-    storyOverrides?: MacroOverride[]
-  ): string {
-    const template = this.getTemplate(templateId);
+  getPrompt(templateId: string, context: PromptContext, storyOverrides?: MacroOverride[]): string {
+    const template = this.getTemplate(templateId)
     if (!template) {
-      console.error(`[PromptService] Template not found: ${templateId}. Use hasTemplate() to check existence.`);
-      return '';
+      console.error(
+        `[PromptService] Template not found: ${templateId}. Use hasTemplate() to check existence.`,
+      )
+      return ''
     }
 
     // Use override content if available, otherwise use default
-    const content = this.templateOverrides.get(templateId) ?? template.content;
+    const content = this.templateOverrides.get(templateId) ?? template.content
 
     // Expand all macros
-    return macroEngine.expand(content, context, storyOverrides);
+    return macroEngine.expand(content, context, storyOverrides)
   }
 
   /**
@@ -123,17 +126,19 @@ class PromptService {
     templateId: string,
     context: PromptContext,
     placeholders?: Record<string, string | number | null | undefined>,
-    storyOverrides?: MacroOverride[]
+    storyOverrides?: MacroOverride[],
   ): string {
-    const template = this.getTemplate(templateId);
+    const template = this.getTemplate(templateId)
     if (!template) {
-      console.error(`[PromptService] Template not found: ${templateId}. Use hasTemplate() to check existence.`);
-      return '';
+      console.error(
+        `[PromptService] Template not found: ${templateId}. Use hasTemplate() to check existence.`,
+      )
+      return ''
     }
 
-    const content = this.templateOverrides.get(templateId) ?? template.content;
-    const expanded = macroEngine.expand(content, context, storyOverrides);
-    return this.applyPlaceholders(expanded, placeholders);
+    const content = this.templateOverrides.get(templateId) ?? template.content
+    const expanded = macroEngine.expand(content, context, storyOverrides)
+    return this.applyPlaceholders(expanded, placeholders)
   }
 
   /**
@@ -148,12 +153,12 @@ class PromptService {
     templateId: string,
     context: PromptContext,
     placeholders?: Record<string, string | number | null | undefined>,
-    storyOverrides?: MacroOverride[]
+    storyOverrides?: MacroOverride[],
   ): string {
-    const raw = this.getUserTemplateContent(templateId);
-    if (!raw) return '';
-    const expanded = macroEngine.expand(raw, context, storyOverrides);
-    return this.applyPlaceholders(expanded, placeholders);
+    const raw = this.getUserTemplateContent(templateId)
+    if (!raw) return ''
+    const expanded = macroEngine.expand(raw, context, storyOverrides)
+    return this.applyPlaceholders(expanded, placeholders)
   }
 
   /**
@@ -163,15 +168,12 @@ class PromptService {
    * @param storyOverrides - Story-specific macro overrides
    * @returns The expanded priming message
    */
-  getPrimingMessage(
-    context: PromptContext,
-    storyOverrides?: MacroOverride[]
-  ): string {
+  getPrimingMessage(context: PromptContext, storyOverrides?: MacroOverride[]): string {
     // The priming message is a special complex macro
-    const resolved = macroEngine.resolve('primingMessage', context, storyOverrides);
+    const resolved = macroEngine.resolve('primingMessage', context, storyOverrides)
 
     // Expand any nested macros (like {{protagonistName}})
-    return macroEngine.expand(resolved, context, storyOverrides);
+    return macroEngine.expand(resolved, context, storyOverrides)
   }
 
   /**
@@ -181,7 +183,7 @@ class PromptService {
    * @returns The template with macro syntax intact, or undefined if not found
    */
   getTemplate(templateId: string): PromptTemplate | undefined {
-    return getTemplateById(templateId);
+    return getTemplateById(templateId)
   }
 
   /**
@@ -191,13 +193,13 @@ class PromptService {
    * @returns The template content (override or default)
    */
   getTemplateContent(templateId: string): string {
-    const override = this.templateOverrides.get(templateId);
+    const override = this.templateOverrides.get(templateId)
     if (override !== undefined) {
-      return override;
+      return override
     }
 
-    const template = this.getTemplate(templateId);
-    return template?.content ?? '';
+    const template = this.getTemplate(templateId)
+    return template?.content ?? ''
   }
 
   /**
@@ -211,34 +213,34 @@ class PromptService {
    */
   getUserTemplateContent(templateId: string): string {
     // User content overrides use the '-user' suffix convention
-    const override = this.templateOverrides.get(`${templateId}-user`);
+    const override = this.templateOverrides.get(`${templateId}-user`)
     if (override !== undefined) {
-      return override;
+      return override
     }
 
-    const template = this.getTemplate(templateId);
-    return template?.userContent ?? '';
+    const template = this.getTemplate(templateId)
+    return template?.userContent ?? ''
   }
 
   /**
    * Check if a template has been overridden
    */
   hasTemplateOverride(templateId: string): boolean {
-    return this.templateOverrides.has(templateId);
+    return this.templateOverrides.has(templateId)
   }
 
   /**
    * Get all available templates
    */
   getAllTemplates(): PromptTemplate[] {
-    return PROMPT_TEMPLATES;
+    return PROMPT_TEMPLATES
   }
 
   /**
    * Get templates by category
    */
   getTemplatesByCategory(category: 'story' | 'service' | 'wizard'): PromptTemplate[] {
-    return PROMPT_TEMPLATES.filter(t => t.category === category);
+    return PROMPT_TEMPLATES.filter((t) => t.category === category)
   }
 
   /**
@@ -248,7 +250,7 @@ class PromptService {
    * @param content - The new content
    */
   setTemplateOverride(templateId: string, content: string): void {
-    this.templateOverrides.set(templateId, content);
+    this.templateOverrides.set(templateId, content)
   }
 
   /**
@@ -257,18 +259,18 @@ class PromptService {
    * @param templateId - The template ID
    */
   resetTemplate(templateId: string): void {
-    this.templateOverrides.delete(templateId);
+    this.templateOverrides.delete(templateId)
   }
 
   /**
    * Get all template overrides (for saving)
    */
   getTemplateOverrides(): PromptOverride[] {
-    const overrides: PromptOverride[] = [];
+    const overrides: PromptOverride[] = []
     for (const [templateId, content] of this.templateOverrides) {
-      overrides.push({ templateId, content });
+      overrides.push({ templateId, content })
     }
-    return overrides;
+    return overrides
   }
 
   // ===========================================================================
@@ -279,43 +281,35 @@ class PromptService {
    * Get all available macros (builtin + custom)
    */
   getAllMacros(): Macro[] {
-    return macroEngine.getAllMacros();
+    return macroEngine.getAllMacros()
   }
 
   /**
    * Get a macro by its token
    */
   getMacro(token: string): Macro | undefined {
-    return macroEngine.getMacro(token);
+    return macroEngine.getMacro(token)
   }
 
   /**
    * Get builtin macros only
    */
   getBuiltinMacros(): Macro[] {
-    return BUILTIN_MACROS;
+    return BUILTIN_MACROS
   }
 
   /**
    * Resolve a single macro
    */
-  resolveMacro(
-    token: string,
-    context: PromptContext,
-    storyOverrides?: MacroOverride[]
-  ): string {
-    return macroEngine.resolve(token, context, storyOverrides);
+  resolveMacro(token: string, context: PromptContext, storyOverrides?: MacroOverride[]): string {
+    return macroEngine.resolve(token, context, storyOverrides)
   }
 
   /**
    * Expand all macros in a text
    */
-  expandMacros(
-    text: string,
-    context: PromptContext,
-    storyOverrides?: MacroOverride[]
-  ): string {
-    return macroEngine.expand(text, context, storyOverrides);
+  expandMacros(text: string, context: PromptContext, storyOverrides?: MacroOverride[]): string {
+    return macroEngine.expand(text, context, storyOverrides)
   }
 
   /**
@@ -325,14 +319,14 @@ class PromptService {
    * @returns Array of macro tokens found
    */
   findMacrosInText(prompt: string): string[] {
-    return macroEngine.findMacros(prompt);
+    return macroEngine.findMacros(prompt)
   }
 
   /**
    * Get macro positions in text (for UI rendering)
    */
   getMacroPositions(prompt: string): Array<{ token: string; start: number; end: number }> {
-    return macroEngine.getMacroPositions(prompt);
+    return macroEngine.getMacroPositions(prompt)
   }
 
   /**
@@ -341,26 +335,26 @@ class PromptService {
    * Note: This doesn't persist - call getExportableSettings() and save to persist
    */
   addCustomMacro(macro: Macro): void {
-    const allCustom = macroEngine.getAllMacros().filter(m => !m.builtin);
-    allCustom.push(macro);
-    macroEngine.setCustomMacros(allCustom);
+    const allCustom = macroEngine.getAllMacros().filter((m) => !m.builtin)
+    allCustom.push(macro)
+    macroEngine.setCustomMacros(allCustom)
   }
 
   /**
    * Remove a custom macro and clean up any associated overrides
    */
   removeCustomMacro(macroId: string): void {
-    const allCustom = macroEngine.getAllMacros().filter(m => !m.builtin && m.id !== macroId);
-    macroEngine.setCustomMacros(allCustom);
+    const allCustom = macroEngine.getAllMacros().filter((m) => !m.builtin && m.id !== macroId)
+    macroEngine.setCustomMacros(allCustom)
     // Also remove any global override for this macro to prevent orphaned data
-    macroEngine.removeGlobalOverride(macroId);
+    macroEngine.removeGlobalOverride(macroId)
   }
 
   /**
    * Set global macro overrides
    */
   setGlobalMacroOverrides(overrides: MacroOverride[]): void {
-    macroEngine.setGlobalOverrides(overrides);
+    macroEngine.setGlobalOverrides(overrides)
   }
 
   // ===========================================================================
@@ -371,13 +365,13 @@ class PromptService {
    * Get all settings for export/persistence
    */
   getExportableSettings(): PromptSettings {
-    const customMacros = macroEngine.getAllMacros().filter(m => !m.builtin);
+    const customMacros = macroEngine.getAllMacros().filter((m) => !m.builtin)
 
     return {
       customMacros,
       macroOverrides: macroEngine.getGlobalOverrides(),
       templateOverrides: this.getTemplateOverrides(),
-    };
+    }
   }
 
   /**
@@ -387,17 +381,17 @@ class PromptService {
   previewPrompt(
     templateId: string,
     context: PromptContext,
-    storyOverrides?: MacroOverride[]
+    storyOverrides?: MacroOverride[],
   ): {
-    raw: string;
-    expanded: string;
-    macrosUsed: string[];
+    raw: string
+    expanded: string
+    macrosUsed: string[]
   } {
-    const raw = this.getTemplateContent(templateId);
-    const expanded = this.getPrompt(templateId, context, storyOverrides);
-    const macrosUsed = this.findMacrosInText(raw);
+    const raw = this.getTemplateContent(templateId)
+    const expanded = this.getPrompt(templateId, context, storyOverrides)
+    const macrosUsed = this.findMacrosInText(raw)
 
-    return { raw, expanded, macrosUsed };
+    return { raw, expanded, macrosUsed }
   }
 
   // ===========================================================================
@@ -412,17 +406,17 @@ class PromptService {
    * @returns Array of unknown tokens (empty if all valid)
    */
   private validateTemplateReferences(template: PromptTemplate): string[] {
-    const allContent = template.content + (template.userContent || '');
-    const tokens = macroEngine.findMacros(allContent);
+    const allContent = template.content + (template.userContent || '')
+    const tokens = macroEngine.findMacros(allContent)
 
-    return tokens.filter(token => {
+    return tokens.filter((token) => {
       // Check if it's a builtin macro
-      if (macroEngine.getMacro(token)) return false;
+      if (macroEngine.getMacro(token)) return false
       // Check if it's a known context placeholder
-      if (CONTEXT_PLACEHOLDERS.find(p => p.token === token)) return false;
+      if (CONTEXT_PLACEHOLDERS.find((p) => p.token === token)) return false
       // Unknown token
-      return true;
-    });
+      return true
+    })
   }
 
   /**
@@ -430,21 +424,19 @@ class PromptService {
    * Called during init() to fail fast.
    */
   private validateAllTemplates(): void {
-    const errors: string[] = [];
+    const errors: string[] = []
 
     for (const template of PROMPT_TEMPLATES) {
-      const unknownTokens = this.validateTemplateReferences(template);
+      const unknownTokens = this.validateTemplateReferences(template)
       if (unknownTokens.length > 0) {
         errors.push(
-          `Template "${template.id}" references unknown macros: ${unknownTokens.join(', ')}`
-        );
+          `Template "${template.id}" references unknown macros: ${unknownTokens.join(', ')}`,
+        )
       }
     }
 
     if (errors.length > 0) {
-      throw new Error(
-        `[PromptService] Template validation failed:\n${errors.join('\n')}`
-      );
+      throw new Error(`[PromptService] Template validation failed:\n${errors.join('\n')}`)
     }
   }
 
@@ -454,31 +446,31 @@ class PromptService {
 
   private applyPlaceholders(
     text: string,
-    placeholders?: Record<string, string | number | null | undefined>
+    placeholders?: Record<string, string | number | null | undefined>,
   ): string {
-    if (!placeholders) return text;
+    if (!placeholders) return text
 
     // Use a local regex literal to avoid stateful global regex issues
     return text.replace(/\{\{(\w+)\}\}/g, (match, token) => {
       if (Object.prototype.hasOwnProperty.call(placeholders, token)) {
-        const value = placeholders[token];
-        return value === null || value === undefined ? '' : String(value);
+        const value = placeholders[token]
+        return value === null || value === undefined ? '' : String(value)
       }
-      return match;
-    });
+      return match
+    })
   }
 }
 
 // Singleton instance
-export const promptService = new PromptService();
+export const promptService = new PromptService()
 
 // Re-export types and definitions for convenience
-export * from './types';
+export * from './types'
 export {
   BUILTIN_MACROS,
   PROMPT_TEMPLATES,
   CONTEXT_PLACEHOLDERS,
   hasUserContent,
   getPlaceholderByToken,
-} from './definitions';
-export { macroEngine } from './macros';
+} from './definitions'
+export { macroEngine } from './macros'

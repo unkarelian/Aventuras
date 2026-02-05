@@ -4,7 +4,7 @@
  * Shared schemas for lorebook-related tool definitions and validation.
  */
 
-import { z } from 'zod';
+import { z } from 'zod'
 
 /**
  * Entry type classification for lorebook entries.
@@ -16,22 +16,22 @@ export const entryTypeSchema = z.enum([
   'faction',
   'concept',
   'event',
-]);
+])
 
-export type EntryTypeSchema = z.infer<typeof entryTypeSchema>;
+export type EntryTypeSchema = z.infer<typeof entryTypeSchema>
 
 /**
  * Injection mode for lorebook entries.
  * Determines when/how entries are injected into context.
  */
 export const injectionModeSchema = z.enum([
-  'always',   // Always inject
-  'keyword',  // Inject when keywords match
+  'always', // Always inject
+  'keyword', // Inject when keywords match
   'relevant', // Inject based on relevance scoring
-  'never',    // Never auto-inject
-]);
+  'never', // Never auto-inject
+])
 
-export type InjectionModeSchema = z.infer<typeof injectionModeSchema>;
+export type InjectionModeSchema = z.infer<typeof injectionModeSchema>
 
 /**
  * Vault lorebook entry structure.
@@ -46,21 +46,16 @@ export const vaultLorebookEntrySchema = z.object({
   priority: z.number().describe('Injection priority (higher = more important)'),
   disabled: z.boolean().describe('Whether this entry is currently disabled'),
   group: z.string().nullable().describe('Optional group/category for organization'),
-});
+})
 
-export type VaultLorebookEntrySchema = z.infer<typeof vaultLorebookEntrySchema>;
+export type VaultLorebookEntrySchema = z.infer<typeof vaultLorebookEntrySchema>
 
 /**
  * Pending change types for the approval workflow.
  */
-export const pendingChangeTypeSchema = z.enum([
-  'create',
-  'update',
-  'delete',
-  'merge',
-]);
+export const pendingChangeTypeSchema = z.enum(['create', 'update', 'delete', 'merge'])
 
-export type PendingChangeTypeSchema = z.infer<typeof pendingChangeTypeSchema>;
+export type PendingChangeTypeSchema = z.infer<typeof pendingChangeTypeSchema>
 
 /**
  * Pending change structure for the approval workflow.
@@ -73,40 +68,48 @@ export const pendingChangeSchema = z.object({
   entry: vaultLorebookEntrySchema.optional().describe('New entry for create/merge operations'),
   index: z.number().optional().describe('Target entry index for update/delete operations'),
   indices: z.array(z.number()).optional().describe('Entry indices for merge operations'),
-  updates: vaultLorebookEntrySchema.partial().optional().describe('Partial updates for update operations'),
+  updates: vaultLorebookEntrySchema
+    .partial()
+    .optional()
+    .describe('Partial updates for update operations'),
   previous: vaultLorebookEntrySchema.optional().describe('Previous entry state (for undo)'),
-  previousEntries: z.array(vaultLorebookEntrySchema).optional().describe('Previous entries for merge (for undo)'),
+  previousEntries: z
+    .array(vaultLorebookEntrySchema)
+    .optional()
+    .describe('Previous entries for merge (for undo)'),
   status: z.enum(['pending', 'approved', 'rejected']).describe('Approval status'),
-});
+})
 
-export type PendingChangeSchema = z.infer<typeof pendingChangeSchema>;
+export type PendingChangeSchema = z.infer<typeof pendingChangeSchema>
 
 /**
  * Tool result schemas for lorebook operations.
  */
 export const entryListResultSchema = z.object({
-  entries: z.array(z.object({
-    index: z.number(),
-    name: z.string(),
-    type: entryTypeSchema,
-    description: z.string(),
-    keywords: z.array(z.string()),
-    disabled: z.boolean(),
-  })),
+  entries: z.array(
+    z.object({
+      index: z.number(),
+      name: z.string(),
+      type: entryTypeSchema,
+      description: z.string(),
+      keywords: z.array(z.string()),
+      disabled: z.boolean(),
+    }),
+  ),
   total: z.number(),
-});
+})
 
 export const entryReadResultSchema = z.object({
   found: z.boolean(),
   entry: vaultLorebookEntrySchema.optional(),
   index: z.number().optional(),
-});
+})
 
 export const entryChangeResultSchema = z.object({
   success: z.boolean(),
   pendingChange: pendingChangeSchema.optional(),
   error: z.string().optional(),
-});
+})
 
 /**
  * Finish lore management result schema.
@@ -117,9 +120,9 @@ export const finishLoreManagementSchema = z.object({
   entriesUpdated: z.number().describe('Number of entries updated'),
   entriesDeleted: z.number().describe('Number of entries deleted'),
   entriesMerged: z.number().describe('Number of merge operations performed'),
-});
+})
 
-export type FinishLoreManagementSchema = z.infer<typeof finishLoreManagementSchema>;
+export type FinishLoreManagementSchema = z.infer<typeof finishLoreManagementSchema>
 
 /**
  * Classification result for a single entry.
@@ -127,13 +130,13 @@ export type FinishLoreManagementSchema = z.infer<typeof finishLoreManagementSche
 export const entryClassificationSchema = z.object({
   index: z.number().describe('Index of the entry being classified'),
   type: entryTypeSchema.describe('The classified type for this entry'),
-});
+})
 
 /**
  * Result from lorebook-classifier template.
  * Array of entry classifications.
  */
-export const lorebookClassificationResultSchema = z.array(entryClassificationSchema);
+export const lorebookClassificationResultSchema = z.array(entryClassificationSchema)
 
-export type EntryClassification = z.infer<typeof entryClassificationSchema>;
-export type LorebookClassificationResult = z.infer<typeof lorebookClassificationResultSchema>;
+export type EntryClassification = z.infer<typeof entryClassificationSchema>
+export type LorebookClassificationResult = z.infer<typeof lorebookClassificationResultSchema>

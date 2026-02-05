@@ -9,7 +9,7 @@
  * - tone: Writing tone/style (dark, lighthearted, etc.)
  */
 
-import type { SimpleMacro } from '../../types';
+import type { SimpleMacro } from '../../types'
 
 /**
  * Protagonist name macro - the main character's name
@@ -23,7 +23,7 @@ export const protagonistNameMacro: SimpleMacro = {
   dynamic: true,
   description: 'The protagonist character name from the story',
   defaultValue: 'the protagonist',
-};
+}
 
 /**
  * Current location macro - the scene location
@@ -37,7 +37,7 @@ export const currentLocationMacro: SimpleMacro = {
   dynamic: true,
   description: 'The current scene location',
   defaultValue: '',
-};
+}
 
 /**
  * Story time macro - in-story time tracking
@@ -51,7 +51,7 @@ export const storyTimeMacro: SimpleMacro = {
   dynamic: true,
   description: 'The current in-story time (Year X, Day Y, H hours M minutes)',
   defaultValue: '',
-};
+}
 
 /**
  * Genre macro - the story's genre
@@ -65,7 +65,7 @@ export const genreMacro: SimpleMacro = {
   dynamic: true,
   description: 'The story genre (e.g., Fantasy, Science Fiction, Mystery)',
   defaultValue: '',
-};
+}
 
 /**
  * Tone macro - the writing tone/style
@@ -79,7 +79,7 @@ export const toneMacro: SimpleMacro = {
   dynamic: true,
   description: 'The writing tone/style (e.g., dark, lighthearted, suspenseful)',
   defaultValue: '',
-};
+}
 
 /**
  * Combined export for registration
@@ -90,4 +90,4 @@ export const coreMacros: SimpleMacro[] = [
   storyTimeMacro,
   genreMacro,
   toneMacro,
-];
+]

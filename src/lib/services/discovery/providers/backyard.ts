@@ -1,24 +1,27 @@
-import type { DiscoveryCard, DiscoveryProvider, SearchOptions, SearchResult } from '../types';
-import { corsFetch, GENERIC_ICON } from '../utils';
+import type { DiscoveryCard, DiscoveryProvider, SearchOptions, SearchResult } from '../types'
+import { corsFetch, GENERIC_ICON } from '../utils'
 
-const BACKYARD_API_BASE = 'https://backyard.ai/api/trpc';
+const BACKYARD_API_BASE = 'https://backyard.ai/api/trpc'
 
 export class BackyardProvider implements DiscoveryProvider {
-  id = 'backyard';
-  name = 'Backyard.ai';
-  icon = 'https://backyard.ai/favicon.png';
-  supports: ('character' | 'lorebook' | 'scenario')[] = ['character', 'scenario'];
+  id = 'backyard'
+  name = 'Backyard.ai'
+  icon = 'https://backyard.ai/favicon.png'
+  supports: ('character' | 'lorebook' | 'scenario')[] = ['character', 'scenario']
 
-  async search(options: SearchOptions, type: 'character' | 'lorebook' | 'scenario'): Promise<SearchResult> {
+  async search(
+    options: SearchOptions,
+    type: 'character' | 'lorebook' | 'scenario',
+  ): Promise<SearchResult> {
     if (type === 'lorebook') {
-      return { cards: [], hasMore: false };
+      return { cards: [], hasMore: false }
     }
 
     const sortMap: Record<string, string> = {
       popular: 'Popularity',
       new: 'New',
-      name: 'Popularity' // Backyard doesn't have name sort exposed in browse? Fallback to popular
-    };
+      name: 'Popularity', // Backyard doesn't have name sort exposed in browse? Fallback to popular
+    }
 
     // Construct tRPC input
     // If query is present, we use the search behavior (which in Bot Browser uses getHubGroupConfigsForTag with search param)
@@ -28,14 +31,14 @@ export class BackyardProvider implements DiscoveryProvider {
       tagNames: options.tags || [],
       sortBy: {
         type: sortMap[options.sort || 'popular'] || 'Popularity',
-        direction: 'desc'
+        direction: 'desc',
       },
       type: options.nsfw ? 'all' : 'sfw',
-      direction: 'forward'
-    };
+      direction: 'forward',
+    }
 
     if (options.query) {
-      input.search = options.query.trim();
+      input.search = options.query.trim()
     }
 
     // Pagination: Aventura uses page numbers, Backyard uses cursor.
@@ -45,83 +48,83 @@ export class BackyardProvider implements DiscoveryProvider {
     // No, DiscoveryService is a singleton and registers instances. So I can store state in the provider instance?
     // But search requests might come in parallel or out of order.
     // For now, let's look at how Bot Browser handles it. It tracks cursor in state.
-    // If Aventura passes page=1, we reset. If page > 1, we rely on cached cursor? 
+    // If Aventura passes page=1, we reset. If page > 1, we rely on cached cursor?
     // This is tricky. Aventura's interface assumes stateless page-based pagination or that the provider handles state mapping.
-    // A hacky way is to ignore page number if it's just incrementing, and use internal cursor. 
+    // A hacky way is to ignore page number if it's just incrementing, and use internal cursor.
     // But if the user jumps pages, it breaks.
     // Given the `searchAll` implementation in `index.ts`:
     // `this.allModeState.set(provider.id, { nextPage: result.value.nextPage || 2, ... })`
     // And `loadMoreAll` calls `provider.search({ page: state.nextPage ... })`.
     // So it basically asks for "next page".
     // I will store the `nextCursor` in a map keyed by the query signature to try and support this stateless-ish interface.
-    
+
     // For simplicity for this task: if page is 1, we send no cursor.
     // If page > 1, we try to use the last stored cursor. This assumes sequential access.
-    
+
     if (options.page && options.page > 1 && this.lastCursor) {
-      input.cursor = this.lastCursor;
+      input.cursor = this.lastCursor
     }
 
-    const url = this.buildTrpcUrl('hub.browse.getHubGroupConfigsForTag', input);
-    console.log('[Backyard] Searching:', url);
+    const url = this.buildTrpcUrl('hub.browse.getHubGroupConfigsForTag', input)
+    console.log('[Backyard] Searching:', url)
 
     const response = await corsFetch(url, {
       method: 'GET',
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    });
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+    })
 
     if (!response.ok) {
-      throw new Error(`Backyard API error: ${response.status}`);
+      throw new Error(`Backyard API error: ${response.status}`)
     }
 
-    const json = await response.json();
+    const json = await response.json()
     // tRPC batch response: [{ result: { data: { json: ... } } }]
-    const data = json[0]?.result?.data?.json;
+    const data = json[0]?.result?.data?.json
 
     if (!data) {
-      return { cards: [], hasMore: false };
+      return { cards: [], hasMore: false }
     }
 
     // Update cursor for next page
     if (data.nextCursor) {
-      this.lastCursor = data.nextCursor;
+      this.lastCursor = data.nextCursor
     } else {
-      this.lastCursor = undefined;
+      this.lastCursor = undefined
     }
 
-    const configs = data.hubGroupConfigs || [];
-    const cards = configs.map((c: any) => this.transformCard(c));
+    const configs = data.hubGroupConfigs || []
+    const cards = configs.map((c: any) => this.transformCard(c))
 
     return {
       cards,
       hasMore: !!data.nextCursor,
-      nextPage: data.nextCursor ? (options.page || 1) + 1 : undefined
-    };
+      nextPage: data.nextCursor ? (options.page || 1) + 1 : undefined,
+    }
   }
 
-  private lastCursor?: string;
+  private lastCursor?: string
 
   private buildTrpcUrl(procedure: string, input: any): string {
-    const batchInput = { '0': { json: input } };
-    const encoded = encodeURIComponent(JSON.stringify(batchInput));
-    return `${BACKYARD_API_BASE}/${procedure}?batch=1&input=${encoded}`;
+    const batchInput = { '0': { json: input } }
+    const encoded = encodeURIComponent(JSON.stringify(batchInput))
+    return `${BACKYARD_API_BASE}/${procedure}?batch=1&input=${encoded}`
   }
 
   private transformCard(char: any): DiscoveryCard {
-    const config = char.CharacterConfigs?.[0] || {};
-    const image = config.Images?.[0];
+    const config = char.CharacterConfigs?.[0] || {}
+    const image = config.Images?.[0]
 
-    let avatarUrl = '';
+    let avatarUrl = ''
     if (image?.imageUrl) {
       // Use smaller size for thumbnails
-      avatarUrl = image.imageUrl.replace('/upload/', '/upload/w_300,c_fill,g_north,f_auto,q_auto/');
+      avatarUrl = image.imageUrl.replace('/upload/', '/upload/w_300,c_fill,g_north,f_auto,q_auto/')
     }
 
     // Extract tags
-    const tags = (char.Tags || []).map((t: any) => t.name);
+    const tags = (char.Tags || []).map((t: any) => t.name)
 
     return {
       id: config.id || char.id, // Use CharacterConfig ID
@@ -140,68 +143,70 @@ export class BackyardProvider implements DiscoveryProvider {
       nsfw: char.isNSFW || config.isNSFW || false,
       raw: {
         ...char,
-        groupId: char.id // Keep group ID for fetching full details if needed
-      }
-    };
+        groupId: char.id, // Keep group ID for fetching full details if needed
+      },
+    }
   }
 
   async getDownloadUrl(card: DiscoveryCard): Promise<string> {
     // Backyard doesn't have a direct download URL for a card file.
     // We would need to generate it.
     // But for the interface, we can return a placeholder or the hub URL.
-    return `https://backyard.ai/hub/character/${card.raw?.groupId || card.id}`;
+    return `https://backyard.ai/hub/character/${card.raw?.groupId || card.id}`
   }
 
   async downloadCard(card: DiscoveryCard): Promise<Blob> {
     // Fetch full character details
-    const charId = card.id; // This is the Config ID from our transform
+    const charId = card.id // This is the Config ID from our transform
     // Note: Bot Browser uses getHubCharacterConfigById with hubCharacterConfigId
-    
+
     const input = {
       hubCharacterConfigId: charId,
-      includeStandaloneGroupConfig: true
-    };
-    
-    const url = this.buildTrpcUrl('hub.browse.getHubCharacterConfigById', input);
-    const response = await corsFetch(url);
-    
-    if (!response.ok) throw new Error(`Failed to fetch card details: ${response.status}`);
-    
-    const json = await response.json();
-    const charData = json[0]?.result?.data?.json;
-    
-    if (!charData) throw new Error('Empty response from Backyard API');
-    
-    const converted = this.convertToSillyTavern(charData);
-    
+      includeStandaloneGroupConfig: true,
+    }
+
+    const url = this.buildTrpcUrl('hub.browse.getHubCharacterConfigById', input)
+    const response = await corsFetch(url)
+
+    if (!response.ok) throw new Error(`Failed to fetch card details: ${response.status}`)
+
+    const json = await response.json()
+    const charData = json[0]?.result?.data?.json
+
+    if (!charData) throw new Error('Empty response from Backyard API')
+
+    const converted = this.convertToSillyTavern(charData)
+
     // Create JSON blob
-    const blob = new Blob([JSON.stringify(converted, null, 2)], { type: 'application/json' });
-    return blob;
+    const blob = new Blob([JSON.stringify(converted, null, 2)], { type: 'application/json' })
+    return blob
   }
 
   private convertToSillyTavern(char: any) {
-    const groupConfig = char.standaloneGroupConfig || {};
-    const primaryChat = groupConfig.PrimaryChat || {};
-    
+    const groupConfig = char.standaloneGroupConfig || {}
+    const primaryChat = groupConfig.PrimaryChat || {}
+
     // Greetings
-    const greetings = primaryChat.HubGreetingMessages || [];
-    const firstMessage = greetings[0]?.text || '';
-    const alternateGreetings = greetings.slice(1).map((g: any) => g.text);
-    
+    const greetings = primaryChat.HubGreetingMessages || []
+    const firstMessage = greetings[0]?.text || ''
+    const alternateGreetings = greetings.slice(1).map((g: any) => g.text)
+
     // Example messages
-    const examples = primaryChat.HubExampleMessages || [];
-    let mesExample = '';
+    const examples = primaryChat.HubExampleMessages || []
+    let mesExample = ''
     if (examples.length > 0) {
-      mesExample = examples.map((msg: any) => {
-        const name = msg.characterName || 'Unknown';
-        const text = msg.text || '';
-        return `<START>\n${name}: ${text}`;
-      }).join('\n\n');
+      mesExample = examples
+        .map((msg: any) => {
+          const name = msg.characterName || 'Unknown'
+          const text = msg.text || ''
+          return `<START>\n${name}: ${text}`
+        })
+        .join('\n\n')
     }
 
     // Lorebook
-    let characterBook = undefined;
-    const lorebookItems = char.LorebookItems || [];
+    let characterBook = undefined
+    const lorebookItems = char.LorebookItems || []
     if (lorebookItems.length > 0) {
       characterBook = {
         name: `${char.displayName || char.name} Lorebook`,
@@ -215,9 +220,9 @@ export class BackyardProvider implements DiscoveryProvider {
           constant: false,
           selective: false,
           insertion_order: 100,
-          position: 'before_char'
-        }))
-      };
+          position: 'before_char',
+        })),
+      }
     }
 
     return {
@@ -238,15 +243,15 @@ export class BackyardProvider implements DiscoveryProvider {
       extensions: {
         backyard: {
           id: char.id,
-          groupId: groupConfig.id
-        }
-      }
-    };
+          groupId: groupConfig.id,
+        },
+      },
+    }
   }
 
   async getTags(): Promise<string[]> {
     // Backyard doesn't seem to have a simple getTags endpoint in the snippets provided.
     // We can return a static list or empty for now.
-    return []; 
+    return []
   }
 }

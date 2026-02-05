@@ -12,7 +12,7 @@ export {
   type ResolvedAgentConfig,
   type CreateAgentOptions,
   type AgentResult,
-} from './factory';
+} from './factory'
 
 export {
   stopOnTerminalTool,
@@ -20,4 +20,4 @@ export {
   stopOnAny,
   stopOnCostExceeded,
   stopWhenDone,
-} from './stopConditions';
+} from './stopConditions'

@@ -5,7 +5,7 @@
  * character generation, and opening scene creation.
  */
 
-import type { PromptTemplate } from '../types';
+import type { PromptTemplate } from '../types'
 
 /**
  * Setting Expansion prompt template
@@ -26,7 +26,7 @@ Be creative but grounded. Make the setting feel lived-in and full of story poten
 {{lorebookContext}}
 
 Expand this into a rich, detailed world that could sustain an interactive story.`,
-};
+}
 
 /**
  * Setting Refinement prompt template
@@ -49,7 +49,7 @@ Rules:
 CURRENT SETTING:
 {{currentSetting}}
 {{lorebookContext}}`,
-};
+}
 
 /**
  * Protagonist Generation prompt template
@@ -71,7 +71,7 @@ SETTING: {{settingName}}
 {{povInstruction}}
 
 Create a compelling protagonist who fits naturally into this world.`,
-};
+}
 
 /**
  * Character Elaboration prompt template
@@ -99,7 +99,7 @@ Rules:
 {{settingContext}}
 
 Expand on these details while preserving everything the user specified.`,
-};
+}
 
 /**
  * Character Refinement prompt template
@@ -123,7 +123,7 @@ Rules:
 CURRENT CHARACTER:
 {{currentCharacter}}
 {{settingContext}}`,
-};
+}
 
 /**
  * Supporting Characters prompt template
@@ -146,7 +146,7 @@ PROTAGONIST: {{protagonistName}}
 {{protagonistDescription}}
 
 Create diverse characters with different roles (ally, antagonist, mentor, etc.) who can drive story conflict and complement the protagonist.`,
-};
+}
 
 /**
  * Opening Generation (Adventure) prompt template
@@ -237,7 +237,7 @@ PROTAGONIST: {{protagonistName}}{{protagonistDescription}}
 {{guidanceSection}}{{lorebookContext}}{{openingInstruction}}
 
 Write an immersive opening that drops the reader into the story. Remember: describe only the environment and NPCs, NOT the protagonist's actions, dialogue, or thoughts.`,
-};
+}
 
 /**
  * Opening Generation (Creative Writing) prompt template
@@ -321,7 +321,7 @@ PROTAGONIST: {{protagonistName}}{{protagonistDescription}}
 {{guidanceSection}}{{lorebookContext}}{{openingInstruction}}
 
 Write an immersive opening that drops the reader into the story. Remember: the author directs the story, so write the protagonist's actions, dialogue, and thoughts as needed.`,
-};
+}
 
 /**
  * Opening Refinement (Adventure) prompt template
@@ -407,7 +407,7 @@ PROTAGONIST: {{protagonistName}}{{protagonistDescription}}
 {{supportingCharactersSection}}
 {{povInstruction}}
 {{guidanceSection}}{{lorebookContext}}{{openingInstruction}}`,
-};
+}
 
 /**
  * Opening Refinement (Creative Writing) prompt template
@@ -490,7 +490,7 @@ PROTAGONIST: {{protagonistName}}{{protagonistDescription}}
 {{supportingCharactersSection}}
 {{povInstruction}}
 {{guidanceSection}}{{lorebookContext}}{{openingInstruction}}`,
-};
+}
 
 /**
  * Character Card Import prompt template
@@ -566,7 +566,7 @@ IMPORTANT:
 {{cardContent}}
 
 Clean the above content. Identify all NPCs, replace {{char}} with the actual name, keep {{user}} as-is, and remove meta-content.`,
-};
+}
 
 /**
  * Vault Character Import prompt template
@@ -576,7 +576,8 @@ export const vaultCharacterImportPromptTemplate: PromptTemplate = {
   id: 'vault-character-import',
   name: 'Vault Character Import',
   category: 'service',
-  description: 'Cleans SillyTavern character cards and extracts structured character data for the vault',
+  description:
+    'Cleans SillyTavern character cards and extracts structured character data for the vault',
   content: `You are extracting and cleaning character data from a SillyTavern character card for storage in a character vault.
 
 ## Your Task
@@ -630,7 +631,7 @@ export const vaultCharacterImportPromptTemplate: PromptTemplate = {
 {{cardContent}}
 
 Extract the character information. Remove all meta-instructions and roleplay formatting.`,
-};
+}
 
 /**
  * Wizard templates array for registration
@@ -648,4 +649,4 @@ export const wizardTemplates: PromptTemplate[] = [
   openingRefinementCreativePromptTemplate,
   characterCardImportPromptTemplate,
   vaultCharacterImportPromptTemplate,
-];
+]

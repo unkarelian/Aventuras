@@ -6,20 +6,23 @@
  * Services are being migrated to use Vercel AI SDK directly.
  */
 
-import { settings } from '$lib/stores/settings.svelte';
-import { NarrativeService } from '../generation/NarrativeService';
-import { ClassifierService } from '../generation/ClassifierService';
-import { MemoryService } from '../generation/MemoryService';
-import { SuggestionsService } from '../generation/SuggestionsService';
-import { ActionChoicesService } from '../generation/ActionChoicesService';
-import { StyleReviewerService } from '../generation/StyleReviewerService';
-import { ContextBuilder, type ContextConfig } from '../generation/ContextBuilder';
-import { LoreManagementService } from '../lorebook/LoreManagementService';
-import { AgenticRetrievalService } from '../retrieval/AgenticRetrievalService';
-import { TimelineFillService } from '../retrieval/TimelineFillService';
-import { EntryRetrievalService, getEntryRetrievalConfigFromSettings } from '../retrieval/EntryRetrievalService';
-import { TranslationService } from '../utils/TranslationService';
-import { ImageAnalysisService } from '../image/ImageAnalysisService';
+import { settings } from '$lib/stores/settings.svelte'
+import { NarrativeService } from '../generation/NarrativeService'
+import { ClassifierService } from '../generation/ClassifierService'
+import { MemoryService } from '../generation/MemoryService'
+import { SuggestionsService } from '../generation/SuggestionsService'
+import { ActionChoicesService } from '../generation/ActionChoicesService'
+import { StyleReviewerService } from '../generation/StyleReviewerService'
+import { ContextBuilder, type ContextConfig } from '../generation/ContextBuilder'
+import { LoreManagementService } from '../lorebook/LoreManagementService'
+import { AgenticRetrievalService } from '../retrieval/AgenticRetrievalService'
+import { TimelineFillService } from '../retrieval/TimelineFillService'
+import {
+  EntryRetrievalService,
+  getEntryRetrievalConfigFromSettings,
+} from '../retrieval/EntryRetrievalService'
+import { TranslationService } from '../utils/TranslationService'
+import { ImageAnalysisService } from '../image/ImageAnalysisService'
 
 /**
  * Factory class for creating AI services.
@@ -34,26 +37,26 @@ export class ServiceFactory {
    * Uses main narrative profile directly (no preset needed).
    */
   createNarrativeService(): NarrativeService {
-    return new NarrativeService();
+    return new NarrativeService()
   }
 
   /**
    * Create a classifier service instance.
    */
   createClassifierService(): ClassifierService {
-    const presetId = settings.getServicePresetId('classifier');
+    const presetId = settings.getServicePresetId('classifier')
     return new ClassifierService(
       presetId,
-      settings.systemServicesSettings.classifier.chatHistoryTruncation ?? 100
-    );
+      settings.systemServicesSettings.classifier.chatHistoryTruncation ?? 100,
+    )
   }
 
   /**
    * Create a memory service instance.
    */
   createMemoryService(): MemoryService {
-    const presetId = settings.getServicePresetId('memory');
-    return new MemoryService(presetId);
+    const presetId = settings.getServicePresetId('memory')
+    return new MemoryService(presetId)
   }
 
   /**
@@ -61,93 +64,86 @@ export class ServiceFactory {
    * Note: Uses SDK-based pattern - fully working.
    */
   createSuggestionsService(): SuggestionsService {
-    const presetId = settings.getServicePresetId('suggestions');
-    return new SuggestionsService(presetId);
+    const presetId = settings.getServicePresetId('suggestions')
+    return new SuggestionsService(presetId)
   }
 
   /**
    * Create an action choices service instance.
    */
   createActionChoicesService(): ActionChoicesService {
-    const presetId = settings.getServicePresetId('actionChoices');
-    return new ActionChoicesService(presetId);
+    const presetId = settings.getServicePresetId('actionChoices')
+    return new ActionChoicesService(presetId)
   }
 
   /**
    * Create a style reviewer service instance.
    */
   createStyleReviewerService(): StyleReviewerService {
-    const presetId = settings.getServicePresetId('styleReviewer');
-    return new StyleReviewerService(presetId);
+    const presetId = settings.getServicePresetId('styleReviewer')
+    return new StyleReviewerService(presetId)
   }
 
   /**
    * Create a context builder instance.
    */
   createContextBuilder(config?: Partial<ContextConfig>): ContextBuilder {
-    return new ContextBuilder(config);
+    return new ContextBuilder(config)
   }
 
   /**
    * Create an entry retrieval service instance.
    */
   createEntryRetrievalService(): EntryRetrievalService {
-    const config = getEntryRetrievalConfigFromSettings();
-    const presetId = settings.getServicePresetId('entryRetrieval');
-    return new EntryRetrievalService(config, presetId);
+    const config = getEntryRetrievalConfigFromSettings()
+    const presetId = settings.getServicePresetId('entryRetrieval')
+    return new EntryRetrievalService(config, presetId)
   }
 
   /**
    * Create a lore management service instance.
    */
   createLoreManagementService(): LoreManagementService {
-    const presetId = settings.getServicePresetId('loreManagement');
-    const loreManagementSettings = settings.systemServicesSettings.loreManagement;
-    return new LoreManagementService(
-      presetId,
-      loreManagementSettings.maxIterations
-    );
+    const presetId = settings.getServicePresetId('loreManagement')
+    const loreManagementSettings = settings.systemServicesSettings.loreManagement
+    return new LoreManagementService(presetId, loreManagementSettings.maxIterations)
   }
 
   /**
    * Create an agentic retrieval service instance.
    */
   createAgenticRetrievalService(): AgenticRetrievalService {
-    const presetId = settings.getServicePresetId('agenticRetrieval');
-    const agenticRetrievalSettings = settings.systemServicesSettings.agenticRetrieval;
-    return new AgenticRetrievalService(
-      presetId,
-      agenticRetrievalSettings.maxIterations
-    );
+    const presetId = settings.getServicePresetId('agenticRetrieval')
+    const agenticRetrievalSettings = settings.systemServicesSettings.agenticRetrieval
+    return new AgenticRetrievalService(presetId, agenticRetrievalSettings.maxIterations)
   }
 
   /**
    * Create a timeline fill service instance.
    */
   createTimelineFillService(): TimelineFillService {
-    const presetId = settings.getServicePresetId('timelineFill');
-    const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-    return new TimelineFillService(
-      presetId,
-      timelineFillSettings.maxQueries
-    );
+    const presetId = settings.getServicePresetId('timelineFill')
+    const timelineFillSettings = settings.systemServicesSettings.timelineFill
+    return new TimelineFillService(presetId, timelineFillSettings.maxQueries)
   }
 
   /**
    * Create a timeline fill service for chapter queries.
    */
   createChapterQueryService(): TimelineFillService {
-    const presetId = settings.getServicePresetId('chapterQuery');
-    const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-    return new TimelineFillService(presetId, timelineFillSettings.maxQueries);
+    const presetId = settings.getServicePresetId('chapterQuery')
+    const timelineFillSettings = settings.systemServicesSettings.timelineFill
+    return new TimelineFillService(presetId, timelineFillSettings.maxQueries)
   }
 
   /**
    * Create a translation service instance for a specific translation type.
    */
-  createTranslationService(type: 'narration' | 'input' | 'ui' | 'suggestions' | 'actionChoices' | 'wizard'): TranslationService {
-    const presetId = settings.getServicePresetId(`translation:${type}`);
-    return new TranslationService(presetId);
+  createTranslationService(
+    type: 'narration' | 'input' | 'ui' | 'suggestions' | 'actionChoices' | 'wizard',
+  ): TranslationService {
+    const presetId = settings.getServicePresetId(`translation:${type}`)
+    return new TranslationService(presetId)
   }
 
   /**
@@ -155,10 +151,10 @@ export class ServiceFactory {
    * Used for "analyzed" mode where LLM identifies imageable scenes in narrative.
    */
   createImageAnalysisService(): ImageAnalysisService {
-    const presetId = settings.getServicePresetId('imageAnalysis');
-    return new ImageAnalysisService(presetId);
+    const presetId = settings.getServicePresetId('imageAnalysis')
+    return new ImageAnalysisService(presetId)
   }
 }
 
 // Export singleton instance
-export const serviceFactory = new ServiceFactory();
+export const serviceFactory = new ServiceFactory()

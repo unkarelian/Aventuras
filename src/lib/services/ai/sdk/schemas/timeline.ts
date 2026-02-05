@@ -5,7 +5,7 @@
  * Used by TimelineFillService for memory retrieval.
  */
 
-import { z } from 'zod';
+import { z } from 'zod'
 
 /**
  * Schema for a single timeline query.
@@ -20,7 +20,7 @@ export const timelineQuerySchema = z.object({
   startChapter: z.number().optional().describe('Start of chapter range'),
   /** End of chapter range (inclusive) */
   endChapter: z.number().optional().describe('End of chapter range'),
-});
+})
 
 /**
  * Schema for the timeline queries result.
@@ -28,8 +28,8 @@ export const timelineQuerySchema = z.object({
  */
 export const timelineQueriesResultSchema = z.object({
   queries: z.array(timelineQuerySchema).describe('Queries to run against chapter summaries'),
-});
+})
 
 // Type exports inferred from schemas
-export type TimelineQuery = z.infer<typeof timelineQuerySchema>;
-export type TimelineQueriesResult = z.infer<typeof timelineQueriesResultSchema>;
+export type TimelineQuery = z.infer<typeof timelineQuerySchema>
+export type TimelineQueriesResult = z.infer<typeof timelineQueriesResultSchema>

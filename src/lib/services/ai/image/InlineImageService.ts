@@ -11,47 +11,46 @@
  * 4. The rendering layer replaces <pic> tags with actual images
  */
 
-import type { Character, EmbeddedImage } from '$lib/types';
-import { generateImage as sdkGenerateImage } from '$lib/services/ai/sdk/generate';
-import { PROVIDERS } from '$lib/services/ai/sdk/providers/config';
-import { database } from '$lib/services/database';
-import { promptService } from '$lib/services/prompts';
-import { settings } from '$lib/stores/settings.svelte';
-import { emitImageQueued, emitImageReady } from '$lib/services/events';
-import { normalizeImageDataUrl } from '$lib/utils/image';
-import { extractPicTags, type ParsedPicTag } from '$lib/utils/inlineImageParser';
-import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants';
-import { createLogger } from '../core/config';
+import type { Character, EmbeddedImage } from '$lib/types'
+import { generateImage as sdkGenerateImage } from '$lib/services/ai/sdk/generate'
+import { PROVIDERS } from '$lib/services/ai/sdk/providers/config'
+import { database } from '$lib/services/database'
+import { promptService } from '$lib/services/prompts'
+import { settings } from '$lib/stores/settings.svelte'
+import { emitImageQueued, emitImageReady } from '$lib/services/events'
+import { normalizeImageDataUrl } from '$lib/utils/image'
+import { extractPicTags, type ParsedPicTag } from '$lib/utils/inlineImageParser'
+import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants'
+import { createLogger } from '../core/config'
 
-const log = createLogger('InlineImageGen');
+const log = createLogger('InlineImageGen')
 
 export interface InlineImageContext {
-  storyId: string;
-  entryId: string;
-  narrativeContent: string;
-  presentCharacters: Character[];
+  storyId: string
+  entryId: string
+  narrativeContent: string
+  presentCharacters: Character[]
 }
 
 export class InlineImageGenerationService {
-
   /**
    * Check if inline image generation is enabled and configured.
    * Uses profile-based configuration - checks if a valid image-capable profile is selected.
    */
   static isEnabled(): boolean {
-    const imageSettings = settings.systemServicesSettings.imageGeneration;
-    if (!imageSettings?.enabled) return false;
+    const imageSettings = settings.systemServicesSettings.imageGeneration
+    if (!imageSettings?.enabled) return false
 
     // Check if we have a valid profile for image generation
-    const profileId = imageSettings.profileId;
-    if (!profileId) return false;
+    const profileId = imageSettings.profileId
+    if (!profileId) return false
 
-    const profile = settings.getProfile(profileId);
-    if (!profile) return false;
+    const profile = settings.getProfile(profileId)
+    if (!profile) return false
 
     // Check if provider supports image generation
-    const capabilities = PROVIDERS[profile.providerType].capabilities;
-    return capabilities?.imageGeneration ?? false;
+    const capabilities = PROVIDERS[profile.providerType].capabilities
+    return capabilities?.imageGeneration ?? false
   }
 
   /**
@@ -60,47 +59,47 @@ export class InlineImageGenerationService {
    * when inline image mode is enabled.
    */
   async processNarrativeForInlineImages(context: InlineImageContext): Promise<void> {
-    const imageSettings = settings.systemServicesSettings.imageGeneration;
+    const imageSettings = settings.systemServicesSettings.imageGeneration
 
     if (!imageSettings?.enabled) {
-      log('Image generation disabled');
-      return;
+      log('Image generation disabled')
+      return
     }
 
     // Extract all <pic> tags from the narrative
-    const picTags = extractPicTags(context.narrativeContent);
+    const picTags = extractPicTags(context.narrativeContent)
 
     if (picTags.length === 0) {
-      log('No <pic> tags found in narrative');
-      return;
+      log('No <pic> tags found in narrative')
+      return
     }
 
     log('Found <pic> tags', {
       count: picTags.length,
-      tags: picTags.map(t => ({
+      tags: picTags.map((t) => ({
         prompt: t.prompt.slice(0, 50) + '...',
         characters: t.characters,
       })),
-    });
+    })
 
     // Apply max images limit
-    const maxImages = imageSettings.maxImagesPerMessage ?? 3;
-    const tagsToProcess = maxImages === 0 ? picTags : picTags.slice(0, maxImages);
+    const maxImages = imageSettings.maxImagesPerMessage ?? 3
+    const tagsToProcess = maxImages === 0 ? picTags : picTags.slice(0, maxImages)
 
     if (tagsToProcess.length < picTags.length) {
       log('Limiting to max images', {
         found: picTags.length,
         processing: tagsToProcess.length,
         maxAllowed: maxImages,
-      });
+      })
     }
 
     // Process each tag
     for (const tag of tagsToProcess) {
-      await this.generateImageForTag(context, tag, imageSettings);
+      await this.generateImageForTag(context, tag, imageSettings)
     }
 
-    log('All inline images queued', { count: tagsToProcess.length });
+    log('All inline images queued', { count: tagsToProcess.length })
   }
 
   /**
@@ -110,65 +109,65 @@ export class InlineImageGenerationService {
   private async generateImageForTag(
     context: InlineImageContext,
     tag: ParsedPicTag,
-    imageSettings: typeof settings.systemServicesSettings.imageGeneration
+    imageSettings: typeof settings.systemServicesSettings.imageGeneration,
   ): Promise<void> {
-    const imageId = crypto.randomUUID();
+    const imageId = crypto.randomUUID()
 
     // Determine which profile and model to use
-    let profileId = imageSettings.profileId;
-    let modelToUse = imageSettings.model;
-    let referenceImageUrls: string[] | undefined;
+    let profileId = imageSettings.profileId
+    let modelToUse = imageSettings.model
+    let referenceImageUrls: string[] | undefined
 
     // If portrait mode is enabled and tag specifies characters, look for their portraits
     if (imageSettings.portraitMode && tag.characters.length > 0) {
-      const portraitUrls: string[] = [];
-      const charactersWithPortraits: string[] = [];
-      const charactersWithoutPortraits: string[] = [];
+      const portraitUrls: string[] = []
+      const charactersWithPortraits: string[] = []
+      const charactersWithoutPortraits: string[] = []
 
       for (const charName of tag.characters.slice(0, 3)) {
         const character = context.presentCharacters.find(
-          c => c.name.toLowerCase() === charName.toLowerCase()
-        );
+          (c) => c.name.toLowerCase() === charName.toLowerCase(),
+        )
 
-        const portraitUrl = normalizeImageDataUrl(character?.portrait);
+        const portraitUrl = normalizeImageDataUrl(character?.portrait)
         if (portraitUrl) {
-          portraitUrls.push(portraitUrl);
-          charactersWithPortraits.push(charName);
+          portraitUrls.push(portraitUrl)
+          charactersWithPortraits.push(charName)
         } else {
-          charactersWithoutPortraits.push(charName);
+          charactersWithoutPortraits.push(charName)
         }
       }
 
       if (portraitUrls.length > 0) {
         // Use reference profile and model for img2img
-        profileId = imageSettings.referenceProfileId || imageSettings.profileId;
-        modelToUse = imageSettings.referenceModel || imageSettings.model;
-        referenceImageUrls = portraitUrls;
+        profileId = imageSettings.referenceProfileId || imageSettings.profileId
+        modelToUse = imageSettings.referenceModel || imageSettings.model
+        referenceImageUrls = portraitUrls
         log('Using character portraits as reference', {
           characters: charactersWithPortraits,
           count: portraitUrls.length,
           profileId,
           model: modelToUse,
-        });
+        })
       }
 
       if (charactersWithoutPortraits.length > 0) {
         log('Some characters missing portraits', {
           missing: charactersWithoutPortraits,
           proceeding: 'yes - user explicitly requested via <pic> tag',
-        });
+        })
       }
     }
 
     // Validate we have a profile
     if (!profileId) {
-      log('No image profile configured, skipping');
-      return;
+      log('No image profile configured, skipping')
+      return
     }
 
     // Build full prompt with style
-    const stylePrompt = this.getStylePrompt(imageSettings.styleId);
-    const fullPrompt = `${tag.prompt}. ${stylePrompt}`;
+    const stylePrompt = this.getStylePrompt(imageSettings.styleId)
+    const fullPrompt = `${tag.prompt}. ${stylePrompt}`
 
     // Create pending record in database
     const embeddedImage: Omit<EmbeddedImage, 'createdAt'> = {
@@ -180,22 +179,24 @@ export class InlineImageGenerationService {
       styleId: imageSettings.styleId,
       model: modelToUse,
       imageData: '',
-      width: imageSettings.size === '1024x1024' ? 1024 : (imageSettings.size === '2048x2048' ? 2048 : 512),
-      height: imageSettings.size === '1024x1024' ? 1024 : (imageSettings.size === '2048x2048' ? 2048 : 512),
+      width:
+        imageSettings.size === '1024x1024' ? 1024 : imageSettings.size === '2048x2048' ? 2048 : 512,
+      height:
+        imageSettings.size === '1024x1024' ? 1024 : imageSettings.size === '2048x2048' ? 2048 : 512,
       status: 'pending',
       generationMode: 'inline',
-    };
+    }
 
-    await database.createEmbeddedImage(embeddedImage);
+    await database.createEmbeddedImage(embeddedImage)
     log('Created pending inline image record', {
       imageId,
       prompt: tag.prompt.slice(0, 50) + '...',
       profileId,
       model: modelToUse,
-    });
+    })
 
     // Emit queued event
-    emitImageQueued(imageId, context.entryId);
+    emitImageQueued(imageId, context.entryId)
 
     // Start async generation (fire-and-forget)
     this.generateImage(
@@ -205,10 +206,10 @@ export class InlineImageGenerationService {
       modelToUse,
       imageSettings.size,
       context.entryId,
-      referenceImageUrls
-    ).catch(error => {
-      log('Async inline image generation failed', { imageId, error });
-    });
+      referenceImageUrls,
+    ).catch((error) => {
+      log('Async inline image generation failed', { imageId, error })
+    })
   }
 
   /**
@@ -222,10 +223,10 @@ export class InlineImageGenerationService {
         pov: 'second' as const,
         tense: 'present' as const,
         protagonistName: '',
-      };
-      const customized = promptService.getPrompt(styleId, promptContext);
+      }
+      const customized = promptService.getPrompt(styleId, promptContext)
       if (customized) {
-        return customized;
+        return customized
       }
     } catch {
       // Template not found, use fallback
@@ -236,9 +237,9 @@ export class InlineImageGenerationService {
       'image-style-soft-anime': DEFAULT_FALLBACK_STYLE_PROMPT,
       'image-style-semi-realistic': `Semi-realistic anime art with refined, detailed rendering. Realistic proportions with anime influence. Detailed hair strands, subtle skin tones, fabric folds. Naturalistic lighting with clear direction and soft falloff. Cinematic composition with depth of field. Rich, slightly desaturated colors with intentional color grading. Painterly quality with polished edges. Atmospheric and grounded mood.`,
       'image-style-photorealistic': `Photorealistic digital art. True-to-life rendering with natural lighting. Detailed textures, accurate proportions. Professional photography aesthetic. Cinematic depth of field. High dynamic range. Realistic materials and surfaces.`,
-    };
+    }
 
-    return defaultStyles[styleId] || defaultStyles['image-style-soft-anime'];
+    return defaultStyles[styleId] || defaultStyles['image-style-soft-anime']
   }
 
   /**
@@ -251,18 +252,18 @@ export class InlineImageGenerationService {
     model: string,
     size: string,
     entryId: string,
-    referenceImageUrls?: string[]
+    referenceImageUrls?: string[],
   ): Promise<void> {
     try {
       // Update status to generating
-      await database.updateEmbeddedImage(imageId, { status: 'generating' });
+      await database.updateEmbeddedImage(imageId, { status: 'generating' })
 
       log('Generating inline image via SDK', {
         imageId,
         profileId,
         model,
         hasReference: !!referenceImageUrls?.length,
-      });
+      })
 
       // Generate image using SDK
       const result = await sdkGenerateImage({
@@ -271,40 +272,40 @@ export class InlineImageGenerationService {
         prompt,
         size,
         referenceImages: referenceImageUrls,
-      });
+      })
 
       if (!result.base64) {
-        throw new Error('No image data returned');
+        throw new Error('No image data returned')
       }
 
       // Update record with image data
       await database.updateEmbeddedImage(imageId, {
         imageData: result.base64,
         status: 'complete',
-      });
+      })
 
       log('Inline image generated successfully', {
         imageId,
         hasReference: !!referenceImageUrls,
-      });
+      })
 
       // Emit ready event
-      emitImageReady(imageId, entryId, true);
+      emitImageReady(imageId, entryId, true)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log('Inline image generation failed', { imageId, error: errorMessage });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      log('Inline image generation failed', { imageId, error: errorMessage })
 
       // Update record with error
       await database.updateEmbeddedImage(imageId, {
         status: 'failed',
         errorMessage,
-      });
+      })
 
       // Emit ready event (with failure)
-      emitImageReady(imageId, entryId, false);
+      emitImageReady(imageId, entryId, false)
     }
   }
 }
 
 // Export singleton instance
-export const inlineImageService = new InlineImageGenerationService();
+export const inlineImageService = new InlineImageGenerationService()

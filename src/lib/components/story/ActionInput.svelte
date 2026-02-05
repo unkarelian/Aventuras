@@ -1,17 +1,14 @@
 <script lang="ts">
-  import { tick } from "svelte";
-  import { ui } from "$lib/stores/ui.svelte";
-  import { story } from "$lib/stores/story.svelte";
-  import { settings } from "$lib/stores/settings.svelte";
-  import { aiService } from "$lib/services/ai";
-  import { database } from "$lib/services/database";
-  import { SimpleActivationTracker } from "$lib/services/ai/retrieval/EntryRetrievalService";
-  import { type ImageGenerationContext } from "$lib/services/ai";
-  import {
-    hasRequiredCredentials,
-    getProviderDisplayName,
-  } from "$lib/services/ai/image";
-  import { TranslationService } from "$lib/services/ai/utils/TranslationService";
+  import { tick } from 'svelte'
+  import { ui } from '$lib/stores/ui.svelte'
+  import { story } from '$lib/stores/story.svelte'
+  import { settings } from '$lib/stores/settings.svelte'
+  import { aiService } from '$lib/services/ai'
+  import { database } from '$lib/services/database'
+  import { SimpleActivationTracker } from '$lib/services/ai/retrieval/EntryRetrievalService'
+  import { type ImageGenerationContext } from '$lib/services/ai'
+  import { hasRequiredCredentials, getProviderDisplayName } from '$lib/services/ai/image'
+  import { TranslationService } from '$lib/services/ai/utils/TranslationService'
   import {
     Send,
     Wand2,
@@ -24,10 +21,10 @@
     Square,
     ImageIcon,
     Loader2,
-  } from "lucide-svelte";
-  import Suggestions from "./Suggestions.svelte";
-  import GrammarCheck from "./GrammarCheck.svelte";
-  import { Button } from "$lib/components/ui/button";
+  } from 'lucide-svelte'
+  import Suggestions from './Suggestions.svelte'
+  import GrammarCheck from './GrammarCheck.svelte'
+  import { Button } from '$lib/components/ui/button'
   import {
     emitUserInput,
     emitNarrativeResponse,
@@ -36,8 +33,8 @@
     eventBus,
     type ResponseStreamingEvent,
     type ClassificationCompleteEvent,
-  } from "$lib/services/events";
-  import { isTouchDevice } from "$lib/utils/swipe";
+  } from '$lib/services/events'
+  import { isTouchDevice } from '$lib/utils/swipe'
   import {
     GenerationPipeline,
     retryService,
@@ -52,11 +49,11 @@
     type BackgroundTaskInput,
     type PipelineUICallbacks,
     type PipelineEventState,
-  } from "$lib/services/generation";
-  import { InlineImageTracker } from "$lib/services/ai/image";
+  } from '$lib/services/generation'
+  import { InlineImageTracker } from '$lib/services/ai/image'
 
   function log(...args: any[]) {
-    console.log("[ActionInput]", ...args);
+    console.log('[ActionInput]', ...args)
   }
 
   // ============================================================================
@@ -68,25 +65,22 @@
     translationSettings: typeof settings.translationSettings,
   ): Promise<{ promptContent: string; originalInput: string | undefined }> {
     if (!TranslationService.shouldTranslateInput(translationSettings)) {
-      return { promptContent: content, originalInput: undefined };
+      return { promptContent: content, originalInput: undefined }
     }
 
     try {
-      log("Translating user input", {
+      log('Translating user input', {
         sourceLanguage: translationSettings.sourceLanguage,
-      });
-      const result = await aiService.translateInput(
-        content,
-        translationSettings.sourceLanguage,
-      );
-      log("Input translated", {
+      })
+      const result = await aiService.translateInput(content, translationSettings.sourceLanguage)
+      log('Input translated', {
         originalLength: content.length,
         translatedLength: result.translatedContent.length,
-      });
-      return { promptContent: result.translatedContent, originalInput: content };
+      })
+      return { promptContent: result.translatedContent, originalInput: content }
     } catch (error) {
-      log("Input translation failed (non-fatal), using original", error);
-      return { promptContent: content, originalInput: undefined };
+      log('Input translation failed (non-fatal), using original', error)
+      return { promptContent: content, originalInput: undefined }
     }
   }
 
@@ -94,13 +88,13 @@
   // UI State
   // ============================================================================
 
-  let inputValue = $state("");
-  let actionType = $state<"do" | "say" | "think" | "story" | "free">("do");
-  let isRawActionChoice = $state(false);
-  let stopRequested = false;
-  let activeAbortController: AbortController | null = null;
-  let lastImageGenContext = $state<ImageGenerationContext | null>(null);
-  let isManualImageGenRunning = $state(false);
+  let inputValue = $state('')
+  let actionType = $state<'do' | 'say' | 'think' | 'story' | 'free'>('do')
+  let isRawActionChoice = $state(false)
+  let stopRequested = false
+  let activeAbortController: AbortController | null = null
+  let lastImageGenContext = $state<ImageGenerationContext | null>(null)
+  let isManualImageGenRunning = $state(false)
 
   // ============================================================================
   // Derived State
@@ -110,26 +104,24 @@
     settings.systemServicesSettings.imageGeneration.enabled &&
       !settings.systemServicesSettings.imageGeneration.autoGenerate &&
       !!lastImageGenContext,
-  );
+  )
 
   const manualImageGenDisabled = $derived.by(() => {
-    if (ui.isGenerating || isManualImageGenRunning) return true;
-    return !hasRequiredCredentials();
-  });
+    if (ui.isGenerating || isManualImageGenRunning) return true
+    return !hasRequiredCredentials()
+  })
 
-  const isCreativeMode = $derived(story.storyMode === "creative-writing");
+  const isCreativeMode = $derived(story.storyMode === 'creative-writing')
 
   const sendKeyHint = $derived(
-    isTouchDevice()
-      ? "Shift+Enter to send"
-      : "Enter to send, Shift+Enter for new line",
-  );
+    isTouchDevice() ? 'Shift+Enter to send' : 'Enter to send, Shift+Enter for new line',
+  )
 
   // ============================================================================
   // Action Type Configuration
   // ============================================================================
 
-  type ActionType = "do" | "say" | "think" | "story" | "free";
+  type ActionType = 'do' | 'say' | 'think' | 'story' | 'free'
 
   const actionIcons = {
     do: Wand2,
@@ -137,98 +129,93 @@
     think: Brain,
     story: Sparkles,
     free: PenLine,
-  };
+  }
   const actionLabels: Record<ActionType, string> = {
-    do: "Do",
-    say: "Say",
-    think: "Think",
-    story: "Story",
-    free: "Free",
-  };
+    do: 'Do',
+    say: 'Say',
+    think: 'Think',
+    story: 'Story',
+    free: 'Free',
+  }
   const actionBorderColors: Record<ActionType, string> = {
-    do: "border-l-emerald-500",
-    say: "border-l-blue-500",
-    think: "border-l-purple-500",
-    story: "border-l-amber-500",
-    free: "border-l-surface-600",
-  };
+    do: 'border-l-emerald-500',
+    say: 'border-l-blue-500',
+    think: 'border-l-purple-500',
+    story: 'border-l-amber-500',
+    free: 'border-l-surface-600',
+  }
   const actionActiveStyles: Record<ActionType, string> = {
-    do: "bg-emerald-500/15 text-emerald-400",
-    say: "bg-blue-500/15 text-blue-400",
-    think: "bg-purple-500/15 text-purple-400",
-    story: "bg-amber-500/15 text-amber-400",
-    free: "bg-surface-600/30 text-surface-300",
-  };
+    do: 'bg-emerald-500/15 text-emerald-400',
+    say: 'bg-blue-500/15 text-blue-400',
+    think: 'bg-purple-500/15 text-purple-400',
+    story: 'bg-amber-500/15 text-amber-400',
+    free: 'bg-surface-600/30 text-surface-300',
+  }
   const actionButtonStyles: Record<ActionType, string> = {
-    do: "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10",
-    say: "text-blue-400 hover:text-blue-300 hover:bg-blue-500/10",
-    think: "text-purple-400 hover:text-purple-300 hover:bg-purple-500/10",
-    story: "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10",
-    free: "text-surface-400 hover:text-surface-200 hover:bg-surface-500/10",
-  };
-  const actionTypes: ActionType[] = ["do", "say", "think", "story", "free"];
+    do: 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10',
+    say: 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/10',
+    think: 'text-purple-400 hover:text-purple-300 hover:bg-purple-500/10',
+    story: 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10',
+    free: 'text-surface-400 hover:text-surface-200 hover:bg-surface-500/10',
+  }
+  const actionTypes: ActionType[] = ['do', 'say', 'think', 'story', 'free']
 
   // POV-based prefixes/suffixes
   const protagonistName = $derived.by(
-    () =>
-      story.characters.find((c) => c.relationship === "self")?.name ??
-      "The protagonist",
-  );
-  const pov = $derived(story.pov);
+    () => story.characters.find((c) => c.relationship === 'self')?.name ?? 'The protagonist',
+  )
+  const pov = $derived(story.pov)
 
   const actionPrefixes = $derived.by(() => {
     switch (pov) {
-      case "third":
+      case 'third':
         return {
           do: `${protagonistName} `,
           say: `${protagonistName} says, "`,
           think: `${protagonistName} thinks, "`,
-          story: "",
-          free: "",
-        };
+          story: '',
+          free: '',
+        }
       default:
         return {
-          do: "I ",
+          do: 'I ',
           say: 'I say, "',
           think: 'I think to myself, "',
-          story: "",
-          free: "",
-        };
+          story: '',
+          free: '',
+        }
     }
-  });
-  const actionSuffixes = { do: "", say: '"', think: '"', story: "", free: "" };
+  })
+  const actionSuffixes = { do: '', say: '"', think: '"', story: '', free: '' }
 
   // ============================================================================
   // Effects
   // ============================================================================
 
   $effect(() => {
-    const storyId = story.currentStory?.id ?? null;
-    if (
-      !storyId ||
-      (lastImageGenContext && lastImageGenContext.storyId !== storyId)
-    )
-      lastImageGenContext = null;
-  });
+    const storyId = story.currentStory?.id ?? null
+    if (!storyId || (lastImageGenContext && lastImageGenContext.storyId !== storyId))
+      lastImageGenContext = null
+  })
 
   $effect(() => {
-    ui.setRetryCallback(handleRetry);
-    return () => ui.setRetryCallback(null);
-  });
+    ui.setRetryCallback(handleRetry)
+    return () => ui.setRetryCallback(null)
+  })
 
   $effect(() => {
-    ui.setRetryLastMessageCallback(handleRetryLastMessage);
-    return () => ui.setRetryLastMessageCallback(null);
-  });
+    ui.setRetryLastMessageCallback(handleRetryLastMessage)
+    return () => ui.setRetryLastMessageCallback(null)
+  })
 
   $effect(() => {
-    const pendingAction = ui.pendingActionChoice;
+    const pendingAction = ui.pendingActionChoice
     if (pendingAction && !ui.isGenerating) {
-      inputValue = pendingAction;
-      isRawActionChoice = true;
-      ui.clearPendingActionChoice();
+      inputValue = pendingAction
+      isRawActionChoice = true
+      ui.clearPendingActionChoice()
     }
-  });
+  })
 
   // ============================================================================
   // Builder Functions
@@ -239,26 +226,21 @@
       shouldUseAgenticRetrieval: (chaptersLength: number) =>
         aiService.shouldUseAgenticRetrieval({ length: chaptersLength } as any),
       runAgenticRetrieval: aiService.runAgenticRetrieval.bind(aiService),
-      formatAgenticRetrievalForPrompt:
-        aiService.formatAgenticRetrievalForPrompt.bind(aiService),
+      formatAgenticRetrievalForPrompt: aiService.formatAgenticRetrievalForPrompt.bind(aiService),
       runTimelineFill: aiService.runTimelineFill.bind(aiService),
       answerChapterQuestion: aiService.answerChapterQuestion.bind(aiService),
-      answerChapterRangeQuestion:
-        aiService.answerChapterRangeQuestion.bind(aiService),
-      getRelevantLorebookEntries:
-        aiService.getRelevantLorebookEntries.bind(aiService),
+      answerChapterRangeQuestion: aiService.answerChapterRangeQuestion.bind(aiService),
+      getRelevantLorebookEntries: aiService.getRelevantLorebookEntries.bind(aiService),
       streamNarrative: aiService.streamNarrative.bind(aiService),
       classifyResponse: aiService.classifyResponse.bind(aiService),
       translateNarration: aiService.translateNarration.bind(aiService),
-      generateImagesForNarrative:
-        aiService.generateImagesForNarrative.bind(aiService),
-      isImageGenerationEnabled:
-        aiService.isImageGenerationEnabled.bind(aiService),
+      generateImagesForNarrative: aiService.generateImagesForNarrative.bind(aiService),
+      isImageGenerationEnabled: aiService.isImageGenerationEnabled.bind(aiService),
       generateSuggestions: aiService.generateSuggestions.bind(aiService),
       translateSuggestions: aiService.translateSuggestions.bind(aiService),
       generateActionChoices: aiService.generateActionChoices.bind(aiService),
       translateActionChoices: aiService.translateActionChoices.bind(aiService),
-    };
+    }
   }
 
   function buildBackgroundTaskDependencies(): BackgroundTaskDependencies {
@@ -273,15 +255,15 @@
         runLoreManagement: aiService.runLoreManagement.bind(aiService),
       },
       styleReview: { analyzeStyle: aiService.analyzeStyle.bind(aiService) },
-    };
+    }
   }
 
   function buildBackgroundTaskInput(
     countStyleReview: boolean,
     styleReviewSource: string,
   ): BackgroundTaskInput {
-    const storyId = story.currentStory?.id ?? "";
-    const mode = story.currentStory?.mode ?? "adventure";
+    const storyId = story.currentStory?.id ?? ''
+    const mode = story.currentStory?.mode ?? 'adventure'
 
     return {
       styleReview: {
@@ -291,8 +273,7 @@
         pov: story.pov,
         tense: story.tense,
         enabled: settings.systemServicesSettings.styleReviewer.enabled,
-        triggerInterval:
-          settings.systemServicesSettings.styleReviewer.triggerInterval,
+        triggerInterval: settings.systemServicesSettings.styleReviewer.triggerInterval,
         currentCounter: ui.messagesSinceLastStyleReview,
         shouldIncrement: countStyleReview,
         source: styleReviewSource,
@@ -327,16 +308,20 @@
       },
       loreCallbacks: {
         onCreateEntry: async (entry) => {
-          await story.addLorebookEntry(entry);
+          await story.addLorebookEntry(entry)
         },
         onUpdateEntry: story.updateLorebookEntry.bind(story),
         onDeleteEntry: story.deleteLorebookEntry.bind(story),
         onMergeEntries: async (entryIds, mergedEntry) => {
-          await story.deleteLorebookEntries(entryIds);
-          await story.addLorebookEntry(mergedEntry);
+          await story.deleteLorebookEntries(entryIds)
+          await story.addLorebookEntry(mergedEntry)
         },
         onQueryChapter: async (chapterNumber, question) => {
-          return aiService.answerChapterQuestion(chapterNumber, question, story.currentBranchChapters);
+          return aiService.answerChapterQuestion(
+            chapterNumber,
+            question,
+            story.currentBranchChapters,
+          )
         },
       },
       loreUICallbacks: {
@@ -344,7 +329,7 @@
         onProgress: ui.updateLoreManagementProgress.bind(ui),
         onComplete: ui.finishLoreManagement.bind(ui),
       },
-    };
+    }
   }
 
   // ============================================================================
@@ -356,39 +341,34 @@
     userActionContent: string,
     options?: { countStyleReview?: boolean; styleReviewSource?: string },
   ) {
-    const countStyleReview = options?.countStyleReview ?? true;
+    const countStyleReview = options?.countStyleReview ?? true
     const styleReviewSource =
-      options?.styleReviewSource ?? (countStyleReview ? "new" : "regenerate");
+      options?.styleReviewSource ?? (countStyleReview ? 'new' : 'regenerate')
 
-    if (!story.currentStory) return;
+    if (!story.currentStory) return
 
-    stopRequested = false;
-    activeAbortController = new AbortController();
+    stopRequested = false
+    activeAbortController = new AbortController()
 
-    const visualProseMode =
-      story.currentStory.settings?.visualProseMode ?? false;
-    const inlineImageMode =
-      story.currentStory.settings?.inlineImageMode ?? false;
-    const streamingEntryId = crypto.randomUUID();
-    const narrationEntryId = crypto.randomUUID();
+    const visualProseMode = story.currentStory.settings?.visualProseMode ?? false
+    const inlineImageMode = story.currentStory.settings?.inlineImageMode ?? false
+    const streamingEntryId = crypto.randomUUID()
+    const narrationEntryId = crypto.randomUUID()
 
-    ui.setGenerating(true);
-    ui.clearGenerationError();
-    ui.clearActionChoices(story.currentStory.id);
-    ui.startStreaming(visualProseMode, streamingEntryId);
+    ui.setGenerating(true)
+    ui.clearGenerationError()
+    ui.clearActionChoices(story.currentStory.id)
+    ui.startStreaming(visualProseMode, streamingEntryId)
 
-    const currentStoryRef = story.currentStory;
+    const currentStoryRef = story.currentStory
 
-    let inlineImageTracker: InlineImageTracker | null = null;
-    if (
-      inlineImageMode &&
-      settings.systemServicesSettings.imageGeneration.enabled
-    ) {
+    let inlineImageTracker: InlineImageTracker | null = null
+    if (inlineImageMode && settings.systemServicesSettings.imageGeneration.enabled) {
       inlineImageTracker = new InlineImageTracker(
         currentStoryRef.id,
         narrationEntryId,
         () => story.characters,
-      );
+      )
     }
 
     try {
@@ -401,18 +381,12 @@
         chapters: story.currentBranchChapters,
         memoryConfig: story.memoryConfig,
         lorebookEntries: story.lorebookEntries,
-      };
+      }
 
-      const storyPosition = story.entries.length;
-      const activationTracker = ui.getActivationTracker(
-        storyPosition,
-      ) as SimpleActivationTracker;
-      const embeddedImages = await database.getEmbeddedImagesForStory(
-        currentStoryRef.id,
-      );
-      const protagonist = story.characters.find(
-        (c) => c.relationship === "self",
-      );
+      const storyPosition = story.entries.length
+      const activationTracker = ui.getActivationTracker(storyPosition) as SimpleActivationTracker
+      const embeddedImages = await database.getEmbeddedImagesForStory(currentStoryRef.id)
+      const protagonist = story.characters.find((c) => c.relationship === 'self')
 
       const ctx: GenerationContext = {
         story: currentStoryRef,
@@ -425,16 +399,15 @@
           rawInput: userActionContent,
         },
         abortSignal: activeAbortController.signal,
-      };
+      }
 
       const cfg: PipelineConfig = {
         embeddedImages,
         rawInput: userActionContent,
         actionType,
         wasRawActionChoice: false,
-        timelineFillEnabled:
-          settings.systemServicesSettings.timelineFill?.enabled ?? true,
-        storyMode: currentStoryRef.mode ?? "adventure",
+        timelineFillEnabled: settings.systemServicesSettings.timelineFill?.enabled ?? true,
+        storyMode: currentStoryRef.mode ?? 'adventure',
         pov: story.pov,
         tense: story.tense,
         styleReview: ui.lastStyleReview,
@@ -442,15 +415,14 @@
         translationSettings: settings.translationSettings,
         imageSettings: {
           enabled: settings.systemServicesSettings.imageGeneration.enabled,
-          autoGenerate:
-            settings.systemServicesSettings.imageGeneration.autoGenerate,
+          autoGenerate: settings.systemServicesSettings.imageGeneration.autoGenerate,
           inlineMode: inlineImageMode,
         },
         promptContext: {
           mode: story.storyMode,
           pov: story.pov,
           tense: story.tense,
-          protagonistName: protagonist?.name || "the protagonist",
+          protagonistName: protagonist?.name || 'the protagonist',
           genre: currentStoryRef.genre ?? undefined,
           settingDescription: currentStoryRef.description ?? undefined,
           tone: currentStoryRef.settings?.tone ?? undefined,
@@ -458,18 +430,17 @@
         },
         disableSuggestions: settings.uiSettings.disableSuggestions,
         activeThreads: story.pendingQuests,
-      };
+      }
 
-      const deps = buildPipelineDependencies();
-      const pipeline = new GenerationPipeline(deps);
+      const deps = buildPipelineDependencies()
+      const pipeline = new GenerationPipeline(deps)
 
-      let fullResponse = "";
-      let fullReasoning = "";
-      let narrationEntry: Awaited<ReturnType<typeof story.addEntry>> | null =
-        null;
+      let fullResponse = ''
+      let fullReasoning = ''
+      let narrationEntry: Awaited<ReturnType<typeof story.addEntry>> | null = null
 
       for await (const event of pipeline.execute(ctx, cfg)) {
-        if (stopRequested) break;
+        if (stopRequested) break
 
         const eventState: PipelineEventState = {
           fullResponse: () => fullResponse,
@@ -478,7 +449,7 @@
           visualProseMode,
           isCreativeMode,
           storyId: currentStoryRef.id,
-        };
+        }
 
         const eventCallbacks: PipelineUICallbacks = {
           startStreaming: ui.startStreaming.bind(ui),
@@ -491,64 +462,56 @@
           setActionChoices: ui.setActionChoices.bind(ui),
           emitResponseStreaming: (chunk, accumulated) => {
             eventBus.emit<ResponseStreamingEvent>({
-              type: "ResponseStreaming",
+              type: 'ResponseStreaming',
               chunk,
               accumulated,
-            });
+            })
           },
           emitSuggestionsReady: (suggestions) => {
-            emitSuggestionsReady(suggestions);
+            emitSuggestionsReady(suggestions)
           },
-        };
-
-        handleEvent(event, eventState, eventCallbacks);
-
-        if (event.type === "narrative_chunk") {
-          fullResponse += event.content;
-          if (event.reasoning) fullReasoning += event.reasoning;
-          if (inlineImageTracker) inlineImageTracker.processChunk(fullResponse);
         }
 
-        if (
-          event.type === "phase_complete" &&
-          event.phase === "narrative" &&
-          fullResponse.trim()
-        ) {
-          ui.endStreaming();
+        handleEvent(event, eventState, eventCallbacks)
+
+        if (event.type === 'narrative_chunk') {
+          fullResponse += event.content
+          if (event.reasoning) fullReasoning += event.reasoning
+          if (inlineImageTracker) inlineImageTracker.processChunk(fullResponse)
+        }
+
+        if (event.type === 'phase_complete' && event.phase === 'narrative' && fullResponse.trim()) {
+          ui.endStreaming()
           narrationEntry = await story.addEntry(
-            "narration",
+            'narration',
             fullResponse,
             undefined,
             fullReasoning || undefined,
             narrationEntryId,
-          );
-          emitNarrativeResponse(narrationEntry.id, fullResponse);
-          if (inlineImageTracker?.hasPendingImages)
-            await inlineImageTracker.flushToDatabase();
+          )
+          emitNarrativeResponse(narrationEntry.id, fullResponse)
+          if (inlineImageTracker?.hasPendingImages) await inlineImageTracker.flushToDatabase()
         }
 
-        if (event.type === "classification_complete" && narrationEntry) {
+        if (event.type === 'classification_complete' && narrationEntry) {
           eventBus.emit<ClassificationCompleteEvent>({
-            type: "ClassificationComplete",
+            type: 'ClassificationComplete',
             messageId: narrationEntry.id,
             result: event.result,
-          });
-          await story.applyClassificationResult(event.result);
-          await story.updateEntryTimeEnd(narrationEntry.id);
+          })
+          await story.applyClassificationResult(event.result)
+          await story.updateEntryTimeEnd(narrationEntry.id)
 
           if (settings.systemServicesSettings.imageGeneration.enabled) {
             const presentCharacters = story.characters.filter(
               (c) =>
                 event.result.scene.presentCharacterNames.includes(c.name) ||
-                c.relationship === "self",
-            );
+                c.relationship === 'self',
+            )
             const imageGenChatHistory = story.visibleEntries
-              .filter((e) => e.type === "user_action" || e.type === "narration")
-              .map(
-                (e) =>
-                  `${e.type === "user_action" ? "USER" : "ASSISTANT"}:\n${e.content}`,
-              )
-              .join("\n\n");
+              .filter((e) => e.type === 'user_action' || e.type === 'narration')
+              .map((e) => `${e.type === 'user_action' ? 'USER' : 'ASSISTANT'}:\n${e.content}`)
+              .join('\n\n')
 
             lastImageGenContext = {
               storyId: currentStoryRef.id,
@@ -557,21 +520,17 @@
               userAction: userActionContent,
               presentCharacters,
               currentLocation:
-                event.result.scene.currentLocationName ??
-                worldState.currentLocation?.name,
+                event.result.scene.currentLocationName ?? worldState.currentLocation?.name,
               chatHistory: imageGenChatHistory,
               lorebookContext: undefined,
-            };
+            }
           }
 
-          const translationSettings = settings.translationSettings;
-          if (
-            TranslationService.shouldTranslateWorldState(translationSettings)
-          ) {
+          const translationSettings = settings.translationSettings
+          if (TranslationService.shouldTranslateWorldState(translationSettings)) {
             const translationService = new WorldStateTranslationService({
-              translateUIElements:
-                aiService.translateUIElements.bind(aiService),
-            });
+              translateUIElements: aiService.translateUIElements.bind(aiService),
+            })
             translationService
               .translateEntities(
                 {
@@ -590,64 +549,50 @@
                   targetLanguage: translationSettings.targetLanguage,
                 },
                 {
-                  updateCharacter: (id, data) =>
-                    database.updateCharacter(id, data as any),
-                  updateLocation: (id, data) =>
-                    database.updateLocation(id, data as any),
-                  updateItem: (id, data) =>
-                    database.updateItem(id, data as any),
-                  updateStoryBeat: (id, data) =>
-                    database.updateStoryBeat(id, data as any),
+                  updateCharacter: (id, data) => database.updateCharacter(id, data as any),
+                  updateLocation: (id, data) => database.updateLocation(id, data as any),
+                  updateItem: (id, data) => database.updateItem(id, data as any),
+                  updateStoryBeat: (id, data) => database.updateStoryBeat(id, data as any),
                   refreshWorldState: story.refreshWorldState.bind(story),
                 },
               )
-              .catch((err) =>
-                log("World state translation failed (non-fatal)", err),
-              );
+              .catch((err) => log('World state translation failed (non-fatal)', err))
           }
         }
 
-        if (
-          event.type === "phase_complete" &&
-          event.phase === "translation" &&
-          narrationEntry
-        ) {
+        if (event.type === 'phase_complete' && event.phase === 'translation' && narrationEntry) {
           const translationResult = event.result as
             | {
-                translated: boolean;
-                translatedContent: string | null;
-                targetLanguage: string | null;
+                translated: boolean
+                translatedContent: string | null
+                targetLanguage: string | null
               }
-            | undefined;
-          if (
-            translationResult?.translated &&
-            translationResult.translatedContent
-          ) {
+            | undefined
+          if (translationResult?.translated && translationResult.translatedContent) {
             await database.updateStoryEntry(narrationEntry.id, {
               translatedContent: translationResult.translatedContent,
               translationLanguage: translationResult.targetLanguage,
-            });
-            await story.refreshEntry(narrationEntry.id);
+            })
+            await story.refreshEntry(narrationEntry.id)
           }
         }
 
-        if (event.type === "error" && event.fatal) break;
+        if (event.type === 'error' && event.fatal) break
       }
 
-      ui.updateActivationData(activationTracker, currentStoryRef.id);
-      if (stopRequested) return;
+      ui.updateActivationData(activationTracker, currentStoryRef.id)
+      if (stopRequested) return
 
       if (!fullResponse.trim()) {
-        const errorMessage =
-          "The AI returned an empty response after 3 attempts. Please try again.";
-        const errorEntry = await story.addEntry("system", errorMessage);
+        const errorMessage = 'The AI returned an empty response after 3 attempts. Please try again.'
+        const errorEntry = await story.addEntry('system', errorMessage)
         ui.setGenerationError({
           message: errorMessage,
           errorEntryId: errorEntry.id,
           userActionEntryId,
           timestamp: Date.now(),
-        });
-        return;
+        })
+        return
       }
 
       if (
@@ -655,47 +600,32 @@
         settings.systemServicesSettings.tts.enabled &&
         settings.systemServicesSettings.tts.autoPlay
       ) {
-        emitTTSQueued(narrationEntry.id, fullResponse);
+        emitTTSQueued(narrationEntry.id, fullResponse)
       }
 
-      const coordinator = new BackgroundTaskCoordinator(
-        buildBackgroundTaskDependencies(),
-      );
-      const input = buildBackgroundTaskInput(
-        countStyleReview,
-        styleReviewSource,
-      );
-      if (!story.memoryConfig.autoSummarize)
-        input.chapterCheck.tokensOutsideBuffer = 0;
+      const coordinator = new BackgroundTaskCoordinator(buildBackgroundTaskDependencies())
+      const input = buildBackgroundTaskInput(countStyleReview, styleReviewSource)
+      if (!story.memoryConfig.autoSummarize) input.chapterCheck.tokensOutsideBuffer = 0
       coordinator
         .runBackgroundTasks(input)
-        .catch((err) => log("Background tasks failed (non-fatal)", err));
+        .catch((err) => log('Background tasks failed (non-fatal)', err))
     } catch (error) {
-      if (
-        stopRequested ||
-        (error instanceof Error && error.name === "AbortError")
-      )
-        return;
+      if (stopRequested || (error instanceof Error && error.name === 'AbortError')) return
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Failed to generate response. Please try again.";
-      const errorEntry = await story.addEntry(
-        "system",
-        `Generation failed: ${errorMessage}`,
-      );
+        error instanceof Error ? error.message : 'Failed to generate response. Please try again.'
+      const errorEntry = await story.addEntry('system', `Generation failed: ${errorMessage}`)
       ui.setGenerationError({
         message: errorMessage,
         errorEntryId: errorEntry.id,
         userActionEntryId,
         timestamp: Date.now(),
-      });
+      })
     } finally {
-      ui.endStreaming();
-      ui.setGenerating(false);
-      ui.setGenerationStatus("");
-      activeAbortController = null;
-      stopRequested = false;
+      ui.endStreaming()
+      ui.setGenerating(false)
+      ui.setGenerationStatus('')
+      activeAbortController = null
+      stopRequested = false
     }
   }
 
@@ -704,19 +634,19 @@
   // ============================================================================
 
   async function refreshSuggestions() {
-    if (!story.currentStory) return;
+    if (!story.currentStory) return
 
-    if (story.storyMode !== "creative-writing" || story.entries.length === 0) {
-      ui.clearSuggestions(story.currentStory.id);
-      return;
+    if (story.storyMode !== 'creative-writing' || story.entries.length === 0) {
+      ui.clearSuggestions(story.currentStory.id)
+      return
     }
 
-    ui.setSuggestionsLoading(true);
+    ui.setSuggestionsLoading(true)
     try {
       const service = new SuggestionsRefreshService({
         generateSuggestions: aiService.generateSuggestions.bind(aiService),
         translateSuggestions: aiService.translateSuggestions.bind(aiService),
-      });
+      })
       const result = await service.refresh({
         storyId: story.currentStory.id,
         entries: story.entries,
@@ -731,61 +661,54 @@
         themes: story.currentStory.settings?.themes ?? undefined,
         lastLorebookRetrieval: ui.lastLorebookRetrieval?.all ?? null,
         translationSettings: settings.translationSettings,
-      });
-      ui.setSuggestions(result.suggestions, story.currentStory.id);
-      emitSuggestionsReady(
-        result.suggestions.map((s) => ({ text: s.text, type: s.type })),
-      );
+      })
+      ui.setSuggestions(result.suggestions, story.currentStory.id)
+      emitSuggestionsReady(result.suggestions.map((s) => ({ text: s.text, type: s.type })))
     } catch (error) {
-      log("Failed to generate suggestions:", error);
-      ui.clearSuggestions(story.currentStory.id);
+      log('Failed to generate suggestions:', error)
+      ui.clearSuggestions(story.currentStory.id)
     } finally {
-      ui.setSuggestionsLoading(false);
+      ui.setSuggestionsLoading(false)
     }
   }
 
   function handleSuggestionSelect(text: string) {
-    inputValue = text;
-    document.querySelector("textarea")?.focus();
+    inputValue = text
+    document.querySelector('textarea')?.focus()
   }
 
   async function handleManualImageGeneration() {
-    if (!lastImageGenContext || manualImageGenDisabled) return;
-    if (!settings.systemServicesSettings.imageGeneration.enabled) return;
-    isManualImageGenRunning = true;
+    if (!lastImageGenContext || manualImageGenDisabled) return
+    if (!settings.systemServicesSettings.imageGeneration.enabled) return
+    isManualImageGenRunning = true
     try {
-      await aiService.generateImagesForNarrative(lastImageGenContext);
+      await aiService.generateImagesForNarrative(lastImageGenContext)
     } catch (error) {
-      log("Manual image generation failed (non-fatal)", error);
+      log('Manual image generation failed (non-fatal)', error)
     } finally {
-      isManualImageGenRunning = false;
+      isManualImageGenRunning = false
     }
   }
 
   async function handleSubmit() {
-    if (!inputValue.trim() || ui.isGenerating || !story.currentStory) return;
+    if (!inputValue.trim() || ui.isGenerating || !story.currentStory) return
 
-    ui.clearGenerationError();
-    ui.resetScrollBreak();
-    ui.clearSuggestions(story.currentStory.id);
+    ui.clearGenerationError()
+    ui.resetScrollBreak()
+    ui.clearSuggestions(story.currentStory.id)
 
-    const rawInput = inputValue.trim();
-    const wasRawActionChoice = isRawActionChoice;
-    const forceFreeMode = settings.uiSettings.disableActionPrefixes;
+    const rawInput = inputValue.trim()
+    const wasRawActionChoice = isRawActionChoice
+    const forceFreeMode = settings.uiSettings.disableActionPrefixes
 
-    let content: string;
-    if (isCreativeMode || wasRawActionChoice || forceFreeMode)
-      content = rawInput;
-    else
-      content =
-        actionPrefixes[actionType] + rawInput + actionSuffixes[actionType];
+    let content: string
+    if (isCreativeMode || wasRawActionChoice || forceFreeMode) content = rawInput
+    else content = actionPrefixes[actionType] + rawInput + actionSuffixes[actionType]
 
-    isRawActionChoice = false;
-    inputValue = "";
+    isRawActionChoice = false
+    inputValue = ''
 
-    const embeddedImages = await database.getEmbeddedImagesForStory(
-      story.currentStory.id,
-    );
+    const embeddedImages = await database.getEmbeddedImagesForStory(story.currentStory.id)
     ui.createRetryBackup(
       story.currentStory.id,
       story.entries,
@@ -799,72 +722,62 @@
       actionType,
       wasRawActionChoice,
       story.currentStory.timeTracker,
-    );
+    )
 
     const { promptContent, originalInput } = await translateUserInput(
       content,
       settings.translationSettings,
-    );
+    )
 
-    const userActionEntry = await story.addEntry("user_action", promptContent);
+    const userActionEntry = await story.addEntry('user_action', promptContent)
 
     if (originalInput) {
-      await database.updateStoryEntry(userActionEntry.id, { originalInput });
-      await story.refreshEntry(userActionEntry.id);
+      await database.updateStoryEntry(userActionEntry.id, { originalInput })
+      await story.refreshEntry(userActionEntry.id)
     }
 
-    emitUserInput(
-      content,
-      isCreativeMode ? "direction" : forceFreeMode ? "free" : actionType,
-    );
-    await tick();
+    emitUserInput(content, isCreativeMode ? 'direction' : forceFreeMode ? 'free' : actionType)
+    await tick()
 
-    if (!settings.needsApiKey)
-      await generateResponse(userActionEntry.id, content);
+    if (!settings.needsApiKey) await generateResponse(userActionEntry.id, content)
     else
       await story.addEntry(
-        "system",
-        "Please configure your API key in settings to enable AI generation.",
-      );
+        'system',
+        'Please configure your API key in settings to enable AI generation.',
+      )
   }
 
   async function handleStopGeneration() {
-    if (!ui.isGenerating || ui.isRetryingLastMessage) return;
+    if (!ui.isGenerating || ui.isRetryingLastMessage) return
 
-    stopRequested = true;
-    activeAbortController?.abort();
-    ui.endStreaming();
-    ui.setGenerating(false);
+    stopRequested = true
+    activeAbortController?.abort()
+    ui.endStreaming()
+    ui.setGenerating(false)
 
-    const backup = ui.retryBackup;
-    if (
-      !backup ||
-      !story.currentStory ||
-      backup.storyId !== story.currentStory.id
-    ) {
-      if (backup) ui.clearRetryBackup();
-      return;
+    const backup = ui.retryBackup
+    if (!backup || !story.currentStory || backup.storyId !== story.currentStory.id) {
+      if (backup) ui.clearRetryBackup()
+      return
     }
 
-    ui.clearGenerationError();
-    ui.clearSuggestions(story.currentStory.id);
-    ui.clearActionChoices(story.currentStory.id);
+    ui.clearGenerationError()
+    ui.clearSuggestions(story.currentStory.id)
+    ui.clearActionChoices(story.currentStory.id)
 
     if (backup.hasFullState) {
-      ui.restoreActivationData(backup.activationData, backup.storyPosition);
+      ui.restoreActivationData(backup.activationData, backup.storyPosition)
     }
-    ui.setLastLorebookRetrieval(null);
+    ui.setLastLorebookRetrieval(null)
 
     const result = await retryService.handleStopGeneration(
       backup,
       {
         restoreFromRetryBackup: story.restoreFromRetryBackup.bind(story),
         deleteEntriesFromPosition: story.deleteEntriesFromPosition.bind(story),
-        deleteEntitiesCreatedAfterBackup:
-          story.deleteEntitiesCreatedAfterBackup.bind(story),
+        deleteEntitiesCreatedAfterBackup: story.deleteEntitiesCreatedAfterBackup.bind(story),
         restoreCharacterSnapshots: story.restoreCharacterSnapshots.bind(story),
-        restoreTimeTrackerSnapshot:
-          story.restoreTimeTrackerSnapshot.bind(story),
+        restoreTimeTrackerSnapshot: story.restoreTimeTrackerSnapshot.bind(story),
         lockRetryInProgress: story.lockRetryInProgress.bind(story),
         unlockRetryInProgress: story.unlockRetryInProgress.bind(story),
         restoreActivationData: ui.restoreActivationData.bind(ui),
@@ -876,70 +789,66 @@
         clearSuggestions: () => ui.clearSuggestions(story.currentStory!.id),
         clearActionChoices: () => ui.clearActionChoices(story.currentStory!.id),
       },
-    );
+    )
 
     if (result.success) {
-      await tick();
-      actionType = (result.restoredActionType as ActionType) ?? actionType;
-      isRawActionChoice = result.restoredWasRawActionChoice ?? false;
-      inputValue = result.restoredRawInput ?? "";
+      await tick()
+      actionType = (result.restoredActionType as ActionType) ?? actionType
+      isRawActionChoice = result.restoredWasRawActionChoice ?? false
+      inputValue = result.restoredRawInput ?? ''
     }
-    ui.clearRetryBackup(true);
+    ui.clearRetryBackup(true)
   }
 
   async function handleRetry() {
-    const error = ui.lastGenerationError;
-    if (!error || ui.isGenerating) return;
+    const error = ui.lastGenerationError
+    if (!error || ui.isGenerating) return
 
-    const userActionEntry = story.entries.find(
-      (e) => e.id === error.userActionEntryId,
-    );
+    const userActionEntry = story.entries.find((e) => e.id === error.userActionEntryId)
     if (!userActionEntry) {
-      ui.clearGenerationError();
-      return;
+      ui.clearGenerationError()
+      return
     }
 
-    await story.deleteEntry(error.errorEntryId);
-    ui.clearGenerationError();
+    await story.deleteEntry(error.errorEntryId)
+    ui.clearGenerationError()
 
     if (!settings.needsApiKey) {
       await generateResponse(userActionEntry.id, userActionEntry.content, {
         countStyleReview: false,
-        styleReviewSource: "retry-error",
-      });
+        styleReviewSource: 'retry-error',
+      })
     }
   }
 
   function dismissError() {
-    ui.clearGenerationError();
+    ui.clearGenerationError()
   }
 
   async function handleRetryLastMessage() {
-    const backup = ui.retryBackup;
-    if (!backup || ui.isGenerating || !story.currentStory) return;
+    const backup = ui.retryBackup
+    if (!backup || ui.isGenerating || !story.currentStory) return
     if (backup.storyId !== story.currentStory.id) {
-      ui.clearRetryBackup(false);
-      return;
+      ui.clearRetryBackup(false)
+      return
     }
 
-    const storyId = story.currentStory.id;
+    const storyId = story.currentStory.id
 
-    ui.clearGenerationError();
-    ui.clearSuggestions(storyId);
-    ui.clearActionChoices(storyId);
-    lastImageGenContext = null;
-    ui.setLastLorebookRetrieval(null);
+    ui.clearGenerationError()
+    ui.clearSuggestions(storyId)
+    ui.clearActionChoices(storyId)
+    lastImageGenContext = null
+    ui.setLastLorebookRetrieval(null)
 
     const result = await retryService.handleRetryLastMessage(
       backup,
       {
         restoreFromRetryBackup: story.restoreFromRetryBackup.bind(story),
         deleteEntriesFromPosition: story.deleteEntriesFromPosition.bind(story),
-        deleteEntitiesCreatedAfterBackup:
-          story.deleteEntitiesCreatedAfterBackup.bind(story),
+        deleteEntitiesCreatedAfterBackup: story.deleteEntitiesCreatedAfterBackup.bind(story),
         restoreCharacterSnapshots: story.restoreCharacterSnapshots.bind(story),
-        restoreTimeTrackerSnapshot:
-          story.restoreTimeTrackerSnapshot.bind(story),
+        restoreTimeTrackerSnapshot: story.restoreTimeTrackerSnapshot.bind(story),
         lockRetryInProgress: story.lockRetryInProgress.bind(story),
         unlockRetryInProgress: story.unlockRetryInProgress.bind(story),
         restoreActivationData: ui.restoreActivationData.bind(ui),
@@ -951,78 +860,75 @@
         clearSuggestions: () => ui.clearSuggestions(storyId),
         clearActionChoices: () => ui.clearActionChoices(storyId),
         clearImageContext: () => {
-          lastImageGenContext = null;
+          lastImageGenContext = null
         },
       },
-    );
+    )
 
-    if (!result.success) return;
+    if (!result.success) return
 
-    await tick();
+    await tick()
 
     const { promptContent, originalInput } = await translateUserInput(
       backup.userActionContent,
       settings.translationSettings,
-    );
-    const userActionEntry = await story.addEntry("user_action", promptContent);
+    )
+    const userActionEntry = await story.addEntry('user_action', promptContent)
 
     if (originalInput) {
-      await database.updateStoryEntry(userActionEntry.id, { originalInput });
-      await story.refreshEntry(userActionEntry.id);
+      await database.updateStoryEntry(userActionEntry.id, { originalInput })
+      await story.refreshEntry(userActionEntry.id)
     }
 
-    emitUserInput(
-      backup.userActionContent,
-      isCreativeMode ? "direction" : backup.actionType,
-    );
-    await tick();
+    emitUserInput(backup.userActionContent, isCreativeMode ? 'direction' : backup.actionType)
+    await tick()
 
     if (!settings.needsApiKey) {
-      ui.setRetryingLastMessage(true);
+      ui.setRetryingLastMessage(true)
       try {
         await generateResponse(userActionEntry.id, promptContent, {
           countStyleReview: false,
-          styleReviewSource: "retry-last-message",
-        });
+          styleReviewSource: 'retry-last-message',
+        })
       } finally {
-        ui.setRetryingLastMessage(false);
+        ui.setRetryingLastMessage(false)
       }
     }
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    const isMobile = isTouchDevice();
+    const isMobile = isTouchDevice()
     const shouldSubmit = isMobile
-      ? event.key === "Enter" && event.shiftKey
-      : event.key === "Enter" && !event.shiftKey;
+      ? event.key === 'Enter' && event.shiftKey
+      : event.key === 'Enter' && !event.shiftKey
     if (shouldSubmit) {
-      event.preventDefault();
-      handleSubmit();
+      event.preventDefault()
+      handleSubmit()
     }
   }
 
   function autoResize(node: HTMLTextAreaElement, _value?: string) {
     function resize() {
-      node.style.height = "auto";
-      node.style.height = `${node.scrollHeight}px`;
+      node.style.height = 'auto'
+      node.style.height = `${node.scrollHeight}px`
     }
-    resize();
-    node.addEventListener("input", resize);
+    resize()
+    node.addEventListener('input', resize)
     return {
       update(_newValue?: string) {
-        resize();
+        resize()
       },
       destroy() {
-        node.removeEventListener("input", resize);
+        node.removeEventListener('input', resize)
       },
-    };
+    }
   }
 </script>
 
-<div class="space-y-3 ml-1">
+<div class="ml-1 space-y-3">
   {#if ui.lastGenerationError && !ui.isGenerating}
     <div
-      class="flex items-center justify-between gap-3 rounded-lg bg-red-500/10 border border-red-500/30 p-3"
+      class="flex items-center justify-between gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-3"
     >
       <div class="flex items-center gap-2 text-sm text-red-400">
         <span>Generation failed. Would you like to try again?</span>
@@ -1030,41 +936,36 @@
       <div class="flex items-center gap-2">
         <button
           onclick={handleRetry}
-          class="btn flex items-center gap-1.5 text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30"
+          class="btn flex items-center gap-1.5 bg-red-500/20 text-sm text-red-400 hover:bg-red-500/30"
           ><RefreshCw class="h-4 w-4" />Retry</button
         >
         <button
           onclick={dismissError}
-          class="p-1.5 rounded text-surface-400 hover:bg-surface-700 hover:text-surface-200"
+          class="text-surface-400 hover:bg-surface-700 hover:text-surface-200 rounded p-1.5"
           title="Dismiss"><X class="h-4 w-4" /></button
         >
       </div>
     </div>
   {/if}
 
-  <GrammarCheck
-    text={inputValue}
-    onApplySuggestion={(newText) => (inputValue = newText)}
-  />
+  <GrammarCheck text={inputValue} onApplySuggestion={(newText) => (inputValue = newText)} />
 
   {#if isCreativeMode}
     <div
-      class="rounded-lg sm:border sm:border-border border-l-0 sm:border-l-4 sm:shadow-sm {ui.isGenerating
+      class="sm:border-border rounded-lg border-l-0 sm:border sm:border-l-4 sm:shadow-sm {ui.isGenerating
         ? 'sm:border-l-surface-600 bg-surface-400/5'
-        : 'border-l-accent-500 bg-card'} transition-colors duration-200 relative"
+        : 'border-l-accent-500 bg-card'} relative transition-colors duration-200"
     >
       {#if settings.uiSettings.showWordCount}<div
           class="absolute -top-[2.05rem] -right-3 sm:hidden"
         >
           <div
-            class="bg-surface-800 px-2 py-0.5 border border-surface-500/30 border-b-0 rounded-tl-md text-sm text-surface-400"
+            class="bg-surface-800 border-surface-500/30 text-surface-400 rounded-tl-md border border-b-0 px-2 py-0.5 text-sm"
           >
             {story.wordCount} words
           </div>
         </div>{/if}
-      {#if !settings.uiSettings.disableSuggestions}<div
-          class="sm:border-b border-surface-700/30"
-        >
+      {#if !settings.uiSettings.disableSuggestions}<div class="border-surface-700/30 sm:border-b">
           <Suggestions
             suggestions={ui.suggestions}
             loading={ui.suggestionsLoading}
@@ -1072,86 +973,82 @@
             onRefresh={refreshSuggestions}
           />
         </div>{/if}
-      <div class="flex items-center sm:items-end gap-1 mb-3 sm:mb-0 sm:p-1">
-        <div class="relative flex-1 min-w-0">
+      <div class="mb-3 flex items-center gap-1 sm:mb-0 sm:items-end sm:p-1">
+        <div class="relative min-w-0 flex-1">
           <textarea
             bind:value={inputValue}
             use:autoResize={inputValue}
             onkeydown={handleKeydown}
             disabled={ui.isGenerating}
             placeholder="Describe what happens next in the story..."
-            class="w-full bg-transparent border-none focus:ring-0 px-2 min-h-6 sm:min-h-6 max-h-40 resize-none text-base text-surface-200 placeholder-surface-500 focus:outline-none leading-relaxed"
+            class="text-surface-200 placeholder-surface-500 max-h-40 min-h-6 w-full resize-none border-none bg-transparent px-2 text-base leading-relaxed focus:ring-0 focus:outline-none sm:min-h-6"
             rows="1"
           ></textarea>
         </div>
         {#if ui.isGenerating}
           {#if !ui.isRetryingLastMessage}<button
               onclick={handleStopGeneration}
-              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse -translate-y-0.5 sm:translate-y-0"
+              class="flex h-11 w-11 flex-shrink-0 -translate-y-0.5 animate-pulse items-center justify-center rounded-lg p-0 text-red-400 transition-all hover:text-red-300 active:scale-95 sm:translate-y-0"
               title="Stop generation"><Square class="h-6 w-6" /></button
             >
           {:else}<button
               disabled
-              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed flex-shrink-0"
-              title="Stop disabled during retry"
-              ><Square class="h-6 w-6" /></button
+              class="flex h-11 w-11 flex-shrink-0 cursor-not-allowed items-center justify-center rounded-lg p-0 text-red-400 opacity-50"
+              title="Stop disabled during retry"><Square class="h-6 w-6" /></button
             >{/if}
         {:else}<button
             onclick={handleSubmit}
             disabled={!inputValue.trim()}
-            class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 text-accent-400 hover:text-accent-300 hover:bg-accent-500/10 -translate-y-0.5 sm:translate-y-0"
-            title="Send direction ({sendKeyHint})"
-            ><Send class="h-6 w-6" /></button
+            class="text-accent-400 hover:text-accent-300 hover:bg-accent-500/10 flex h-11 w-11 flex-shrink-0 -translate-y-0.5 items-center justify-center rounded-lg p-0 transition-all active:scale-95 disabled:opacity-50 sm:translate-y-0"
+            title="Send direction ({sendKeyHint})"><Send class="h-6 w-6" /></button
           >{/if}
       </div>
     </div>
   {:else}
     <div
-      class="rounded-lg sm:border sm:border-border border-l-0 sm:border-l-4 sm:shadow-sm {ui.isGenerating
+      class="sm:border-border rounded-lg border-l-0 sm:border sm:border-l-4 sm:shadow-sm {ui.isGenerating
         ? 'sm:border-l-surface-60'
-        : `${actionBorderColors[actionType]}`} bg-card transition-colors duration-200 relative"
+        : `${actionBorderColors[actionType]}`} bg-card relative transition-colors duration-200"
     >
       {#if settings.uiSettings.showWordCount}<div
           class="absolute -top-[2.05rem] -right-3 sm:hidden"
         >
           <div
-            class="bg-surface-800 px-2 py-0.5 border border-surface-500/30 border-b-0 rounded-tl-md text-sm text-surface-400"
+            class="bg-surface-800 border-surface-500/30 text-surface-400 rounded-tl-md border border-b-0 px-2 py-0.5 text-sm"
           >
             {story.wordCount} words
           </div>
         </div>{/if}
       {#if !settings.uiSettings.disableActionPrefixes}
         <div
-          class="flex items-center gap-1 sm:border-b border-surface-700/30 px-1 pt-0 pb-0 sm:px-2 sm:py-1"
+          class="border-surface-700/30 flex items-center gap-1 px-1 pt-0 pb-0 sm:border-b sm:px-2 sm:py-1"
         >
           {#each actionTypes as type}{@const Icon = actionIcons[type]}<button
-              class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-1 sm:px-3 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all duration-150 {actionType ===
+              class="flex flex-1 items-center justify-center gap-1.5 rounded-md py-1 text-[10px] font-medium transition-all duration-150 sm:flex-none sm:px-3 sm:py-1 sm:text-xs {actionType ===
               type
                 ? actionActiveStyles[type]
                 : `text-surface-500 hover:${actionButtonStyles[type]}`}"
               onclick={() => (actionType = type)}
-              ><Icon class="h-3 w-3 sm:h-3.5 sm:w-3.5" /><span
-                >{actionLabels[type]}</span
-              ></button
+              ><Icon class="h-3 w-3 sm:h-3.5 sm:w-3.5" /><span>{actionLabels[type]}</span></button
             >{/each}
         </div>
       {/if}
-      <div class="flex items-center sm:items-end gap-1 mb-3 sm:mb-0 sm:p-1">
-        <div class="relative flex-1 self-center min-w-0">
+      <div class="mb-3 flex items-center gap-1 sm:mb-0 sm:items-end sm:p-1">
+        <div class="relative min-w-0 flex-1 self-center">
           <textarea
             bind:value={inputValue}
             use:autoResize={inputValue}
             onkeydown={handleKeydown}
-            placeholder={actionType === "story"
-              ? "Describe what happens..."
-              : actionType === "say"
-                ? "What do you say?"
-                : actionType === "think"
-                  ? "What are you thinking?"
-                  : actionType === "free"
-                    ? "Write anything..."
-                    : "What do you do?"}
-            class="w-full bg-transparent border-none focus:ring-0 px-2 min-h-[24px] sm:min-h-[24px] max-h-[160px] resize-none text-base text-surface-200 placeholder-surface-500 focus:outline-none leading-relaxed"
+            placeholder={actionType === 'story'
+              ? 'Describe what happens...'
+              : actionType === 'say'
+                ? 'What do you say?'
+                : actionType === 'think'
+                  ? 'What are you thinking?'
+                  : actionType === 'free'
+                    ? 'Write anything...'
+                    : 'What do you do?'}
+            class="text-surface-200 placeholder-surface-500 max-h-[160px] min-h-[24px] w-full resize-none border-none bg-transparent px-2 text-base leading-relaxed focus:ring-0 focus:outline-none sm:min-h-[24px]"
             rows="1"
             disabled={ui.isGenerating}
           ></textarea>
@@ -1159,19 +1056,18 @@
         {#if ui.isGenerating}
           {#if !ui.isRetryingLastMessage}<button
               onclick={handleStopGeneration}
-              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 shrink-0 animate-pulse -translate-y-0.5 sm:translate-y-0"
+              class="flex h-11 w-11 shrink-0 -translate-y-0.5 animate-pulse items-center justify-center rounded-lg p-0 text-red-400 transition-all hover:text-red-300 active:scale-95 sm:translate-y-0"
               title="Stop generation"><Square class="h-6 w-6" /></button
             >
           {:else}<button
               disabled
-              class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed shrink-0"
-              title="Stop disabled during retry"
-              ><Square class="h-6 w-6" /></button
+              class="flex h-11 w-11 shrink-0 cursor-not-allowed items-center justify-center rounded-lg p-0 text-red-400 opacity-50"
+              title="Stop disabled during retry"><Square class="h-6 w-6" /></button
             >{/if}
         {:else}<button
             onclick={handleSubmit}
             disabled={!inputValue.trim()}
-            class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 shrink-0 {actionButtonStyles[
+            class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg p-0 transition-all active:scale-95 disabled:opacity-50 {actionButtonStyles[
               actionType
             ]} -translate-y-0.5 sm:translate-y-0"
             title="Send ({sendKeyHint})"><Send class="h-6 w-6" /></button
@@ -1189,13 +1085,13 @@
         disabled={manualImageGenDisabled}
         title={manualImageGenDisabled && !hasRequiredCredentials()
           ? `Add a ${getProviderDisplayName()} API key in Settings to generate images`
-          : "Generate images for the last narration"}
-        class="text-xs gap-1.5"
+          : 'Generate images for the last narration'}
+        class="gap-1.5 text-xs"
       >
-        {#if isManualImageGenRunning}<Loader2
-            class="h-4 w-4 animate-spin"
-          />{:else}<ImageIcon class="h-4 w-4" />{/if}
-        {isManualImageGenRunning ? "Generating..." : "Generate Images"}
+        {#if isManualImageGenRunning}<Loader2 class="h-4 w-4 animate-spin" />{:else}<ImageIcon
+            class="h-4 w-4"
+          />{/if}
+        {isManualImageGenRunning ? 'Generating...' : 'Generate Images'}
       </Button>
     </div>
   {/if}

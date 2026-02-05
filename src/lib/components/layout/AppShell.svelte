@@ -1,97 +1,88 @@
 <script lang="ts">
-  import { ui } from "$lib/stores/ui.svelte";
-  import { story } from "$lib/stores/story.svelte";
-  import { settings } from "$lib/stores/settings.svelte";
-  import Sidebar from "./Sidebar.svelte";
-  import Header from "./Header.svelte";
-  import ProfileWarningBanner from "./ProfileWarningBanner.svelte";
-  import StoryView from "$lib/components/story/StoryView.svelte";
-  import LibraryView from "$lib/components/story/LibraryView.svelte";
-  import GalleryTab from "$lib/components/story/GalleryTab.svelte";
-  import LorebookView from "$lib/components/lorebook/LorebookView.svelte";
-  import MemoryView from "$lib/components/memory/MemoryView.svelte";
-  import VaultPanel from "$lib/components/vault/VaultPanel.svelte";
-  import SettingsModal from "$lib/components/settings/SettingsModal.svelte";
-  import LorebookDebugPanel from "$lib/components/debug/LorebookDebugPanel.svelte";
-  import DebugLogModal from "$lib/components/debug/DebugLogModal.svelte";
-  import SyncModal from "$lib/components/sync/SyncModal.svelte";
-  import { swipe } from "$lib/utils/swipe";
-  import { Bug } from "lucide-svelte";
-  import {
-    MIN_SIDEBAR_WIDTH,
-    MAX_SIDEBAR_WIDTH,
-    MAX_SIDEBAR_RATIO,
-  } from "$lib/constants/layout";
-  import type { Snippet } from "svelte";
+  import { ui } from '$lib/stores/ui.svelte'
+  import { story } from '$lib/stores/story.svelte'
+  import { settings } from '$lib/stores/settings.svelte'
+  import Sidebar from './Sidebar.svelte'
+  import Header from './Header.svelte'
+  import ProfileWarningBanner from './ProfileWarningBanner.svelte'
+  import StoryView from '$lib/components/story/StoryView.svelte'
+  import LibraryView from '$lib/components/story/LibraryView.svelte'
+  import GalleryTab from '$lib/components/story/GalleryTab.svelte'
+  import LorebookView from '$lib/components/lorebook/LorebookView.svelte'
+  import MemoryView from '$lib/components/memory/MemoryView.svelte'
+  import VaultPanel from '$lib/components/vault/VaultPanel.svelte'
+  import SettingsModal from '$lib/components/settings/SettingsModal.svelte'
+  import LorebookDebugPanel from '$lib/components/debug/LorebookDebugPanel.svelte'
+  import DebugLogModal from '$lib/components/debug/DebugLogModal.svelte'
+  import SyncModal from '$lib/components/sync/SyncModal.svelte'
+  import { swipe } from '$lib/utils/swipe'
+  import { Bug } from 'lucide-svelte'
+  import { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout'
+  import type { Snippet } from 'svelte'
 
-  let { children }: { children?: Snippet } = $props();
+  let { children }: { children?: Snippet } = $props()
 
   // Swipe handlers for mobile sidebar toggle
   function handleSwipeLeft() {
     if (story.currentStory && !ui.sidebarOpen) {
-      ui.toggleSidebar();
+      ui.toggleSidebar()
     }
   }
 
   function handleSwipeRight() {
     if (ui.sidebarOpen) {
-      ui.toggleSidebar();
+      ui.toggleSidebar()
     }
   }
 
   // Resizing logic
-  let isResizing = $state(false);
+  let isResizing = $state(false)
 
   function startResizing(e: MouseEvent) {
-    isResizing = true;
-    e.preventDefault();
+    isResizing = true
+    e.preventDefault()
   }
 
   function stopResizing() {
-    if (!isResizing) return;
-    isResizing = false;
+    if (!isResizing) return
+    isResizing = false
     // Persist the final width to the database now that resizing is complete.
-    settings.setSidebarWidth(settings.uiSettings.sidebarWidth);
+    settings.setSidebarWidth(settings.uiSettings.sidebarWidth)
   }
 
   function handleMouseMove(e: MouseEvent) {
-    if (!isResizing) return;
+    if (!isResizing) return
 
     // Sidebar is on the right, so width is window.innerWidth - mouseX
-    const newWidth = window.innerWidth - e.clientX;
+    const newWidth = window.innerWidth - e.clientX
 
     // Constraints
     if (
       newWidth >= MIN_SIDEBAR_WIDTH &&
-      newWidth <=
-        Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * MAX_SIDEBAR_RATIO)
+      newWidth <= Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * MAX_SIDEBAR_RATIO)
     ) {
       // For performance, update the reactive state directly without saving to the database on every mouse movement.
-      settings.uiSettings.sidebarWidth = newWidth;
+      settings.uiSettings.sidebarWidth = newWidth
     }
   }
 
   // Global cursor and selection handling while resizing
   $effect(() => {
-    if (typeof document === "undefined") return;
+    if (typeof document === 'undefined') return
     if (isResizing) {
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
     } else {
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
     }
-  });
+  })
 </script>
 
-<svelte:window
-  onmousemove={handleMouseMove}
-  onmouseup={stopResizing}
-  onmouseleave={stopResizing}
-/>
+<svelte:window onmousemove={handleMouseMove} onmouseup={stopResizing} onmouseleave={stopResizing} />
 
 <div
-  class="app-shell relative flex flex-col h-screen w-screen bg-surface-900"
+  class="app-shell bg-surface-900 relative flex h-screen w-screen flex-col"
   use:swipe={{
     onSwipeRight: handleSwipeRight,
     onSwipeLeft: handleSwipeLeft,
@@ -102,60 +93,60 @@
   <ProfileWarningBanner />
 
   <!-- Main app container -->
-  <div class="flex flex-1 min-h-0">
+  <div class="flex min-h-0 flex-1">
     <!-- Mobile sidebar overlay (tap to close) -->
     {#if ui.sidebarOpen && story.currentStory}
-    <button
-      class="mobile-sidebar-overlay"
-      onclick={() => ui.toggleSidebar()}
-      aria-label="Close sidebar"
-    ></button>
-  {/if}
-
-  <!-- Right edge swipe zone for opening sidebar (when closed) -->
-  {#if !ui.sidebarOpen && story.currentStory}
-    <div
-      class="swipe-edge-zone"
-      use:swipe={{ onSwipeLeft: handleSwipeLeft, threshold: 30 }}
-    ></div>
-  {/if}
-
-  <!-- Main content area -->
-  <div class="flex flex-1 flex-col overflow-hidden">
-    <Header />
-
-    <main class="flex-1 overflow-hidden">
-      {#if ui.activePanel === "story" && story.currentStory}
-        <StoryView />
-      {:else if ui.activePanel === "gallery" && story.currentStory}
-        <GalleryTab />
-      {:else if ui.activePanel === "lorebook" && story.currentStory}
-        <LorebookView />
-      {:else if ui.activePanel === "memory" && story.currentStory}
-        <MemoryView />
-      {:else if ui.activePanel === "vault"}
-        <VaultPanel />
-      {:else if ui.activePanel === "library" || !story.currentStory}
-        <LibraryView />
-      {:else if children}
-        {@render children()}
-      {/if}
-    </main>
-  </div>
-
-  <!-- Sidebar (Right aligned) -->
-  {#if ui.sidebarOpen && story.currentStory}
-    <div class="sidebar-container relative flex h-full">
-      <!-- Resizer Handle (Desktop only) -->
       <button
-        type="button"
-        class="resizer-handle hidden h-full sm:block"
-        onmousedown={startResizing}
-        aria-label="Sidebar Resizer"
+        class="mobile-sidebar-overlay"
+        onclick={() => ui.toggleSidebar()}
+        aria-label="Close sidebar"
       ></button>
-      <Sidebar />
+    {/if}
+
+    <!-- Right edge swipe zone for opening sidebar (when closed) -->
+    {#if !ui.sidebarOpen && story.currentStory}
+      <div
+        class="swipe-edge-zone"
+        use:swipe={{ onSwipeLeft: handleSwipeLeft, threshold: 30 }}
+      ></div>
+    {/if}
+
+    <!-- Main content area -->
+    <div class="flex flex-1 flex-col overflow-hidden">
+      <Header />
+
+      <main class="flex-1 overflow-hidden">
+        {#if ui.activePanel === 'story' && story.currentStory}
+          <StoryView />
+        {:else if ui.activePanel === 'gallery' && story.currentStory}
+          <GalleryTab />
+        {:else if ui.activePanel === 'lorebook' && story.currentStory}
+          <LorebookView />
+        {:else if ui.activePanel === 'memory' && story.currentStory}
+          <MemoryView />
+        {:else if ui.activePanel === 'vault'}
+          <VaultPanel />
+        {:else if ui.activePanel === 'library' || !story.currentStory}
+          <LibraryView />
+        {:else if children}
+          {@render children()}
+        {/if}
+      </main>
     </div>
-  {/if}
+
+    <!-- Sidebar (Right aligned) -->
+    {#if ui.sidebarOpen && story.currentStory}
+      <div class="sidebar-container relative flex h-full">
+        <!-- Resizer Handle (Desktop only) -->
+        <button
+          type="button"
+          class="resizer-handle hidden h-full sm:block"
+          onmousedown={startResizing}
+          aria-label="Sidebar Resizer"
+        ></button>
+        <Sidebar />
+      </div>
+    {/if}
   </div>
 
   <!-- Settings Modal -->
@@ -175,7 +166,7 @@
   <!-- Floating Debug Button (when debug mode enabled) -->
   {#if settings.uiSettings.debugMode}
     <button
-      class="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg hover:bg-amber-500 transition-colors sm:bottom-4"
+      class="fixed right-4 bottom-20 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-colors hover:bg-amber-500 sm:bottom-4"
       onclick={() => ui.toggleDebugModal()}
       title="View API Debug Logs"
     >
@@ -184,7 +175,7 @@
         <span
           class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium"
         >
-          {ui.debugLogs.length > 99 ? "99+" : ui.debugLogs.length}
+          {ui.debugLogs.length > 99 ? '99+' : ui.debugLogs.length}
         </span>
       {/if}
     </button>
@@ -207,7 +198,7 @@
 
   /* Safe area background filler - matches header color (bg-surface-800) */
   .app-shell::before {
-    content: "";
+    content: '';
     position: absolute;
     top: 0;
     left: 0;
@@ -219,7 +210,7 @@
 
   /* Bottom safe area background filler - matches main view background */
   .app-shell::after {
-    content: "";
+    content: '';
     position: fixed;
     bottom: 0;
     left: 0;

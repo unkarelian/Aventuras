@@ -5,62 +5,62 @@
  * entries based on story events using the Vercel AI SDK ToolLoopAgent.
  */
 
-import type { Entry, VaultLorebookEntry } from '$lib/types';
-import { createLogger } from '../core/config';
-import { createAgentFromPreset, extractTerminalToolResult, stopOnTerminalTool } from '../sdk/agents';
-import { createLorebookTools, type LorebookToolContext } from '../sdk/tools';
-import type { PendingChangeSchema, FinishLoreManagementSchema } from '../sdk/schemas/lorebook';
-import { promptService } from '$lib/services/prompts';
+import type { Entry, VaultLorebookEntry } from '$lib/types'
+import { createLogger } from '../core/config'
+import { createAgentFromPreset, extractTerminalToolResult, stopOnTerminalTool } from '../sdk/agents'
+import { createLorebookTools, type LorebookToolContext } from '../sdk/tools'
+import type { PendingChangeSchema, FinishLoreManagementSchema } from '../sdk/schemas/lorebook'
+import { promptService } from '$lib/services/prompts'
 
-const log = createLogger('LoreManagement');
+const log = createLogger('LoreManagement')
 
 /**
  * Result from a lore management session.
  */
 export interface LoreManagementResult {
-  updatedEntries: Entry[];
-  createdEntries: Entry[];
-  reasoning?: string;
+  updatedEntries: Entry[]
+  createdEntries: Entry[]
+  reasoning?: string
 }
 
 /**
  * Chapter info for lore management.
  */
 export interface LoreManagementChapter {
-  number: number;
-  title: string | null;
-  summary: string;
-  keywords?: string[];
-  characters?: string[];
+  number: number
+  title: string | null
+  summary: string
+  keywords?: string[]
+  characters?: string[]
 }
 
 /**
  * Context for running lore management.
  */
 export interface LoreManagementContext {
-  storyId: string;
-  narrativeResponse: string;
-  userAction: string;
-  existingEntries: Entry[];
+  storyId: string
+  narrativeResponse: string
+  userAction: string
+  existingEntries: Entry[]
   /** Available chapters for querying */
-  chapters?: LoreManagementChapter[];
+  chapters?: LoreManagementChapter[]
   /** Callback to query a chapter with a question */
-  queryChapter?: (chapterNumber: number, question: string) => Promise<string>;
+  queryChapter?: (chapterNumber: number, question: string) => Promise<string>
 }
 
 /**
  * Settings for lore management behavior.
  */
 export interface LoreManagementSettings {
-  enabled: boolean;
-  maxIterations: number;
+  enabled: boolean
+  maxIterations: number
 }
 
 export function getDefaultLoreManagementSettings(): LoreManagementSettings {
   return {
     enabled: true,
     maxIterations: 3,
-  };
+  }
 }
 
 /**
@@ -76,7 +76,7 @@ function entryToVaultEntry(entry: Entry): VaultLorebookEntry {
     priority: entry.injection.priority,
     disabled: false,
     group: null,
-  };
+  }
 }
 
 /**
@@ -84,12 +84,12 @@ function entryToVaultEntry(entry: Entry): VaultLorebookEntry {
  * Uses ToolLoopAgent for multi-turn tool calling.
  */
 export class LoreManagementService {
-  private presetId: string;
-  private maxIterations: number;
+  private presetId: string
+  private maxIterations: number
 
   constructor(presetId: string = 'agentic', maxIterations: number = 3) {
-    this.presetId = presetId;
-    this.maxIterations = maxIterations;
+    this.presetId = presetId
+    this.maxIterations = maxIterations
   }
 
   /**
@@ -101,46 +101,52 @@ export class LoreManagementService {
    */
   async runSession(
     context: LoreManagementContext,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<LoreManagementResult> {
     log('Starting lore management session', {
       storyId: context.storyId,
       entryCount: context.existingEntries.length,
       maxIterations: this.maxIterations,
-    });
+    })
 
     // Track pending changes - in autonomous mode, we auto-approve everything
-    const pendingChanges: PendingChangeSchema[] = [];
-    const createdEntries: Entry[] = [];
-    const updatedEntries: Entry[] = [];
-    let changeIdCounter = 0;
+    const pendingChanges: PendingChangeSchema[] = []
+    const createdEntries: Entry[] = []
+    const updatedEntries: Entry[] = []
+    let changeIdCounter = 0
 
     // Convert entries to vault format for tools
     // Deep clone to avoid Svelte proxy issues with AI SDK structured cloning
-    const vaultEntries = JSON.parse(JSON.stringify(context.existingEntries.map(entryToVaultEntry)));
-    const plainChapters = context.chapters ? JSON.parse(JSON.stringify(context.chapters)) : undefined;
+    const vaultEntries = JSON.parse(JSON.stringify(context.existingEntries.map(entryToVaultEntry)))
+    const plainChapters = context.chapters
+      ? JSON.parse(JSON.stringify(context.chapters))
+      : undefined
 
     // Create tool context with chapter querying
     const toolContext: LorebookToolContext = {
       entries: vaultEntries,
       onPendingChange: (change) => {
         // Auto-approve in autonomous mode
-        change.status = 'approved';
-        pendingChanges.push(change);
-        log('Auto-approved change', { type: change.type, id: change.id });
+        change.status = 'approved'
+        pendingChanges.push(change)
+        log('Auto-approved change', { type: change.type, id: change.id })
       },
       generateId: () => `lm-${++changeIdCounter}`,
       chapters: plainChapters,
       queryChapter: context.queryChapter,
-    };
+    }
 
     // Create tools
-    const tools = createLorebookTools(toolContext);
+    const tools = createLorebookTools(toolContext)
 
     // Build entry summaries for user prompt (use 0-based indices to match tool expectations)
-    const entrySummary = context.existingEntries
-      .map((e, i) => `[${i}] [${e.type}] ${e.name}: ${e.description?.slice(0, 100) || 'No description'}`)
-      .join('\n') || 'No entries yet.';
+    const entrySummary =
+      context.existingEntries
+        .map(
+          (e, i) =>
+            `[${i}] [${e.type}] ${e.name}: ${e.description?.slice(0, 100) || 'No description'}`,
+        )
+        .join('\n') || 'No entries yet.'
 
     // Build recent story section
     const recentStorySection = `# Recent Story Content
@@ -149,7 +155,7 @@ User action: ${context.userAction}
 Narrative:
 ${context.narrativeResponse}
 
-`;
+`
 
     // Get prompts from prompt service
     const dummyContext = {
@@ -157,53 +163,59 @@ ${context.narrativeResponse}
       pov: 'second' as const,
       tense: 'present' as const,
       protagonistName: '',
-    };
+    }
 
-    const systemPrompt = promptService.renderPrompt('lore-management', dummyContext);
+    const systemPrompt = promptService.renderPrompt('lore-management', dummyContext)
 
     // Build chapter summary from chapters array
-    const chapterSummary = context.chapters && context.chapters.length > 0
-      ? context.chapters.map(ch =>
-          `Chapter ${ch.number}${ch.title ? `: ${ch.title}` : ''} - ${ch.summary.slice(0, 200)}...`
-        ).join('\n')
-      : 'No chapters available. Use list_chapters and query_chapter tools to explore story history.';
+    const chapterSummary =
+      context.chapters && context.chapters.length > 0
+        ? context.chapters
+            .map(
+              (ch) =>
+                `Chapter ${ch.number}${ch.title ? `: ${ch.title}` : ''} - ${ch.summary.slice(0, 200)}...`,
+            )
+            .join('\n')
+        : 'No chapters available. Use list_chapters and query_chapter tools to explore story history.'
 
     const userPrompt = promptService.renderUserPrompt('lore-management', dummyContext, {
       entrySummary,
       recentStorySection,
       chapterSummary,
-    });
+    })
 
     // Create the agent
-    const agent = createAgentFromPreset({
-      presetId: this.presetId,
-      instructions: systemPrompt,
-      tools,
-      stopWhen: stopOnTerminalTool('finish_lore_management', this.maxIterations),
-      signal,
-    }, 'lore-management');
+    const agent = createAgentFromPreset(
+      {
+        presetId: this.presetId,
+        instructions: systemPrompt,
+        tools,
+        stopWhen: stopOnTerminalTool('finish_lore_management', this.maxIterations),
+        signal,
+      },
+      'lore-management',
+    )
 
     // Run the agent
-    const result = await agent.generate({ prompt: userPrompt });
+    const result = await agent.generate({ prompt: userPrompt })
 
     // Extract the terminal result
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const terminalResult = extractTerminalToolResult<FinishLoreManagementSchema & { completed: boolean }>(
-      result.steps as any,
-      'finish_lore_management'
-    );
+    const terminalResult = extractTerminalToolResult<
+      FinishLoreManagementSchema & { completed: boolean }
+    >(result.steps as any, 'finish_lore_management')
 
     log('Lore management session completed', {
       steps: result.steps.length,
       pendingChanges: pendingChanges.length,
       terminalResult,
-    });
+    })
 
     // Process approved changes to build result
     // Note: In this autonomous mode, changes are captured but not actually
     // applied to the database here - that's handled by the caller
     for (const change of pendingChanges) {
-      if (change.status !== 'approved') continue;
+      if (change.status !== 'approved') continue
 
       switch (change.type) {
         case 'create':
@@ -233,14 +245,14 @@ ${context.narrativeResponse}
               updatedAt: Date.now(),
               loreManagementBlacklisted: false,
               branchId: null,
-            };
-            createdEntries.push(newEntry);
+            }
+            createdEntries.push(newEntry)
           }
-          break;
+          break
 
         case 'update':
           if (change.index !== undefined && change.updates) {
-            const original = context.existingEntries[change.index];
+            const original = context.existingEntries[change.index]
             if (original) {
               const updated: Entry = {
                 ...original,
@@ -251,14 +263,16 @@ ${context.narrativeResponse}
                   ...original.injection,
                   ...(change.updates.injectionMode && { mode: change.updates.injectionMode }),
                   ...(change.updates.keywords && { keywords: change.updates.keywords }),
-                  ...(change.updates.priority !== undefined && { priority: change.updates.priority }),
+                  ...(change.updates.priority !== undefined && {
+                    priority: change.updates.priority,
+                  }),
                 },
                 updatedAt: Date.now(),
-              };
-              updatedEntries.push(updated);
+              }
+              updatedEntries.push(updated)
             }
           }
-          break;
+          break
 
         // Delete and merge operations would need different handling
         // depending on how the caller wants to process them
@@ -269,7 +283,7 @@ ${context.narrativeResponse}
       updatedEntries,
       createdEntries,
       reasoning: terminalResult?.summary,
-    };
+    }
   }
 }
 
@@ -287,7 +301,7 @@ function createDefaultState(type: Entry['type']): Entry['state'] {
         relationship: { level: 0, status: 'neutral', history: [] },
         knownFacts: [],
         revealedSecrets: [],
-      };
+      }
     case 'location':
       return {
         type: 'location',
@@ -296,7 +310,7 @@ function createDefaultState(type: Entry['type']): Entry['state'] {
         changes: [],
         presentCharacters: [],
         presentItems: [],
-      };
+      }
     case 'item':
       return {
         type: 'item',
@@ -304,21 +318,21 @@ function createDefaultState(type: Entry['type']): Entry['state'] {
         currentLocation: null,
         condition: null,
         uses: [],
-      };
+      }
     case 'faction':
       return {
         type: 'faction',
         playerStanding: 0,
         status: 'unknown',
         knownMembers: [],
-      };
+      }
     case 'concept':
       return {
         type: 'concept',
         revealed: false,
         comprehensionLevel: 'unknown',
         relatedEntries: [],
-      };
+      }
     case 'event':
       return {
         type: 'event',
@@ -326,6 +340,6 @@ function createDefaultState(type: Entry['type']): Entry['state'] {
         occurredAt: null,
         witnesses: [],
         consequences: [],
-      };
+      }
   }
 }

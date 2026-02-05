@@ -3,46 +3,51 @@
  * Manages counter state via callbacks and triggers review when threshold is met.
  */
 
-import type { StoryEntry, StoryMode, POV, Tense } from '$lib/types';
-import type { StyleReviewResult } from '$lib/services/ai/generation/StyleReviewerService';
+import type { StoryEntry, StoryMode, POV, Tense } from '$lib/types'
+import type { StyleReviewResult } from '$lib/services/ai/generation/StyleReviewerService'
 
 function log(...args: unknown[]) {
-  console.log('[StyleReviewScheduler]', ...args);
+  console.log('[StyleReviewScheduler]', ...args)
 }
 
 export interface StyleReviewCheckInput {
-  storyId: string;
-  entries: StoryEntry[];
-  mode: StoryMode;
-  pov: POV;
-  tense: Tense;
-  enabled: boolean;
-  triggerInterval: number;
-  currentCounter: number;
-  shouldIncrement: boolean;
-  source: string;
+  storyId: string
+  entries: StoryEntry[]
+  mode: StoryMode
+  pov: POV
+  tense: Tense
+  enabled: boolean
+  triggerInterval: number
+  currentCounter: number
+  shouldIncrement: boolean
+  source: string
 }
 
 export interface StyleReviewDependencies {
-  analyzeStyle: (entries: StoryEntry[], mode: StoryMode, pov: POV, tense: Tense) => Promise<StyleReviewResult>;
+  analyzeStyle: (
+    entries: StoryEntry[],
+    mode: StoryMode,
+    pov: POV,
+    tense: Tense,
+  ) => Promise<StyleReviewResult>
 }
 
 export interface StyleReviewUICallbacks {
-  incrementCounter: () => void;
-  setLoading: (loading: boolean, storyId: string) => void;
-  setResult: (result: StyleReviewResult, storyId: string) => void;
+  incrementCounter: () => void
+  setLoading: (loading: boolean, storyId: string) => void
+  setResult: (result: StyleReviewResult, storyId: string) => void
 }
 
 export interface StyleReviewCheckResult {
-  triggered: boolean;
-  result?: StyleReviewResult;
+  triggered: boolean
+  result?: StyleReviewResult
 }
 
 export class StyleReviewScheduler {
-  private deps: StyleReviewDependencies;
+  private deps: StyleReviewDependencies
 
   constructor(deps: StyleReviewDependencies) {
-    this.deps = deps;
+    this.deps = deps
   }
 
   /**
@@ -50,36 +55,53 @@ export class StyleReviewScheduler {
    */
   async checkAndTrigger(
     input: StyleReviewCheckInput,
-    uiCallbacks?: StyleReviewUICallbacks
+    uiCallbacks?: StyleReviewUICallbacks,
   ): Promise<StyleReviewCheckResult> {
-    const { storyId, entries, mode, pov, tense, enabled, triggerInterval, currentCounter, shouldIncrement, source } = input;
+    const {
+      storyId,
+      entries,
+      mode,
+      pov,
+      tense,
+      enabled,
+      triggerInterval,
+      currentCounter,
+      shouldIncrement,
+      source,
+    } = input
 
-    if (!enabled || !storyId) return { triggered: false };
+    if (!enabled || !storyId) return { triggered: false }
 
     // Increment counter for new messages if requested
-    let effectiveCounter = currentCounter;
+    let effectiveCounter = currentCounter
     if (shouldIncrement) {
-      effectiveCounter = currentCounter + 1;
-      uiCallbacks?.incrementCounter();
+      effectiveCounter = currentCounter + 1
+      uiCallbacks?.incrementCounter()
     }
 
-    log('Style review counter', { source, storyId, counter: effectiveCounter, triggerInterval, incremented: shouldIncrement });
+    log('Style review counter', {
+      source,
+      storyId,
+      counter: effectiveCounter,
+      triggerInterval,
+      incremented: shouldIncrement,
+    })
 
-    if (effectiveCounter < triggerInterval) return { triggered: false };
+    if (effectiveCounter < triggerInterval) return { triggered: false }
 
-    log('Triggering style review...');
-    uiCallbacks?.setLoading(true, storyId);
+    log('Triggering style review...')
+    uiCallbacks?.setLoading(true, storyId)
 
     try {
-      const result = await this.deps.analyzeStyle(entries, mode, pov, tense);
-      uiCallbacks?.setResult(result, storyId);
-      log('Style review complete', { phrasesFound: result.phrases.length });
-      return { triggered: true, result };
+      const result = await this.deps.analyzeStyle(entries, mode, pov, tense)
+      uiCallbacks?.setResult(result, storyId)
+      log('Style review complete', { phrasesFound: result.phrases.length })
+      return { triggered: true, result }
     } catch (error) {
-      log('Style review failed (non-fatal)', error);
-      return { triggered: false };
+      log('Style review failed (non-fatal)', error)
+      return { triggered: false }
     } finally {
-      uiCallbacks?.setLoading(false, storyId);
+      uiCallbacks?.setLoading(false, storyId)
     }
   }
 }

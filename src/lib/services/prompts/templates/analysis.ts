@@ -5,7 +5,7 @@
  * world state extraction, style review, and lorebook classification.
  */
 
-import type { PromptTemplate } from '../types';
+import type { PromptTemplate } from '../types'
 
 /**
  * World State Classifier prompt template
@@ -169,7 +169,7 @@ Items: {{existingItems}}
 4. Determine the current scene state
 
 Empty arrays are fine - don't invent entities that aren't clearly in the text.`,
-};
+}
 
 /**
  * Style Reviewer prompt template
@@ -214,7 +214,7 @@ Identify overused phrases, sentence patterns, structural repetition, and stylist
   userContent: `Analyze these {{passageCount}} passages for repetitive phrases, structural patterns, and style issues. Each passage is a separate AI-generated narrative response.
 
 {{passages}}`,
-};
+}
 
 /**
  * Lorebook Classifier prompt template
@@ -236,7 +236,7 @@ export const lorebookClassifierPromptTemplate: PromptTemplate = {
 
 Entries to classify:
 {{entriesJson}}`,
-};
+}
 
 /**
  * Tier 3 Entry Selection prompt template
@@ -271,7 +271,7 @@ Only include entries that have a clear connection to the current scene or user's
 {{entrySummaries}}
 
 Which entries (by number) are relevant to the current scene and user input?`,
-};
+}
 
 /**
  * Analysis templates array for registration
@@ -281,4 +281,4 @@ export const analysisTemplates: PromptTemplate[] = [
   styleReviewerPromptTemplate,
   lorebookClassifierPromptTemplate,
   tier3EntrySelectionPromptTemplate,
-];
+]

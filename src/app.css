@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -101,7 +101,7 @@
       width: 0;
       height: 0;
     }
-    
+
     * {
       -ms-overflow-style: none; /* IE and Edge */
       scrollbar-width: none; /* Firefox */
@@ -121,11 +121,11 @@
   }
 
   /* Font size variants based on user setting */
-  :root[data-font-size="small"] .story-text {
+  :root[data-font-size='small'] .story-text {
     @apply text-base;
   }
 
-  :root[data-font-size="large"] .story-text {
+  :root[data-font-size='large'] .story-text {
     @apply text-xl;
   }
 
@@ -139,7 +139,7 @@
   }
 
   .system-text {
-    @apply italic text-sm;
+    @apply text-sm italic;
     color: var(--text-muted);
   }
 }
@@ -156,24 +156,24 @@
 
   /* Headers */
   h1 {
-    @apply text-2xl font-bold mb-4 mt-6 first:mt-0;
+    @apply mt-6 mb-4 text-2xl font-bold first:mt-0;
     color: var(--text-primary);
   }
 
   h2 {
-    @apply text-xl font-bold mb-3 mt-5 first:mt-0;
+    @apply mt-5 mb-3 text-xl font-bold first:mt-0;
     color: var(--text-primary);
   }
 
   h3 {
-    @apply text-lg font-semibold mb-2 mt-4 first:mt-0;
+    @apply mt-4 mb-2 text-lg font-semibold first:mt-0;
     color: var(--text-primary);
   }
 
   h4,
   h5,
   h6 {
-    @apply text-base font-semibold mb-2 mt-3 first:mt-0;
+    @apply mt-3 mb-2 text-base font-semibold first:mt-0;
     color: var(--text-primary);
   }
 
@@ -197,56 +197,56 @@
 
   /* Lists */
   ul {
-    @apply list-disc list-inside mb-4 space-y-1;
+    @apply mb-4 list-inside list-disc space-y-1;
   }
 
   ol {
-    @apply list-decimal list-inside mb-4 space-y-1;
+    @apply mb-4 list-inside list-decimal space-y-1;
   }
 
   li {
     @apply leading-relaxed;
   }
 
-  li>ul,
-  li>ol {
-    @apply ml-4 mt-1 mb-0;
+  li > ul,
+  li > ol {
+    @apply mt-1 mb-0 ml-4;
   }
 
   /* Blockquotes */
   blockquote {
-    @apply border-l-4 pl-4 my-4 italic;
+    @apply my-4 border-l-4 pl-4 italic;
     border-color: var(--border-secondary);
     color: var(--text-muted);
   }
 
   /* Inline code */
   code {
-    @apply px-1.5 py-0.5 rounded text-sm font-mono;
+    @apply rounded px-1.5 py-0.5 font-mono text-sm;
     background-color: var(--bg-tertiary);
     color: var(--text-accent);
   }
 
   /* Code blocks */
   pre {
-    @apply p-4 rounded-lg my-4 overflow-x-auto;
+    @apply my-4 overflow-x-auto rounded-lg p-4;
     background-color: var(--bg-tertiary);
   }
 
   pre code {
-    @apply p-0 bg-transparent;
+    @apply bg-transparent p-0;
     color: var(--text-primary);
   }
 
   /* Horizontal rule */
   hr {
-    @apply my-6 border-0 h-px;
+    @apply my-6 h-px border-0;
     background-color: var(--border-primary);
   }
 
   /* Tables */
   table {
-    @apply w-full border-collapse my-4;
+    @apply my-4 w-full border-collapse;
   }
 
   th,
@@ -262,7 +262,7 @@
 
   /* Images */
   img {
-    @apply max-w-full h-auto rounded my-4;
+    @apply my-4 h-auto max-w-full rounded;
   }
 
   /* Remove margin from inline generated images */
@@ -276,7 +276,7 @@
   }
 
   /* Task lists (GFM) */
-  input[type="checkbox"] {
+  input[type='checkbox'] {
     @apply mr-2;
   }
 }
@@ -302,7 +302,7 @@
   h4,
   h5,
   h6 {
-    @apply mb-2 mt-3 first:mt-0;
+    @apply mt-3 mb-2 first:mt-0;
   }
 
   pre {

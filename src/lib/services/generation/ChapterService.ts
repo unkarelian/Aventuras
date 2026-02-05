@@ -3,29 +3,37 @@
  * Coordinates AI analysis and chapter creation without triggering lore management directly.
  */
 
-import type { Chapter, StoryEntry, MemoryConfig, TimeTracker, StoryMode, POV, Tense } from '$lib/types';
-import type { ChapterAnalysis, ChapterSummaryResult } from '$lib/services/ai/sdk/schemas/memory';
+import type {
+  Chapter,
+  StoryEntry,
+  MemoryConfig,
+  TimeTracker,
+  StoryMode,
+  POV,
+  Tense,
+} from '$lib/types'
+import type { ChapterAnalysis, ChapterSummaryResult } from '$lib/services/ai/sdk/schemas/memory'
 
 function log(...args: unknown[]) {
-  console.log('[ChapterService]', ...args);
+  console.log('[ChapterService]', ...args)
 }
 
 export interface ChapterAnalysisResult extends ChapterAnalysis {}
 export interface ChapterSummaryData extends ChapterSummaryResult {}
 
 export interface ChapterCheckInput {
-  storyId: string;
-  currentBranchId: string | null;
-  entries: StoryEntry[];
-  lastChapterEndIndex: number;
-  tokensSinceLastChapter: number;
-  tokensOutsideBuffer: number;
-  messagesSinceLastChapter: number;
-  memoryConfig: MemoryConfig;
-  currentBranchChapters: Chapter[];
-  mode: StoryMode;
-  pov: POV;
-  tense: Tense;
+  storyId: string
+  currentBranchId: string | null
+  entries: StoryEntry[]
+  lastChapterEndIndex: number
+  tokensSinceLastChapter: number
+  tokensOutsideBuffer: number
+  messagesSinceLastChapter: number
+  memoryConfig: MemoryConfig
+  currentBranchChapters: Chapter[]
+  mode: StoryMode
+  pov: POV
+  tense: Tense
 }
 
 export interface ChapterServiceDependencies {
@@ -36,55 +44,56 @@ export interface ChapterServiceDependencies {
     tokensOutsideBuffer: number,
     mode?: StoryMode,
     pov?: POV,
-    tense?: Tense
-  ) => Promise<ChapterAnalysisResult>;
+    tense?: Tense,
+  ) => Promise<ChapterAnalysisResult>
 
   summarizeChapter: (
     entries: StoryEntry[],
     previousChapters?: Chapter[],
     mode?: StoryMode,
     pov?: POV,
-    tense?: Tense
-  ) => Promise<ChapterSummaryData>;
+    tense?: Tense,
+  ) => Promise<ChapterSummaryData>
 
-  getNextChapterNumber: () => Promise<number>;
-  addChapter: (chapter: Chapter) => Promise<void>;
+  getNextChapterNumber: () => Promise<number>
+  addChapter: (chapter: Chapter) => Promise<void>
 }
 
 export interface ChapterCreationResult {
-  created: boolean;
-  chapter?: Chapter;
-  loreManagementTriggered: boolean;
+  created: boolean
+  chapter?: Chapter
+  loreManagementTriggered: boolean
 }
 
 export class ChapterService {
-  private deps: ChapterServiceDependencies;
+  private deps: ChapterServiceDependencies
 
   constructor(deps: ChapterServiceDependencies) {
-    this.deps = deps;
+    this.deps = deps
   }
 
   async checkAndCreateChapter(input: ChapterCheckInput): Promise<ChapterCreationResult> {
-    const { entries, tokensOutsideBuffer, memoryConfig, currentBranchChapters, mode, pov, tense } = input;
+    const { entries, tokensOutsideBuffer, memoryConfig, currentBranchChapters, mode, pov, tense } =
+      input
 
     log('checkAndCreateChapter', {
       tokensSinceLastChapter: input.tokensSinceLastChapter,
       tokensOutsideBuffer,
       tokenThreshold: memoryConfig.tokenThreshold,
       messagesOutsideBuffer: input.messagesSinceLastChapter - memoryConfig.chapterBuffer,
-    });
+    })
 
     if (tokensOutsideBuffer === 0) {
-      log('No messages outside buffer, skipping');
-      return { created: false, loreManagementTriggered: false };
+      log('No messages outside buffer, skipping')
+      return { created: false, loreManagementTriggered: false }
     }
 
     if (tokensOutsideBuffer < memoryConfig.tokenThreshold) {
       log('Tokens outside buffer below threshold, skipping', {
         tokensOutsideBuffer,
         tokenThreshold: memoryConfig.tokenThreshold,
-      });
-      return { created: false, loreManagementTriggered: false };
+      })
+      return { created: false, loreManagementTriggered: false }
     }
 
     const analysis = await this.deps.analyzeForChapter(
@@ -94,32 +103,38 @@ export class ChapterService {
       tokensOutsideBuffer,
       mode,
       pov,
-      tense
-    );
+      tense,
+    )
 
     if (!analysis.shouldCreateChapter) {
-      log('No chapter needed yet');
-      return { created: false, loreManagementTriggered: false };
+      log('No chapter needed yet')
+      return { created: false, loreManagementTriggered: false }
     }
 
-    log('Creating new chapter', { optimalEndIndex: analysis.optimalEndIndex });
+    log('Creating new chapter', { optimalEndIndex: analysis.optimalEndIndex })
 
-    const startIndex = input.lastChapterEndIndex;
-    const chapterEntries = entries.slice(startIndex, analysis.optimalEndIndex);
+    const startIndex = input.lastChapterEndIndex
+    const chapterEntries = entries.slice(startIndex, analysis.optimalEndIndex)
 
     if (chapterEntries.length === 0) {
-      log('No entries for chapter');
-      return { created: false, loreManagementTriggered: false };
+      log('No entries for chapter')
+      return { created: false, loreManagementTriggered: false }
     }
 
-    const previousChapters = [...currentBranchChapters].sort((a, b) => a.number - b.number);
-    const summary = await this.deps.summarizeChapter(chapterEntries, previousChapters, mode, pov, tense);
-    const chapterNumber = await this.deps.getNextChapterNumber();
+    const previousChapters = [...currentBranchChapters].sort((a, b) => a.number - b.number)
+    const summary = await this.deps.summarizeChapter(
+      chapterEntries,
+      previousChapters,
+      mode,
+      pov,
+      tense,
+    )
+    const chapterNumber = await this.deps.getNextChapterNumber()
 
-    const firstEntry = chapterEntries[0];
-    const lastEntry = chapterEntries[chapterEntries.length - 1];
-    const startTime = (firstEntry.metadata?.timeStart as TimeTracker | undefined) ?? null;
-    const endTime = (lastEntry.metadata?.timeEnd as TimeTracker | undefined) ?? null;
+    const firstEntry = chapterEntries[0]
+    const lastEntry = chapterEntries[chapterEntries.length - 1]
+    const startTime = (firstEntry.metadata?.timeStart as TimeTracker | undefined) ?? null
+    const endTime = (lastEntry.metadata?.timeEnd as TimeTracker | undefined) ?? null
 
     const chapter: Chapter = {
       id: crypto.randomUUID(),
@@ -139,11 +154,11 @@ export class ChapterService {
       emotionalTone: summary.emotionalTone ?? null,
       branchId: input.currentBranchId,
       createdAt: Date.now(),
-    };
+    }
 
-    await this.deps.addChapter(chapter);
-    log('Chapter created', { number: chapterNumber, title: chapter.title });
+    await this.deps.addChapter(chapter)
+    log('Chapter created', { number: chapterNumber, title: chapter.title })
 
-    return { created: true, chapter, loreManagementTriggered: true };
+    return { created: true, chapter, loreManagementTriggered: true }
   }
 }

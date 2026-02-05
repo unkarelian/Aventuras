@@ -1,11 +1,7 @@
 <script lang="ts">
-  import type {
-    VaultCharacter,
-    VaultLorebook,
-    VaultScenario,
-  } from "$lib/types";
-  import { normalizeImageDataUrl } from "$lib/utils/image";
-  import { Badge } from "$lib/components/ui/badge";
+  import type { VaultCharacter, VaultLorebook, VaultScenario } from '$lib/types'
+  import { normalizeImageDataUrl } from '$lib/utils/image'
+  import { Badge } from '$lib/components/ui/badge'
   import {
     User,
     Users,
@@ -17,23 +13,23 @@
     Flag,
     Brain,
     Calendar,
-  } from "lucide-svelte";
-  import TagBadge from "$lib/components/tags/TagBadge.svelte";
-  import { tagStore } from "$lib/stores/tags.svelte";
-  import VaultCard from "./shared/VaultCard.svelte";
-  import * as Avatar from "$lib/components/ui/avatar";
+  } from 'lucide-svelte'
+  import TagBadge from '$lib/components/tags/TagBadge.svelte'
+  import { tagStore } from '$lib/stores/tags.svelte'
+  import VaultCard from './shared/VaultCard.svelte'
+  import * as Avatar from '$lib/components/ui/avatar'
 
-  type VaultItem = VaultCharacter | VaultLorebook | VaultScenario;
-  type VaultType = "character" | "lorebook" | "scenario";
+  type VaultItem = VaultCharacter | VaultLorebook | VaultScenario
+  type VaultType = 'character' | 'lorebook' | 'scenario'
 
   interface Props {
-    item: VaultItem;
-    type: VaultType;
-    onEdit?: () => void;
-    onDelete?: () => void;
-    onToggleFavorite?: () => void;
-    selectable?: boolean;
-    onSelect?: () => void;
+    item: VaultItem
+    type: VaultType
+    onEdit?: () => void
+    onDelete?: () => void
+    onToggleFavorite?: () => void
+    selectable?: boolean
+    onSelect?: () => void
   }
 
   let {
@@ -44,20 +40,14 @@
     onToggleFavorite,
     selectable = false,
     onSelect,
-  }: Props = $props();
+  }: Props = $props()
 
   // Type Guards & Casters
-  const asCharacter = $derived(
-    type === "character" ? (item as VaultCharacter) : null,
-  );
-  const asLorebook = $derived(
-    type === "lorebook" ? (item as VaultLorebook) : null,
-  );
-  const asScenario = $derived(
-    type === "scenario" ? (item as VaultScenario) : null,
-  );
+  const asCharacter = $derived(type === 'character' ? (item as VaultCharacter) : null)
+  const asLorebook = $derived(type === 'lorebook' ? (item as VaultLorebook) : null)
+  const asScenario = $derived(type === 'scenario' ? (item as VaultScenario) : null)
 
-  let isImporting = $derived(item.metadata?.importing === true);
+  let isImporting = $derived(item.metadata?.importing === true)
 
   // Helper for Lorebook Entry Icons
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -68,15 +58,15 @@
     faction: Flag,
     concept: Brain,
     event: Calendar,
-  };
+  }
 
   // Helper for Lorebook Entry Counts
   const lorebookEntryCounts = $derived.by(() => {
-    if (!asLorebook?.metadata?.entryBreakdown) return [];
+    if (!asLorebook?.metadata?.entryBreakdown) return []
     return Object.entries(asLorebook.metadata.entryBreakdown)
       .filter(([_, count]) => count > 0)
-      .map(([type, count]) => ({ type, count }));
-  });
+      .map(([type, count]) => ({ type, count }))
+  })
 </script>
 
 <VaultCard
@@ -93,44 +83,42 @@
     {#if asCharacter}
       {#if asCharacter.portrait}
         <img
-          src={normalizeImageDataUrl(asCharacter.portrait) ?? ""}
+          src={normalizeImageDataUrl(asCharacter.portrait) ?? ''}
           alt={asCharacter.name}
-          class="h-32 w-24 rounded-md object-cover ring-1 ring-border"
+          class="ring-border h-32 w-24 rounded-md object-cover ring-1"
         />
       {:else}
-        <div
-          class="flex h-32 w-24 items-center justify-center rounded-md bg-muted"
-        >
-          <User class="h-10 w-10 text-muted-foreground" />
+        <div class="bg-muted flex h-32 w-24 items-center justify-center rounded-md">
+          <User class="text-muted-foreground h-10 w-10" />
         </div>
       {/if}
     {:else if asLorebook}
       <div
-        class="flex h-24 w-24 items-center justify-center rounded-md bg-muted ring-1 ring-border/50"
+        class="bg-muted ring-border/50 flex h-24 w-24 items-center justify-center rounded-md ring-1"
       >
-        <Book class="h-10 w-10 text-muted-foreground/50" />
+        <Book class="text-muted-foreground/50 h-10 w-10" />
       </div>
     {:else if asScenario}
       <div
-        class="flex h-24 w-24 items-center justify-center rounded-md bg-muted ring-1 ring-border/50"
+        class="bg-muted ring-border/50 flex h-24 w-24 items-center justify-center rounded-md ring-1"
       >
-        <MapPin class="h-10 w-10 text-muted-foreground/50" />
+        <MapPin class="text-muted-foreground/50 h-10 w-10" />
       </div>
     {/if}
   {/snippet}
 
   {#snippet badges()}
     {#if asLorebook}
-      <span class="text-[10px] text-muted-foreground font-medium">
+      <span class="text-muted-foreground text-[10px] font-medium">
         {asLorebook.entries.length} entries
       </span>
-      {#if asLorebook.source === "story" || asLorebook.source === "import"}
-        <Badge variant="secondary" class="text-[10px] px-1.5 h-4 font-normal">
-          {asLorebook.source === "story" ? "Story" : "Imported"}
+      {#if asLorebook.source === 'story' || asLorebook.source === 'import'}
+        <Badge variant="secondary" class="h-4 px-1.5 text-[10px] font-normal">
+          {asLorebook.source === 'story' ? 'Story' : 'Imported'}
         </Badge>
       {/if}
     {:else if asScenario}
-      <div class="flex items-center gap-2 text-muted-foreground">
+      <div class="text-muted-foreground flex items-center gap-2">
         {#if asScenario.npcs.length > 0}
           <span class="flex items-center gap-1 text-[10px]">
             <Users class="h-3 w-3" />
@@ -143,9 +131,9 @@
             Opening
           </span>
         {/if}
-        {#if asScenario.source === "wizard"}
+        {#if asScenario.source === 'wizard'}
           <span class="text-[10px]">• Created</span>
-        {:else if asScenario.source === "import"}
+        {:else if asScenario.source === 'import'}
           <span class="text-[10px]">• Imported</span>
         {/if}
       </div>
@@ -154,7 +142,7 @@
 
   {#snippet description()}
     {#if item.description}
-      <p class="text-xs text-muted-foreground line-clamp-4 leading-snug">
+      <p class="text-muted-foreground line-clamp-4 text-xs leading-snug">
         {item.description}
       </p>
     {/if}
@@ -167,13 +155,13 @@
           {#each asCharacter.traits.slice(0, 3) as trait}
             <Badge
               variant="outline"
-              class="text-[10px] px-1.5 h-4 font-normal text-muted-foreground/80 border-muted-foreground/20"
+              class="text-muted-foreground/80 border-muted-foreground/20 h-4 px-1.5 text-[10px] font-normal"
             >
               {trait}
             </Badge>
           {/each}
           {#if asCharacter.traits.length > 3}
-            <span class="text-[10px] text-muted-foreground self-center">
+            <span class="text-muted-foreground self-center text-[10px]">
               +{asCharacter.traits.length - 3}
             </span>
           {/if}
@@ -185,7 +173,7 @@
           {#each lorebookEntryCounts.slice(0, 4) as { type, count }}
             {@const Icon = entryTypeIcons[type]}
             <div
-              class="flex items-center gap-1 text-[10px] text-muted-foreground/80 bg-muted/50 px-1.5 py-0.5 rounded-sm border border-border/50"
+              class="text-muted-foreground/80 bg-muted/50 border-border/50 flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]"
               title={type}
             >
               {#if Icon}
@@ -195,7 +183,7 @@
             </div>
           {/each}
           {#if lorebookEntryCounts.length > 4}
-            <span class="text-[10px] text-muted-foreground self-center">
+            <span class="text-muted-foreground self-center text-[10px]">
               +{lorebookEntryCounts.length - 4}
             </span>
           {/if}
@@ -205,10 +193,10 @@
       {#if asScenario.tags.length > 0}
         <div class="flex flex-wrap gap-1">
           {#each asScenario.tags.slice(0, 3) as tag}
-            <TagBadge name={tag} color={tagStore.getColor(tag, "scenario")} />
+            <TagBadge name={tag} color={tagStore.getColor(tag, 'scenario')} />
           {/each}
           {#if asScenario.tags.length > 3}
-            <span class="text-[10px] text-muted-foreground self-center">
+            <span class="text-muted-foreground self-center text-[10px]">
               +{asScenario.tags.length - 3}
             </span>
           {/if}

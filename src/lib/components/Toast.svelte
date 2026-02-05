@@ -1,49 +1,54 @@
 <script lang="ts">
-  import { ui } from '$lib/stores/ui.svelte';
-  import { X, AlertTriangle, Info, AlertCircle } from 'lucide-svelte';
+  import { ui } from '$lib/stores/ui.svelte'
+  import { X, AlertTriangle, Info, AlertCircle } from 'lucide-svelte'
 
   function getIcon() {
     switch (ui.toastType) {
       case 'error':
-        return AlertCircle;
+        return AlertCircle
       case 'warning':
-        return AlertTriangle;
+        return AlertTriangle
       case 'info':
       default:
-        return Info;
+        return Info
     }
   }
 
   function getBackgroundColor() {
     switch (ui.toastType) {
       case 'error':
-        return 'bg-red-600';
+        return 'bg-red-600'
       case 'warning':
-        return 'bg-amber-600';
+        return 'bg-amber-600'
       case 'info':
       default:
-        return 'bg-blue-600';
+        return 'bg-blue-600'
     }
   }
 
   function handleClick() {
-    ui.hideToast();
+    ui.hideToast()
   }
 </script>
 
 {#if ui.toastVisible}
   <div
-    class="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] flex items-start gap-3 px-4 py-3 rounded-lg shadow-2xl {getBackgroundColor()} w-[calc(100vw-2rem)] max-w-2xl sm:top-4 sm:left-auto sm:right-4 sm:translate-x-0 sm:px-5 sm:py-4 sm:rounded-xl sm:max-w-lg sm:cursor-default cursor-pointer animate-fade-in animate-slide-in"
+    class="fixed top-16 left-1/2 z-[9999] flex -translate-x-1/2 items-start gap-3 rounded-lg px-4 py-3 shadow-2xl {getBackgroundColor()} animate-fade-in animate-slide-in w-[calc(100vw-2rem)] max-w-2xl cursor-pointer sm:top-4 sm:right-4 sm:left-auto sm:max-w-lg sm:translate-x-0 sm:cursor-default sm:rounded-xl sm:px-5 sm:py-4"
     role="alert"
     onmouseenter={() => ui.setToastHovering(true)}
     onmouseleave={() => ui.setToastHovering(false)}
     onclick={handleClick}
   >
-    <svelte:component this={getIcon()} class="h-5 w-5 text-white shrink-0 mt-0.5 sm:h-6 sm:w-6" />
-    <span class="text-sm font-medium text-white leading-snug flex-1 sm:text-base">{ui.toastMessage}</span>
+    <svelte:component this={getIcon()} class="mt-0.5 h-5 w-5 shrink-0 text-white sm:h-6 sm:w-6" />
+    <span class="flex-1 text-sm leading-snug font-medium text-white sm:text-base"
+      >{ui.toastMessage}</span
+    >
     <button
-      class="hidden sm:flex text-white/70 hover:text-white transition-colors shrink-0 ml-2"
-      onclick={(e) => { e.stopPropagation(); handleClick(); }}
+      class="ml-2 hidden shrink-0 text-white/70 transition-colors hover:text-white sm:flex"
+      onclick={(e) => {
+        e.stopPropagation()
+        handleClick()
+      }}
       aria-label="Close notification"
     >
       <X class="h-4 w-4 sm:h-5 sm:w-5" />

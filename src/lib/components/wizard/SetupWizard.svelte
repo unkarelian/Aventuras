@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { settings } from "$lib/stores/settings.svelte";
-  import { WizardStore } from "$lib/stores/wizard/wizard.svelte";
-  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
-  import { Button } from "$lib/components/ui/button";
-  import { ChevronLeft, ChevronRight, Sparkles, Play } from "lucide-svelte";
-  import { ui } from "$lib/stores/ui.svelte";
-  import { hasRequiredCredentials } from "$lib/services/ai/image";
+  import { settings } from '$lib/stores/settings.svelte'
+  import { WizardStore } from '$lib/stores/wizard/wizard.svelte'
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
+  import { Button } from '$lib/components/ui/button'
+  import { ChevronLeft, ChevronRight, Sparkles, Play } from 'lucide-svelte'
+  import { ui } from '$lib/stores/ui.svelte'
+  import { hasRequiredCredentials } from '$lib/services/ai/image'
 
   // Step components
   import {
@@ -17,51 +17,49 @@
     Step6Portraits,
     Step7WritingStyle,
     Step8Opening,
-  } from "./steps";
+  } from './steps'
 
   interface Props {
-    onClose: () => void;
+    onClose: () => void
   }
 
-  let { onClose }: Props = $props();
+  let { onClose }: Props = $props()
 
   // Initialize Wizard Store
-  const wizard = new WizardStore(onClose);
+  const wizard = new WizardStore(onClose)
 
   // Check if API key is configured
-  const needsApiKey = $derived(settings.needsApiKey);
-  
+  const needsApiKey = $derived(settings.needsApiKey)
+
   // Check if image generation is enabled and configured
   const imageGenerationEnabled = $derived.by(() => {
-    const imgSettings = settings.systemServicesSettings.imageGeneration;
-    if (!imgSettings.enabled) return false;
-    return hasRequiredCredentials();
-  });
-  
+    const imgSettings = settings.systemServicesSettings.imageGeneration
+    if (!imgSettings.enabled) return false
+    return hasRequiredCredentials()
+  })
+
   // Step Titles
   const stepTitles = [
-    "Choose Your Mode",
-    "Import Lorebook (Optional)",
-    "World & Setting",
-    "Create Your Character",
-    "Supporting Cast (Optional)",
-    "Character Portraits (Optional)",
-    "Writing Style",
-    "Generate Opening",
-  ];
+    'Choose Your Mode',
+    'Import Lorebook (Optional)',
+    'World & Setting',
+    'Create Your Character',
+    'Supporting Cast (Optional)',
+    'Character Portraits (Optional)',
+    'Writing Style',
+    'Generate Opening',
+  ]
 </script>
 
 <ResponsiveModal.Root open={true} onOpenChange={(open) => !open && onClose()}>
   <ResponsiveModal.Content
-    class="sm:max-w-3xl h-full sm:h-auto sm:max-h-[90vh] flex flex-col p-0 gap-0"
+    class="flex h-full flex-col gap-0 p-0 sm:h-auto sm:max-h-[90vh] sm:max-w-3xl"
   >
     <!-- Header -->
     <div class="flex flex-col border-b p-4 pb-4">
-      <div class="flex items-center justify-between mb-4">
+      <div class="mb-4 flex items-center justify-between">
         <div>
-          <ResponsiveModal.Title class="text-xl"
-            >Create New Story</ResponsiveModal.Title
-          >
+          <ResponsiveModal.Title class="text-xl">Create New Story</ResponsiveModal.Title>
           <ResponsiveModal.Description>
             Step {wizard.currentStep} of {wizard.totalSteps}: {stepTitles[wizard.currentStep - 1]}
           </ResponsiveModal.Description>
@@ -72,11 +70,9 @@
       <div class="flex gap-1">
         {#each Array(wizard.totalSteps) as _, i}
           <div
-            class="h-1.5 flex-1 rounded-full transition-colors {i ===
-            wizard.currentStep - 1
+            class="h-1.5 flex-1 rounded-full transition-colors {i === wizard.currentStep - 1
               ? 'bg-primary'
-              : ''} {i < wizard.currentStep - 1 ? 'bg-primary/40' : ''} {i >
-            wizard.currentStep - 1
+              : ''} {i < wizard.currentStep - 1 ? 'bg-primary/40' : ''} {i > wizard.currentStep - 1
               ? 'bg-muted'
               : ''}"
           ></div>
@@ -85,22 +81,22 @@
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-y-auto p-4 min-h-0">
+    <div class="min-h-0 flex-1 overflow-y-auto p-4">
       {#if needsApiKey}
         <!-- API Key Warning -->
         <div class="flex flex-col items-center justify-center py-8 text-center">
-          <div class="rounded-full bg-amber-500/20 p-4 mb-4">
+          <div class="mb-4 rounded-full bg-amber-500/20 p-4">
             <Sparkles class="h-8 w-8 text-amber-400" />
           </div>
-          <h3 class="text-lg font-semibold mb-2">API Key Required</h3>
+          <h3 class="mb-2 text-lg font-semibold">API Key Required</h3>
           <p class="text-muted-foreground mb-4 max-w-md">
-            The setup wizard uses AI to dynamically generate your story world.
-            Please configure your OpenRouter API key in settings first.
+            The setup wizard uses AI to dynamically generate your story world. Please configure your
+            OpenRouter API key in settings first.
           </p>
           <Button
             onclick={() => {
-              ui.openSettings();
-              onClose();
+              ui.openSettings()
+              onClose()
             }}
           >
             Open Settings
@@ -120,9 +116,9 @@
           onToggleExpanded={(id) => wizard.narrative.toggleLorebookExpanded(id)}
           onClearAll={() => wizard.narrative.clearAllLorebooks()}
           onNavigateToVault={() => {
-             ui.setActivePanel("vault");
-             ui.setVaultTab("lorebooks");
-             onClose();
+            ui.setActivePanel('vault')
+            ui.setVaultTab('lorebooks')
+            onClose()
           }}
         />
       {:else if wizard.currentStep === 3}
@@ -145,23 +141,48 @@
           onGuidanceChange={(v) => (wizard.setting.settingElaborationGuidance = v)}
           onCustomGenreChange={(v) => (wizard.narrative.customGenre = v)}
           onUseAsIs={() => wizard.setting.useSettingAsIs()}
-          onExpandSetting={() => wizard.setting.expandSetting(wizard.narrative.selectedGenre, wizard.narrative.customGenre, wizard.narrative.importedEntries)}
-          onExpandFurther={() => wizard.setting.expandSettingFurther(wizard.narrative.selectedGenre, wizard.narrative.customGenre, wizard.narrative.importedEntries)}
+          onExpandSetting={() =>
+            wizard.setting.expandSetting(
+              wizard.narrative.selectedGenre,
+              wizard.narrative.customGenre,
+              wizard.narrative.importedEntries,
+            )}
+          onExpandFurther={() =>
+            wizard.setting.expandSettingFurther(
+              wizard.narrative.selectedGenre,
+              wizard.narrative.customGenre,
+              wizard.narrative.importedEntries,
+            )}
           onEditSetting={() => wizard.setting.editSetting()}
           onCancelEdit={() => wizard.setting.cancelSettingEdit()}
           onSelectScenario={(id) => wizard.selectScenario(id)}
-          onCardImport={(e) => wizard.character.handleCardImport(e.target.files?.[0], wizard.narrative.selectedMode, wizard.narrative.selectedGenre)}
+          onCardImport={(e) =>
+            wizard.character.handleCardImport(
+              e.target.files?.[0],
+              wizard.narrative.selectedMode,
+              wizard.narrative.selectedGenre,
+            )}
           onClearCardImport={() => wizard.character.clearCardImport()}
-          onSaveToVault={() => wizard.setting.saveScenarioToVault(wizard.narrative.storyTitle, wizard.character.supportingCharacters, wizard.character.cardImportedFirstMessage, wizard.character.cardImportedAlternateGreetings)}
+          onSaveToVault={() =>
+            wizard.setting.saveScenarioToVault(
+              wizard.narrative.storyTitle,
+              wizard.character.supportingCharacters,
+              wizard.character.cardImportedFirstMessage,
+              wizard.character.cardImportedAlternateGreetings,
+            )}
           onShowVaultPickerChange={(show) => (wizard.setting.showScenarioVaultPicker = show)}
           onSelectFromVault={(s) => wizard.selectScenarioFromVault(s)}
           cardImportFileInputRef={(el) => (wizard.character.cardImportFileInput = el)}
-          scenarioCarouselRef={(el) => { /* managed locally if needed, or in store */ }}
-          onCarouselScroll={() => { /* managed locally */ }}
+          scenarioCarouselRef={(el) => {
+            /* managed locally if needed, or in store */
+          }}
+          onCarouselScroll={() => {
+            /* managed locally */
+          }}
           onNavigateToVault={() => {
-             ui.setActivePanel("vault");
-             ui.setVaultTab("scenarios");
-             onClose();
+            ui.setActivePanel('vault')
+            ui.setVaultTab('scenarios')
+            onClose()
           }}
         />
       {:else if wizard.currentStep === 4}
@@ -187,15 +208,41 @@
           onManualTraitsChange={(v) => (wizard.character.manualCharacterTraits = v)}
           onCharacterGuidanceChange={(v) => (wizard.character.characterElaborationGuidance = v)}
           onUseManualCharacter={() => wizard.character.useManualCharacter()}
-          onElaborateCharacter={() => wizard.character.elaborateCharacter(wizard.setting.expandedSetting, wizard.narrative.selectedGenre, wizard.narrative.customGenre)}
-          onElaborateCharacterFurther={() => wizard.character.elaborateCharacterFurther(wizard.setting.expandedSetting, wizard.narrative.selectedGenre, wizard.narrative.customGenre)}
-          onGenerateProtagonist={() => wizard.character.generateProtagonist(wizard.setting.expandedSetting!, wizard.narrative.selectedGenre, wizard.narrative.selectedMode, wizard.narrative.selectedPOV, wizard.narrative.customGenre)}
-          onSaveToVault={() => wizard.character.handleSaveProtagonistToVault(wizard.image.protagonistVisualDescriptors, wizard.image.protagonistPortrait)}
-          onSelectProtagonistFromVault={(c) => wizard.character.handleSelectProtagonistFromVault(c, (v) => wizard.image.protagonistVisualDescriptors = v, (v) => wizard.image.protagonistPortrait = v)}
+          onElaborateCharacter={() =>
+            wizard.character.elaborateCharacter(
+              wizard.setting.expandedSetting,
+              wizard.narrative.selectedGenre,
+              wizard.narrative.customGenre,
+            )}
+          onElaborateCharacterFurther={() =>
+            wizard.character.elaborateCharacterFurther(
+              wizard.setting.expandedSetting,
+              wizard.narrative.selectedGenre,
+              wizard.narrative.customGenre,
+            )}
+          onGenerateProtagonist={() =>
+            wizard.character.generateProtagonist(
+              wizard.setting.expandedSetting!,
+              wizard.narrative.selectedGenre,
+              wizard.narrative.selectedMode,
+              wizard.narrative.selectedPOV,
+              wizard.narrative.customGenre,
+            )}
+          onSaveToVault={() =>
+            wizard.character.handleSaveProtagonistToVault(
+              wizard.image.protagonistVisualDescriptors,
+              wizard.image.protagonistPortrait,
+            )}
+          onSelectProtagonistFromVault={(c) =>
+            wizard.character.handleSelectProtagonistFromVault(
+              c,
+              (v) => (wizard.image.protagonistVisualDescriptors = v),
+              (v) => (wizard.image.protagonistPortrait = v),
+            )}
           onNavigateToVault={() => {
-             ui.setActivePanel("vault");
-             ui.setVaultTab("characters");
-             onClose();
+            ui.setActivePanel('vault')
+            ui.setVaultTab('characters')
+            onClose()
           }}
         />
       {:else if wizard.currentStep === 5}
@@ -214,22 +261,39 @@
           isElaboratingSupportingCharacter={wizard.character.isElaboratingSupportingCharacter}
           onSupportingNameChange={(v) => (wizard.character.supportingCharacterName = v)}
           onSupportingRoleChange={(v) => (wizard.character.supportingCharacterRole = v)}
-          onSupportingDescriptionChange={(v) => (wizard.character.supportingCharacterDescription = v)}
-          onSupportingRelationshipChange={(v) => (wizard.character.supportingCharacterRelationship = v)}
+          onSupportingDescriptionChange={(v) =>
+            (wizard.character.supportingCharacterDescription = v)}
+          onSupportingRelationshipChange={(v) =>
+            (wizard.character.supportingCharacterRelationship = v)}
           onSupportingTraitsChange={(v) => (wizard.character.supportingCharacterTraits = v)}
           onSupportingGuidanceChange={(v) => (wizard.character.supportingCharacterGuidance = v)}
           onOpenSupportingForm={() => wizard.character.openSupportingCharacterForm()}
           onEditSupportingCharacter={(i) => wizard.character.editSupportingCharacter(i)}
           onCancelSupportingForm={() => wizard.character.cancelSupportingCharacterForm()}
           onUseSupportingAsIs={() => wizard.character.useSupportingCharacterAsIs()}
-          onElaborateSupportingCharacter={() => wizard.character.elaborateSupportingCharacter(wizard.setting.expandedSetting, wizard.narrative.selectedGenre, wizard.narrative.customGenre)}
+          onElaborateSupportingCharacter={() =>
+            wizard.character.elaborateSupportingCharacter(
+              wizard.setting.expandedSetting,
+              wizard.narrative.selectedGenre,
+              wizard.narrative.customGenre,
+            )}
           onDeleteSupportingCharacter={(i) => wizard.character.deleteSupportingCharacter(i)}
-          onGenerateCharacters={() => wizard.character.generateCharacters(wizard.setting.expandedSetting!, wizard.narrative.selectedGenre, wizard.narrative.customGenre)}
-          onSelectSupportingFromVault={(c) => wizard.character.handleSelectSupportingFromVault(c, (name, v) => wizard.image.supportingCharacterVisualDescriptors[name] = v, (name, v) => wizard.image.supportingCharacterPortraits[name] = v)}
+          onGenerateCharacters={() =>
+            wizard.character.generateCharacters(
+              wizard.setting.expandedSetting!,
+              wizard.narrative.selectedGenre,
+              wizard.narrative.customGenre,
+            )}
+          onSelectSupportingFromVault={(c) =>
+            wizard.character.handleSelectSupportingFromVault(
+              c,
+              (name, v) => (wizard.image.supportingCharacterVisualDescriptors[name] = v),
+              (name, v) => (wizard.image.supportingCharacterPortraits[name] = v),
+            )}
           onNavigateToVault={() => {
-             ui.setActivePanel("vault");
-             ui.setVaultTab("characters");
-             onClose();
+            ui.setActivePanel('vault')
+            ui.setVaultTab('characters')
+            onClose()
           }}
         />
       {:else if wizard.currentStep === 6}
@@ -246,19 +310,27 @@
           generatingPortraitName={wizard.image.generatingPortraitName}
           uploadingCharacterName={wizard.image.uploadingCharacterName}
           portraitError={wizard.image.portraitError}
-          onProtagonistDescriptorsChange={(v) =>
-            (wizard.image.protagonistVisualDescriptors = v)}
-          onGenerateProtagonistPortrait={() => wizard.image.generateProtagonistPortrait(wizard.character.protagonist)}
+          onProtagonistDescriptorsChange={(v) => (wizard.image.protagonistVisualDescriptors = v)}
+          onGenerateProtagonistPortrait={() =>
+            wizard.image.generateProtagonistPortrait(wizard.character.protagonist)}
           onRemoveProtagonistPortrait={() => wizard.image.removeProtagonistPortrait()}
           onProtagonistPortraitUpload={(e) => wizard.image.handleProtagonistPortraitUpload(e)}
           onSupportingDescriptorsChange={(name, v) => {
-            wizard.image.supportingCharacterVisualDescriptors[name] = v;
-             // Force reactivity if needed, but rune should handle it if object mutation is detected or reassigned
-             wizard.image.supportingCharacterVisualDescriptors = { ...wizard.image.supportingCharacterVisualDescriptors };
+            wizard.image.supportingCharacterVisualDescriptors[name] = v
+            // Force reactivity if needed, but rune should handle it if object mutation is detected or reassigned
+            wizard.image.supportingCharacterVisualDescriptors = {
+              ...wizard.image.supportingCharacterVisualDescriptors,
+            }
           }}
-          onGenerateSupportingPortrait={(name) => wizard.image.generateSupportingCharacterPortrait(name, wizard.character.supportingCharacters)}
-          onRemoveSupportingPortrait={(name) => wizard.image.removeSupportingCharacterPortrait(name)}
-          onSupportingPortraitUpload={(e, name) => wizard.image.handleSupportingCharacterPortraitUpload(e, name)}
+          onGenerateSupportingPortrait={(name) =>
+            wizard.image.generateSupportingCharacterPortrait(
+              name,
+              wizard.character.supportingCharacters,
+            )}
+          onRemoveSupportingPortrait={(name) =>
+            wizard.image.removeSupportingCharacterPortrait(name)}
+          onSupportingPortraitUpload={(e, name) =>
+            wizard.image.handleSupportingCharacterPortraitUpload(e, name)}
         />
       {:else if wizard.currentStep === 7}
         <Step7WritingStyle
@@ -314,7 +386,7 @@
     </div>
 
     <!-- Footer Navigation -->
-    <div class="flex justify-between border-t p-4 shrink-0">
+    <div class="flex shrink-0 justify-between border-t p-4">
       {#if wizard.currentStep > 1}
         <Button variant="secondary" class="gap-1 pl-2" onclick={() => wizard.prevStep()}>
           <ChevronLeft class="h-4 w-4" />

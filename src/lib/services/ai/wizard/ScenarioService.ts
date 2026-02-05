@@ -7,59 +7,67 @@
  * All generation methods throw errors. Non-LLM utility methods preserved.
  */
 
-import { settings, getPresetDefaults } from '$lib/stores/settings.svelte';
-import type { ProviderType } from '$lib/types';
-import type { ReasoningEffort, GenerationPreset } from '$lib/types';
-import type { StoryMode, POV, Character, Location, Item } from '$lib/types';
-import { promptService, type PromptContext } from '$lib/services/prompts';
-import { createLogger } from '../core/config';
+import { settings, getPresetDefaults } from '$lib/stores/settings.svelte'
+import type { ProviderType } from '$lib/types'
+import type { ReasoningEffort, GenerationPreset } from '$lib/types'
+import type { StoryMode, POV, Character, Location, Item } from '$lib/types'
+import { promptService, type PromptContext } from '$lib/services/prompts'
+import { createLogger } from '../core/config'
 import {
-  type ExpandedSetting, type GeneratedProtagonist, type GeneratedCharacter, type GeneratedOpening,
-  expandedSettingSchema, generatedProtagonistSchema, generatedCharactersSchema, generatedOpeningSchema
-} from '$lib/services/ai/sdk/schemas/scenario';
-import { generateStructured } from "$lib/services/ai/sdk";
+  type ExpandedSetting,
+  type GeneratedProtagonist,
+  type GeneratedCharacter,
+  type GeneratedOpening,
+  expandedSettingSchema,
+  generatedProtagonistSchema,
+  generatedCharactersSchema,
+  generatedOpeningSchema,
+} from '$lib/services/ai/sdk/schemas/scenario'
+import { generateStructured } from '$lib/services/ai/sdk'
 
-const log = createLogger('ScenarioService');
+const log = createLogger('ScenarioService')
 
 // Default model for scenario generation - fast and capable
-export const SCENARIO_MODEL = 'deepseek/deepseek-v3.2';
+export const SCENARIO_MODEL = 'deepseek/deepseek-v3.2'
 
 // Provider preference - prioritize Deepseek with fallbacks, require all parameters
-export const SCENARIO_PROVIDER = { order: ['deepseek'], require_parameters: false };
+export const SCENARIO_PROVIDER = { order: ['deepseek'], require_parameters: false }
 
-export type Genre = 'fantasy' | 'scifi' | 'modern' | 'horror' | 'mystery' | 'romance' | 'custom';
-export type Tense = 'past' | 'present';
+export type Genre = 'fantasy' | 'scifi' | 'modern' | 'horror' | 'mystery' | 'romance' | 'custom'
+export type Tense = 'past' | 'present'
 
 // Advanced settings for customizing generation processes
 export interface ProcessSettings {
-  profileId?: string | null;
-  presetId?: string;
-  model?: string;
-  systemPrompt?: string;
-  temperature?: number;
-  topP?: number;
-  maxTokens?: number;
-  reasoningEffort?: ReasoningEffort;
-  manualBody?: string;
+  profileId?: string | null
+  presetId?: string
+  model?: string
+  systemPrompt?: string
+  temperature?: number
+  topP?: number
+  maxTokens?: number
+  reasoningEffort?: ReasoningEffort
+  manualBody?: string
 }
 
 export interface AdvancedWizardSettings {
-  settingExpansion: ProcessSettings;
-  settingRefinement: ProcessSettings;
-  protagonistGeneration: ProcessSettings;
-  characterElaboration: ProcessSettings;
-  characterRefinement: ProcessSettings;
-  supportingCharacters: ProcessSettings;
-  openingGeneration: ProcessSettings;
-  openingRefinement: ProcessSettings;
+  settingExpansion: ProcessSettings
+  settingRefinement: ProcessSettings
+  protagonistGeneration: ProcessSettings
+  characterElaboration: ProcessSettings
+  characterRefinement: ProcessSettings
+  supportingCharacters: ProcessSettings
+  openingGeneration: ProcessSettings
+  openingRefinement: ProcessSettings
 }
 
 export function getDefaultAdvancedSettings(): AdvancedWizardSettings {
-  return getDefaultAdvancedSettingsForProvider('openrouter');
+  return getDefaultAdvancedSettingsForProvider('openrouter')
 }
 
-export function getDefaultAdvancedSettingsForProvider(provider: ProviderType): AdvancedWizardSettings {
-  const preset = getPresetDefaults(provider, 'wizard');
+export function getDefaultAdvancedSettingsForProvider(
+  provider: ProviderType,
+): AdvancedWizardSettings {
+  const preset = getPresetDefaults(provider, 'wizard')
 
   return {
     settingExpansion: {
@@ -150,27 +158,27 @@ export function getDefaultAdvancedSettingsForProvider(provider: ProviderType): A
       reasoningEffort: preset.reasoningEffort,
       manualBody: '',
     },
-  };
+  }
 }
 
 export interface WizardData {
-  mode: StoryMode;
-  genre: Genre;
-  customGenre?: string;
-  settingSeed: string;
-  expandedSetting?: ExpandedSetting;
-  protagonist?: GeneratedProtagonist;
-  characters?: GeneratedCharacter[];
+  mode: StoryMode
+  genre: Genre
+  customGenre?: string
+  settingSeed: string
+  expandedSetting?: ExpandedSetting
+  protagonist?: GeneratedProtagonist
+  characters?: GeneratedCharacter[]
   writingStyle: {
-    pov: POV;
-    tense: Tense;
-    tone: string;
-    visualProseMode?: boolean;
-    inlineImageMode?: boolean;
-    imageGenerationMode?: 'none' | 'auto' | 'inline';
-  };
-  title: string;
-  openingGuidance?: string;
+    pov: POV
+    tense: Tense
+    tone: string
+    visualProseMode?: boolean
+    inlineImageMode?: boolean
+    imageGenerationMode?: 'none' | 'auto' | 'inline'
+  }
+  title: string
+  openingGuidance?: string
 }
 
 class ScenarioService {
@@ -184,38 +192,48 @@ class ScenarioService {
     customGenre?: string,
     presetId?: string,
     lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
-    customInstruction?: string
+    customInstruction?: string,
   ): Promise<ExpandedSetting> {
-    log('expandSetting called', { seed, genre, customGenre, presetId, lorebookEntryCount: lorebookEntries?.length ?? 0, hasCustomInstructions: !!customInstruction });
+    log('expandSetting called', {
+      seed,
+      genre,
+      customGenre,
+      presetId,
+      lorebookEntryCount: lorebookEntries?.length ?? 0,
+      hasCustomInstructions: !!customInstruction,
+    })
 
-    const presetConfig = settings.getPresetConfig(presetId || '', 'Setting Expansion');
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Setting Expansion')
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
 
-    const promptContext = this.getWizardPromptContext();
+    const promptContext = this.getWizardPromptContext()
     const customInstructionBlock = customInstruction?.trim()
-        ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
-        : '';
+      ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
+      : ''
     const system = promptService.renderPrompt('setting-expansion', promptContext, {
       customInstruction: customInstructionBlock,
-    });
-    const lorebookContext = this.buildSettingLorebookContext(lorebookEntries);
+    })
+    const lorebookContext = this.buildSettingLorebookContext(lorebookEntries)
     const prompt = promptService.renderUserPrompt('setting-expansion', promptContext, {
       genreLabel,
       seed,
       lorebookContext,
       customInstruction: customInstructionBlock,
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: presetConfig.id,
-      schema: expandedSettingSchema,
-      system,
-      prompt,
-    },'setting-expansion');
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: expandedSettingSchema,
+        system,
+        prompt,
+      },
+      'setting-expansion',
+    )
 
-    log('expandSetting complete');
+    log('expandSetting complete')
 
-    return result;
+    return result
   }
 
   /**
@@ -228,27 +246,34 @@ class ScenarioService {
     customGenre?: string,
     presetId?: string,
     lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
-    customInstruction?: string
+    customInstruction?: string,
   ): Promise<ExpandedSetting> {
-    log('refineSetting called', { genre, customGenre, presetId, lorebookEntryCount: lorebookEntries?.length ?? 0, hasCustomInstructions: !!customInstruction });
+    log('refineSetting called', {
+      genre,
+      customGenre,
+      presetId,
+      lorebookEntryCount: lorebookEntries?.length ?? 0,
+      hasCustomInstructions: !!customInstruction,
+    })
 
-    const presetConfig = settings.getPresetConfig(presetId || '', 'Setting Refinement');
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Setting Refinement')
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
 
-    const promptContext = this.getWizardPromptContext();
+    const promptContext = this.getWizardPromptContext()
     const customInstructionBlock = customInstruction?.trim()
-        ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
-        : '';
+      ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
+      : ''
     const system = promptService.renderPrompt('setting-refinement', promptContext, {
       customInstruction: customInstructionBlock,
-    });
+    })
 
-    const keyLocations = currentSetting.keyLocations ?? [];
-    const themes = currentSetting.themes ?? [];
-    const potentialConflicts = currentSetting.potentialConflicts ?? [];
-    const keyLocationsBlock = keyLocations.length > 0
+    const keyLocations = currentSetting.keyLocations ?? []
+    const themes = currentSetting.themes ?? []
+    const potentialConflicts = currentSetting.potentialConflicts ?? []
+    const keyLocationsBlock =
+      keyLocations.length > 0
         ? keyLocations.map((location) => `- ${location.name}: ${location.description}`).join('\n')
-        : '- (none)';
+        : '- (none)'
 
     const currentSettingBlock = [
       `NAME: ${currentSetting.name}`,
@@ -257,26 +282,29 @@ class ScenarioService {
       `THEMES: ${themes.length > 0 ? themes.join(', ') : '(none)'}`,
       `POTENTIAL CONFLICTS: ${potentialConflicts.length > 0 ? potentialConflicts.join(', ') : '(none)'}`,
       `KEY LOCATIONS:\n${keyLocationsBlock}`,
-    ].join('\n');
+    ].join('\n')
 
-    const lorebookContext = this.buildSettingLorebookContext(lorebookEntries);
+    const lorebookContext = this.buildSettingLorebookContext(lorebookEntries)
     const prompt = promptService.renderUserPrompt('setting-refinement', promptContext, {
       genreLabel,
       currentSetting: currentSettingBlock,
       lorebookContext,
       customInstruction: customInstructionBlock,
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: presetConfig.id,
-      schema: expandedSettingSchema,
-      system,
-      prompt,
-    }, 'setting-refinement');
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: expandedSettingSchema,
+        system,
+        prompt,
+      },
+      'setting-refinement',
+    )
 
-    log('refineSetting complete');
+    log('refineSetting complete')
 
-    return result;
+    return result
   }
 
   /**
@@ -285,47 +313,54 @@ class ScenarioService {
    */
   async elaborateCharacter(
     userInput: {
-      name?: string;
-      description?: string;
-      background?: string;
-      motivation?: string;
-      traits?: string[];
+      name?: string
+      description?: string
+      background?: string
+      motivation?: string
+      traits?: string[]
     },
     setting: ExpandedSetting | null,
     genre: Genre,
     customGenre?: string,
     presetId?: string,
-    customInstruction?: string
+    customInstruction?: string,
   ): Promise<GeneratedProtagonist> {
-    log('elaborateCharacter called', { userInput, genre, presetId, hasCustomInstruction: !!customInstruction });
+    log('elaborateCharacter called', {
+      userInput,
+      genre,
+      presetId,
+      hasCustomInstruction: !!customInstruction,
+    })
 
-    const presetConfig = settings.getPresetConfig(presetId || '', 'Character Elaboration');
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Character Elaboration')
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
 
-    const promptContext = this.getWizardPromptContext();
-    const toneInstruction = `- Keep the tone appropriate for the ${genreLabel} genre`;
+    const promptContext = this.getWizardPromptContext()
+    const toneInstruction = `- Keep the tone appropriate for the ${genreLabel} genre`
     const settingInstruction = setting
-        ? `- Make the character fit naturally into: ${setting.name}`
-        : '';
+      ? `- Make the character fit naturally into: ${setting.name}`
+      : ''
     const customInstructionBlock = customInstruction?.trim()
-        ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
-        : '';
+      ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
+      : ''
     const system = promptService.renderPrompt('character-elaboration', promptContext, {
       toneInstruction,
       settingInstruction,
       customInstruction: customInstructionBlock,
-    });
+    })
 
-    const characterName = userInput.name ? `NAME: ${userInput.name}` : 'NAME: (suggest one)';
-    const characterDescription = userInput.description ? `DESCRIPTION: ${userInput.description}` : '';
-    const characterBackgroundParts: string[] = [];
-    if (userInput.background) characterBackgroundParts.push(`BACKGROUND: ${userInput.background}`);
-    if (userInput.motivation) characterBackgroundParts.push(`MOTIVATION: ${userInput.motivation}`);
+    const characterName = userInput.name ? `NAME: ${userInput.name}` : 'NAME: (suggest one)'
+    const characterDescription = userInput.description
+      ? `DESCRIPTION: ${userInput.description}`
+      : ''
+    const characterBackgroundParts: string[] = []
+    if (userInput.background) characterBackgroundParts.push(`BACKGROUND: ${userInput.background}`)
+    if (userInput.motivation) characterBackgroundParts.push(`MOTIVATION: ${userInput.motivation}`)
     if (userInput.traits && userInput.traits.length > 0) {
-      characterBackgroundParts.push(`TRAITS: ${userInput.traits.join(', ')}`);
+      characterBackgroundParts.push(`TRAITS: ${userInput.traits.join(', ')}`)
     }
-    const characterBackground = characterBackgroundParts.join('\n');
-    const settingContext = setting ? `SETTING: ${setting.name}\n${setting.description}` : '';
+    const characterBackground = characterBackgroundParts.join('\n')
+    const settingContext = setting ? `SETTING: ${setting.name}\n${setting.description}` : ''
 
     const prompt = promptService.renderUserPrompt('character-elaboration', promptContext, {
       genreLabel,
@@ -334,18 +369,21 @@ class ScenarioService {
       characterBackground,
       settingContext,
       customInstruction: customInstructionBlock,
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: presetConfig.id,
-      schema: generatedProtagonistSchema,
-      system,
-      prompt,
-    }, 'character-elaboration');
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: generatedProtagonistSchema,
+        system,
+        prompt,
+      },
+      'character-elaboration',
+    )
 
-    log('elaborateCharacter complete');
+    log('elaborateCharacter complete')
 
-    return result;
+    return result
   }
 
   /**
@@ -358,28 +396,31 @@ class ScenarioService {
     genre: Genre,
     customGenre?: string,
     presetId?: string,
-    customInstruction?: string
+    customInstruction?: string,
   ): Promise<GeneratedProtagonist> {
-    log('refineCharacter called', { characterName: currentCharacter.name, genre, presetId, hasCustomInstruction: !!customInstruction });
+    log('refineCharacter called', {
+      characterName: currentCharacter.name,
+      genre,
+      presetId,
+      hasCustomInstruction: !!customInstruction,
+    })
 
-    const presetConfig = settings.getPresetConfig(presetId || '', 'Character Refinement');
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Character Refinement')
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
 
-    const promptContext = this.getWizardPromptContext();
-    const toneInstruction = `- Keep the tone appropriate for the ${genreLabel} genre`;
-    const settingInstruction = setting
-        ? `- Make character fit naturally into: ${setting.name}`
-        : '';
+    const promptContext = this.getWizardPromptContext()
+    const toneInstruction = `- Keep the tone appropriate for the ${genreLabel} genre`
+    const settingInstruction = setting ? `- Make character fit naturally into: ${setting.name}` : ''
     const customInstructionBlock = customInstruction?.trim()
-        ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
-        : '';
+      ? `\n\nAUTHOR'S GUIDANCE: ${customInstruction.trim()}`
+      : ''
     const system = promptService.renderPrompt('character-refinement', promptContext, {
       toneInstruction,
       settingInstruction,
       customInstruction: customInstructionBlock,
-    });
+    })
 
-    const traits = currentCharacter.traits ?? [];
+    const traits = currentCharacter.traits ?? []
     const currentCharacterBlock = [
       `NAME: ${currentCharacter.name || '(suggest one)'}`,
       `DESCRIPTION: ${currentCharacter.description || '(none)'}`,
@@ -387,26 +428,29 @@ class ScenarioService {
       `MOTIVATION: ${currentCharacter.motivation || '(none)'}`,
       `TRAITS: ${traits.length > 0 ? traits.join(', ') : '(none)'}`,
       `APPEARANCE: ${currentCharacter.appearance || '(none)'}`,
-    ].join('\n');
+    ].join('\n')
 
-    const settingContext = setting ? `SETTING: ${setting.name}\n${setting.description}` : '';
+    const settingContext = setting ? `SETTING: ${setting.name}\n${setting.description}` : ''
     const prompt = promptService.renderUserPrompt('character-refinement', promptContext, {
       genreLabel,
       currentCharacter: currentCharacterBlock,
       settingContext,
       customInstruction: customInstructionBlock,
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: presetConfig.id,
-      schema: generatedProtagonistSchema,
-      system,
-      prompt,
-    }, 'character-refinement');
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: generatedProtagonistSchema,
+        system,
+        prompt,
+      },
+      'character-refinement',
+    )
 
-    log('refineCharacter complete');
+    log('refineCharacter complete')
 
-    return result;
+    return result
   }
 
   /**
@@ -419,44 +463,49 @@ class ScenarioService {
     mode: StoryMode,
     pov: POV,
     customGenre?: string,
-    presetId?: string
+    presetId?: string,
   ): Promise<GeneratedProtagonist> {
-    log('generateProtagonist called', { settingName: setting.name, genre, mode, pov, presetId });
+    log('generateProtagonist called', { settingName: setting.name, genre, mode, pov, presetId })
 
-    const presetConfig = settings.getPresetConfig(presetId || '', 'Protagonist Generation');
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Protagonist Generation')
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
 
-    const povContext = pov === 'first'
+    const povContext =
+      pov === 'first'
         ? 'The reader will be this character, narrated in first person (I...).'
         : pov === 'second'
-            ? 'The reader will be this character, narrated in second person (You...).'
-            : 'This is the main viewpoint character for a third person narrative.';
+          ? 'The reader will be this character, narrated in second person (You...).'
+          : 'This is the main viewpoint character for a third person narrative.'
 
-    const modeContext = mode === 'adventure'
+    const modeContext =
+      mode === 'adventure'
         ? 'This is for an interactive adventure where, reader makes choices as this character.'
-        : 'This is for a creative writing project where this character drives the narrative.';
+        : 'This is for a creative writing project where this character drives the narrative.'
 
-    const promptContext = this.getWizardPromptContext(mode, pov);
-    const system = promptService.renderPrompt('protagonist-generation', promptContext);
-    const povInstruction = `${povContext}\n${modeContext}`;
-    const settingDescription = `${setting.description}\n\nATMOSPHERE: ${setting.atmosphere}\n\nTHEMES: ${setting.themes.join(', ')}`;
+    const promptContext = this.getWizardPromptContext(mode, pov)
+    const system = promptService.renderPrompt('protagonist-generation', promptContext)
+    const povInstruction = `${povContext}\n${modeContext}`
+    const settingDescription = `${setting.description}\n\nATMOSPHERE: ${setting.atmosphere}\n\nTHEMES: ${setting.themes.join(', ')}`
     const prompt = promptService.renderUserPrompt('protagonist-generation', promptContext, {
       genreLabel,
       settingName: setting.name,
       settingDescription,
       povInstruction,
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: presetConfig.id,
-      schema: generatedProtagonistSchema,
-      system,
-      prompt,
-    }, 'protagonist-generation');
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: generatedProtagonistSchema,
+        system,
+        prompt,
+      },
+      'protagonist-generation',
+    )
 
-    log('generateProtagonist complete');
+    log('generateProtagonist complete')
 
-    return result;
+    return result
   }
 
   /**
@@ -469,15 +518,20 @@ class ScenarioService {
     genre: Genre,
     count: number = 3,
     customGenre?: string,
-    presetId?: string
+    presetId?: string,
   ): Promise<GeneratedCharacter[]> {
-    log('generateCharacters called', { settingName: setting.name, count, presetId });
+    log('generateCharacters called', { settingName: setting.name, count, presetId })
 
-    const presetConfig = settings.getPresetConfig(presetId || '', 'Supporting Characters');
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Supporting Characters')
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
 
-    const promptContext = this.getWizardPromptContext('adventure', 'second', 'present', protagonist.name);
-    const system = promptService.renderPrompt('supporting-characters', promptContext);
+    const promptContext = this.getWizardPromptContext(
+      'adventure',
+      'second',
+      'present',
+      protagonist.name,
+    )
+    const system = promptService.renderPrompt('supporting-characters', promptContext)
     const prompt = promptService.renderUserPrompt('supporting-characters', promptContext, {
       count,
       genreLabel,
@@ -485,18 +539,21 @@ class ScenarioService {
       settingDescription: setting.description,
       protagonistName: protagonist.name,
       protagonistDescription: `${protagonist.description}\nMotivation: ${protagonist.motivation}`,
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: presetConfig.id,
-      schema: generatedCharactersSchema,
-      system,
-      prompt,
-    }, 'supporting-characters');
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: generatedCharactersSchema,
+        system,
+        prompt,
+      },
+      'supporting-characters',
+    )
 
-    log('generateCharacters complete');
+    log('generateCharacters complete')
 
-    return result;
+    return result
   }
 
   /**
@@ -506,7 +563,7 @@ class ScenarioService {
   async generateOpening(
     wizardData: WizardData,
     presetId?: string,
-    lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[]
+    lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
   ): Promise<GeneratedOpening> {
     log('generateOpening called', {
       settingName: wizardData.expandedSetting?.name,
@@ -514,21 +571,28 @@ class ScenarioService {
       mode: wizardData.mode,
       presetId,
       lorebookEntries: lorebookEntries?.length ?? 0,
-    });
+    })
 
-    const presetConfig = settings.getPresetConfig(presetId || '', 'Opening Generation');
-    const { system, prompt, templateId } = this.buildOpeningPrompts(wizardData, lorebookEntries, 'json');
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Opening Generation')
+    const { system, prompt, templateId } = this.buildOpeningPrompts(
+      wizardData,
+      lorebookEntries,
+      'json',
+    )
 
-    const result = await generateStructured({
-      presetId: presetConfig.id,
-      schema: generatedOpeningSchema,
-      system,
-      prompt,
-    }, templateId);
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: generatedOpeningSchema,
+        system,
+        prompt,
+      },
+      templateId,
+    )
 
-    log('generateOpening complete');
+    log('generateOpening complete')
 
-    return result;
+    return result
   }
 
   /**
@@ -539,55 +603,75 @@ class ScenarioService {
     wizardData: WizardData,
     currentOpening: GeneratedOpening,
     presetId?: string,
-    lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[]
+    lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
   ): Promise<GeneratedOpening> {
     log('refineOpening called', {
       title: currentOpening.title,
       mode: wizardData.mode,
       presetId,
       lorebookEntries: lorebookEntries?.length ?? 0,
-    });
+    })
 
-    const presetConfig = settings.getPresetConfig(presetId || '', 'Opening Refinement');
+    const presetConfig = settings.getPresetConfig(presetId || '', 'Opening Refinement')
     const { system, prompt, templateId } = this.buildOpeningRefinementPrompts(
-        wizardData,
-        currentOpening,
-        lorebookEntries,
-        'json'
-    );
+      wizardData,
+      currentOpening,
+      lorebookEntries,
+      'json',
+    )
 
-    const result = await generateStructured({
-      presetId: presetConfig.id,
-      schema: generatedOpeningSchema,
-      system,
-      prompt,
-    }, templateId);
+    const result = await generateStructured(
+      {
+        presetId: presetConfig.id,
+        schema: generatedOpeningSchema,
+        system,
+        prompt,
+      },
+      templateId,
+    )
 
-    log('refineOpening complete');
+    log('refineOpening complete')
 
-    return result;
+    return result
   }
 
   private buildOpeningPrompts(
-      wizardData: WizardData,
-      lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
-      outputMode: 'json' | 'stream' = 'json'
+    wizardData: WizardData,
+    lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
+    outputMode: 'json' | 'stream' = 'json',
   ): { system: string; prompt: string; templateId: string } {
-    const { mode, genre, customGenre, expandedSetting, protagonist, characters, writingStyle, title } = wizardData;
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
-    const protagonistName = protagonist?.name || 'the protagonist';
-    const promptContext = this.getWizardPromptContext(mode, writingStyle.pov, writingStyle.tense, protagonistName);
-    const templateId = mode === 'creative-writing'
-        ? 'opening-generation-creative'
-        : 'opening-generation-adventure';
+    const {
+      mode,
+      genre,
+      customGenre,
+      expandedSetting,
+      protagonist,
+      characters,
+      writingStyle,
+      title,
+    } = wizardData
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
+    const protagonistName = protagonist?.name || 'the protagonist'
+    const promptContext = this.getWizardPromptContext(
+      mode,
+      writingStyle.pov,
+      writingStyle.tense,
+      protagonistName,
+    )
+    const templateId =
+      mode === 'creative-writing' ? 'opening-generation-creative' : 'opening-generation-adventure'
 
-    const tenseInstruction = writingStyle.tense === 'present'
-        ? 'Use present tense.'
-        : 'Use past tense.';
+    const tenseInstruction =
+      writingStyle.tense === 'present' ? 'Use present tense.' : 'Use past tense.'
 
-    const tone = writingStyle.tone || 'immersive and engaging';
-    const outputFormat = this.getOpeningOutputFormat(mode, protagonistName, outputMode, writingStyle.pov);
-    const povInfo = this.getOpeningPovInstruction(writingStyle.pov, protagonistName);
+    const tone = writingStyle.tone || 'immersive and engaging'
+    const outputFormat = this.getOpeningOutputFormat(
+      mode,
+      protagonistName,
+      outputMode,
+      writingStyle.pov,
+    )
+    const povInfo = this.getOpeningPovInstruction(writingStyle.pov, protagonistName)
 
     // Use the prompt system - user customizations are handled via template overrides
     const system = promptService.renderPrompt(templateId, promptContext, {
@@ -597,22 +681,24 @@ class ScenarioService {
       tone,
       outputFormat,
       povInstruction: povInfo.instruction,
-    });
+    })
 
     const atmosphereSection = expandedSetting?.atmosphere
-        ? `ATMOSPHERE: ${expandedSetting.atmosphere}`
-        : '';
-    const protagonistDescription = protagonist?.description ? `\n${protagonist.description}` : '';
-    const supportingCharactersSection = characters && characters.length > 0
-        ? `NPCs WHO MAY APPEAR:\n${characters.map(c => `- ${c.name} (${c.role}): ${c.description}`).join('\n')}\n`
-        : '';
+      ? `ATMOSPHERE: ${expandedSetting.atmosphere}`
+      : ''
+    const protagonistDescription = protagonist?.description ? `\n${protagonist.description}` : ''
+    const supportingCharactersSection =
+      characters && characters.length > 0
+        ? `NPCs WHO MAY APPEAR:\n${characters.map((c) => `- ${c.name} (${c.role}): ${c.description}`).join('\n')}\n`
+        : ''
     const guidanceSection = wizardData.openingGuidance?.trim()
-        ? `\nAUTHOR'S GUIDANCE FOR OPENING:\n${wizardData.openingGuidance.trim()}\n`
-        : '';
-    const lorebookContext = this.buildOpeningLorebookContext(lorebookEntries);
-    const openingInstruction = mode === 'creative-writing'
+      ? `\nAUTHOR'S GUIDANCE FOR OPENING:\n${wizardData.openingGuidance.trim()}\n`
+      : ''
+    const lorebookContext = this.buildOpeningLorebookContext(lorebookEntries)
+    const openingInstruction =
+      mode === 'creative-writing'
         ? ''
-        : `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`;
+        : `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`
 
     const prompt = promptService.renderUserPrompt(templateId, promptContext, {
       title: title || '(suggest one)',
@@ -630,32 +716,49 @@ class ScenarioService {
       guidanceSection,
       lorebookContext,
       openingInstruction,
-    });
+    })
 
-    return { system, prompt, templateId };
+    return { system, prompt, templateId }
   }
 
   private buildOpeningRefinementPrompts(
-      wizardData: WizardData,
-      currentOpening: GeneratedOpening,
-      lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
-      outputMode: 'json' | 'stream' = 'json'
+    wizardData: WizardData,
+    currentOpening: GeneratedOpening,
+    lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
+    outputMode: 'json' | 'stream' = 'json',
   ): { system: string; prompt: string; templateId: string } {
-    const { mode, genre, customGenre, expandedSetting, protagonist, characters, writingStyle, title } = wizardData;
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre;
-    const protagonistName = protagonist?.name || 'the protagonist';
-    const promptContext = this.getWizardPromptContext(mode, writingStyle.pov, writingStyle.tense, protagonistName);
-    const templateId = mode === 'creative-writing'
-        ? 'opening-refinement-creative'
-        : 'opening-refinement-adventure';
+    const {
+      mode,
+      genre,
+      customGenre,
+      expandedSetting,
+      protagonist,
+      characters,
+      writingStyle,
+      title,
+    } = wizardData
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : genre
+    const protagonistName = protagonist?.name || 'the protagonist'
+    const promptContext = this.getWizardPromptContext(
+      mode,
+      writingStyle.pov,
+      writingStyle.tense,
+      protagonistName,
+    )
+    const templateId =
+      mode === 'creative-writing' ? 'opening-refinement-creative' : 'opening-refinement-adventure'
 
-    const tenseInstruction = writingStyle.tense === 'present'
-        ? 'Use present tense.'
-        : 'Use past tense.';
+    const tenseInstruction =
+      writingStyle.tense === 'present' ? 'Use present tense.' : 'Use past tense.'
 
-    const tone = writingStyle.tone || 'immersive and engaging';
-    const outputFormat = this.getOpeningOutputFormat(mode, protagonistName, outputMode, writingStyle.pov);
-    const povInfo = this.getOpeningPovInstruction(writingStyle.pov, protagonistName);
+    const tone = writingStyle.tone || 'immersive and engaging'
+    const outputFormat = this.getOpeningOutputFormat(
+      mode,
+      protagonistName,
+      outputMode,
+      writingStyle.pov,
+    )
+    const povInfo = this.getOpeningPovInstruction(writingStyle.pov, protagonistName)
 
     const system = promptService.renderPrompt(templateId, promptContext, {
       genreLabel,
@@ -666,32 +769,34 @@ class ScenarioService {
       povInstruction: povInfo.instruction,
       povPerspective: povInfo.perspective,
       povPerspectiveInstructions: povInfo.perspectiveInstructions,
-    });
+    })
 
     const atmosphereSection = expandedSetting?.atmosphere
-        ? `ATMOSPHERE: ${expandedSetting.atmosphere}`
-        : '';
-    const protagonistDescription = protagonist?.description ? `\n${protagonist.description}` : '';
-    const supportingCharactersSection = characters && characters.length > 0
-        ? `NPCs WHO MAY APPEAR:\n${characters.map(c => `- ${c.name} (${c.role}): ${c.description}`).join('\n')}\n`
-        : '';
+      ? `ATMOSPHERE: ${expandedSetting.atmosphere}`
+      : ''
+    const protagonistDescription = protagonist?.description ? `\n${protagonist.description}` : ''
+    const supportingCharactersSection =
+      characters && characters.length > 0
+        ? `NPCs WHO MAY APPEAR:\n${characters.map((c) => `- ${c.name} (${c.role}): ${c.description}`).join('\n')}\n`
+        : ''
     const guidanceSection = wizardData.openingGuidance?.trim()
-        ? `\nAUTHOR'S GUIDANCE FOR OPENING:\n${wizardData.openingGuidance.trim()}\n`
-        : '';
-    const lorebookContext = this.buildOpeningLorebookContext(lorebookEntries);
-    const openingInstruction = mode === 'creative-writing'
+      ? `\nAUTHOR'S GUIDANCE FOR OPENING:\n${wizardData.openingGuidance.trim()}\n`
+      : ''
+    const lorebookContext = this.buildOpeningLorebookContext(lorebookEntries)
+    const openingInstruction =
+      mode === 'creative-writing'
         ? ''
-        : `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`;
+        : `\nDescribe the environment and situation. Do NOT write anything ${protagonistName} does, says, thinks, or perceives. End with a moment that invites action.`
 
     const locationSummary = currentOpening.initialLocation?.description
-        ? `${currentOpening.initialLocation.name} - ${currentOpening.initialLocation.description}`
-        : currentOpening.initialLocation?.name || 'Starting Location';
+      ? `${currentOpening.initialLocation.name} - ${currentOpening.initialLocation.description}`
+      : currentOpening.initialLocation?.name || 'Starting Location'
     const currentOpeningBlock = [
       `TITLE: ${currentOpening.title || title || '(suggest one)'}`,
       `LOCATION: ${locationSummary}`,
       'SCENE:',
       currentOpening.scene,
-    ].join('\n');
+    ].join('\n')
 
     const prompt = promptService.renderUserPrompt(templateId, promptContext, {
       title: title || currentOpening.title || '(suggest one)',
@@ -710,95 +815,104 @@ class ScenarioService {
       lorebookContext,
       openingInstruction,
       currentOpening: currentOpeningBlock,
-    });
+    })
 
-    return { system, prompt, templateId };
+    return { system, prompt, templateId }
   }
 
   private buildOpeningLorebookContext(
-      lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[]
+    lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
   ): string {
-    if (!lorebookEntries || lorebookEntries.length === 0) return '';
+    if (!lorebookEntries || lorebookEntries.length === 0) return ''
 
-    const entriesByType: Record<string, { name: string; description: string; hiddenInfo?: string }[]> = {};
+    const entriesByType: Record<
+      string,
+      { name: string; description: string; hiddenInfo?: string }[]
+    > = {}
     for (const entry of lorebookEntries) {
       if (!entriesByType[entry.type]) {
-        entriesByType[entry.type] = [];
+        entriesByType[entry.type] = []
       }
       entriesByType[entry.type].push({
         name: entry.name,
         description: entry.description,
         hiddenInfo: entry.hiddenInfo,
-      });
+      })
     }
 
-    let lorebookContext = '\n\n## LOREBOOK (Established Canon)\nThe opening scene MUST be consistent with this established lore:\n';
+    let lorebookContext =
+      '\n\n## LOREBOOK (Established Canon)\nThe opening scene MUST be consistent with this established lore:\n'
     for (const [type, entries] of Object.entries(entriesByType)) {
       if (entries.length > 0) {
-        lorebookContext += `\n### ${type.charAt(0).toUpperCase() + type.slice(1)}s:\n`;
+        lorebookContext += `\n### ${type.charAt(0).toUpperCase() + type.slice(1)}s:\n`
         for (const entry of entries) {
-          lorebookContext += `- **${entry.name}**: ${entry.description}`;
+          lorebookContext += `- **${entry.name}**: ${entry.description}`
           if (entry.hiddenInfo) {
-            lorebookContext += ` [Hidden lore: ${entry.hiddenInfo}]`;
+            lorebookContext += ` [Hidden lore: ${entry.hiddenInfo}]`
           }
-          lorebookContext += '\n';
+          lorebookContext += '\n'
         }
       }
     }
 
-    return lorebookContext;
+    return lorebookContext
   }
 
-  private getOpeningPovInstruction(pov: POV, protagonistName: string = 'the protagonist'): { instruction: string; perspective: string; perspectiveInstructions: string } {
+  private getOpeningPovInstruction(
+    pov: POV,
+    protagonistName: string = 'the protagonist',
+  ): { instruction: string; perspective: string; perspectiveInstructions: string } {
     switch (pov) {
       case 'first':
         return {
           instruction: 'POV: First person (I/me/my).',
           perspective: 'the protagonist\'s first-person perspective ("I see...", "I feel...")',
-          perspectiveInstructions: 'Use "I/me/my" for the protagonist. Write from their internal perspective.',
-        };
+          perspectiveInstructions:
+            'Use "I/me/my" for the protagonist. Write from their internal perspective.',
+        }
       case 'second':
         return {
           instruction: 'POV: Second person (You/your).',
           perspective: 'the protagonist\'s second-person perspective ("You see...", "You feel...")',
-          perspectiveInstructions: 'Use "you/your" for the protagonist. Address the reader/protagonist directly.',
-        };
+          perspectiveInstructions:
+            'Use "you/your" for the protagonist. Address the reader/protagonist directly.',
+        }
       case 'third':
       default:
         return {
           instruction: 'POV: Third person (he/she/they).',
           perspective: `through ${protagonistName}'s perspective`,
           perspectiveInstructions: `NEVER use second person ("you"). Always use "${protagonistName}" or "he/she/they".`,
-        };
+        }
     }
   }
 
   private getOpeningOutputFormat(
-      mode: StoryMode,
-      protagonistName: string,
-      outputMode: 'json' | 'stream',
-      pov?: POV
+    mode: StoryMode,
+    protagonistName: string,
+    outputMode: 'json' | 'stream',
+    pov?: POV,
   ): string {
     if (outputMode === 'stream') {
-      return 'Write ONLY prose. No JSON, no metadata.';
+      return 'Write ONLY prose. No JSON, no metadata.'
     }
 
-    let sceneInstruction: string;
+    let sceneInstruction: string
     if (mode === 'creative-writing') {
       switch (pov) {
         case 'first':
-          sceneInstruction = `string - the opening (2-3 paragraphs of first-person narrative featuring ${protagonistName})`;
-          break;
+          sceneInstruction = `string - the opening (2-3 paragraphs of first-person narrative featuring ${protagonistName})`
+          break
         case 'second':
-          sceneInstruction = `string - the opening (2-3 paragraphs of second-person narrative featuring ${protagonistName})`;
-          break;
+          sceneInstruction = `string - the opening (2-3 paragraphs of second-person narrative featuring ${protagonistName})`
+          break
         case 'third':
         default:
-          sceneInstruction = `string - the opening (2-3 paragraphs of third-person narrative featuring ${protagonistName})`;
-          break;
+          sceneInstruction = `string - the opening (2-3 paragraphs of third-person narrative featuring ${protagonistName})`
+          break
       }
     } else {
-      sceneInstruction = `string - the opening (2-3 paragraphs describing environment/situation, NOT ${protagonistName}'s actions)`;
+      sceneInstruction = `string - the opening (2-3 paragraphs describing environment/situation, NOT ${protagonistName}'s actions)`
     }
 
     return `Respond with valid JSON:
@@ -809,45 +923,57 @@ class ScenarioService {
     "name": "string - location name",
     "description": "string - 1-2 sentences"
   }
-}`;
+}`
   }
 
   private getWizardPromptContext(
     mode: StoryMode = 'adventure',
     pov: POV = 'second',
     tense: Tense = 'present',
-    protagonistName: string = 'the protagonist'
+    protagonistName: string = 'the protagonist',
   ): PromptContext {
     return {
       mode,
       pov,
       tense,
       protagonistName,
-    };
+    }
   }
 
   /**
    * Convert wizard data to story creation parameters.
    * NOTE: This method works - it's just data transformation.
    */
-  prepareStoryData(wizardData: WizardData, opening: GeneratedOpening): {
-    title: string;
-    genre: string;
-    description?: string;
-    mode: StoryMode;
-    settings: { pov: POV; tense: Tense; tone?: string; themes?: string[]; visualProseMode?: boolean; inlineImageMode?: boolean; imageGenerationMode?: 'none' | 'auto' | 'inline' };
-    protagonist: Partial<Character>;
-    startingLocation: Partial<Location>;
-    initialItems: Partial<Item>[];
-    openingScene: string;
-    systemPrompt: string;
-    characters: Partial<Character>[];
+  prepareStoryData(
+    wizardData: WizardData,
+    opening: GeneratedOpening,
+  ): {
+    title: string
+    genre: string
+    description?: string
+    mode: StoryMode
+    settings: {
+      pov: POV
+      tense: Tense
+      tone?: string
+      themes?: string[]
+      visualProseMode?: boolean
+      inlineImageMode?: boolean
+      imageGenerationMode?: 'none' | 'auto' | 'inline'
+    }
+    protagonist: Partial<Character>
+    startingLocation: Partial<Location>
+    initialItems: Partial<Item>[]
+    openingScene: string
+    systemPrompt: string
+    characters: Partial<Character>[]
   } {
-    const { mode, genre, customGenre, expandedSetting, protagonist, characters, writingStyle } = wizardData;
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : this.capitalizeGenre(genre);
+    const { mode, genre, customGenre, expandedSetting, protagonist, characters, writingStyle } =
+      wizardData
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : this.capitalizeGenre(genre)
 
     // Build a custom system prompt based on the setting
-    const systemPrompt = this.buildSystemPrompt(wizardData, expandedSetting);
+    const systemPrompt = this.buildSystemPrompt(wizardData, expandedSetting)
 
     return {
       title: opening.title || wizardData.title,
@@ -880,39 +1006,42 @@ class ScenarioService {
       initialItems: [],
       openingScene: opening.scene,
       systemPrompt,
-      characters: (characters || []).map(c => ({
+      characters: (characters || []).map((c) => ({
         name: c.name,
         description: c.description,
         relationship: c.relationship,
         traits: c.traits,
         status: 'active' as const,
       })),
-    };
+    }
   }
 
   private buildSystemPrompt(wizardData: WizardData, setting?: ExpandedSetting): string {
-    const { mode, genre, customGenre, writingStyle, protagonist } = wizardData;
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : this.capitalizeGenre(genre);
+    const { mode, genre, customGenre, writingStyle, protagonist } = wizardData
+    const genreLabel = genre === 'custom' && customGenre ? customGenre : this.capitalizeGenre(genre)
 
     const settingDescription = setting
       ? `${setting.name || 'A unique world'}\n${setting.description || ''}`
-      : undefined;
+      : undefined
 
     const promptContext: PromptContext = {
       mode,
       pov: writingStyle.pov,
       tense: writingStyle.tense,
-      protagonistName: protagonist?.name || (writingStyle.pov === 'second' ? 'You' : 'The Protagonist'),
+      protagonistName:
+        protagonist?.name || (writingStyle.pov === 'second' ? 'You' : 'The Protagonist'),
       genre: genreLabel,
-      tone: writingStyle.tone || (mode === 'creative-writing' ? 'engaging and immersive' : 'immersive and engaging'),
+      tone:
+        writingStyle.tone ||
+        (mode === 'creative-writing' ? 'engaging and immersive' : 'immersive and engaging'),
       settingDescription,
       themes: setting?.themes,
       visualProseMode: writingStyle.visualProseMode,
       inlineImageMode: writingStyle.inlineImageMode,
-    };
+    }
 
-    const templateId = mode === 'creative-writing' ? 'creative-writing' : 'adventure';
-    return promptService.renderPrompt(templateId, promptContext);
+    const templateId = mode === 'creative-writing' ? 'creative-writing' : 'adventure'
+    return promptService.renderPrompt(templateId, promptContext)
   }
 
   private capitalizeGenre(genre: Genre): string {
@@ -924,44 +1053,49 @@ class ScenarioService {
       mystery: 'Mystery',
       romance: 'Romance',
       custom: 'Custom',
-    };
-    return genreMap[genre] || genre;
+    }
+    return genreMap[genre] || genre
   }
 
   private buildSettingLorebookContext(
-      lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[]
+    lorebookEntries?: { name: string; type: string; description: string; hiddenInfo?: string }[],
   ): string {
-    if (!lorebookEntries || lorebookEntries.length === 0) return '';
+    if (!lorebookEntries || lorebookEntries.length === 0) return ''
 
-    const entriesByType: Record<string, { name: string; description: string; hiddenInfo?: string }[]> = {};
+    const entriesByType: Record<
+      string,
+      { name: string; description: string; hiddenInfo?: string }[]
+    > = {}
     for (const entry of lorebookEntries) {
       if (!entriesByType[entry.type]) {
-        entriesByType[entry.type] = [];
+        entriesByType[entry.type] = []
       }
       entriesByType[entry.type].push({
         name: entry.name,
         description: entry.description,
         hiddenInfo: entry.hiddenInfo,
-      });
+      })
     }
 
-    let lorebookContext = '\n\n## Existing Lore (from imported lorebook)\nThese are established canon elements. The expanded setting MUST be consistent with all of this lore:\n';
+    let lorebookContext =
+      '\n\n## Existing Lore (from imported lorebook)\nThese are established canon elements. The expanded setting MUST be consistent with all of this lore:\n'
     for (const [type, entries] of Object.entries(entriesByType)) {
       if (entries.length > 0) {
-        lorebookContext += `\n### ${type.charAt(0).toUpperCase() + type.slice(1)}s:\n`;
+        lorebookContext += `\n### ${type.charAt(0).toUpperCase() + type.slice(1)}s:\n`
         for (const entry of entries) {
-          lorebookContext += `- **${entry.name}**: ${entry.description}`;
+          lorebookContext += `- **${entry.name}**: ${entry.description}`
           if (entry.hiddenInfo) {
-            lorebookContext += ` [Hidden lore: ${entry.hiddenInfo}]`;
+            lorebookContext += ` [Hidden lore: ${entry.hiddenInfo}]`
           }
-          lorebookContext += '\n';
+          lorebookContext += '\n'
         }
       }
     }
-    lorebookContext += '\nMake sure the setting is consistent with the existing lore provided above.';
+    lorebookContext +=
+      '\nMake sure the setting is consistent with the existing lore provided above.'
 
-    return lorebookContext;
+    return lorebookContext
   }
 }
 
-export const scenarioService = new ScenarioService();
+export const scenarioService = new ScenarioService()

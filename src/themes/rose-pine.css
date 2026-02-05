@@ -3,12 +3,12 @@
    All natural pine, faux fur and a bit of soho vibes.
    The original dark variant with muted, dusky tones.
    ============================================= */
-[data-theme="rose-pine"] {
+[data-theme='rose-pine'] {
   /*
      Rosé Pine Surface Scale
      Based on official Rosé Pine palette
   */
-  --color-surface-50: #908caa;  /* Subtle */
+  --color-surface-50: #908caa; /* Subtle */
   --color-surface-100: #6e6a86; /* Muted */
   --color-surface-200: #524f67; /* Highlight High */
   --color-surface-300: #403d52; /* Highlight Med */
@@ -27,7 +27,7 @@
   --color-accent-200: #ba9fe7;
   --color-accent-300: #a37fdf;
   --color-accent-400: #8c5fd7;
-  --color-accent-500: #c4a7e7;  /* Iris */
+  --color-accent-500: #c4a7e7; /* Iris */
   --color-accent-600: #9d86b9;
   --color-accent-700: #76658b;
   --color-accent-800: #4f445d;
@@ -43,48 +43,48 @@
   --rose-pine-iris: #c4a7e7;
 
   /* Semantic colors */
-  --bg-primary: #191724;            /* Base */
-  --bg-secondary: #1f1d2e;          /* Surface */
-  --bg-tertiary: #26233a;           /* Overlay */
-  --text-primary: #e0def4;          /* Text */
-  --text-secondary: #908caa;        /* Subtle */
-  --text-muted: #6e6a86;            /* Muted */
-  --text-accent: #c4a7e7;           /* Iris */
-  --border-primary: #403d52;        /* Highlight Med */
-  --border-secondary: #26233a;      /* Overlay */
+  --bg-primary: #191724; /* Base */
+  --bg-secondary: #1f1d2e; /* Surface */
+  --bg-tertiary: #26233a; /* Overlay */
+  --text-primary: #e0def4; /* Text */
+  --text-secondary: #908caa; /* Subtle */
+  --text-muted: #6e6a86; /* Muted */
+  --text-accent: #c4a7e7; /* Iris */
+  --border-primary: #403d52; /* Highlight Med */
+  --border-secondary: #26233a; /* Overlay */
   --scrollbar-track: #1f1d2e;
   --scrollbar-thumb: #403d52;
   --scrollbar-thumb-hover: #524f67;
 
   /* Shadcn Variables */
   --radius: 0.5rem;
-  --background: #191724;            /* Base */
-  --foreground: #e0def4;            /* Text */
+  --background: #191724; /* Base */
+  --foreground: #e0def4; /* Text */
 
-  --card: #1f1d2e;                  /* Surface */
-  --card-foreground: #e0def4;       /* Text */
+  --card: #1f1d2e; /* Surface */
+  --card-foreground: #e0def4; /* Text */
 
-  --popover: #1f1d2e;               /* Surface */
-  --popover-foreground: #e0def4;    /* Text */
+  --popover: #1f1d2e; /* Surface */
+  --popover-foreground: #e0def4; /* Text */
 
-  --primary: #c4a7e7;               /* Iris */
-  --primary-foreground: #191724;    /* Base */
+  --primary: #c4a7e7; /* Iris */
+  --primary-foreground: #191724; /* Base */
 
-  --secondary: #26233a;             /* Overlay */
-  --secondary-foreground: #e0def4;  /* Text */
+  --secondary: #26233a; /* Overlay */
+  --secondary-foreground: #e0def4; /* Text */
 
-  --muted: #26233a;                 /* Overlay */
-  --muted-foreground: #908caa;      /* Subtle */
+  --muted: #26233a; /* Overlay */
+  --muted-foreground: #908caa; /* Subtle */
 
-  --accent: #403d52;                /* Highlight Med */
-  --accent-foreground: #c4a7e7;     /* Iris */
+  --accent: #403d52; /* Highlight Med */
+  --accent-foreground: #c4a7e7; /* Iris */
 
-  --destructive: #eb6f92;           /* Love */
+  --destructive: #eb6f92; /* Love */
   --destructive-foreground: #191724; /* Base */
 
-  --border: #403d52;                /* Highlight Med */
-  --input: #403d52;                 /* Highlight Med */
-  --ring: #c4a7e7;                  /* Iris */
+  --border: #403d52; /* Highlight Med */
+  --input: #403d52; /* Highlight Med */
+  --ring: #c4a7e7; /* Iris */
 
   /* Special effects */
   --crt-scanline: transparent;
@@ -95,102 +95,102 @@
 
 /* Background overrides - Standard Dark Theme */
 
-[data-theme="rose-pine"] .bg-surface-900 {
+[data-theme='rose-pine'] .bg-surface-900 {
   background-color: #191724; /* Base */
 }
 
-[data-theme="rose-pine"] .bg-surface-850 {
+[data-theme='rose-pine'] .bg-surface-850 {
   background-color: #1f1d2e; /* Surface */
 }
 
-[data-theme="rose-pine"] .bg-surface-800 {
+[data-theme='rose-pine'] .bg-surface-800 {
   background-color: #26233a; /* Overlay */
 }
 
-[data-theme="rose-pine"] .bg-surface-700 {
+[data-theme='rose-pine'] .bg-surface-700 {
   background-color: #403d52; /* Highlight Med */
 }
 
-[data-theme="rose-pine"] .bg-surface-600 {
+[data-theme='rose-pine'] .bg-surface-600 {
   background-color: #524f67; /* Highlight High */
 }
 
-[data-theme="rose-pine"] .bg-surface-500 {
+[data-theme='rose-pine'] .bg-surface-500 {
   background-color: #524f67;
 }
 
-[data-theme="rose-pine"] .bg-surface-400 {
+[data-theme='rose-pine'] .bg-surface-400 {
   background-color: #403d52;
 }
 
-[data-theme="rose-pine"] .bg-surface-300 {
+[data-theme='rose-pine'] .bg-surface-300 {
   background-color: #26233a;
 }
 
-[data-theme="rose-pine"] .bg-surface-200 {
+[data-theme='rose-pine'] .bg-surface-200 {
   background-color: #1f1d2e;
 }
 
-[data-theme="rose-pine"] .bg-surface-100 {
+[data-theme='rose-pine'] .bg-surface-100 {
   background-color: #191724;
 }
 
-[data-theme="rose-pine"] .bg-surface-50 {
+[data-theme='rose-pine'] .bg-surface-50 {
   background-color: #191724;
 }
 
 /* Text color overrides - maintain proper contrast hierarchy */
 /* Lower numbers = brighter (for active text), Higher numbers = dimmer (for placeholder) */
-[data-theme="rose-pine"] .text-surface-50 {
+[data-theme='rose-pine'] .text-surface-50 {
   color: #e0def4; /* Text - brightest */
 }
 
-[data-theme="rose-pine"] .text-surface-100 {
+[data-theme='rose-pine'] .text-surface-100 {
   color: #e0def4; /* Text */
 }
 
-[data-theme="rose-pine"] .text-surface-200 {
+[data-theme='rose-pine'] .text-surface-200 {
   color: #e0def4; /* Text - for input text */
 }
 
-[data-theme="rose-pine"] .text-surface-300 {
+[data-theme='rose-pine'] .text-surface-300 {
   color: #908caa; /* Subtle */
 }
 
-[data-theme="rose-pine"] .text-surface-400 {
+[data-theme='rose-pine'] .text-surface-400 {
   color: #908caa; /* Subtle */
 }
 
-[data-theme="rose-pine"] .text-surface-500 {
+[data-theme='rose-pine'] .text-surface-500 {
   color: #6e6a86; /* Muted - for placeholder */
 }
 
 /* Placeholder color override for inputs */
-[data-theme="rose-pine"] textarea::placeholder,
-[data-theme="rose-pine"] input::placeholder {
+[data-theme='rose-pine'] textarea::placeholder,
+[data-theme='rose-pine'] input::placeholder {
   color: #6e6a86 !important; /* Muted */
 }
 
 /* Border color overrides */
-[data-theme="rose-pine"] .border-surface-700 {
+[data-theme='rose-pine'] .border-surface-700 {
   border-color: #403d52;
 }
 
-[data-theme="rose-pine"] .border-surface-600 {
+[data-theme='rose-pine'] .border-surface-600 {
   border-color: #524f67;
 }
 
 /* Select dropdown styling */
-[data-theme="rose-pine"] select.input {
+[data-theme='rose-pine'] select.input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23e0def4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-[data-theme="rose-pine"] select.input option {
+[data-theme='rose-pine'] select.input option {
   background-color: #1f1d2e;
   color: #e0def4;
 }
 
-[data-theme="rose-pine"] select.input option:checked {
+[data-theme='rose-pine'] select.input option:checked {
   background-color: #c4a7e7;
   color: #191724;
 }

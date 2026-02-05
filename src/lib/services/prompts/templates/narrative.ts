@@ -5,7 +5,7 @@
  * These are the primary prompts that drive the narrative generation.
  */
 
-import type { PromptTemplate } from '../types';
+import type { PromptTemplate } from '../types'
 
 /**
  * Adventure mode system prompt
@@ -97,7 +97,7 @@ When [LOREBOOK CONTEXT] is provided, treat it as canonical:
 
 {{visualProseBlock}}
 {{inlineImageBlock}}`,
-};
+}
 
 /**
  * Creative writing mode system prompt
@@ -213,7 +213,7 @@ When [LOREBOOK CONTEXT] is provided, treat it as canonical:
 
 {{visualProseBlock}}
 {{inlineImageBlock}}`,
-};
+}
 
 /**
  * Story templates array for registration
@@ -221,4 +221,4 @@ When [LOREBOOK CONTEXT] is provided, treat it as canonical:
 export const storyTemplates: PromptTemplate[] = [
   adventurePromptTemplate,
   creativeWritingPromptTemplate,
-];
+]

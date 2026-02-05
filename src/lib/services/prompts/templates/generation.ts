@@ -7,7 +7,7 @@
  * Note: Suggestions template is in ./suggestions/suggestions.ts
  */
 
-import type { PromptTemplate } from '../types';
+import type { PromptTemplate } from '../types'
 
 /**
  * Action Choices prompt template
@@ -60,7 +60,7 @@ Avoid choices like "Wait and see" or "Do nothing" - each option should lead to m
 - dialogue: Speaking to someone
 - examine: Looking at or investigating something
 - move: Going somewhere or leaving`,
-};
+}
 
 /**
  * Timeline Fill prompt template
@@ -89,7 +89,7 @@ Existing chapter timeline:
 {{timeline}}
 
 Identify what information from past chapters would help understand the current scene. Generate queries about specific chapters or chapter ranges. The maximum number of chapters per query is 3.`,
-};
+}
 
 /**
  * Timeline Fill Answer prompt template
@@ -106,7 +106,7 @@ export const timelineFillAnswerPromptTemplate: PromptTemplate = {
 QUESTION: {{query}}
 
 Provide a concise, factual answer based only on the chapter content above. If the information isn't available in these chapters, say "Not mentioned in these chapters."`,
-};
+}
 
 /**
  * Generation templates array for registration
@@ -115,4 +115,4 @@ export const generationTemplates: PromptTemplate[] = [
   actionChoicesPromptTemplate,
   timelineFillPromptTemplate,
   timelineFillAnswerPromptTemplate,
-];
+]

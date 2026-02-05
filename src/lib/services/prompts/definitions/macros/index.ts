@@ -12,22 +12,22 @@
  * - placeholders.ts: Runtime context placeholders (NOT user-editable)
  */
 
-import type { Macro } from '../../types';
+import type { Macro } from '../../types'
 
 // Re-export all individual macros for direct access
-export * from './core';
-export * from './context';
-export * from './narrative';
-export * from './features';
+export * from './core'
+export * from './context'
+export * from './narrative'
+export * from './features'
 
 // Re-export placeholders
-export { CONTEXT_PLACEHOLDERS, getPlaceholderByToken } from './placeholders';
+export { CONTEXT_PLACEHOLDERS, getPlaceholderByToken } from './placeholders'
 
 // Import arrays for combined registry
-import { coreMacros } from './core';
-import { contextMacros } from './context';
-import { narrativeMacros } from './narrative';
-import { featureMacros } from './features';
+import { coreMacros } from './core'
+import { contextMacros } from './context'
+import { narrativeMacros } from './narrative'
+import { featureMacros } from './features'
 
 /**
  * Combined array of all builtin macros.
@@ -38,4 +38,4 @@ export const BUILTIN_MACROS: Macro[] = [
   ...contextMacros,
   ...narrativeMacros,
   ...featureMacros,
-];
+]

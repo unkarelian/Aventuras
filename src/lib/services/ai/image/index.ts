@@ -12,23 +12,16 @@ export {
   InlineImageGenerationService,
   inlineImageService,
   type InlineImageContext,
-} from './InlineImageService';
+} from './InlineImageService'
 
 // Inline image tracker for streaming
-export { InlineImageTracker } from './InlineImageTracker';
+export { InlineImageTracker } from './InlineImageTracker'
 
 // Image analysis service (analyzed/agent mode)
-export {
-  ImageAnalysisService,
-  type ImageAnalysisContext,
-} from './ImageAnalysisService';
+export { ImageAnalysisService, type ImageAnalysisContext } from './ImageAnalysisService'
 
 // Model listing utilities
-export {
-  listImageModels,
-  clearModelsCache,
-  type ImageModelInfo,
-} from './modelListing';
+export { listImageModels, clearModelsCache, type ImageModelInfo } from './modelListing'
 
 // Image generation utilities
 export {
@@ -37,7 +30,7 @@ export {
   getProviderDisplayName,
   retryImageGeneration,
   generatePortrait,
-} from './imageUtils';
+} from './imageUtils'
 
 // Constants
 export {
@@ -45,4 +38,4 @@ export {
   POLLINATIONS_DEFAULT_MODEL_ID,
   POLLINATIONS_REFERENCE_MODEL_ID,
   IMAGE_STUCK_THRESHOLD_MS,
-} from './constants';
+} from './constants'

@@ -1,103 +1,96 @@
 <script lang="ts">
-  import { ui } from "$lib/stores/ui.svelte";
-  import { story } from "$lib/stores/story.svelte";
-  import { lorebookImportService, type ImportProgress } from "$lib/services/lorebook";
-  import type { LorebookImportResult } from "$lib/services/lorebookImporter";
-  import { open } from '@tauri-apps/plugin-dialog';
-  import { readTextFile } from '@tauri-apps/plugin-fs';
-  import {
-    Upload,
-    FileJson,
-    Loader2,
-    Check,
-  } from "lucide-svelte";
+  import { ui } from '$lib/stores/ui.svelte'
+  import { story } from '$lib/stores/story.svelte'
+  import { lorebookImportService, type ImportProgress } from '$lib/services/lorebook'
+  import type { LorebookImportResult } from '$lib/services/lorebookImporter'
+  import { open } from '@tauri-apps/plugin-dialog'
+  import { readTextFile } from '@tauri-apps/plugin-fs'
+  import { Upload, FileJson, Loader2, Check } from 'lucide-svelte'
 
-  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
-  import { Button } from "$lib/components/ui/button";
-  import { Progress } from "$lib/components/ui/progress";
-  import { Checkbox } from "$lib/components/ui/checkbox";
-  import { Label } from "$lib/components/ui/label";
-  import { cn } from "$lib/utils/cn";
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
+  import { Button } from '$lib/components/ui/button'
+  import { Progress } from '$lib/components/ui/progress'
+  import { Checkbox } from '$lib/components/ui/checkbox'
+  import { Label } from '$lib/components/ui/label'
+  import { cn } from '$lib/utils/cn'
 
-  let dragOver = $state(false);
-  let parseResult = $state<LorebookImportResult | null>(null);
-  let useAIClassification = $state(true);
-  let importing = $state(false);
-  let importProgress = $state<ImportProgress | null>(null);
+  let dragOver = $state(false)
+  let parseResult = $state<LorebookImportResult | null>(null)
+  let useAIClassification = $state(true)
+  let importing = $state(false)
+  let importProgress = $state<ImportProgress | null>(null)
 
-  const previewCount = $derived(parseResult?.entries.length ?? 0);
+  const previewCount = $derived(parseResult?.entries.length ?? 0)
 
   // Type counts for preview
   const typeCounts = $derived.by(() => {
-    if (!parseResult) return {};
+    if (!parseResult) return {}
     return parseResult.entries.reduce(
       (acc, e) => {
-        acc[e.type] = (acc[e.type] || 0) + 1;
-        return acc;
+        acc[e.type] = (acc[e.type] || 0) + 1
+        return acc
       },
       {} as Record<string, number>,
-    );
-  });
+    )
+  })
 
   // Progress percentage for UI
   const progressPercent = $derived(
     importProgress && importProgress.total > 0
       ? Math.round((importProgress.current / importProgress.total) * 100)
-      : 0
-  );
+      : 0,
+  )
 
   function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    dragOver = false;
-    const file = e.dataTransfer?.files[0];
+    e.preventDefault()
+    dragOver = false
+    const file = e.dataTransfer?.files[0]
     if (file) {
-      processFile(file);
+      processFile(file)
     }
   }
 
   function handleDragOver(e: DragEvent) {
-    e.preventDefault();
-    dragOver = true;
+    e.preventDefault()
+    dragOver = true
   }
 
   function handleDragLeave() {
-    dragOver = false;
+    dragOver = false
   }
 
   async function processContent(text: string, filename: string) {
-    parseResult = null;
+    parseResult = null
 
-    const result = lorebookImportService.parseFile(text, filename);
+    const result = lorebookImportService.parseFile(text, filename)
 
     if (!result) {
-      ui.showToast("Please select a JSON or Aventuras file (.json or .avt)", "error");
-      return;
+      ui.showToast('Please select a JSON or Aventuras file (.json or .avt)', 'error')
+      return
     }
 
     if (!result.success) {
       ui.showToast(
-        result.errors.length > 0
-          ? result.errors.join(", ")
-          : "Invalid lorebook file format",
-        "error"
-      );
-      return;
+        result.errors.length > 0 ? result.errors.join(', ') : 'Invalid lorebook file format',
+        'error',
+      )
+      return
     }
 
     if (result.entries.length === 0) {
-      ui.showToast("No valid entries found in this lorebook file", "error");
-      return;
+      ui.showToast('No valid entries found in this lorebook file', 'error')
+      return
     }
 
-    parseResult = result;
+    parseResult = result
   }
 
   async function processFile(file: File) {
     try {
-      const text = await file.text();
-      await processContent(text, file.name);
+      const text = await file.text()
+      await processContent(text, file.name)
     } catch (err) {
-      ui.showToast(err instanceof Error ? err.message : "Failed to read file", "error");
+      ui.showToast(err instanceof Error ? err.message : 'Failed to read file', 'error')
     }
   }
 
@@ -109,25 +102,25 @@
           { name: 'JSON', extensions: ['json'] },
           { name: 'All Files', extensions: ['*'] },
         ],
-      });
+      })
 
       if (!filePath || typeof filePath !== 'string') {
-        return;
+        return
       }
 
-      const content = await readTextFile(filePath);
-      const filename = filePath.split(/[/\\]/).pop() ?? 'lorebook.json';
-      await processContent(content, filename);
+      const content = await readTextFile(filePath)
+      const filename = filePath.split(/[/\\]/).pop() ?? 'lorebook.json'
+      await processContent(content, filename)
     } catch (err) {
-      ui.showToast(err instanceof Error ? err.message : "Failed to open file", "error");
+      ui.showToast(err instanceof Error ? err.message : 'Failed to open file', 'error')
     }
   }
 
   async function handleImport() {
-    if (!parseResult || !story.currentStory) return;
+    if (!parseResult || !story.currentStory) return
 
-    importing = true;
-    importProgress = null;
+    importing = true
+    importProgress = null
 
     try {
       const result = await lorebookImportService.importEntries(parseResult, {
@@ -135,41 +128,39 @@
         useAIClassification,
         storyMode: story.currentStory.mode ?? 'adventure',
         onProgress: (progress) => {
-          importProgress = progress;
+          importProgress = progress
         },
-      });
+      })
 
       if (result.success) {
         // Reload entries into store
-        const allEntries = await lorebookImportService.getStoryEntries(story.currentStory.id);
-        story.lorebookEntries = allEntries;
+        const allEntries = await lorebookImportService.getStoryEntries(story.currentStory.id)
+        story.lorebookEntries = allEntries
 
-        ui.showToast(`Successfully imported ${result.entriesImported} entries`, "info");
-        ui.closeLorebookImport();
+        ui.showToast(`Successfully imported ${result.entriesImported} entries`, 'info')
+        ui.closeLorebookImport()
       } else {
-        const errorMsg = result.errors.length > 0
-          ? result.errors.join(", ")
-          : "Import failed";
-        ui.showToast(errorMsg, "error");
+        const errorMsg = result.errors.length > 0 ? result.errors.join(', ') : 'Import failed'
+        ui.showToast(errorMsg, 'error')
       }
     } catch (err) {
-      ui.showToast(err instanceof Error ? err.message : "Import failed", "error");
+      ui.showToast(err instanceof Error ? err.message : 'Import failed', 'error')
     } finally {
-      importing = false;
-      importProgress = null;
+      importing = false
+      importProgress = null
     }
   }
 
   function close() {
-    ui.closeLorebookImport();
+    ui.closeLorebookImport()
   }
 </script>
 
 <ResponsiveModal.Root open={true} onOpenChange={(open) => !open && close()}>
-  <ResponsiveModal.Content class="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
-    <ResponsiveModal.Header class="px-6 py-4 border-b">
+  <ResponsiveModal.Content class="flex max-h-[90vh] max-w-lg flex-col gap-0 p-0">
+    <ResponsiveModal.Header class="border-b px-6 py-4">
       <div class="flex items-center gap-2">
-        <Upload class="h-5 w-5 text-primary" />
+        <Upload class="text-primary h-5 w-5" />
         <ResponsiveModal.Title>Import Lorebook</ResponsiveModal.Title>
       </div>
       <ResponsiveModal.Description>
@@ -177,15 +168,15 @@
       </ResponsiveModal.Description>
     </ResponsiveModal.Header>
 
-    <div class="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+    <div class="flex-1 space-y-4 overflow-y-auto px-6 py-6">
       {#if !parseResult}
         <!-- File upload area -->
         <div
           class={cn(
-            "border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer",
+            'cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors',
             dragOver
-              ? "border-primary bg-primary/10"
-              : "border-muted hover:border-muted-foreground/50"
+              ? 'border-primary bg-primary/10'
+              : 'border-muted hover:border-muted-foreground/50',
           )}
           ondrop={handleDrop}
           ondragover={handleDragOver}
@@ -193,26 +184,26 @@
           role="button"
           tabindex="0"
           onclick={handleBrowse}
-          onkeydown={(e) => e.key === "Enter" && handleBrowse()}
+          onkeydown={(e) => e.key === 'Enter' && handleBrowse()}
         >
-          <FileJson class="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+          <FileJson class="text-muted-foreground mx-auto mb-3 h-12 w-12" />
           <p class="text-foreground mb-1">Drop a lorebook file here</p>
-          <p class="text-sm text-muted-foreground">or click to browse</p>
+          <p class="text-muted-foreground text-sm">or click to browse</p>
         </div>
 
-        <p class="text-xs text-muted-foreground text-center">
+        <p class="text-muted-foreground text-center text-xs">
           Supports Aventuras (.avt, .json) and SillyTavern lorebook formats
         </p>
       {:else}
         <!-- Preview -->
-        <div class="p-4 rounded-lg bg-muted/50 border">
-          <div class="flex items-center gap-2 mb-3">
+        <div class="bg-muted/50 rounded-lg border p-4">
+          <div class="mb-3 flex items-center gap-2">
             <Check class="h-5 w-5 text-green-500" />
             <span class="text-foreground font-medium">Found {previewCount} entries</span>
           </div>
 
           <!-- Entry type breakdown -->
-          <div class="text-sm text-muted-foreground space-y-1">
+          <div class="text-muted-foreground space-y-1 text-sm">
             {#each Object.entries(typeCounts) as [type, count]}
               <div class="flex items-center justify-between">
                 <span class="capitalize">{type}</span>
@@ -223,30 +214,26 @@
         </div>
 
         <!-- AI Classification toggle -->
-        <div class="flex items-start space-x-2 p-3 rounded-lg border">
-          <Checkbox
-            id="ai-classification"
-            bind:checked={useAIClassification}
-            class="mt-1"
-          />
+        <div class="flex items-start space-x-2 rounded-lg border p-3">
+          <Checkbox id="ai-classification" bind:checked={useAIClassification} class="mt-1" />
           <div class="grid gap-1.5 leading-none">
             <Label
               for="ai-classification"
-              class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              class="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
             >
               AI-powered classification
             </Label>
-            <p class="text-xs text-muted-foreground">
+            <p class="text-muted-foreground text-xs">
               Use AI to better categorize entry types based on their content
             </p>
           </div>
         </div>
 
         {#if importing && importProgress}
-          <div class="space-y-2 p-3 rounded-lg bg-muted/30 border">
+          <div class="bg-muted/30 space-y-2 rounded-lg border p-3">
             <div class="flex items-center gap-2">
-              <Loader2 class="h-4 w-4 text-primary animate-spin" />
-              <span class="text-sm text-foreground">{importProgress.message}</span>
+              <Loader2 class="text-primary h-4 w-4 animate-spin" />
+              <span class="text-foreground text-sm">{importProgress.message}</span>
             </div>
             <Progress value={progressPercent} class="h-2" />
           </div>
@@ -257,7 +244,7 @@
           variant="link"
           class="h-auto p-0 text-xs"
           onclick={() => {
-            parseResult = null;
+            parseResult = null
           }}
         >
           Choose a different file
@@ -265,18 +252,12 @@
       {/if}
     </div>
 
-    <ResponsiveModal.Footer class="px-6 py-4 border-t mt-auto">
-      <Button variant="outline" onclick={close} disabled={importing}>
-        Cancel
-      </Button>
-      <Button
-        onclick={handleImport}
-        disabled={!parseResult || importing}
-        class="gap-2"
-      >
+    <ResponsiveModal.Footer class="mt-auto border-t px-6 py-4">
+      <Button variant="outline" onclick={close} disabled={importing}>Cancel</Button>
+      <Button onclick={handleImport} disabled={!parseResult || importing} class="gap-2">
         {#if importing}
           <Loader2 class="h-4 w-4 animate-spin" />
-          {importProgress?.phase === 'classifying' ? "Classifying..." : "Importing..."}
+          {importProgress?.phase === 'classifying' ? 'Classifying...' : 'Importing...'}
         {:else}
           Import {previewCount} Entries
         {/if}

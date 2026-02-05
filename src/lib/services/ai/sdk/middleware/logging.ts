@@ -4,43 +4,43 @@
  * Logs the full prompt and output. Place LAST in middleware chain.
  */
 
-import type { LanguageModelV3Middleware, LanguageModelV3Prompt } from '@ai-sdk/provider';
-import { createLogger } from '../../core/config';
+import type { LanguageModelV3Middleware, LanguageModelV3Prompt } from '@ai-sdk/provider'
+import { createLogger } from '../../core/config'
 
-const log = createLogger('AI');
+const log = createLogger('AI')
 
 function promptToString(prompt: LanguageModelV3Prompt): string {
   return prompt
     .map((msg) => {
-      const role = msg.role.toUpperCase();
+      const role = msg.role.toUpperCase()
 
       if (msg.role === 'system') {
-        return `[${role}]\n${msg.content}`;
+        return `[${role}]\n${msg.content}`
       }
 
       if (msg.role === 'user' || msg.role === 'assistant') {
         const content = msg.content
           .map((part) => {
-            if (part.type === 'text') return part.text;
-            if (part.type === 'reasoning') return `[REASONING]\n${part.text}`;
-            if (part.type === 'tool-call') return `[TOOL: ${part.toolName}]`;
-            return `[${part.type.toUpperCase()}]`;
+            if (part.type === 'text') return part.text
+            if (part.type === 'reasoning') return `[REASONING]\n${part.text}`
+            if (part.type === 'tool-call') return `[TOOL: ${part.toolName}]`
+            return `[${part.type.toUpperCase()}]`
           })
-          .join('\n');
-        return `[${role}]\n${content}`;
+          .join('\n')
+        return `[${role}]\n${content}`
       }
 
       if (msg.role === 'tool') {
-        return `[TOOL RESULT]\n${JSON.stringify(msg.content, null, 2)}`;
+        return `[TOOL RESULT]\n${JSON.stringify(msg.content, null, 2)}`
       }
 
-      return `[${role}]\n${JSON.stringify(msg, null, 2)}`;
+      return `[${role}]\n${JSON.stringify(msg, null, 2)}`
     })
-    .join('\n\n---\n\n');
+    .join('\n\n---\n\n')
 }
 
 function extractText(content: Array<{ type: string; text?: string }>): string | undefined {
-  return content.find((p) => p.type === 'text' && p.text)?.text;
+  return content.find((p) => p.type === 'text' && p.text)?.text
 }
 
 export function loggingMiddleware(): LanguageModelV3Middleware {
@@ -48,36 +48,36 @@ export function loggingMiddleware(): LanguageModelV3Middleware {
     specificationVersion: 'v3',
 
     wrapGenerate: async ({ doGenerate, params }) => {
-      log('=== REQUEST ===');
-      log('Prompt:\n' + promptToString(params.prompt));
+      log('=== REQUEST ===')
+      log('Prompt:\n' + promptToString(params.prompt))
       if (params.responseFormat) {
-        log('Response Format:', JSON.stringify(params.responseFormat, null, 2));
+        log('Response Format:', JSON.stringify(params.responseFormat, null, 2))
       }
 
-      const result = await doGenerate();
+      const result = await doGenerate()
 
-      log('=== RESPONSE ===');
-      const text = extractText(result.content);
-      if (text) log('Text:', text);
+      log('=== RESPONSE ===')
+      const text = extractText(result.content)
+      if (text) log('Text:', text)
 
-      const r = result as Record<string, unknown>;
-      if (r.output) log('Output:', JSON.stringify(r.output, null, 2));
-      if (result.usage) log('Usage:', result.usage);
-      if (result.finishReason) log('Finish Reason:', result.finishReason);
+      const r = result as Record<string, unknown>
+      if (r.output) log('Output:', JSON.stringify(r.output, null, 2))
+      if (result.usage) log('Usage:', result.usage)
+      if (result.finishReason) log('Finish Reason:', result.finishReason)
 
-      return result;
+      return result
     },
 
     wrapStream: async ({ doStream, params }) => {
-      log('=== STREAM REQUEST ===');
-      log('Prompt:\n' + promptToString(params.prompt));
+      log('=== STREAM REQUEST ===')
+      log('Prompt:\n' + promptToString(params.prompt))
       if (params.responseFormat) {
-        log('Response Format:', JSON.stringify(params.responseFormat, null, 2));
+        log('Response Format:', JSON.stringify(params.responseFormat, null, 2))
       }
 
-      const result = await doStream();
-      log('=== STREAM STARTED ===');
-      return result;
+      const result = await doStream()
+      log('=== STREAM STARTED ===')
+      return result
     },
-  };
+  }
 }

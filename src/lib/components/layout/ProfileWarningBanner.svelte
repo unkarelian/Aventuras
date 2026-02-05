@@ -1,32 +1,32 @@
 <script lang="ts">
-  import { settings } from "$lib/stores/settings.svelte";
-  import { ui } from "$lib/stores/ui.svelte";
-  import { AlertTriangle, X, Settings } from "lucide-svelte";
-  import { Button } from "$lib/components/ui/button";
+  import { settings } from '$lib/stores/settings.svelte'
+  import { ui } from '$lib/stores/ui.svelte'
+  import { AlertTriangle, X, Settings } from 'lucide-svelte'
+  import { Button } from '$lib/components/ui/button'
 
-  let hasInvalid = $derived(settings.hasInvalidProfiles());
-  let shouldShow = $derived(hasInvalid && !ui.profileWarningDismissed);
+  let hasInvalid = $derived(settings.hasInvalidProfiles())
+  let shouldShow = $derived(hasInvalid && !ui.profileWarningDismissed)
 
   function handleFixProfiles() {
-    ui.openSettingsToApiTab();
+    ui.openSettingsToApiTab()
   }
 
   function handleDismiss() {
-    ui.dismissProfileWarning();
+    ui.dismissProfileWarning()
   }
 </script>
 
 {#if shouldShow}
   <div
-    class="bg-amber-500/90 text-amber-950 px-4 py-2 flex items-center justify-between gap-3 shadow-md"
+    class="flex items-center justify-between gap-3 bg-amber-500/90 px-4 py-2 text-amber-950 shadow-md"
   >
-    <div class="flex items-center gap-3 flex-1 min-w-0">
+    <div class="flex min-w-0 flex-1 items-center gap-3">
       <AlertTriangle class="h-5 w-5 shrink-0" />
-      <p class="text-sm font-medium truncate">
+      <p class="truncate text-sm font-medium">
         Your API profiles need to be updated. Please reconfigure them to continue using AI features.
       </p>
     </div>
-    <div class="flex items-center gap-2 shrink-0">
+    <div class="flex shrink-0 items-center gap-2">
       <Button
         variant="secondary"
         size="sm"
@@ -38,7 +38,7 @@
         <span class="sm:hidden">Fix</span>
       </Button>
       <button
-        class="p-1 hover:bg-amber-600/50 rounded transition-colors"
+        class="rounded p-1 transition-colors hover:bg-amber-600/50"
         onclick={handleDismiss}
         title="Dismiss for this session"
       >

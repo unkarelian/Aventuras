@@ -3,7 +3,7 @@
  * Coordinates with the main exportService to provide complete story data.
  */
 
-import { database } from '$lib/services/database';
+import { database } from '$lib/services/database'
 import type {
   Story,
   StoryEntry,
@@ -16,20 +16,20 @@ import type {
   Checkpoint,
   Branch,
   EmbeddedImage,
-} from '$lib/types';
+} from '$lib/types'
 
 /** Complete story data for export */
 export interface StoryExportData {
-  entries: StoryEntry[];
-  characters: Character[];
-  locations: Location[];
-  items: Item[];
-  storyBeats: StoryBeat[];
-  lorebookEntries: Entry[];
-  embeddedImages: EmbeddedImage[];
-  checkpoints: Checkpoint[];
-  branches: Branch[];
-  chapters: Chapter[];
+  entries: StoryEntry[]
+  characters: Character[]
+  locations: Location[]
+  items: Item[]
+  storyBeats: StoryBeat[]
+  lorebookEntries: Entry[]
+  embeddedImages: EmbeddedImage[]
+  checkpoints: Checkpoint[]
+  branches: Branch[]
+  chapters: Chapter[]
 }
 
 /**
@@ -60,7 +60,7 @@ export async function gatherStoryData(storyId: string): Promise<StoryExportData>
     database.getCheckpoints(storyId),
     database.getBranches(storyId),
     database.getChapters(storyId),
-  ]);
+  ])
 
   return {
     entries,
@@ -73,9 +73,9 @@ export async function gatherStoryData(storyId: string): Promise<StoryExportData>
     checkpoints,
     branches,
     chapters,
-  };
+  }
 }
 
 export const exportCoordinationService = {
   gatherStoryData,
-};
+}

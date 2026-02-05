@@ -4,9 +4,9 @@
  * Handles chapter summarization and memory retrieval for long-form narratives.
  */
 
-import type { Chapter, StoryEntry } from '$lib/types';
-import { generateStructured } from '../sdk/generate';
-import { promptService, type PromptContext } from '$lib/services/prompts';
+import type { Chapter, StoryEntry } from '$lib/types'
+import { generateStructured } from '../sdk/generate'
+import { promptService, type PromptContext } from '$lib/services/prompts'
 import {
   chapterAnalysisSchema,
   chapterSummaryResultSchema,
@@ -14,10 +14,10 @@ import {
   type ChapterAnalysis,
   type ChapterSummaryResult,
   type RetrievalDecision,
-} from '../sdk/schemas/memory';
-import { createLogger } from '../core/config';
+} from '../sdk/schemas/memory'
+import { createLogger } from '../core/config'
 
-const log = createLogger('Memory');
+const log = createLogger('Memory')
 
 export const DEFAULT_MEMORY_CONFIG = {
   tokenThreshold: 24000,
@@ -25,24 +25,24 @@ export const DEFAULT_MEMORY_CONFIG = {
   autoSummarize: true,
   enableRetrieval: true,
   maxChaptersPerRetrieval: 3,
-};
+}
 
 export interface RetrievedContext {
-  chapters: Chapter[];
-  contextBlock: string;
+  chapters: Chapter[]
+  contextBlock: string
 }
 
 export interface RetrievalContext {
-  userInput: string;
-  recentNarrative: string;
-  availableChapters: Chapter[];
+  userInput: string
+  recentNarrative: string
+  availableChapters: Chapter[]
 }
 
 export class MemoryService {
-  private presetId: string;
+  private presetId: string
 
   constructor(presetId: string = 'memory') {
-    this.presetId = presetId;
+    this.presetId = presetId
   }
 
   /**
@@ -53,43 +53,50 @@ export class MemoryService {
     previousChapters?: Chapter[],
     mode: string = 'adventure',
     pov: string = 'second',
-    tense: string = 'present'
+    tense: string = 'present',
   ): Promise<ChapterSummaryResult> {
-    log('summarizeChapter', { entryCount: entries.length, previousChaptersCount: previousChapters?.length ?? 0 });
+    log('summarizeChapter', {
+      entryCount: entries.length,
+      previousChaptersCount: previousChapters?.length ?? 0,
+    })
 
     const promptContext: PromptContext = {
       mode: mode as any,
       pov: pov as any,
       tense: tense as any,
       protagonistName: '',
-    };
+    }
 
-    const entriesText = entries.map(e => `[${e.type}]: ${e.content}`).join('\n\n');
+    const entriesText = entries.map((e) => `[${e.type}]: ${e.content}`).join('\n\n')
 
-    const previousChaptersContext = previousChapters && previousChapters.length > 0
-      ? `Previous chapters:\n${previousChapters.map(c => `Chapter ${c.number}: ${c.summary}`).join('\n\n')}`
-      : '';
+    const previousChaptersContext =
+      previousChapters && previousChapters.length > 0
+        ? `Previous chapters:\n${previousChapters.map((c) => `Chapter ${c.number}: ${c.summary}`).join('\n\n')}`
+        : ''
 
-    const system = promptService.renderPrompt('chapter-summarization', promptContext);
+    const system = promptService.renderPrompt('chapter-summarization', promptContext)
     const prompt = promptService.renderUserPrompt('chapter-summarization', promptContext, {
       chapterContent: entriesText,
       previousContext: previousChaptersContext,
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: this.presetId,
-      schema: chapterSummaryResultSchema,
-      system,
-      prompt,
-    }, 'chapter-summarization');
+    const result = await generateStructured(
+      {
+        presetId: this.presetId,
+        schema: chapterSummaryResultSchema,
+        system,
+        prompt,
+      },
+      'chapter-summarization',
+    )
 
     log('summarizeChapter complete', {
       hasSummary: !!result.summary,
       hasTitle: !!result.title,
       keywordCount: result.keywords.length,
-    });
+    })
 
-    return result;
+    return result
   }
 
   /**
@@ -101,40 +108,43 @@ export class MemoryService {
     tokensOutsideBuffer: number,
     mode: string = 'adventure',
     pov: string = 'second',
-    tense: string = 'present'
+    tense: string = 'present',
   ): Promise<ChapterAnalysis> {
-    log('analyzeForChapter', { entryCount: entries.length, tokensOutsideBuffer });
+    log('analyzeForChapter', { entryCount: entries.length, tokensOutsideBuffer })
 
     const promptContext: PromptContext = {
       mode: mode as any,
       pov: pov as any,
       tense: tense as any,
       protagonistName: '',
-    };
+    }
 
-    const entriesText = entries.map(e => `[${e.type}]: ${e.content}`).join('\n\n');
+    const entriesText = entries.map((e) => `[${e.type}]: ${e.content}`).join('\n\n')
 
-    const system = promptService.renderPrompt('chapter-analysis', promptContext);
+    const system = promptService.renderPrompt('chapter-analysis', promptContext)
     const prompt = promptService.renderUserPrompt('chapter-analysis', promptContext, {
       messagesInRange: entriesText,
       firstValidId: (lastChapterEndIndex + 1).toString(),
       lastValidId: (lastChapterEndIndex + entries.length).toString(),
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: this.presetId,
-      schema: chapterAnalysisSchema,
-      system,
-      prompt,
-    }, 'chapter-analysis');
+    const result = await generateStructured(
+      {
+        presetId: this.presetId,
+        schema: chapterAnalysisSchema,
+        system,
+        prompt,
+      },
+      'chapter-analysis',
+    )
 
     log('analyzeForChapter complete', {
       shouldCreateChapter: result.shouldCreateChapter,
       optimalEndIndex: result.optimalEndIndex,
       keywordCount: result.keywords.length,
-    });
+    })
 
-    return result;
+    return result
   }
 
   /**
@@ -144,12 +154,12 @@ export class MemoryService {
     context: RetrievalContext,
     mode: string = 'adventure',
     pov: string = 'second',
-    tense: string = 'present'
+    tense: string = 'present',
   ): Promise<RetrievalDecision> {
-    log('decideRetrieval', { chaptersAvailable: context.availableChapters.length });
+    log('decideRetrieval', { chaptersAvailable: context.availableChapters.length })
 
     if (context.availableChapters.length === 0) {
-      return { shouldRetrieve: false, relevantChapterIds: [] };
+      return { shouldRetrieve: false, relevantChapterIds: [] }
     }
 
     const promptContext: PromptContext = {
@@ -157,33 +167,36 @@ export class MemoryService {
       pov: pov as any,
       tense: tense as any,
       protagonistName: '',
-    };
+    }
 
     const chapterSummaries = context.availableChapters
-      .map(c => `Chapter ${c.number}: ${c.summary}`)
-      .join('\n\n');
+      .map((c) => `Chapter ${c.number}: ${c.summary}`)
+      .join('\n\n')
 
-    const system = promptService.renderPrompt('retrieval-decision', promptContext);
+    const system = promptService.renderPrompt('retrieval-decision', promptContext)
     const prompt = promptService.renderUserPrompt('retrieval-decision', promptContext, {
       userInput: context.userInput,
       recentContext: context.recentNarrative,
       chapterSummaries,
       maxChaptersPerRetrieval: DEFAULT_MEMORY_CONFIG.maxChaptersPerRetrieval.toString(),
-    });
+    })
 
-    const result = await generateStructured({
-      presetId: this.presetId,
-      schema: retrievalDecisionSchema,
-      system,
-      prompt,
-    }, 'retrieval-decision');
+    const result = await generateStructured(
+      {
+        presetId: this.presetId,
+        schema: retrievalDecisionSchema,
+        system,
+        prompt,
+      },
+      'retrieval-decision',
+    )
 
     log('decideRetrieval complete', {
       shouldRetrieve: result.shouldRetrieve,
       relevantCount: result.relevantChapterIds.length,
-    });
+    })
 
-    return result;
+    return result
   }
 
   /**
@@ -193,42 +206,42 @@ export class MemoryService {
   buildRetrievedContextBlock(
     chapters: Chapter[],
     decision: RetrievalDecision,
-    getChapterEntries?: (chapter: Chapter) => StoryEntry[]
+    getChapterEntries?: (chapter: Chapter) => StoryEntry[],
   ): string {
     if (!decision.shouldRetrieve || decision.relevantChapterIds.length === 0) {
-      return '';
+      return ''
     }
 
-    const relevantChapters = chapters.filter(c => decision.relevantChapterIds.includes(c.id));
+    const relevantChapters = chapters.filter((c) => decision.relevantChapterIds.includes(c.id))
     if (relevantChapters.length === 0) {
-      return '';
+      return ''
     }
 
-    let block = '\n\n[RETRIEVED MEMORY]\n';
-    block += 'The following is relevant context from earlier in the story:\n';
+    let block = '\n\n[RETRIEVED MEMORY]\n'
+    block += 'The following is relevant context from earlier in the story:\n'
 
     for (const chapter of relevantChapters) {
-      block += `\n--- Chapter ${chapter.number} ---\n`;
+      block += `\n--- Chapter ${chapter.number} ---\n`
 
       // Use full entries if callback provided, otherwise use summary
       if (getChapterEntries) {
-        const entries = getChapterEntries(chapter);
+        const entries = getChapterEntries(chapter)
         if (entries.length > 0) {
           block += entries
-            .map(e => `[${e.type === 'user_action' ? 'ACTION' : 'NARRATIVE'}]: ${e.content}`)
-            .join('\n\n');
+            .map((e) => `[${e.type === 'user_action' ? 'ACTION' : 'NARRATIVE'}]: ${e.content}`)
+            .join('\n\n')
         } else {
-          block += chapter.summary;
+          block += chapter.summary
         }
       } else {
-        block += chapter.summary;
+        block += chapter.summary
       }
 
       if (chapter.keywords && chapter.keywords.length > 0) {
-        block += `\n[Keywords: ${chapter.keywords.join(', ')}]`;
+        block += `\n[Keywords: ${chapter.keywords.join(', ')}]`
       }
     }
 
-    return block;
+    return block
   }
 }

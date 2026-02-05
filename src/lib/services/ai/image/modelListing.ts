@@ -6,26 +6,26 @@
  * without needing to select a specific profile.
  */
 
-import type { ProviderType } from '$lib/types';
-import { createLogger } from '../core/config';
-import { POLLINATIONS_DEFAULT_MODEL_ID, POLLINATIONS_REFERENCE_MODEL_ID } from './constants';
+import type { ProviderType } from '$lib/types'
+import { createLogger } from '../core/config'
+import { POLLINATIONS_DEFAULT_MODEL_ID, POLLINATIONS_REFERENCE_MODEL_ID } from './constants'
 
-const log = createLogger('ImageModels');
+const log = createLogger('ImageModels')
 
 /**
  * Information about an available image model.
  */
 export interface ImageModelInfo {
-  id: string;
-  name: string;
-  description?: string;
-  supportsSizes: string[];
-  supportsImg2Img: boolean;
-  costPerImage?: number;
-  costPerTextToken?: number;
-  costPerImageToken?: number;
-  inputModalities?: string[];
-  outputModalities?: string[];
+  id: string
+  name: string
+  description?: string
+  supportsSizes: string[]
+  supportsImg2Img: boolean
+  costPerImage?: number
+  costPerTextToken?: number
+  costPerImageToken?: number
+  inputModalities?: string[]
+  outputModalities?: string[]
 }
 
 // ============================================================================
@@ -33,31 +33,35 @@ export interface ImageModelInfo {
 // ============================================================================
 
 interface ModelCache {
-  models: ImageModelInfo[];
-  timestamp: number;
+  models: ImageModelInfo[]
+  timestamp: number
 }
 
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
-const modelCaches = new Map<string, ModelCache>();
+const CACHE_TTL = 15 * 60 * 1000 // 15 minutes
+const modelCaches = new Map<string, ModelCache>()
 
 function getCacheKey(providerType: ProviderType, apiKey?: string): string {
   // Include API key hash in cache key since different keys may see different models
-  const keyHash = apiKey ? apiKey.slice(-8) : 'nokey';
-  return `${providerType}:${keyHash}`;
+  const keyHash = apiKey ? apiKey.slice(-8) : 'nokey'
+  return `${providerType}:${keyHash}`
 }
 
 function getCached(providerType: ProviderType, apiKey?: string): ImageModelInfo[] | null {
-  const key = getCacheKey(providerType, apiKey);
-  const cached = modelCaches.get(key);
+  const key = getCacheKey(providerType, apiKey)
+  const cached = modelCaches.get(key)
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.models;
+    return cached.models
   }
-  return null;
+  return null
 }
 
-function setCache(providerType: ProviderType, apiKey: string | undefined, models: ImageModelInfo[]): void {
-  const key = getCacheKey(providerType, apiKey);
-  modelCaches.set(key, { models, timestamp: Date.now() });
+function setCache(
+  providerType: ProviderType,
+  apiKey: string | undefined,
+  models: ImageModelInfo[],
+): void {
+  const key = getCacheKey(providerType, apiKey)
+  modelCaches.set(key, { models, timestamp: Date.now() })
 }
 
 /**
@@ -67,7 +71,7 @@ export function clearModelsCache(providerType: ProviderType): void {
   // Clear all cache entries for this provider
   for (const key of modelCaches.keys()) {
     if (key.startsWith(`${providerType}:`)) {
-      modelCaches.delete(key);
+      modelCaches.delete(key)
     }
   }
 }
@@ -85,42 +89,42 @@ export function clearModelsCache(providerType: ProviderType): void {
  */
 export async function listImageModels(
   providerType: ProviderType,
-  apiKey?: string
+  apiKey?: string,
 ): Promise<ImageModelInfo[]> {
   // Check cache first
-  const cached = getCached(providerType, apiKey);
+  const cached = getCached(providerType, apiKey)
   if (cached) {
-    return cached;
+    return cached
   }
 
   try {
-    let models: ImageModelInfo[];
+    let models: ImageModelInfo[]
 
     switch (providerType) {
       case 'nanogpt':
-        models = await listNanoGPTModels();
-        break;
+        models = await listNanoGPTModels()
+        break
       case 'chutes':
-        models = await listChutesModels(apiKey);
-        break;
+        models = await listChutesModels(apiKey)
+        break
       case 'pollinations':
-        models = await listPollinationsModels(apiKey);
-        break;
+        models = await listPollinationsModels(apiKey)
+        break
       case 'openai':
-        models = getOpenAIModels();
-        break;
+        models = getOpenAIModels()
+        break
       case 'google':
-        models = getGoogleModels();
-        break;
+        models = getGoogleModels()
+        break
       default:
-        models = [];
+        models = []
     }
 
-    setCache(providerType, apiKey, models);
-    return models;
+    setCache(providerType, apiKey, models)
+    return models
   } catch (error) {
-    log('Error listing models for', providerType, error);
-    return getFallbackModels(providerType);
+    log('Error listing models for', providerType, error)
+    return getFallbackModels(providerType)
   }
 }
 
@@ -128,43 +132,44 @@ export async function listImageModels(
 // Provider-Specific Implementations
 // ============================================================================
 
-const NANOGPT_MODELS_ENDPOINT = 'https://nano-gpt.com/api/models';
+const NANOGPT_MODELS_ENDPOINT = 'https://nano-gpt.com/api/models'
 
 async function listNanoGPTModels(): Promise<ImageModelInfo[]> {
   try {
-    const response = await fetch(NANOGPT_MODELS_ENDPOINT);
+    const response = await fetch(NANOGPT_MODELS_ENDPOINT)
     if (!response.ok) {
-      return getFallbackModels('nanogpt');
+      return getFallbackModels('nanogpt')
     }
 
-    const data = await response.json();
-    const imageModels = data?.models?.image || {};
+    const data = await response.json()
+    const imageModels = data?.models?.image || {}
     const modelEntries = Object.values(imageModels) as Array<{
-      name?: string;
-      model?: string;
-      description?: string;
-      cost?: Record<string, number>;
-      resolutions?: Array<{ value: string; comment?: string }>;
-      tags?: string[];
-    }>;
+      name?: string
+      model?: string
+      description?: string
+      cost?: Record<string, number>
+      resolutions?: Array<{ value: string; comment?: string }>
+      tags?: string[]
+    }>
 
     if (modelEntries.length === 0) {
-      return getFallbackModels('nanogpt');
+      return getFallbackModels('nanogpt')
     }
 
     return modelEntries.map((model) => {
-      const supportsSizes = model.resolutions?.map(r =>
-        r.value.replace('*', 'x')
-      ) || ['512x512', '1024x1024'];
+      const supportsSizes = model.resolutions?.map((r) => r.value.replace('*', 'x')) || [
+        '512x512',
+        '1024x1024',
+      ]
 
-      const supportsImg2Img = model.tags?.includes('image-to-image') ||
-                              model.tags?.includes('image-edit') || false;
+      const supportsImg2Img =
+        model.tags?.includes('image-to-image') || model.tags?.includes('image-edit') || false
 
-      let costPerImage: number | undefined;
+      let costPerImage: number | undefined
       if (model.cost && typeof model.cost === 'object') {
-        const costs = Object.values(model.cost).filter(c => typeof c === 'number');
+        const costs = Object.values(model.cost).filter((c) => typeof c === 'number')
         if (costs.length > 0) {
-          costPerImage = costs.reduce((sum, c) => sum + c, 0) / costs.length;
+          costPerImage = costs.reduce((sum, c) => sum + c, 0) / costs.length
         }
       }
 
@@ -175,54 +180,51 @@ async function listNanoGPTModels(): Promise<ImageModelInfo[]> {
         supportsSizes,
         supportsImg2Img,
         costPerImage,
-      };
-    });
+      }
+    })
   } catch {
-    return getFallbackModels('nanogpt');
+    return getFallbackModels('nanogpt')
   }
 }
 
-const CHUTES_API_ENDPOINT = 'https://api.chutes.ai/chutes/?include_public=true&limit=200';
+const CHUTES_API_ENDPOINT = 'https://api.chutes.ai/chutes/?include_public=true&limit=200'
 
 async function listChutesModels(apiKey?: string): Promise<ImageModelInfo[]> {
   try {
-    const headers: HeadersInit = {};
+    const headers: HeadersInit = {}
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+      headers['Authorization'] = `Bearer ${apiKey}`
     }
 
-    const response = await fetch(CHUTES_API_ENDPOINT, { headers });
+    const response = await fetch(CHUTES_API_ENDPOINT, { headers })
     if (!response.ok) {
-      return getFallbackModels('chutes');
+      return getFallbackModels('chutes')
     }
 
-    const data = await response.json();
-    const items = data.items || [];
+    const data = await response.json()
+    const items = data.items || []
 
-    const imageModels = items.filter((item: {
-      standard_template?: string | null;
-      name?: string;
-    }) => {
-      if (item.standard_template === 'diffusion') return true;
-      if (item.standard_template === null) {
-        const name = item.name?.toLowerCase() || '';
-        return name.includes('image') || name.includes('z-image');
-      }
-      return false;
-    });
+    const imageModels = items.filter(
+      (item: { standard_template?: string | null; name?: string }) => {
+        if (item.standard_template === 'diffusion') return true
+        if (item.standard_template === null) {
+          const name = item.name?.toLowerCase() || ''
+          return name.includes('image') || name.includes('z-image')
+        }
+        return false
+      },
+    )
 
     if (imageModels.length === 0) {
-      return getFallbackModels('chutes');
+      return getFallbackModels('chutes')
     }
 
-    const models: ImageModelInfo[] = imageModels.map((item: {
-      name: string;
-      tagline?: string;
-    }) => {
-      const name = item.name;
-      const nameLower = name.toLowerCase();
-      const supportsImg2Img = nameLower.includes('edit') ||
-                              (nameLower.includes('qwen-image') && !nameLower.includes('turbo'));
+    const models: ImageModelInfo[] = imageModels.map((item: { name: string; tagline?: string }) => {
+      const name = item.name
+      const nameLower = name.toLowerCase()
+      const supportsImg2Img =
+        nameLower.includes('edit') ||
+        (nameLower.includes('qwen-image') && !nameLower.includes('turbo'))
 
       return {
         id: name,
@@ -230,78 +232,80 @@ async function listChutesModels(apiKey?: string): Promise<ImageModelInfo[]> {
         description: item.tagline || undefined,
         supportsSizes: ['576x576', '1024x1024', '2048x2048'],
         supportsImg2Img,
-      };
-    });
+      }
+    })
 
     models.sort((a, b) => {
-      const aLower = a.id.toLowerCase();
-      const bLower = b.id.toLowerCase();
-      if (aLower === 'z-image-turbo') return -1;
-      if (bLower === 'z-image-turbo') return 1;
-      if (aLower.includes('qwen') && !bLower.includes('qwen')) return -1;
-      if (bLower.includes('qwen') && !aLower.includes('qwen')) return 1;
-      return a.name.localeCompare(b.name);
-    });
+      const aLower = a.id.toLowerCase()
+      const bLower = b.id.toLowerCase()
+      if (aLower === 'z-image-turbo') return -1
+      if (bLower === 'z-image-turbo') return 1
+      if (aLower.includes('qwen') && !bLower.includes('qwen')) return -1
+      if (bLower.includes('qwen') && !aLower.includes('qwen')) return 1
+      return a.name.localeCompare(b.name)
+    })
 
-    return models;
+    return models
   } catch {
-    return getFallbackModels('chutes');
+    return getFallbackModels('chutes')
   }
 }
 
 function formatChutesModelName(name: string): string {
-  if (name === 'z-image-turbo') return 'Z Image Turbo';
-  if (name.toLowerCase().includes('qwen-image-edit')) return 'Qwen Image Edit';
-  if (name === 'qwen-image') return 'Qwen Image';
+  if (name === 'z-image-turbo') return 'Z Image Turbo'
+  if (name.toLowerCase().includes('qwen-image-edit')) return 'Qwen Image Edit'
+  if (name === 'qwen-image') return 'Qwen Image'
   return name
     .split(/[-_/]/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
 }
 
-const POLLINATIONS_MODELS_ENDPOINT = 'https://gen.pollinations.ai/image/models';
+const POLLINATIONS_MODELS_ENDPOINT = 'https://gen.pollinations.ai/image/models'
 
 async function listPollinationsModels(apiKey?: string): Promise<ImageModelInfo[]> {
   try {
-    const headers: HeadersInit = { 'Accept': 'application/json' };
+    const headers: HeadersInit = { Accept: 'application/json' }
     if (apiKey) {
-      headers['Authorization'] = `Bearer ${apiKey}`;
+      headers['Authorization'] = `Bearer ${apiKey}`
     }
 
-    const response = await fetch(POLLINATIONS_MODELS_ENDPOINT, { headers });
+    const response = await fetch(POLLINATIONS_MODELS_ENDPOINT, { headers })
     if (!response.ok) {
-      return getFallbackModels('pollinations');
+      return getFallbackModels('pollinations')
     }
 
-    const data = await response.json();
+    const data = await response.json()
     if (!Array.isArray(data) || data.length === 0) {
-      return getFallbackModels('pollinations');
+      return getFallbackModels('pollinations')
     }
 
-    return data.map((model: {
-      name: string;
-      description?: string;
-      input_modalities?: string[];
-      output_modalities?: string[];
-      pricing?: {
-        completionImageTokens?: number;
-        promptTextTokens?: number;
-        promptImageTokens?: number;
-      };
-    }) => ({
-      id: model.name,
-      name: model.name,
-      description: model.description,
-      supportsSizes: ['512x512', '1024x1024', '2048x2048'],
-      supportsImg2Img: model.input_modalities?.includes('image') ?? false,
-      costPerImage: model.pricing?.completionImageTokens,
-      costPerTextToken: model.pricing?.promptTextTokens,
-      costPerImageToken: model.pricing?.promptImageTokens,
-      inputModalities: model.input_modalities,
-      outputModalities: model.output_modalities,
-    }));
+    return data.map(
+      (model: {
+        name: string
+        description?: string
+        input_modalities?: string[]
+        output_modalities?: string[]
+        pricing?: {
+          completionImageTokens?: number
+          promptTextTokens?: number
+          promptImageTokens?: number
+        }
+      }) => ({
+        id: model.name,
+        name: model.name,
+        description: model.description,
+        supportsSizes: ['512x512', '1024x1024', '2048x2048'],
+        supportsImg2Img: model.input_modalities?.includes('image') ?? false,
+        costPerImage: model.pricing?.completionImageTokens,
+        costPerTextToken: model.pricing?.promptTextTokens,
+        costPerImageToken: model.pricing?.promptImageTokens,
+        inputModalities: model.input_modalities,
+        outputModalities: model.output_modalities,
+      }),
+    )
   } catch {
-    return getFallbackModels('pollinations');
+    return getFallbackModels('pollinations')
   }
 }
 
@@ -328,7 +332,7 @@ function getOpenAIModels(): ImageModelInfo[] {
       supportsSizes: ['1024x1024', '1024x1792', '1792x1024'],
       supportsImg2Img: true,
     },
-  ];
+  ]
 }
 
 function getGoogleModels(): ImageModelInfo[] {
@@ -336,7 +340,7 @@ function getGoogleModels(): ImageModelInfo[] {
     {
       id: 'imagen-3.0-generate-002',
       name: 'Imagen 3',
-      description: 'Google\'s latest image generation model',
+      description: "Google's latest image generation model",
       supportsSizes: ['512x512', '1024x1024'],
       supportsImg2Img: false,
     },
@@ -347,7 +351,7 @@ function getGoogleModels(): ImageModelInfo[] {
       supportsSizes: ['512x512', '1024x1024'],
       supportsImg2Img: false,
     },
-  ];
+  ]
 }
 
 // ============================================================================
@@ -372,7 +376,7 @@ function getFallbackModels(providerType: ProviderType): ImageModelInfo[] {
           supportsSizes: ['512x512', '1024x1024'],
           supportsImg2Img: true,
         },
-      ];
+      ]
 
     case 'chutes':
       return [
@@ -390,7 +394,7 @@ function getFallbackModels(providerType: ProviderType): ImageModelInfo[] {
           supportsSizes: ['512x512', '1024x1024', '2048x2048'],
           supportsImg2Img: true,
         },
-      ];
+      ]
 
     case 'pollinations':
       return [
@@ -415,15 +419,15 @@ function getFallbackModels(providerType: ProviderType): ImageModelInfo[] {
           supportsSizes: ['512x512', '1024x1024', '2048x2048'],
           supportsImg2Img: true,
         },
-      ];
+      ]
 
     case 'openai':
-      return getOpenAIModels();
+      return getOpenAIModels()
 
     case 'google':
-      return getGoogleModels();
+      return getGoogleModels()
 
     default:
-      return [];
+      return []
   }
 }

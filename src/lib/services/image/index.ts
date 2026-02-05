@@ -10,4 +10,4 @@ export {
   processVisualProseWithImages,
   processContentWithInlineImages,
   processVisualProseWithInlineImages,
-} from './ImageEmbeddingService';
+} from './ImageEmbeddingService'

@@ -3,7 +3,7 @@
    Old leather, dark wood, and gold/bronze aesthetic.
    Standard Scale: 50=Light, 950=Dark
    ============================================= */
-[data-theme="fantasy"] {
+[data-theme='fantasy'] {
   /* 
      Fantasy Scale (Dark Wood & Gold)
      Standard Scale:
@@ -12,7 +12,7 @@
      200-300 = Borders (Gold/Light Wood)
      50-100  = Text (Parchment)
   */
-  --color-surface-50: #fcf9f2;  /* Brightest Parchment (Text High) */
+  --color-surface-50: #fcf9f2; /* Brightest Parchment (Text High) */
   --color-surface-100: #f5ebd6; /* Parchment (Text Main) */
   --color-surface-200: #ece0c1; /* Darker Parchment */
   --color-surface-300: #d4b483; /* Gold/Beige (Borders) */
@@ -54,33 +54,33 @@
 
   /* Shadcn Variables (Fantasy Dark) */
   --radius: 0.5rem;
-  --background: hsl(26 43% 7%);      /* Surface 950 approx */
-  --foreground: hsl(38 55% 90%);     /* Surface 100 approx */
-  
-  --card: hsl(26 42% 16%);           /* Surface 800 approx */
+  --background: hsl(26 43% 7%); /* Surface 950 approx */
+  --foreground: hsl(38 55% 90%); /* Surface 100 approx */
+
+  --card: hsl(26 42% 16%); /* Surface 800 approx */
   --card-foreground: hsl(38 55% 90%);
-  
-  --popover: hsl(26 42% 16%);        /* Surface 800 approx */
+
+  --popover: hsl(26 42% 16%); /* Surface 800 approx */
   --popover-foreground: hsl(38 55% 90%);
-  
-  --primary: hsl(35 92% 38%);        /* Accent 600 (Deep Amber) */
+
+  --primary: hsl(35 92% 38%); /* Accent 600 (Deep Amber) */
   --primary-foreground: hsl(38 55% 90%);
-  
-  --secondary: hsl(27 41% 23%);      /* Surface 700 approx */
+
+  --secondary: hsl(27 41% 23%); /* Surface 700 approx */
   --secondary-foreground: hsl(38 55% 90%);
-  
-  --muted: hsl(27 41% 23%);          /* Surface 700 approx */
+
+  --muted: hsl(27 41% 23%); /* Surface 700 approx */
   --muted-foreground: hsl(38 30% 60%); /* Surface 400 approx */
-  
-  --accent: hsl(27 41% 23%);         /* Surface 700 approx */
+
+  --accent: hsl(27 41% 23%); /* Surface 700 approx */
   --accent-foreground: hsl(35 92% 38%);
-  
-  --destructive: hsl(0 60% 30%);     /* Deep Crimson */
+
+  --destructive: hsl(0 60% 30%); /* Deep Crimson */
   --destructive-foreground: hsl(38 55% 90%);
-  
-  --border: hsl(27 41% 30%);         /* Surface 600/700 hybrid (Lighter for visibility) */
-  --input: hsl(27 41% 23%);          /* Surface 700 approx */
-  --ring: hsl(35 92% 38%);           /* Matches Primary */
+
+  --border: hsl(27 41% 30%); /* Surface 600/700 hybrid (Lighter for visibility) */
+  --input: hsl(27 41% 23%); /* Surface 700 approx */
+  --ring: hsl(35 92% 38%); /* Matches Primary */
 
   /* Special effects */
   --crt-scanline: transparent;
@@ -90,16 +90,16 @@
 }
 
 /* Select dropdown styling */
-[data-theme="fantasy"] select.input {
+[data-theme='fantasy'] select.input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23d97706' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-[data-theme="fantasy"] select.input option {
+[data-theme='fantasy'] select.input option {
   background-color: var(--color-surface-800);
   color: var(--color-surface-100);
 }
 
-[data-theme="fantasy"] select.input option:checked {
+[data-theme='fantasy'] select.input option:checked {
   background-color: var(--color-accent-600);
   color: var(--color-surface-100);
 }

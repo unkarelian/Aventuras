@@ -5,26 +5,26 @@
  * Integrates with the existing settings and provider system.
  */
 
-import { ToolLoopAgent, type StopCondition, type ToolSet, type StepResult } from 'ai';
-import type { LanguageModelV3 } from '@ai-sdk/provider';
-import type { ProviderOptions } from '@ai-sdk/provider-utils';
-import { settings } from '$lib/stores/settings.svelte';
-import { createProviderFromProfile } from '../providers';
-import { buildProviderOptions } from '../generate';
-import type { GenerationPreset, APIProfile, ProviderType } from '$lib/types';
-import { createLogger } from '../../core/config';
+import { ToolLoopAgent, type StopCondition, type ToolSet, type StepResult } from 'ai'
+import type { LanguageModelV3 } from '@ai-sdk/provider'
+import type { ProviderOptions } from '@ai-sdk/provider-utils'
+import { settings } from '$lib/stores/settings.svelte'
+import { createProviderFromProfile } from '../providers'
+import { buildProviderOptions } from '../generate'
+import type { GenerationPreset, APIProfile, ProviderType } from '$lib/types'
+import { createLogger } from '../../core/config'
 
-const log = createLogger('AgentFactory');
+const log = createLogger('AgentFactory')
 
 /**
  * Resolved configuration for creating an agent.
  */
 export interface ResolvedAgentConfig {
-  preset: GenerationPreset;
-  profile: APIProfile;
-  providerType: ProviderType;
-  model: LanguageModelV3;
-  providerOptions: ProviderOptions | undefined;
+  preset: GenerationPreset
+  profile: APIProfile
+  providerType: ProviderType
+  model: LanguageModelV3
+  providerOptions: ProviderOptions | undefined
 }
 
 /**
@@ -34,20 +34,20 @@ export interface ResolvedAgentConfig {
  * @param presetId - The preset ID (e.g., 'agentic', 'loreManagement')
  */
 export function resolveAgentConfig(presetId: string, serviceId: string): ResolvedAgentConfig {
-  const preset = settings.getPresetConfig(presetId);
-  const profileId = preset.profileId ?? settings.apiSettings.mainNarrativeProfileId;
-  const profile = settings.getProfile(profileId);
+  const preset = settings.getPresetConfig(presetId)
+  const profileId = preset.profileId ?? settings.apiSettings.mainNarrativeProfileId
+  const profile = settings.getProfile(profileId)
 
   if (!profile) {
-    throw new Error(`Profile not found: ${profileId}`);
+    throw new Error(`Profile not found: ${profileId}`)
   }
 
-  const provider = createProviderFromProfile(profile, serviceId);
+  const provider = createProviderFromProfile(profile, serviceId)
   // Call provider directly - all providers support provider(modelId) syntax
-  const model = provider(preset.model) as LanguageModelV3;
-  const providerOptions = buildProviderOptions(preset, profile.providerType);
+  const model = provider(preset.model) as LanguageModelV3
+  const providerOptions = buildProviderOptions(preset, profile.providerType)
 
-  return { preset, profile, providerType: profile.providerType, model, providerOptions };
+  return { preset, profile, providerType: profile.providerType, model, providerOptions }
 }
 
 /**
@@ -55,24 +55,24 @@ export function resolveAgentConfig(presetId: string, serviceId: string): Resolve
  */
 export interface CreateAgentOptions<TTools extends ToolSet> {
   /** Preset ID for model configuration */
-  presetId: string;
+  presetId: string
   /** System instructions for the agent */
-  instructions: string;
+  instructions: string
   /** Tools available to the agent */
-  tools: TTools;
+  tools: TTools
   /** Stop condition for the agentic loop */
-  stopWhen: StopCondition<TTools>;
+  stopWhen: StopCondition<TTools>
   /** Optional abort signal for cancellation - passed to generate() calls */
-  signal?: AbortSignal;
+  signal?: AbortSignal
 }
 
 /**
  * Extended agent interface that includes the abort signal.
  */
 export interface AgentWithSignal<TTools extends ToolSet> {
-  agent: ToolLoopAgent<never, TTools>;
-  signal?: AbortSignal;
-  generate: (params: { prompt: string }) => ReturnType<ToolLoopAgent<never, TTools>['generate']>;
+  agent: ToolLoopAgent<never, TTools>
+  signal?: AbortSignal
+  generate: (params: { prompt: string }) => ReturnType<ToolLoopAgent<never, TTools>['generate']>
 }
 
 /**
@@ -95,17 +95,17 @@ export interface AgentWithSignal<TTools extends ToolSet> {
  */
 export function createAgentFromPreset<TTools extends ToolSet>(
   options: CreateAgentOptions<TTools>,
-   serviceId: string
+  serviceId: string,
 ): AgentWithSignal<TTools> {
-  const { presetId, instructions, tools, stopWhen, signal } = options;
-  const { preset, providerType, model, providerOptions } = resolveAgentConfig(presetId, serviceId);
+  const { presetId, instructions, tools, stopWhen, signal } = options
+  const { preset, providerType, model, providerOptions } = resolveAgentConfig(presetId, serviceId)
 
   log('createAgentFromPreset', {
     presetId,
     model: preset.model,
     providerType,
     toolCount: Object.keys(tools).length,
-  });
+  })
 
   const agent = new ToolLoopAgent<never, TTools>({
     model,
@@ -115,16 +115,17 @@ export function createAgentFromPreset<TTools extends ToolSet>(
     temperature: preset.temperature,
     maxOutputTokens: preset.maxTokens,
     providerOptions,
-  });
+  })
 
   return {
     agent,
     signal,
-    generate: (params: { prompt: string }) => agent.generate({
-      ...params,
-      abortSignal: signal,
-    }),
-  };
+    generate: (params: { prompt: string }) =>
+      agent.generate({
+        ...params,
+        abortSignal: signal,
+      }),
+  }
 }
 
 /**
@@ -133,7 +134,7 @@ export function createAgentFromPreset<TTools extends ToolSet>(
  */
 export type AgentResult<TTools extends ToolSet> = Awaited<
   ReturnType<ToolLoopAgent<never, TTools>['generate']>
->;
+>
 
 /**
  * Extract tool call results from agent steps.
@@ -143,22 +144,22 @@ export type AgentResult<TTools extends ToolSet> = Awaited<
  */
 export function extractToolResults<T, TTools extends ToolSet = ToolSet>(
   steps: StepResult<TTools>[],
-  toolName: string
+  toolName: string,
 ): T[] {
-  const results: T[] = [];
+  const results: T[] = []
 
   for (const step of steps) {
-    if (!step.toolResults) continue;
+    if (!step.toolResults) continue
 
     for (const toolResult of step.toolResults) {
       // AI SDK uses 'output' property for tool results (not 'result')
       if (toolResult.toolName === toolName && 'output' in toolResult) {
-        results.push(toolResult.output as T);
+        results.push(toolResult.output as T)
       }
     }
   }
 
-  return results;
+  return results
 }
 
 /**
@@ -170,20 +171,20 @@ export function extractToolResults<T, TTools extends ToolSet = ToolSet>(
  */
 export function extractTerminalToolResult<T, TTools extends ToolSet = ToolSet>(
   steps: StepResult<TTools>[],
-  toolName: string
+  toolName: string,
 ): T | undefined {
   for (const step of steps) {
-    if (!step.toolResults) continue;
+    if (!step.toolResults) continue
 
     for (const toolResult of step.toolResults) {
       if (toolResult.toolName === toolName) {
         // AI SDK uses 'output' property for tool results (not 'result')
         if ('output' in toolResult) {
-          return toolResult.output as T;
+          return toolResult.output as T
         }
       }
     }
   }
 
-  return undefined;
+  return undefined
 }

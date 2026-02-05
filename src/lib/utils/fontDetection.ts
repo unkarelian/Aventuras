@@ -5,31 +5,31 @@
  */
 
 // Test string with varied characters for accurate detection
-const TEST_STRING = 'mmmmmmmmmmlli';
+const TEST_STRING = 'mmmmmmmmmmlli'
 
 // Base fonts that are guaranteed to exist and have distinct metrics
-const BASE_FONTS = ['monospace', 'sans-serif', 'serif'] as const;
+const BASE_FONTS = ['monospace', 'sans-serif', 'serif'] as const
 
 // Cache for font detection results
-const fontCache = new Map<string, boolean>();
+const fontCache = new Map<string, boolean>()
 
 // Canvas context for measuring text (lazily initialized)
-let ctx: CanvasRenderingContext2D | null = null;
+let ctx: CanvasRenderingContext2D | null = null
 
 function getContext(): CanvasRenderingContext2D {
   if (!ctx) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1;
-    canvas.height = 1;
-    ctx = canvas.getContext('2d')!;
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    ctx = canvas.getContext('2d')!
   }
-  return ctx;
+  return ctx
 }
 
 function measureText(fontFamily: string): number {
-  const context = getContext();
-  context.font = `72px ${fontFamily}`;
-  return context.measureText(TEST_STRING).width;
+  const context = getContext()
+  context.font = `72px ${fontFamily}`
+  return context.measureText(TEST_STRING).width
 }
 
 /**
@@ -40,33 +40,29 @@ function measureText(fontFamily: string): number {
 export function isFontAvailable(fontFamily: string): boolean {
   // Check cache first
   if (fontCache.has(fontFamily)) {
-    return fontCache.get(fontFamily)!;
+    return fontCache.get(fontFamily)!
   }
 
   // Measure base font widths
-  const baseWidths = BASE_FONTS.map(measureText);
+  const baseWidths = BASE_FONTS.map(measureText)
 
   // Measure with the test font (falling back to base fonts)
-  const testWidths = BASE_FONTS.map(
-    (baseFont) => measureText(`'${fontFamily}', ${baseFont}`)
-  );
+  const testWidths = BASE_FONTS.map((baseFont) => measureText(`'${fontFamily}', ${baseFont}`))
 
   // If any measurement differs from base, font is available
-  const isAvailable = testWidths.some(
-    (width, i) => width !== baseWidths[i]
-  );
+  const isAvailable = testWidths.some((width, i) => width !== baseWidths[i])
 
   // Cache the result
-  fontCache.set(fontFamily, isAvailable);
+  fontCache.set(fontFamily, isAvailable)
 
-  return isAvailable;
+  return isAvailable
 }
 
 /**
  * Filter a list of fonts to only those available on the system.
  */
 export function getAvailableFonts(fonts: string[]): string[] {
-  return fonts.filter(isFontAvailable);
+  return fonts.filter(isFontAvailable)
 }
 
 /**
@@ -117,27 +113,27 @@ export const SYSTEM_FONT_CANDIDATES = {
     'DejaVu Sans Mono',
     'Liberation Mono',
   ],
-};
+}
 
 /**
  * Get all available system fonts, categorized.
  */
 export function getAvailableSystemFonts(): {
-  serif: string[];
-  sansSerif: string[];
-  monospace: string[];
+  serif: string[]
+  sansSerif: string[]
+  monospace: string[]
 } {
   return {
     serif: getAvailableFonts(SYSTEM_FONT_CANDIDATES.serif),
     sansSerif: getAvailableFonts(SYSTEM_FONT_CANDIDATES.sansSerif),
     monospace: getAvailableFonts(SYSTEM_FONT_CANDIDATES.monospace),
-  };
+  }
 }
 
 /**
  * Get a flat list of all available system fonts.
  */
 export function getAllAvailableSystemFonts(): string[] {
-  const available = getAvailableSystemFonts();
-  return [...available.serif, ...available.sansSerif, ...available.monospace];
+  const available = getAvailableSystemFonts()
+  return [...available.serif, ...available.sansSerif, ...available.monospace]
 }

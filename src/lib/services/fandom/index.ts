@@ -5,10 +5,10 @@
  * character, location, and lore information from fictional universes.
  */
 
-export { FandomService } from './FandomService';
+export { FandomService } from './FandomService'
 export type {
   FandomSearchResult,
   FandomSection,
   FandomArticleInfo,
   FandomSectionContent,
-} from './FandomService';
+} from './FandomService'

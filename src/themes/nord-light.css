@@ -3,12 +3,12 @@
    Arctic, north-bluish color palette with minimal and flat design.
    Light variant with Snow Storm backgrounds.
    ============================================= */
-[data-theme="nord-light"] {
+[data-theme='nord-light'] {
   /*
      Nord Light Surface Scale
      Based on Snow Storm (light) and Polar Night (dark) palettes
   */
-  --color-surface-50: #eceff4;  /* nord6 - Brightest */
+  --color-surface-50: #eceff4; /* nord6 - Brightest */
   --color-surface-100: #e5e9f0; /* nord5 - Active */
   --color-surface-200: #d8dee9; /* nord4 - Base UI */
   --color-surface-300: #c0c7d6; /* Interpolated */
@@ -41,55 +41,55 @@
   --nord-frost-4: #5e81ac; /* Dark blue - Comments */
 
   /* Nord Aurora colors */
-  --nord-aurora-red: #bf616a;    /* Error, deletion */
+  --nord-aurora-red: #bf616a; /* Error, deletion */
   --nord-aurora-orange: #d08770; /* Annotations */
   --nord-aurora-yellow: #ebcb8b; /* Warnings */
-  --nord-aurora-green: #a3be8c;  /* Success, strings */
+  --nord-aurora-green: #a3be8c; /* Success, strings */
   --nord-aurora-purple: #b48ead; /* Numbers */
 
   /* Semantic colors */
-  --bg-primary: #eceff4;            /* nord6 - Brightest */
-  --bg-secondary: #e5e9f0;          /* nord5 - Active */
-  --bg-tertiary: #d8dee9;           /* nord4 - Base UI */
-  --text-primary: #2e3440;          /* nord0 - Darkest */
-  --text-secondary: #434c5e;        /* nord2 - Subtle */
-  --text-muted: #4c566a;            /* nord3 - Muted */
-  --text-accent: #5e81ac;           /* nord10 - Dark Blue */
-  --border-primary: #c0c7d6;        /* Light border */
-  --border-secondary: #d8dee9;      /* nord4 */
+  --bg-primary: #eceff4; /* nord6 - Brightest */
+  --bg-secondary: #e5e9f0; /* nord5 - Active */
+  --bg-tertiary: #d8dee9; /* nord4 - Base UI */
+  --text-primary: #2e3440; /* nord0 - Darkest */
+  --text-secondary: #434c5e; /* nord2 - Subtle */
+  --text-muted: #4c566a; /* nord3 - Muted */
+  --text-accent: #5e81ac; /* nord10 - Dark Blue */
+  --border-primary: #c0c7d6; /* Light border */
+  --border-secondary: #d8dee9; /* nord4 */
   --scrollbar-track: #e5e9f0;
   --scrollbar-thumb: #c0c7d6;
   --scrollbar-thumb-hover: #a8b1c3;
 
   /* Shadcn Variables */
   --radius: 0.5rem;
-  --background: #eceff4;            /* nord6 */
-  --foreground: #2e3440;            /* nord0 */
+  --background: #eceff4; /* nord6 */
+  --foreground: #2e3440; /* nord0 */
 
-  --card: #e5e9f0;                  /* nord5 */
-  --card-foreground: #2e3440;       /* nord0 */
+  --card: #e5e9f0; /* nord5 */
+  --card-foreground: #2e3440; /* nord0 */
 
-  --popover: #e5e9f0;               /* nord5 */
-  --popover-foreground: #2e3440;    /* nord0 */
+  --popover: #e5e9f0; /* nord5 */
+  --popover-foreground: #2e3440; /* nord0 */
 
-  --primary: #5e81ac;               /* nord10 - Darker blue for light theme */
-  --primary-foreground: #eceff4;    /* nord6 */
+  --primary: #5e81ac; /* nord10 - Darker blue for light theme */
+  --primary-foreground: #eceff4; /* nord6 */
 
-  --secondary: #d8dee9;             /* nord4 */
-  --secondary-foreground: #2e3440;  /* nord0 */
+  --secondary: #d8dee9; /* nord4 */
+  --secondary-foreground: #2e3440; /* nord0 */
 
-  --muted: #d8dee9;                 /* nord4 */
-  --muted-foreground: #434c5e;      /* nord2 */
+  --muted: #d8dee9; /* nord4 */
+  --muted-foreground: #434c5e; /* nord2 */
 
-  --accent: #c0c7d6;                /* Light border */
-  --accent-foreground: #5e81ac;     /* nord10 */
+  --accent: #c0c7d6; /* Light border */
+  --accent-foreground: #5e81ac; /* nord10 */
 
-  --destructive: #bf616a;           /* Aurora Red */
+  --destructive: #bf616a; /* Aurora Red */
   --destructive-foreground: #eceff4; /* nord6 */
 
-  --border: #c0c7d6;                /* Light border */
-  --input: #c0c7d6;                 /* Light border */
-  --ring: #5e81ac;                  /* nord10 */
+  --border: #c0c7d6; /* Light border */
+  --input: #c0c7d6; /* Light border */
+  --ring: #5e81ac; /* nord10 */
 
   /* Special effects */
   --crt-scanline: transparent;
@@ -100,95 +100,95 @@
 
 /* Background overrides - INVERTED Logic for Light Theme */
 
-[data-theme="nord-light"] .bg-surface-900 {
+[data-theme='nord-light'] .bg-surface-900 {
   background-color: #eceff4; /* nord6 - Brightest */
 }
 
-[data-theme="nord-light"] .bg-surface-850 {
+[data-theme='nord-light'] .bg-surface-850 {
   background-color: #e5e9f0; /* nord5 */
 }
 
-[data-theme="nord-light"] .bg-surface-800 {
+[data-theme='nord-light'] .bg-surface-800 {
   background-color: #e5e9f0; /* nord5 */
 }
 
-[data-theme="nord-light"] .bg-surface-700 {
+[data-theme='nord-light'] .bg-surface-700 {
   background-color: #d8dee9; /* nord4 */
 }
 
-[data-theme="nord-light"] .bg-surface-600 {
+[data-theme='nord-light'] .bg-surface-600 {
   background-color: #d0d7e3; /* Lighter */
 }
 
-[data-theme="nord-light"] .bg-surface-500 {
+[data-theme='nord-light'] .bg-surface-500 {
   background-color: #c0c7d6; /* Light border */
 }
 
-[data-theme="nord-light"] .bg-surface-400 {
+[data-theme='nord-light'] .bg-surface-400 {
   background-color: #c0c7d6;
 }
 
-[data-theme="nord-light"] .bg-surface-300 {
+[data-theme='nord-light'] .bg-surface-300 {
   background-color: #b0b8c9;
 }
 
-[data-theme="nord-light"] .bg-surface-200 {
+[data-theme='nord-light'] .bg-surface-200 {
   background-color: #a0a9bc;
 }
 
-[data-theme="nord-light"] .bg-surface-100 {
+[data-theme='nord-light'] .bg-surface-100 {
   background-color: #909aaf;
 }
 
-[data-theme="nord-light"] .bg-surface-50 {
+[data-theme='nord-light'] .bg-surface-50 {
   background-color: #909aaf;
 }
 
 /* Text color overrides - INVERT for light theme */
-[data-theme="nord-light"] .text-surface-50 {
+[data-theme='nord-light'] .text-surface-50 {
   color: #2e3440;
 }
 
-[data-theme="nord-light"] .text-surface-100 {
+[data-theme='nord-light'] .text-surface-100 {
   color: #2e3440;
 }
 
-[data-theme="nord-light"] .text-surface-200 {
+[data-theme='nord-light'] .text-surface-200 {
   color: #3b4252;
 }
 
-[data-theme="nord-light"] .text-surface-300 {
+[data-theme='nord-light'] .text-surface-300 {
   color: #434c5e;
 }
 
-[data-theme="nord-light"] .text-surface-400 {
+[data-theme='nord-light'] .text-surface-400 {
   color: #4c566a;
 }
 
-[data-theme="nord-light"] .text-surface-500 {
+[data-theme='nord-light'] .text-surface-500 {
   color: #4c566a;
 }
 
 /* Border color overrides */
-[data-theme="nord-light"] .border-surface-700 {
+[data-theme='nord-light'] .border-surface-700 {
   border-color: #c0c7d6;
 }
 
-[data-theme="nord-light"] .border-surface-600 {
+[data-theme='nord-light'] .border-surface-600 {
   border-color: #b0b8c9;
 }
 
 /* Select dropdown styling */
-[data-theme="nord-light"] select.input {
+[data-theme='nord-light'] select.input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232e3440' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-[data-theme="nord-light"] select.input option {
+[data-theme='nord-light'] select.input option {
   background-color: #e5e9f0;
   color: #2e3440;
 }
 
-[data-theme="nord-light"] select.input option:checked {
+[data-theme='nord-light'] select.input option:checked {
   background-color: #5e81ac;
   color: #eceff4;
 }

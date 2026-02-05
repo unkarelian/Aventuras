@@ -12,7 +12,7 @@ export {
   type LoreManagementSettings,
   type LoreManagementResult,
   type LoreManagementContext,
-} from './LoreManagementService';
+} from './LoreManagementService'
 
 export {
   InteractiveLorebookService,
@@ -21,4 +21,4 @@ export {
   type ToolCallDisplay,
   type ChatMessage,
   type SendMessageResult,
-} from './InteractiveLorebookService';
+} from './InteractiveLorebookService'

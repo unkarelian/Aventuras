@@ -2,7 +2,7 @@
    ROYAL THEME
    Deep purple and gold aesthetic
    ============================================= */
-[data-theme="royal"] {
+[data-theme='royal'] {
   /* Shadcn Variables (Royal) */
   --radius: 0.5rem;
   --background: hsl(270 50% 5%);

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { slide } from "svelte/transition";
+  import { slide } from 'svelte/transition'
   import {
     Loader2,
     Check,
@@ -16,57 +16,57 @@
     ChevronDown,
     Send,
     MapPin,
-  } from "lucide-svelte";
-  import UniversalVaultBrowser from "$lib/components/vault/UniversalVaultBrowser.svelte";
-  import { scenarioVault } from "$lib/stores/scenarioVault.svelte";
-  import type { VaultScenario } from "$lib/types";
-  import type { ExpandedSetting, GeneratedCharacter } from "../wizardTypes";
-  import { QUICK_START_SEEDS } from "$lib/services/templates";
+  } from 'lucide-svelte'
+  import UniversalVaultBrowser from '$lib/components/vault/UniversalVaultBrowser.svelte'
+  import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
+  import type { VaultScenario } from '$lib/types'
+  import type { ExpandedSetting, GeneratedCharacter } from '../wizardTypes'
+  import { QUICK_START_SEEDS } from '$lib/services/templates'
 
   // Shadcn Components
-  import * as Card from "$lib/components/ui/card";
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Label } from "$lib/components/ui/label";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
-  import { Separator } from "$lib/components/ui/separator";
-  import { Badge } from "$lib/components/ui/badge";
-  import * as Collapsible from "$lib/components/ui/collapsible";
+  import * as Card from '$lib/components/ui/card'
+  import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { ScrollArea } from '$lib/components/ui/scroll-area'
+  import { Separator } from '$lib/components/ui/separator'
+  import { Badge } from '$lib/components/ui/badge'
+  import * as Collapsible from '$lib/components/ui/collapsible'
 
   interface Props {
-    settingSeed: string;
-    expandedSetting: ExpandedSetting | null;
-    settingElaborationGuidance: string;
-    isExpandingSetting: boolean;
-    isRefiningSetting: boolean;
-    settingError: string | null;
-    isEditingSetting: boolean;
-    selectedScenarioId: string | null;
-    importedCardNpcs: GeneratedCharacter[];
-    cardImportError: string | null;
-    isImportingCard: boolean;
-    savedScenarioToVaultConfirm: boolean;
-    showScenarioVaultPicker: boolean;
-    customGenre: string; // NEW
-    onSettingSeedChange: (value: string) => void;
-    onGuidanceChange: (value: string) => void;
-    onCustomGenreChange: (value: string) => void; // NEW
-    onUseAsIs: () => void;
-    onExpandSetting: () => void;
-    onExpandFurther: () => void;
-    onEditSetting: () => void;
-    onCancelEdit: () => void;
-    onSelectScenario: (id: string) => void;
-    onCardImport: (event: Event) => void;
-    onClearCardImport: () => void;
-    onSaveToVault: () => void;
-    onShowVaultPickerChange: (show: boolean) => void;
-    onSelectFromVault: (scenario: VaultScenario) => void;
-    cardImportFileInputRef: (el: HTMLInputElement | null) => void;
-    scenarioCarouselRef: (el: HTMLDivElement | null) => void;
-    onCarouselScroll: () => void;
-    onNavigateToVault?: () => void;
+    settingSeed: string
+    expandedSetting: ExpandedSetting | null
+    settingElaborationGuidance: string
+    isExpandingSetting: boolean
+    isRefiningSetting: boolean
+    settingError: string | null
+    isEditingSetting: boolean
+    selectedScenarioId: string | null
+    importedCardNpcs: GeneratedCharacter[]
+    cardImportError: string | null
+    isImportingCard: boolean
+    savedScenarioToVaultConfirm: boolean
+    showScenarioVaultPicker: boolean
+    customGenre: string // NEW
+    onSettingSeedChange: (value: string) => void
+    onGuidanceChange: (value: string) => void
+    onCustomGenreChange: (value: string) => void // NEW
+    onUseAsIs: () => void
+    onExpandSetting: () => void
+    onExpandFurther: () => void
+    onEditSetting: () => void
+    onCancelEdit: () => void
+    onSelectScenario: (id: string) => void
+    onCardImport: (event: Event) => void
+    onClearCardImport: () => void
+    onSaveToVault: () => void
+    onShowVaultPickerChange: (show: boolean) => void
+    onSelectFromVault: (scenario: VaultScenario) => void
+    cardImportFileInputRef: (el: HTMLInputElement | null) => void
+    scenarioCarouselRef: (el: HTMLDivElement | null) => void
+    onCarouselScroll: () => void
+    onNavigateToVault?: () => void
   }
 
   let {
@@ -102,51 +102,47 @@
     scenarioCarouselRef,
     onCarouselScroll,
     onNavigateToVault,
-  }: Props = $props();
+  }: Props = $props()
 
   const templateIcons: Record<string, typeof Wand2> = {
-    "fantasy-adventure": Wand2,
-    "scifi-exploration": Rocket,
-    "mystery-investigation": Search,
-    "horror-survival": Skull,
-    "slice-of-life": Heart,
-    "historical-drama": Building,
-  };
+    'fantasy-adventure': Wand2,
+    'scifi-exploration': Rocket,
+    'mystery-investigation': Search,
+    'horror-survival': Skull,
+    'slice-of-life': Heart,
+    'historical-drama': Building,
+  }
 
-  const hasUserPlaceholder = $derived(settingSeed.includes("{{user}}"));
-  const hasVaultScenarios = $derived(
-    scenarioVault.isLoaded && scenarioVault.scenarios.length > 0,
-  );
+  const hasUserPlaceholder = $derived(settingSeed.includes('{{user}}'))
+  const hasVaultScenarios = $derived(scenarioVault.isLoaded && scenarioVault.scenarios.length > 0)
 
-  let showExpandOptions = $state(false);
-  let loadedVaultScenarioId = $state<string | null>(null);
-  let editDescription = $state("");
-  let isEditingDescription = $state(false);
+  let showExpandOptions = $state(false)
+  let loadedVaultScenarioId = $state<string | null>(null)
+  let editDescription = $state('')
+  let isEditingDescription = $state(false)
 
   function handleSelectFromVault(scenario: VaultScenario) {
-    loadedVaultScenarioId = scenario.id;
-    onSelectFromVault(scenario);
+    loadedVaultScenarioId = scenario.id
+    onSelectFromVault(scenario)
   }
 
   function handleEditDescription() {
-    editDescription = expandedSetting?.description ?? "";
-    isEditingDescription = true;
+    editDescription = expandedSetting?.description ?? ''
+    isEditingDescription = true
   }
 
   function handleSaveDescription() {
     if (editDescription.trim()) {
-      onSettingSeedChange(editDescription);
-      onUseAsIs();
+      onSettingSeedChange(editDescription)
+      onUseAsIs()
     }
-    isEditingDescription = false;
+    isEditingDescription = false
   }
 </script>
 
 <div class="space-y-1 pb-3">
   <div class="flex items-center justify-between pb-1">
-    <h4
-      class="text-sm font-medium text-muted-foreground flex items-center gap-2"
-    >
+    <h4 class="text-muted-foreground flex items-center gap-2 text-sm font-medium">
       <Archive class="h-4 w-4" />
       Load from Vault
     </h4>
@@ -161,37 +157,34 @@
   </div>
 
   <div
-    class="rounded-lg border border-muted-foreground/20 bg-muted/10 text-card-foreground shadow-sm"
+    class="border-muted-foreground/20 bg-muted/10 text-card-foreground rounded-lg border shadow-sm"
   >
-    <Collapsible.Root
-      open={showScenarioVaultPicker}
-      onOpenChange={onShowVaultPickerChange}
-    >
-      <div class="flex items-center p-3 pl-4 gap-3">
+    <Collapsible.Root open={showScenarioVaultPicker} onOpenChange={onShowVaultPickerChange}>
+      <div class="flex items-center gap-3 p-3 pl-4">
         <Collapsible.Trigger
-          class="flex items-center gap-2 flex-1 text-left group/trigger w-full justify-between"
+          class="group/trigger flex w-full flex-1 items-center justify-between gap-2 text-left"
         >
           <div class="flex items-center gap-3">
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 transition-colors"
+              class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-md transition-colors"
             >
-              <MapPin class="h-4 w-4 text-primary" />
+              <MapPin class="text-primary h-4 w-4" />
             </div>
             <div class="text-left">
-              <div class="font-medium text-sm">
+              <div class="text-sm font-medium">
                 {selectedScenarioId && loadedVaultScenarioId
-                  ? "Scenario Selected"
-                  : "Select a Scenario"}
+                  ? 'Scenario Selected'
+                  : 'Select a Scenario'}
               </div>
-              <div class="text-xs text-muted-foreground">
+              <div class="text-muted-foreground text-xs">
                 {selectedScenarioId && loadedVaultScenarioId
-                  ? "Click to change selection"
-                  : "Browse your saved worlds"}
+                  ? 'Click to change selection'
+                  : 'Browse your saved worlds'}
               </div>
             </div>
           </div>
           <div
-            class="flex h-8 w-8 items-center justify-center rounded-md bg-muted/50 transition-colors group-hover/trigger:bg-muted"
+            class="bg-muted/50 group-hover/trigger:bg-muted flex h-8 w-8 items-center justify-center rounded-md transition-colors"
           >
             <ChevronDown
               class="h-4 w-4 transition-transform duration-200 group-data-[state=open]/trigger:rotate-180"
@@ -201,7 +194,7 @@
       </div>
 
       <Collapsible.Content>
-        <div class="border-t p-3 h-70">
+        <div class="h-70 border-t p-3">
           <UniversalVaultBrowser
             type="scenario"
             onSelect={handleSelectFromVault}
@@ -213,32 +206,28 @@
     </Collapsible.Root>
   </div>
 </div>
-<h4
-  class="text-sm font-medium text-muted-foreground flex items-center gap-2 pb-2"
->
+<h4 class="text-muted-foreground flex items-center gap-2 pb-2 text-sm font-medium">
   <MapPin class="h-4 w-4" />
   Quick Start Templates
 </h4>
-<div class="grid gap-2 grid-cols-2 sm:grid-cols-3 pb-4">
+<div class="grid grid-cols-2 gap-2 pb-4 sm:grid-cols-3">
   {#each QUICK_START_SEEDS as seed (seed.id)}
     {@const Icon = templateIcons[seed.id] ?? Sparkles}
     <button
       onclick={() => onSelectScenario(seed.id)}
-      class="group relative flex items-center justify-between gap-2 rounded-lg border p-3 text-left transition-all hover:bg-accent hover:text-accent-foreground {selectedScenarioId ===
+      class="group hover:bg-accent hover:text-accent-foreground relative flex items-center justify-between gap-2 rounded-lg border p-3 text-left transition-all {selectedScenarioId ===
       seed.id
-        ? 'border-primary bg-primary/5 ring-1 ring-primary'
+        ? 'border-primary bg-primary/5 ring-primary ring-1'
         : 'bg-muted/20 hover:bg-muted/40 border-muted-foreground/20'}"
     >
-      <div class="flex items-center gap-2 min-w-0">
+      <div class="flex min-w-0 items-center gap-2">
         <Icon
-          class="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0"
+          class="text-muted-foreground group-hover:text-primary h-4 w-4 shrink-0 transition-colors"
         />
-        <span class="text-sm font-medium leading-none truncate"
-          >{seed.name}</span
-        >
+        <span class="truncate text-sm leading-none font-medium">{seed.name}</span>
       </div>
       {#if selectedScenarioId === seed.id}
-        <Check class="h-3 w-3 text-primary shrink-0" />
+        <Check class="text-primary h-3 w-3 shrink-0" />
       {/if}
     </button>
   {/each}
@@ -255,7 +244,7 @@
       oninput={(e) => onCustomGenreChange(e.currentTarget.value)}
       placeholder="e.g. Dark Fantasy, Cyberpunk Noir, etc."
     />
-    <p class="text-[0.8rem] text-muted-foreground">
+    <p class="text-muted-foreground text-[0.8rem]">
       A short tag describing the style/tone of your story.
     </p>
   </div>
@@ -268,16 +257,12 @@
       value={settingSeed}
       oninput={(e) => onSettingSeedChange(e.currentTarget.value)}
       placeholder="Describe your world... (e.g., A kingdom where music is magic)"
-      class="min-h-25 resize-none mt-1"
+      class="mt-1 min-h-25 resize-none"
     />
 
     {#if hasUserPlaceholder}
-      <div
-        class="flex items-center gap-2 rounded-md bg-muted/50 p-2 text-xs text-muted-foreground"
-      >
-        <Badge variant="outline" class="font-mono text-[10px] h-5"
-          >{"{{user}}"}</Badge
-        >
+      <div class="bg-muted/50 text-muted-foreground flex items-center gap-2 rounded-md p-2 text-xs">
+        <Badge variant="outline" class="h-5 font-mono text-[10px]">{'{{user}}'}</Badge>
         <span>will be replaced with your character's name</span>
       </div>
     {/if}
@@ -286,24 +271,15 @@
       <Button
         variant="outline"
         size="sm"
-        class="gap-2 text-muted-foreground"
+        class="text-muted-foreground gap-2"
         onclick={() => (showExpandOptions = !showExpandOptions)}
       >
         <Sparkles class="h-3.5 w-3.5" />
-        {showExpandOptions ? "Hide AI Options" : "Expand with AI"}
-        <ChevronDown
-          class="h-3 w-3 transition-transform {showExpandOptions
-            ? 'rotate-180'
-            : ''}"
-        />
+        {showExpandOptions ? 'Hide AI Options' : 'Expand with AI'}
+        <ChevronDown class="h-3 w-3 transition-transform {showExpandOptions ? 'rotate-180' : ''}" />
       </Button>
 
-      <Button
-        size="sm"
-        onclick={onUseAsIs}
-        disabled={!settingSeed.trim()}
-        class="gap-2"
-      >
+      <Button size="sm" onclick={onUseAsIs} disabled={!settingSeed.trim()} class="gap-2">
         <Check class="h-3.5 w-3.5" />
         Use Description
       </Button>
@@ -312,18 +288,17 @@
     <!-- AI Expansion Panel -->
     {#if showExpandOptions}
       <div
-        class="rounded-lg border text-card-foreground shadow-sm px-3 pt-1 pb-3 space-y-3 bg-muted/10"
+        class="text-card-foreground bg-muted/10 space-y-3 rounded-lg border px-3 pt-1 pb-3 shadow-sm"
         transition:slide={{ duration: 150 }}
       >
         <div class="space-y-1.5">
-          <Label for="ai-guidance" class="text-xs">AI Guidance (Optional)</Label
-          >
+          <Label for="ai-guidance" class="text-xs">AI Guidance (Optional)</Label>
           <Textarea
             id="ai-guidance"
             value={settingElaborationGuidance}
             oninput={(e) => onGuidanceChange(e.currentTarget.value)}
             placeholder="e.g., Focus on dark gothic atmosphere, add steampunk elements..."
-            class="h-16 resize-none text-sm mt-1"
+            class="mt-1 h-16 resize-none text-sm"
           />
         </div>
         <Button
@@ -345,7 +320,7 @@
     {/if}
 
     {#if settingError}
-      <p class="text-sm text-destructive">{settingError}</p>
+      <p class="text-destructive text-sm">{settingError}</p>
     {/if}
   </div>
 </div>
@@ -357,12 +332,12 @@
   >
     <span class="flex items-center gap-2 text-green-500">
       <Check class="h-4 w-4" />
-      Imported NPCs: {importedCardNpcs.map((n) => n.name).join(", ")}
+      Imported NPCs: {importedCardNpcs.map((n) => n.name).join(', ')}
     </span>
     <Button
       variant="ghost"
       size="icon"
-      class="h-6 w-6 text-muted-foreground hover:text-foreground"
+      class="text-muted-foreground hover:text-foreground h-6 w-6"
       onclick={onClearCardImport}
     >
       <X class="h-3.5 w-3.5" />
@@ -370,14 +345,14 @@
   </div>
 {/if}
 {#if cardImportError}
-  <p class="text-sm text-destructive">{cardImportError}</p>
+  <p class="text-destructive text-sm">{cardImportError}</p>
 {/if}
 
 <!-- Selected Expanded Setting Display -->
 {#if expandedSetting}
   <Separator class="my-4" />
   <div
-    class="rounded-lg border bg-card text-card-foreground shadow-sm space-y-2 p-2"
+    class="bg-card text-card-foreground space-y-2 rounded-lg border p-2 shadow-sm"
     transition:slide
   >
     <div class="flex items-center justify-between">
@@ -406,10 +381,8 @@
         <Button
           variant="ghost"
           size="sm"
-          class="h-8 gap-1.5 text-muted-foreground"
-          onclick={isEditingDescription
-            ? handleSaveDescription
-            : handleEditDescription}
+          class="text-muted-foreground h-8 gap-1.5"
+          onclick={isEditingDescription ? handleSaveDescription : handleEditDescription}
         >
           {#if isEditingDescription}
             <Check class="h-3.5 w-3.5" /> Done
@@ -429,9 +402,7 @@
           class="min-h-37.5"
         />
       {:else}
-        <div
-          class="prose prose-sm dark:prose-invert max-w-none text-muted-foreground"
-        >
+        <div class="prose prose-sm dark:prose-invert text-muted-foreground max-w-none">
           <p class="whitespace-pre-wrap">{expandedSetting.description}</p>
         </div>
       {/if}
@@ -439,7 +410,7 @@
       <!-- Locations -->
       {#if expandedSetting.keyLocations.length > 0}
         <div class="flex flex-wrap gap-2 text-xs">
-          <span class="font-medium text-foreground py-0.5">Locations:</span>
+          <span class="text-foreground py-0.5 font-medium">Locations:</span>
           {#each expandedSetting.keyLocations as loc}
             <Badge variant="secondary" class="font-normal">{loc.name}</Badge>
           {/each}

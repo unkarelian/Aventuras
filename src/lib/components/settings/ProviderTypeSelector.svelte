@@ -1,26 +1,26 @@
 <script lang="ts">
-  import type { ProviderType } from "$lib/types";
-  import { getProviderList } from "$lib/services/ai/sdk/providers/config";
-  import * as Select from "$lib/components/ui/select";
-  import { Label } from "$lib/components/ui/label";
+  import type { ProviderType } from '$lib/types'
+  import { getProviderList } from '$lib/services/ai/sdk/providers/config'
+  import * as Select from '$lib/components/ui/select'
+  import { Label } from '$lib/components/ui/label'
 
   interface Props {
-    value: ProviderType;
-    onchange: (value: ProviderType) => void;
-    label?: string;
+    value: ProviderType
+    onchange: (value: ProviderType) => void
+    label?: string
   }
 
-  let { value, onchange, label = "Provider" }: Props = $props();
+  let { value, onchange, label = 'Provider' }: Props = $props()
 
-  const providers = getProviderList();
+  const providers = getProviderList()
 
   function handleChange(newValue: string | undefined) {
     if (newValue && newValue !== value) {
-      onchange(newValue as ProviderType);
+      onchange(newValue as ProviderType)
     }
   }
 
-  let currentProvider = $derived(providers.find((p) => p.value === value));
+  let currentProvider = $derived(providers.find((p) => p.value === value))
 </script>
 
 <div class="space-y-2">
@@ -40,7 +40,7 @@
         <Select.Item value={provider.value} label={provider.label}>
           <div class="flex flex-col py-1">
             <span class="font-medium">{provider.label}</span>
-            <span class="text-xs text-muted-foreground">{provider.description}</span>
+            <span class="text-muted-foreground text-xs">{provider.description}</span>
           </div>
         </Select.Item>
       {/each}

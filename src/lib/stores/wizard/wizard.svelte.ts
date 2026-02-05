@@ -1,50 +1,50 @@
-import { story } from "$lib/stores/story.svelte";
-import { ui } from "$lib/stores/ui.svelte";
-import { settings } from "$lib/stores/settings.svelte";
-import { aiService } from "$lib/services/ai";
+import { story } from '$lib/stores/story.svelte'
+import { ui } from '$lib/stores/ui.svelte'
+import { settings } from '$lib/stores/settings.svelte'
+import { aiService } from '$lib/services/ai'
 import {
   scenarioService,
   type WizardData,
   type ExpandedSetting,
   type GeneratedCharacter,
-  type Genre
-} from "$lib/services/ai/wizard/ScenarioService";
-import { TranslationService } from "$lib/services/ai/utils/TranslationService";
-import { QUICK_START_SEEDS } from "$lib/services/templates";
-import { replaceUserPlaceholders } from "$lib/components/wizard/wizardTypes";
-import type { VaultScenario } from "$lib/types";
-import { stringToDescriptors } from "$lib/utils/visualDescriptors";
+  type Genre,
+} from '$lib/services/ai/wizard/ScenarioService'
+import { TranslationService } from '$lib/services/ai/utils/TranslationService'
+import { QUICK_START_SEEDS } from '$lib/services/templates'
+import { replaceUserPlaceholders } from '$lib/components/wizard/wizardTypes'
+import type { VaultScenario } from '$lib/types'
+import { stringToDescriptors } from '$lib/utils/visualDescriptors'
 
 // Import Modular Stores
-import { NarrativeStore } from "./narrativeStore.svelte";
-import { SettingStore } from "./settingStore.svelte";
-import { CharacterStore } from "./characterStore.svelte";
-import { ImageStore } from "./imageStore.svelte";
+import { NarrativeStore } from './narrativeStore.svelte'
+import { SettingStore } from './settingStore.svelte'
+import { CharacterStore } from './characterStore.svelte'
+import { ImageStore } from './imageStore.svelte'
 
 export class WizardStore {
   // Sub-stores
-  narrative = new NarrativeStore();
-  setting = new SettingStore();
-  character = new CharacterStore();
-  image = new ImageStore();
+  narrative = new NarrativeStore()
+  setting = new SettingStore()
+  character = new CharacterStore()
+  image = new ImageStore()
 
   // Wizard State
-  currentStep = $state(1);
-  totalSteps = 8; // Reduced from 9
+  currentStep = $state(1)
+  totalSteps = 8 // Reduced from 9
 
-  onClose: () => void;
+  onClose: () => void
 
   constructor(onClose: () => void) {
-    this.onClose = onClose;
+    this.onClose = onClose
   }
 
   // Navigation
   canProceed(): boolean {
     switch (this.currentStep) {
       case 1: // Mode
-        return true;
+        return true
       case 2: // Lorebook (optional)
-        return true;
+        return true
       case 3: // World & Setting (combined)
         // require setting seed description
         // genre is optional in UI (defaults to custom/empty string is allowed? No, usually we want some genre)
@@ -55,26 +55,26 @@ export class WizardStore {
         // Old logic: narrative.selectedGenre !== "custom" || narrative.customGenre.length > 0
         // New logic: We just use customGenre string for everything in UI.
         // But backend might need 'custom' enum.
-        return this.setting.settingSeed.trim().length > 0;
+        return this.setting.settingSeed.trim().length > 0
       case 4: // Character (required - must have protagonist)
-        return this.character.protagonist !== null;
+        return this.character.protagonist !== null
       case 5: // Supporting Cast (optional)
-        return true;
+        return true
       case 6: // Portraits (optional)
-        return true;
+        return true
       case 7: // Writing Style
-        return true;
+        return true
       case 8: // Opening
-        return this.narrative.storyTitle.trim().length > 0;
+        return this.narrative.storyTitle.trim().length > 0
       default:
-        return false;
+        return false
     }
   }
 
   nextStep() {
     if (this.currentStep < this.totalSteps && this.canProceed()) {
-      this.currentStep++;
-      
+      this.currentStep++
+
       // Auto-scroll logic for scenario carousel is UI-side, but state trigger is here
       // We could use an effect in the component to watch currentStep
     }
@@ -82,7 +82,7 @@ export class WizardStore {
 
   prevStep() {
     if (this.currentStep > 1) {
-      this.currentStep--;
+      this.currentStep--
     }
   }
 
@@ -90,43 +90,43 @@ export class WizardStore {
 
   // Select Scenario (Cross-store)
   selectScenario(scenarioId: string) {
-    const scenario = QUICK_START_SEEDS.find((s) => s.id === scenarioId);
-    if (!scenario) return;
+    const scenario = QUICK_START_SEEDS.find((s) => s.id === scenarioId)
+    if (!scenario) return
 
-    this.setting.selectedScenarioId = scenarioId;
+    this.setting.selectedScenarioId = scenarioId
 
     // Narrative: Genre
     // Always set to 'custom' so that the text field (customGenre) is treated as the source of truth
     // for the genre label in scenarioService.
-    this.narrative.selectedGenre = "custom";
-    this.narrative.customGenre = scenario.genre;
+    this.narrative.selectedGenre = 'custom'
+    this.narrative.customGenre = scenario.genre
 
     // Setting: Seed
-    const locationDesc = scenario.initialState.startingLocation?.description;
+    const locationDesc = scenario.initialState.startingLocation?.description
     if (locationDesc) {
-      this.setting.settingSeed = locationDesc;
-      this.setting.useSettingAsIs();
+      this.setting.settingSeed = locationDesc
+      this.setting.useSettingAsIs()
     }
 
     // Character: Protagonist Manual Input
-    const proto = scenario.initialState.protagonist;
+    const proto = scenario.initialState.protagonist
     if (proto) {
-      this.character.manualCharacterName = proto.name ?? "";
-      this.character.manualCharacterDescription = proto.description ?? "";
+      this.character.manualCharacterName = proto.name ?? ''
+      this.character.manualCharacterDescription = proto.description ?? ''
       // Type assertion needed as Character type doesn't have background/motivation directly
-      this.character.manualCharacterBackground = (proto as any).background ?? "";
-      this.character.manualCharacterMotivation = (proto as any).motivation ?? "";
-      this.character.manualCharacterTraits = proto.traits?.join(", ") ?? "";
-      this.character.showManualInput = true;
-      this.character.useManualCharacter();
+      this.character.manualCharacterBackground = (proto as any).background ?? ''
+      this.character.manualCharacterMotivation = (proto as any).motivation ?? ''
+      this.character.manualCharacterTraits = proto.traits?.join(', ') ?? ''
+      this.character.showManualInput = true
+      this.character.useManualCharacter()
     }
   }
 
   selectScenarioFromVault(scenario: VaultScenario) {
     // 1. Setting
-    this.setting.settingSeed = scenario.settingSeed;
-    this.setting.expandedSetting = null;
-    this.setting.clearSettingEditState();
+    this.setting.settingSeed = scenario.settingSeed
+    this.setting.expandedSetting = null
+    this.setting.clearSettingEditState()
 
     // 2. NPCs (Character Store)
     const importedNpcs: GeneratedCharacter[] = scenario.npcs.map((npc) => ({
@@ -135,37 +135,37 @@ export class WizardStore {
       description: npc.description,
       relationship: npc.relationship,
       traits: npc.traits || [],
-    }));
+    }))
 
     // Filter duplicates if any existing imported NPCs
     if (this.character.importedCardNpcs.length > 0) {
-      const prevImportedNames = new Set(this.character.importedCardNpcs.map((n) => n.name));
+      const prevImportedNames = new Set(this.character.importedCardNpcs.map((n) => n.name))
       this.character.supportingCharacters = this.character.supportingCharacters.filter(
-        (c) => !prevImportedNames.has(c.name)
-      );
+        (c) => !prevImportedNames.has(c.name),
+      )
     }
 
-    this.character.supportingCharacters = [...this.character.supportingCharacters, ...importedNpcs];
-    this.character.importedCardNpcs = importedNpcs;
+    this.character.supportingCharacters = [...this.character.supportingCharacters, ...importedNpcs]
+    this.character.importedCardNpcs = importedNpcs
 
     // 3. Title (Narrative Store)
     if (scenario.name) {
-      this.character.cardImportedTitle = scenario.name;
-      this.narrative.storyTitle = scenario.name;
+      this.character.cardImportedTitle = scenario.name
+      this.narrative.storyTitle = scenario.name
     }
 
     // 4. Opening (Character/Narrative Store Integration)
     if (scenario.firstMessage) {
-      this.character.cardImportedFirstMessage = scenario.firstMessage;
-      this.character.cardImportedAlternateGreetings = scenario.alternateGreetings || [];
-      this.character.selectedGreetingIndex = 0;
+      this.character.cardImportedFirstMessage = scenario.firstMessage
+      this.character.cardImportedAlternateGreetings = scenario.alternateGreetings || []
+      this.character.selectedGreetingIndex = 0
     } else {
-      this.character.cardImportedFirstMessage = null;
-      this.character.cardImportedAlternateGreetings = [];
+      this.character.cardImportedFirstMessage = null
+      this.character.cardImportedAlternateGreetings = []
     }
 
-    this.setting.showScenarioVaultPicker = false;
-    this.setting.useSettingAsIs();
+    this.setting.showScenarioVaultPicker = false
+    this.setting.useSettingAsIs()
   }
 
   // Wrapper for Generate Opening (Needs data from all stores)
@@ -178,7 +178,9 @@ export class WizardStore {
       expandedSetting: this.setting.expandedSetting || undefined,
       protagonist: this.character.protagonist || undefined,
       characters:
-        this.character.supportingCharacters.length > 0 ? this.character.supportingCharacters : undefined,
+        this.character.supportingCharacters.length > 0
+          ? this.character.supportingCharacters
+          : undefined,
       writingStyle: {
         pov: this.narrative.selectedPOV,
         tense: this.narrative.selectedTense,
@@ -186,17 +188,17 @@ export class WizardStore {
       },
       title: this.narrative.storyTitle,
       openingGuidance:
-        this.narrative.selectedMode === "creative-writing" && this.narrative.openingGuidance.trim()
+        this.narrative.selectedMode === 'creative-writing' && this.narrative.openingGuidance.trim()
           ? this.narrative.openingGuidance.trim()
           : undefined,
-    };
-    
-    await this.narrative.generateOpeningScene(wizardData);
+    }
+
+    await this.narrative.generateOpeningScene(wizardData)
   }
 
   // Wrapper for Refine Opening
   async refineOpeningScene() {
-      const wizardData: WizardData = {
+    const wizardData: WizardData = {
       mode: this.narrative.selectedMode,
       genre: this.narrative.selectedGenre,
       customGenre: this.narrative.customGenre || undefined,
@@ -204,7 +206,9 @@ export class WizardStore {
       expandedSetting: this.setting.expandedSetting || undefined,
       protagonist: this.character.protagonist || undefined,
       characters:
-        this.character.supportingCharacters.length > 0 ? this.character.supportingCharacters : undefined,
+        this.character.supportingCharacters.length > 0
+          ? this.character.supportingCharacters
+          : undefined,
       writingStyle: {
         pov: this.narrative.selectedPOV,
         tense: this.narrative.selectedTense,
@@ -212,56 +216,53 @@ export class WizardStore {
       },
       title: this.narrative.storyTitle,
       openingGuidance:
-        this.narrative.selectedMode === "creative-writing" && this.narrative.openingGuidance.trim()
+        this.narrative.selectedMode === 'creative-writing' && this.narrative.openingGuidance.trim()
           ? this.narrative.openingGuidance.trim()
           : undefined,
-    };
+    }
 
-    await this.narrative.refineOpeningScene(wizardData);
+    await this.narrative.refineOpeningScene(wizardData)
   }
 
   // Create Story
   async createStory() {
-    if (!this.narrative.storyTitle.trim()) return;
+    if (!this.narrative.storyTitle.trim()) return
 
     // Use manual opening if provided
     if (!this.narrative.generatedOpening && this.narrative.manualOpeningText.trim()) {
       this.narrative.generatedOpening = {
         scene: this.narrative.manualOpeningText.trim(),
-        title: this.narrative.storyTitle || "Untitled Story",
+        title: this.narrative.storyTitle || 'Untitled Story',
         initialLocation: {
-          name: "Starting Location",
-          description: "The place where your journey begins.",
+          name: 'Starting Location',
+          description: 'The place where your journey begins.',
         },
-      };
+      }
     }
 
     // Use card imported opening if available
     if (!this.narrative.generatedOpening && this.character.cardImportedFirstMessage) {
       this.narrative.generatedOpening = {
         scene: this.character.cardImportedFirstMessage,
-        title: this.character.cardImportedTitle || this.narrative.storyTitle || "Untitled Story",
+        title: this.character.cardImportedTitle || this.narrative.storyTitle || 'Untitled Story',
         initialLocation: {
-          name: "Starting Location",
-          description: "The place where your journey begins.",
+          name: 'Starting Location',
+          description: 'The place where your journey begins.',
         },
-      };
+      }
     }
 
     if (!this.narrative.generatedOpening) {
       this.narrative.openingError =
-        "Please provide an opening scene (write your own or generate with AI)";
-      return;
+        'Please provide an opening scene (write your own or generate with AI)'
+      return
     }
 
-    const protagonistName = this.character.protagonist?.name || "the protagonist";
+    const protagonistName = this.character.protagonist?.name || 'the protagonist'
 
-    const processedSettingSeed = replaceUserPlaceholders(
-      this.setting.settingSeed,
-      protagonistName,
-    );
+    const processedSettingSeed = replaceUserPlaceholders(this.setting.settingSeed, protagonistName)
 
-    let processedExpandedSetting: ExpandedSetting | null = null;
+    let processedExpandedSetting: ExpandedSetting | null = null
     if (this.setting.expandedSetting) {
       processedExpandedSetting = {
         ...this.setting.expandedSetting,
@@ -283,33 +284,31 @@ export class WizardStore {
         potentialConflicts: this.setting.expandedSetting.potentialConflicts.map((c) =>
           replaceUserPlaceholders(c, protagonistName),
         ),
-      };
+      }
     }
 
     const processedOpening = {
       ...this.narrative.generatedOpening,
       scene: replaceUserPlaceholders(this.narrative.generatedOpening.scene, protagonistName),
-    };
+    }
 
     const processedCharacters = this.character.supportingCharacters.map((char) => ({
       ...char,
       name: replaceUserPlaceholders(char.name, protagonistName),
       description: replaceUserPlaceholders(char.description, protagonistName),
-      role: char.role ? replaceUserPlaceholders(char.role, protagonistName) : "",
-      relationship: char.relationship ? replaceUserPlaceholders(char.relationship, protagonistName) : "",
-      traits: char.traits?.map((t) =>
-        replaceUserPlaceholders(t, protagonistName),
-      ) || [],
-    }));
+      role: char.role ? replaceUserPlaceholders(char.role, protagonistName) : '',
+      relationship: char.relationship
+        ? replaceUserPlaceholders(char.relationship, protagonistName)
+        : '',
+      traits: char.traits?.map((t) => replaceUserPlaceholders(t, protagonistName)) || [],
+    }))
 
     const processedEntries = this.narrative.importedEntries.map((e) => ({
       ...e,
       name: replaceUserPlaceholders(e.name, protagonistName),
       description: replaceUserPlaceholders(e.description, protagonistName),
-      keywords: e.keywords.map((k) =>
-        replaceUserPlaceholders(k, protagonistName),
-      ),
-    }));
+      keywords: e.keywords.map((k) => replaceUserPlaceholders(k, protagonistName)),
+    }))
 
     const wizardData: WizardData = {
       mode: this.narrative.selectedMode,
@@ -318,33 +317,29 @@ export class WizardStore {
       settingSeed: processedSettingSeed,
       expandedSetting: processedExpandedSetting || undefined,
       protagonist: this.character.protagonist || undefined,
-      characters:
-        processedCharacters.length > 0 ? processedCharacters : undefined,
+      characters: processedCharacters.length > 0 ? processedCharacters : undefined,
       writingStyle: {
         pov: this.narrative.selectedPOV,
         tense: this.narrative.selectedTense,
         tone: this.narrative.tone,
         visualProseMode: this.narrative.visualProseMode,
-        inlineImageMode: this.narrative.imageGenerationMode === "inline",
+        inlineImageMode: this.narrative.imageGenerationMode === 'inline',
         imageGenerationMode: this.narrative.imageGenerationMode,
       },
       title: this.narrative.storyTitle,
       openingGuidance:
-        this.narrative.selectedMode === "creative-writing" && this.narrative.openingGuidance.trim()
+        this.narrative.selectedMode === 'creative-writing' && this.narrative.openingGuidance.trim()
           ? this.narrative.openingGuidance.trim()
           : undefined,
-    };
+    }
 
-    const storyData = scenarioService.prepareStoryData(
-      wizardData,
-      processedOpening,
-    );
+    const storyData = scenarioService.prepareStoryData(wizardData, processedOpening)
 
     if (storyData.protagonist) {
-      storyData.protagonist.portrait = this.image.protagonistPortrait ?? undefined;
+      storyData.protagonist.portrait = this.image.protagonistPortrait ?? undefined
       storyData.protagonist.visualDescriptors = this.image.protagonistVisualDescriptors
         ? stringToDescriptors(this.image.protagonistVisualDescriptors)
-        : {};
+        : {}
     }
 
     storyData.characters = storyData.characters.map((char) => ({
@@ -356,70 +351,66 @@ export class WizardStore {
         char.name && this.image.supportingCharacterVisualDescriptors[char.name]
           ? stringToDescriptors(this.image.supportingCharacterVisualDescriptors[char.name])
           : {},
-    }));
+    }))
 
     // Build translations object if we have translations
-    const translationSettings = settings.translationSettings;
+    const translationSettings = settings.translationSettings
     let translations:
       | {
-          language: string;
-          openingScene?: string;
+          language: string
+          openingScene?: string
           protagonist?: {
-            name?: string;
-            description?: string;
-            traits?: string[];
-            visualDescriptors?: string[];
-          };
-          startingLocation?: { name?: string; description?: string };
+            name?: string
+            description?: string
+            traits?: string[]
+            visualDescriptors?: string[]
+          }
+          startingLocation?: { name?: string; description?: string }
           characters?: {
             [originalName: string]: {
-              name?: string;
-              description?: string;
-              relationship?: string;
-              traits?: string[];
-              visualDescriptors?: string[];
-            };
-          };
+              name?: string
+              description?: string
+              relationship?: string
+              traits?: string[]
+              visualDescriptors?: string[]
+            }
+          }
         }
-      | undefined;
+      | undefined
 
     if (TranslationService.shouldTranslate(translationSettings)) {
-      const targetLanguage = translationSettings.targetLanguage;
-      translations = { language: targetLanguage };
+      const targetLanguage = translationSettings.targetLanguage
+      translations = { language: targetLanguage }
 
       // Opening scene translation
       if (this.narrative.generatedOpeningTranslated?.scene) {
-        translations.openingScene = this.narrative.generatedOpeningTranslated.scene;
+        translations.openingScene = this.narrative.generatedOpeningTranslated.scene
       }
 
       // Protagonist translation
       if (this.character.protagonistTranslated) {
         // Translate visual descriptors if present
-        let protagonistVisualDescriptorsTranslated: string[] | undefined;
+        let protagonistVisualDescriptorsTranslated: string[] | undefined
         if (this.image.protagonistVisualDescriptors?.trim()) {
           try {
             const visualDescriptorsArray = this.image.protagonistVisualDescriptors
-              .split(",")
+              .split(',')
               .map((d) => d.trim())
-              .filter(Boolean);
+              .filter(Boolean)
             if (visualDescriptorsArray.length > 0) {
               const translated = await aiService.translateWizardBatch(
-                { visualDescriptors: visualDescriptorsArray.join(", ") },
+                { visualDescriptors: visualDescriptorsArray.join(', ') },
                 targetLanguage,
-              );
+              )
               if (translated.visualDescriptors) {
-                protagonistVisualDescriptorsTranslated =
-                  translated.visualDescriptors
-                    .split(",")
-                    .map((d) => d.trim())
-                    .filter(Boolean);
+                protagonistVisualDescriptorsTranslated = translated.visualDescriptors
+                  .split(',')
+                  .map((d) => d.trim())
+                  .filter(Boolean)
               }
             }
           } catch (e) {
-            console.error(
-              "[Wizard] Failed to translate protagonist visual descriptors:",
-              e,
-            );
+            console.error('[Wizard] Failed to translate protagonist visual descriptors:', e)
           }
         }
         translations.protagonist = {
@@ -427,7 +418,7 @@ export class WizardStore {
           description: this.character.protagonistTranslated.description,
           traits: this.character.protagonistTranslated.traits,
           visualDescriptors: protagonistVisualDescriptorsTranslated,
-        };
+        }
       }
 
       // Starting location translation (from opening's initialLocation)
@@ -435,45 +426,41 @@ export class WizardStore {
         translations.startingLocation = {
           name: this.narrative.generatedOpeningTranslated.initialLocation.name,
           description: this.narrative.generatedOpeningTranslated.initialLocation.description,
-        };
+        }
       }
 
       // Supporting characters translation - key by processed name (after placeholder replacement)
       if (this.character.supportingCharactersTranslated.length > 0) {
-        translations.characters = {};
+        translations.characters = {}
         for (let i = 0; i < this.character.supportingCharacters.length; i++) {
-          const processed = processedCharacters[i];
-          const translated = this.character.supportingCharactersTranslated[i];
+          const processed = processedCharacters[i]
+          const translated = this.character.supportingCharactersTranslated[i]
           // Use processed name as key since createStoryFromWizard looks up by processed name
           if (processed?.name && translated) {
             // Translate visual descriptors if present for this character
-            let charVisualDescriptorsTranslated: string[] | undefined;
+            let charVisualDescriptorsTranslated: string[] | undefined
             const charVisualDescriptors =
-              this.image.supportingCharacterVisualDescriptors[processed.name];
+              this.image.supportingCharacterVisualDescriptors[processed.name]
             if (charVisualDescriptors?.trim()) {
               try {
                 const visualDescriptorsArray = charVisualDescriptors
-                  .split(",")
+                  .split(',')
                   .map((d) => d.trim())
-                  .filter(Boolean);
+                  .filter(Boolean)
                 if (visualDescriptorsArray.length > 0) {
                   const translatedVD = await aiService.translateWizardBatch(
-                    { visualDescriptors: visualDescriptorsArray.join(", ") },
+                    { visualDescriptors: visualDescriptorsArray.join(', ') },
                     targetLanguage,
-                  );
+                  )
                   if (translatedVD.visualDescriptors) {
-                    charVisualDescriptorsTranslated =
-                      translatedVD.visualDescriptors
-                        .split(",")
-                        .map((d) => d.trim())
-                        .filter(Boolean);
+                    charVisualDescriptorsTranslated = translatedVD.visualDescriptors
+                      .split(',')
+                      .map((d) => d.trim())
+                      .filter(Boolean)
                   }
                 }
               } catch (e) {
-                console.error(
-                  "[Wizard] Failed to translate character visual descriptors:",
-                  e,
-                );
+                console.error('[Wizard] Failed to translate character visual descriptors:', e)
               }
             }
             translations.characters[processed.name] = {
@@ -482,36 +469,30 @@ export class WizardStore {
               relationship: translated.relationship,
               traits: translated.traits,
               visualDescriptors: charVisualDescriptorsTranslated,
-            };
+            }
           }
         }
       }
 
       // Debug: log what translations we're passing
-      console.log(
-        "[Wizard] Translations being passed to createStoryFromWizard:",
-        {
-          hasOpeningScene: !!translations.openingScene,
-          hasProtagonist: !!translations.protagonist,
-          hasStartingLocation: !!translations.startingLocation,
-          startingLocation: translations.startingLocation,
-          characterCount: translations.characters
-            ? Object.keys(translations.characters).length
-            : 0,
-          characters: translations.characters,
-        },
-      );
+      console.log('[Wizard] Translations being passed to createStoryFromWizard:', {
+        hasOpeningScene: !!translations.openingScene,
+        hasProtagonist: !!translations.protagonist,
+        hasStartingLocation: !!translations.startingLocation,
+        startingLocation: translations.startingLocation,
+        characterCount: translations.characters ? Object.keys(translations.characters).length : 0,
+        characters: translations.characters,
+      })
     }
 
     const newStory = await story.createStoryFromWizard({
       ...storyData,
-      importedEntries:
-        processedEntries.length > 0 ? processedEntries : undefined,
+      importedEntries: processedEntries.length > 0 ? processedEntries : undefined,
       translations,
-    });
+    })
 
-    await story.loadStory(newStory.id);
-    ui.setActivePanel("story");
-    this.onClose();
+    await story.loadStory(newStory.id)
+    ui.setActivePanel('story')
+    this.onClose()
   }
 }

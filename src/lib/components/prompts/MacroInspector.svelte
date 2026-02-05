@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RotateCcw, Save, X, Check } from "lucide-svelte";
+  import { RotateCcw, Save, X, Check } from 'lucide-svelte'
   import type {
     Macro,
     MacroOverride,
@@ -10,182 +10,163 @@
     StoryMode,
     POV,
     Tense,
-  } from "$lib/services/prompts/types";
-  import * as Card from "$lib/components/ui/card";
-  import { Button } from "$lib/components/ui/button";
-  import { Label } from "$lib/components/ui/label";
-  import { Input } from "$lib/components/ui/input";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import * as Select from "$lib/components/ui/select";
-  import { Badge } from "$lib/components/ui/badge";
+  } from '$lib/services/prompts/types'
+  import * as Card from '$lib/components/ui/card'
+  import { Button } from '$lib/components/ui/button'
+  import { Label } from '$lib/components/ui/label'
+  import { Input } from '$lib/components/ui/input'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import * as Select from '$lib/components/ui/select'
+  import { Badge } from '$lib/components/ui/badge'
 
   interface Props {
-    macro: Macro;
-    override?: MacroOverride | null;
+    macro: Macro
+    override?: MacroOverride | null
     currentContext?: {
-      mode?: StoryMode;
-      pov?: POV;
-      tense?: Tense;
-    };
-    onSave: (value: string | MacroVariant[]) => void;
-    onReset: () => void;
-    onClose: () => void;
+      mode?: StoryMode
+      pov?: POV
+      tense?: Tense
+    }
+    onSave: (value: string | MacroVariant[]) => void
+    onReset: () => void
+    onClose: () => void
   }
 
-  let {
-    macro,
-    override = null,
-    currentContext,
-    onSave,
-    onReset,
-    onClose,
-  }: Props = $props();
+  let { macro, override = null, currentContext, onSave, onReset, onClose }: Props = $props()
 
   // --- Simple Macro State ---
-  let simpleValue = $state("");
+  let simpleValue = $state('')
 
   // --- Complex Macro State ---
-  let selectedMode = $state<StoryMode>("adventure");
-  let selectedPov = $state<POV>("second");
-  let selectedTense = $state<Tense>("present");
+  let selectedMode = $state<StoryMode>('adventure')
+  let selectedPov = $state<POV>('second')
+  let selectedTense = $state<Tense>('present')
 
-  let editedVariants = $state<MacroVariant[]>([]);
+  let editedVariants = $state<MacroVariant[]>([])
 
   // Initialize state
   $effect(() => {
-    if (macro.type === "simple") {
-      simpleValue = override?.value ?? (macro as SimpleMacro).defaultValue;
+    if (macro.type === 'simple') {
+      simpleValue = override?.value ?? (macro as SimpleMacro).defaultValue
     } else {
       // Deep copy variants
-      const sourceVariants = override?.variantOverrides ?? [];
-      editedVariants = JSON.parse(JSON.stringify(sourceVariants));
+      const sourceVariants = override?.variantOverrides ?? []
+      editedVariants = JSON.parse(JSON.stringify(sourceVariants))
 
       // Init context
       if (currentContext) {
         if (currentContext.mode && (macro as ComplexMacro).variesBy.mode) {
-          selectedMode = currentContext.mode;
+          selectedMode = currentContext.mode
         }
         if (currentContext.pov && (macro as ComplexMacro).variesBy.pov) {
-          selectedPov = currentContext.pov;
+          selectedPov = currentContext.pov
         }
         if (currentContext.tense && (macro as ComplexMacro).variesBy.tense) {
-          selectedTense = currentContext.tense;
+          selectedTense = currentContext.tense
         }
       }
     }
-  });
+  })
 
   // --- Derived State for Complex ---
   let currentKey = $derived<VariantKey>({
     mode: (macro as ComplexMacro).variesBy?.mode ? selectedMode : undefined,
     pov: (macro as ComplexMacro).variesBy?.pov ? selectedPov : undefined,
     tense: (macro as ComplexMacro).variesBy?.tense ? selectedTense : undefined,
-  });
+  })
 
   function variantKeyMatches(a: VariantKey, b: VariantKey): boolean {
-    return a.mode === b.mode && a.pov === b.pov && a.tense === b.tense;
+    return a.mode === b.mode && a.pov === b.pov && a.tense === b.tense
   }
 
-  function findVariant(
-    variants: MacroVariant[],
-    key: VariantKey
-  ): MacroVariant | undefined {
-    return variants.find((v) => variantKeyMatches(v.key, key));
+  function findVariant(variants: MacroVariant[], key: VariantKey): MacroVariant | undefined {
+    return variants.find((v) => variantKeyMatches(v.key, key))
   }
 
   let defaultVariantContent = $derived.by(() => {
-    if (macro.type !== "complex") return "";
-    const builtin = findVariant((macro as ComplexMacro).variants, currentKey);
-    return builtin?.content ?? (macro as ComplexMacro).fallbackContent ?? "";
-  });
+    if (macro.type !== 'complex') return ''
+    const builtin = findVariant((macro as ComplexMacro).variants, currentKey)
+    return builtin?.content ?? (macro as ComplexMacro).fallbackContent ?? ''
+  })
 
   let currentVariantContent = $derived.by(() => {
-    if (macro.type !== "complex") return "";
+    if (macro.type !== 'complex') return ''
     // Check edited
-    const edited = findVariant(editedVariants, currentKey);
-    if (edited) return edited.content;
+    const edited = findVariant(editedVariants, currentKey)
+    if (edited) return edited.content
     // Fallback to default
-    return defaultVariantContent;
-  });
+    return defaultVariantContent
+  })
 
   let isCurrentModified = $derived.by(() => {
-    if (macro.type === "simple") {
-      return simpleValue !== (macro as SimpleMacro).defaultValue;
+    if (macro.type === 'simple') {
+      return simpleValue !== (macro as SimpleMacro).defaultValue
     } else {
-      const edited = findVariant(editedVariants, currentKey);
-      return edited !== undefined;
+      const edited = findVariant(editedVariants, currentKey)
+      return edited !== undefined
     }
-  });
+  })
 
   // --- Actions ---
 
   function handleSimpleSave() {
-    if (macro.type === "simple") {
-      onSave(simpleValue);
+    if (macro.type === 'simple') {
+      onSave(simpleValue)
     }
   }
 
   function handleComplexSave() {
-    if (macro.type === "complex") {
-      onSave(editedVariants);
+    if (macro.type === 'complex') {
+      onSave(editedVariants)
     }
   }
 
   function updateComplexVariant(content: string) {
     if (content === defaultVariantContent) {
       // Remove override if matches default
-      const idx = editedVariants.findIndex((v) =>
-        variantKeyMatches(v.key, currentKey)
-      );
+      const idx = editedVariants.findIndex((v) => variantKeyMatches(v.key, currentKey))
       if (idx >= 0) {
-        editedVariants = editedVariants.filter((_, i) => i !== idx);
+        editedVariants = editedVariants.filter((_, i) => i !== idx)
       }
     } else {
       // Upsert override
-      const idx = editedVariants.findIndex((v) =>
-        variantKeyMatches(v.key, currentKey)
-      );
+      const idx = editedVariants.findIndex((v) => variantKeyMatches(v.key, currentKey))
       if (idx >= 0) {
-        editedVariants[idx] = { key: { ...currentKey }, content };
+        editedVariants[idx] = { key: { ...currentKey }, content }
       } else {
-        editedVariants = [
-          ...editedVariants,
-          { key: { ...currentKey }, content },
-        ];
+        editedVariants = [...editedVariants, { key: { ...currentKey }, content }]
       }
     }
   }
 
   function resetCurrentVariant() {
-    const idx = editedVariants.findIndex((v) =>
-      variantKeyMatches(v.key, currentKey)
-    );
+    const idx = editedVariants.findIndex((v) => variantKeyMatches(v.key, currentKey))
     if (idx >= 0) {
-      editedVariants = editedVariants.filter((_, i) => i !== idx);
+      editedVariants = editedVariants.filter((_, i) => i !== idx)
     }
   }
 
   // Options for Selects
   const modeOptions = [
-    { value: "adventure", label: "Adventure" },
-    { value: "creative-writing", label: "Creative Writing" },
-  ];
+    { value: 'adventure', label: 'Adventure' },
+    { value: 'creative-writing', label: 'Creative Writing' },
+  ]
   const povOptions = [
-    { value: "first", label: "1st Person" },
-    { value: "second", label: "2nd Person" },
-    { value: "third", label: "3rd Person" },
-  ];
+    { value: 'first', label: '1st Person' },
+    { value: 'second', label: '2nd Person' },
+    { value: 'third', label: '3rd Person' },
+  ]
   const tenseOptions = [
-    { value: "past", label: "Past" },
-    { value: "present", label: "Present" },
-  ];
+    { value: 'past', label: 'Past' },
+    { value: 'present', label: 'Present' },
+  ]
 </script>
 
 <Card.Root class="border-primary/20 bg-primary/5">
   <Card.Header class="pb-3">
     <div class="flex items-start justify-between">
       <div>
-        <Card.Title class="text-base flex items-center gap-2">
+        <Card.Title class="flex items-center gap-2 text-base">
           {macro.name}
           <Badge variant="outline" class="font-mono text-xs">
             {macro.token}
@@ -199,7 +180,7 @@
         <Button
           variant="ghost"
           size="icon"
-          class="h-8 w-8 text-muted-foreground hover:text-foreground"
+          class="text-muted-foreground hover:text-foreground h-8 w-8"
           onclick={onClose}
         >
           <X class="h-4 w-4" />
@@ -208,8 +189,8 @@
     </div>
   </Card.Header>
 
-  <Card.Content class="pb-3 space-y-4">
-    {#if macro.type === "simple"}
+  <Card.Content class="space-y-4 pb-3">
+    {#if macro.type === 'simple'}
       <div class="space-y-2">
         <Label for="simple-val">Value</Label>
         <div class="flex gap-2">
@@ -223,15 +204,14 @@
               variant="ghost"
               size="icon"
               title="Reset to default"
-              onclick={() =>
-                (simpleValue = (macro as SimpleMacro).defaultValue)}
+              onclick={() => (simpleValue = (macro as SimpleMacro).defaultValue)}
             >
               <RotateCcw class="h-4 w-4" />
             </Button>
           {/if}
         </div>
         {#if (macro as SimpleMacro).dynamic}
-          <p class="text-[10px] text-muted-foreground">
+          <p class="text-muted-foreground text-[10px]">
             This macro is dynamic. Your override will prevent automatic updates.
           </p>
         {/if}
@@ -240,10 +220,10 @@
       <!-- Complex Macro UI -->
       <div class="space-y-4">
         <!-- Dimensions Selectors -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {#if (macro as ComplexMacro).variesBy.mode}
             <div class="space-y-1">
-              <Label class="text-xs text-muted-foreground">Mode</Label>
+              <Label class="text-muted-foreground text-xs">Mode</Label>
               <Select.Root
                 type="single"
                 value={selectedMode}
@@ -263,7 +243,7 @@
 
           {#if (macro as ComplexMacro).variesBy.pov}
             <div class="space-y-1">
-              <Label class="text-xs text-muted-foreground">POV</Label>
+              <Label class="text-muted-foreground text-xs">POV</Label>
               <Select.Root
                 type="single"
                 value={selectedPov}
@@ -283,7 +263,7 @@
 
           {#if (macro as ComplexMacro).variesBy.tense}
             <div class="space-y-1">
-              <Label class="text-xs text-muted-foreground">Tense</Label>
+              <Label class="text-muted-foreground text-xs">Tense</Label>
               <Select.Root
                 type="single"
                 value={selectedTense}
@@ -310,10 +290,10 @@
               <Button
                 variant="ghost"
                 size="sm"
-                class="h-6 text-[10px] px-2"
+                class="h-6 px-2 text-[10px]"
                 onclick={resetCurrentVariant}
               >
-                <RotateCcw class="h-3 w-3 mr-1" />
+                <RotateCcw class="mr-1 h-3 w-3" />
                 Reset Variant
               </Button>
             {/if}
@@ -322,11 +302,11 @@
           <Textarea
             value={currentVariantContent}
             oninput={(e) => updateComplexVariant(e.currentTarget.value)}
-            class="font-mono text-sm min-h-[120px]"
+            class="min-h-[120px] font-mono text-sm"
           />
         </div>
 
-        <div class="text-xs text-muted-foreground">
+        <div class="text-muted-foreground text-xs">
           <span class="font-medium">Default:</span>
           <span class="opacity-70">{defaultVariantContent}</span>
         </div>
@@ -336,7 +316,7 @@
 
   <Card.Footer class="flex justify-between border-t py-3">
     <Button variant="ghost" size="sm" onclick={onReset}>
-      <RotateCcw class="h-4 w-4 mr-2" />
+      <RotateCcw class="mr-2 h-4 w-4" />
       Reset Macro
     </Button>
     <div class="flex gap-2">
@@ -344,9 +324,9 @@
       <Button
         variant="default"
         size="sm"
-        onclick={macro.type === "simple" ? handleSimpleSave : handleComplexSave}
+        onclick={macro.type === 'simple' ? handleSimpleSave : handleComplexSave}
       >
-        <Save class="h-4 w-4 mr-2" />
+        <Save class="mr-2 h-4 w-4" />
         Save Changes
       </Button>
     </div>

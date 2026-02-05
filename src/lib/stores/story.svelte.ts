@@ -1,10 +1,28 @@
-import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, Checkpoint, Branch, MemoryConfig, StoryMode, StorySettings, Entry, TimeTracker, EmbeddedImage, PersistentCharacterSnapshot, VisualDescriptors } from '$lib/types';
-import { database } from '$lib/services/database';
-import { ui } from './ui.svelte';
-import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier';
-import { DEFAULT_MEMORY_CONFIG } from '$lib/services/ai/generation/MemoryService';
-import { convertToEntries, type ImportedEntry } from '$lib/services/lorebookImporter';
-import { countTokens } from '$lib/services/tokenizer';
+import type {
+  Story,
+  StoryEntry,
+  Character,
+  Location,
+  Item,
+  StoryBeat,
+  Chapter,
+  Checkpoint,
+  Branch,
+  MemoryConfig,
+  StoryMode,
+  StorySettings,
+  Entry,
+  TimeTracker,
+  EmbeddedImage,
+  PersistentCharacterSnapshot,
+  VisualDescriptors,
+} from '$lib/types'
+import { database } from '$lib/services/database'
+import { ui } from './ui.svelte'
+import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier'
+import { DEFAULT_MEMORY_CONFIG } from '$lib/services/ai/generation/MemoryService'
+import { convertToEntries, type ImportedEntry } from '$lib/services/lorebookImporter'
+import { countTokens } from '$lib/services/tokenizer'
 import {
   eventBus,
   emitStoryLoaded,
@@ -15,137 +33,137 @@ import {
   type CheckpointRestoredEvent,
   type StoryCreatedEvent,
   type SaveCompleteEvent,
-} from '$lib/services/events';
+} from '$lib/services/events'
 
-const DEBUG = true;
+const DEBUG = true
 
 function log(...args: any[]) {
   if (DEBUG) {
-    console.log('[StoryStore]', ...args);
+    console.log('[StoryStore]', ...args)
   }
 }
 
 // Story Store using Svelte 5 runes
 class StoryStore {
   // Current active story
-  currentStory = $state<Story | null>(null);
-  entries = $state<StoryEntry[]>([]);
+  currentStory = $state<Story | null>(null)
+  entries = $state<StoryEntry[]>([])
 
   // Lorebook entries (per design doc section 3.2)
-  lorebookEntries = $state<Entry[]>([]);
+  lorebookEntries = $state<Entry[]>([])
 
   // World state for current story
-  characters = $state<Character[]>([]);
-  locations = $state<Location[]>([]);
-  items = $state<Item[]>([]);
-  storyBeats = $state<StoryBeat[]>([]);
+  characters = $state<Character[]>([])
+  locations = $state<Location[]>([])
+  items = $state<Item[]>([])
+  storyBeats = $state<StoryBeat[]>([])
 
   // Memory system
-  chapters = $state<Chapter[]>([]);
-  checkpoints = $state<Checkpoint[]>([]);
+  chapters = $state<Chapter[]>([])
+  checkpoints = $state<Checkpoint[]>([])
 
   // Branching system
-  branches = $state<Branch[]>([]);
+  branches = $state<Branch[]>([])
 
   // Story library
-  allStories = $state<Story[]>([]);
+  allStories = $state<Story[]>([])
 
   // Performance caches - avoid O(n) recalculations on every access
-  private _cachedWordCount: number = 0;
-  private _wordCountDirty = $state(true);
-  private _cachedLastChapterEndIndex: number = 0;
-  private _lastChapterEndIndexDirty: boolean = true;
-  private _lastChaptersLength: number = 0;
-  private _lastEntriesLength: number = 0;
+  private _cachedWordCount: number = 0
+  private _wordCountDirty = $state(true)
+  private _cachedLastChapterEndIndex: number = 0
+  private _lastChapterEndIndexDirty: boolean = true
+  private _lastChaptersLength: number = 0
+  private _lastEntriesLength: number = 0
 
   // Entry ID to index map for O(1) lookups
-  private _entryIdToIndex: Map<string, number> = new Map();
+  private _entryIdToIndex: Map<string, number> = new Map()
 
   // Retry operation lock - prevents editing during retry restore
-  private _isRetryInProgress = $state(false);
+  private _isRetryInProgress = $state(false)
 
   // Public getter to check if retry is in progress
   get isRetryInProgress(): boolean {
-    return this._isRetryInProgress;
+    return this._isRetryInProgress
   }
 
   // Derived states
   get currentLocation(): Location | undefined {
-    return this.locations.find(l => l.current);
+    return this.locations.find((l) => l.current)
   }
 
   get activeCharacters(): Character[] {
-    return this.characters.filter(c => c.status === 'active');
+    return this.characters.filter((c) => c.status === 'active')
   }
 
   get protagonist(): Character | undefined {
-    return this.characters.find(c => c.relationship === 'self');
+    return this.characters.find((c) => c.relationship === 'self')
   }
 
   get pov(): 'first' | 'second' | 'third' {
-    const mode = this.currentStory?.mode ?? 'adventure';
-    const stored = this.currentStory?.settings?.pov ?? null;
+    const mode = this.currentStory?.mode ?? 'adventure'
+    const stored = this.currentStory?.settings?.pov ?? null
     // For creative-writing mode, respect the user's stored POV choice
     // (wizard allows selecting first, second, or third person)
     if (stored) {
-      return stored;
+      return stored
     }
     // Default based on mode
     if (mode === 'creative-writing') {
-      return 'third';
+      return 'third'
     }
-    return 'first';
+    return 'first'
   }
 
   get tense(): 'past' | 'present' {
-    const mode = this.currentStory?.mode ?? 'adventure';
-    const stored = this.currentStory?.settings?.tense ?? null;
+    const mode = this.currentStory?.mode ?? 'adventure'
+    const stored = this.currentStory?.settings?.tense ?? null
     if (mode === 'creative-writing') {
-      return 'past';
+      return 'past'
     }
-    return stored ?? 'present';
+    return stored ?? 'present'
   }
 
   get inventoryItems(): Item[] {
-    return this.items.filter(i => i.location === 'inventory');
+    return this.items.filter((i) => i.location === 'inventory')
   }
 
   get equippedItems(): Item[] {
-    return this.items.filter(i => i.equipped);
+    return this.items.filter((i) => i.equipped)
   }
 
   get pendingQuests(): StoryBeat[] {
-    return this.storyBeats.filter(b => b.status === 'pending' || b.status === 'active');
+    return this.storyBeats.filter((b) => b.status === 'pending' || b.status === 'active')
   }
 
   get wordCount(): number {
     // Use cached value if available, recalculate only when dirty
     if (this._wordCountDirty) {
       this._cachedWordCount = this.entries.reduce((count, entry) => {
-        return count + entry.content.split(/\s+/).filter(Boolean).length;
-      }, 0);
-      this._wordCountDirty = false;
+        return count + entry.content.split(/\s+/).filter(Boolean).length
+      }, 0)
+      this._wordCountDirty = false
     }
-    return this._cachedWordCount;
+    return this._cachedWordCount
   }
 
   /**
    * Invalidate word count cache - call when entries are added/removed/modified
    */
   private invalidateWordCountCache(): void {
-    this._wordCountDirty = true;
+    this._wordCountDirty = true
   }
 
   get memoryConfig(): MemoryConfig {
-    return this.currentStory?.memoryConfig || DEFAULT_MEMORY_CONFIG;
+    return this.currentStory?.memoryConfig || DEFAULT_MEMORY_CONFIG
   }
 
   get storyMode(): StoryMode {
-    return this.currentStory?.mode || 'adventure';
+    return this.currentStory?.mode || 'adventure'
   }
 
   get timeTracker(): TimeTracker {
-    return this.currentStory?.timeTracker || { years: 0, days: 0, hours: 0, minutes: 0 };
+    return this.currentStory?.timeTracker || { years: 0, days: 0, hours: 0, minutes: 0 }
   }
 
   /**
@@ -153,39 +171,39 @@ class StoryStore {
    * Includes main branch chapters plus any ancestor/current branch chapters.
    */
   get currentBranchChapters(): Chapter[] {
-    const currentBranchId = this.currentStory?.currentBranchId ?? null;
+    const currentBranchId = this.currentStory?.currentBranchId ?? null
 
     // If on main branch, only return chapters with null branchId
     if (currentBranchId === null) {
-      return this.chapters.filter(ch => ch.branchId === null);
+      return this.chapters.filter((ch) => ch.branchId === null)
     }
 
-    const lineage = this.buildBranchLineage(currentBranchId);
+    const lineage = this.buildBranchLineage(currentBranchId)
     if (lineage.length === 0) {
-      return this.chapters.filter(ch => ch.branchId === null);
+      return this.chapters.filter((ch) => ch.branchId === null)
     }
 
-    const lineageIds = new Set(lineage.map(branch => branch.id));
-    return this.chapters.filter(ch => ch.branchId === null || lineageIds.has(ch.branchId));
+    const lineageIds = new Set(lineage.map((branch) => branch.id))
+    return this.chapters.filter((ch) => ch.branchId === null || lineageIds.has(ch.branchId))
   }
 
   get lastChapterEndIndex(): number {
     // Use branch-filtered chapters for this computation
-    const branchChapters = this.currentBranchChapters;
-    if (branchChapters.length === 0) return 0;
+    const branchChapters = this.currentBranchChapters
+    if (branchChapters.length === 0) return 0
 
     // Check if cache is valid - invalidate if chapters or entries changed
-    const chaptersChanged = this.chapters.length !== this._lastChaptersLength;
-    const entriesChanged = this.entries.length !== this._lastEntriesLength;
+    const chaptersChanged = this.chapters.length !== this._lastChaptersLength
+    const entriesChanged = this.entries.length !== this._lastEntriesLength
 
     if (chaptersChanged || entriesChanged || this._lastChapterEndIndexDirty) {
-      this._lastChaptersLength = this.chapters.length;
-      this._lastEntriesLength = this.entries.length;
-      this._cachedLastChapterEndIndex = this._computeLastChapterEndIndex();
-      this._lastChapterEndIndexDirty = false;
+      this._lastChaptersLength = this.chapters.length
+      this._lastEntriesLength = this.entries.length
+      this._cachedLastChapterEndIndex = this._computeLastChapterEndIndex()
+      this._lastChapterEndIndexDirty = false
     }
 
-    return this._cachedLastChapterEndIndex;
+    return this._cachedLastChapterEndIndex
   }
 
   /**
@@ -193,9 +211,9 @@ class StoryStore {
    * Called when entries array changes significantly.
    */
   private rebuildEntryIdIndex(): void {
-    this._entryIdToIndex.clear();
+    this._entryIdToIndex.clear()
     for (let i = 0; i < this.entries.length; i++) {
-      this._entryIdToIndex.set(this.entries[i].id, i);
+      this._entryIdToIndex.set(this.entries[i].id, i)
     }
   }
 
@@ -205,22 +223,22 @@ class StoryStore {
    */
   private _computeLastChapterEndIndex(): number {
     // Use branch-filtered chapters
-    const branchChapters = this.currentBranchChapters;
-    if (branchChapters.length === 0) return 0;
+    const branchChapters = this.currentBranchChapters
+    if (branchChapters.length === 0) return 0
 
     // Rebuild index map if needed
     if (this._entryIdToIndex.size !== this.entries.length) {
-      this.rebuildEntryIdIndex();
+      this.rebuildEntryIdIndex()
     }
 
     // Sort chapters by number to ensure we get the actual last chapter for this branch
-    const sortedChapters = [...branchChapters].sort((a, b) => a.number - b.number);
-    const lastChapter = sortedChapters[sortedChapters.length - 1];
+    const sortedChapters = [...branchChapters].sort((a, b) => a.number - b.number)
+    const lastChapter = sortedChapters[sortedChapters.length - 1]
 
     // Use O(1) map lookup instead of O(n) find + indexOf
-    const endIndex = this._entryIdToIndex.get(lastChapter.endEntryId);
+    const endIndex = this._entryIdToIndex.get(lastChapter.endEntryId)
     if (endIndex !== undefined) {
-      return endIndex + 1;
+      return endIndex + 1
     }
 
     // Fallback: if endEntryId references a deleted entry, estimate based on entry counts
@@ -228,23 +246,23 @@ class StoryStore {
       chapterId: lastChapter.id,
       chapterNumber: lastChapter.number,
       endEntryId: lastChapter.endEntryId,
-    });
+    })
 
     // Sum up all branch chapter entry counts as a fallback estimate
-    const totalChapterEntries = sortedChapters.reduce((sum, ch) => sum + ch.entryCount, 0);
-    return Math.min(totalChapterEntries, this.entries.length);
+    const totalChapterEntries = sortedChapters.reduce((sum, ch) => sum + ch.entryCount, 0)
+    return Math.min(totalChapterEntries, this.entries.length)
   }
 
   /**
    * Invalidate lastChapterEndIndex cache - call when chapters change
    */
   private invalidateChapterCache(): void {
-    this._lastChapterEndIndexDirty = true;
-    this._entryIdToIndex.clear(); // Force rebuild on next access
+    this._lastChapterEndIndexDirty = true
+    this._entryIdToIndex.clear() // Force rebuild on next access
   }
 
   get messagesSinceLastChapter(): number {
-    return this.entries.length - this.lastChapterEndIndex;
+    return this.entries.length - this.lastChapterEndIndex
   }
 
   /**
@@ -252,15 +270,15 @@ class StoryStore {
    * Uses stored token count (accurate) or calculates via tokenizer for legacy entries.
    */
   get tokensSinceLastChapter(): number {
-    const visibleEntries = this.entries.slice(this.lastChapterEndIndex);
+    const visibleEntries = this.entries.slice(this.lastChapterEndIndex)
     return visibleEntries.reduce((total, entry) => {
       // Use stored token count if available
       if (entry.metadata?.tokenCount) {
-        return total + entry.metadata.tokenCount;
+        return total + entry.metadata.tokenCount
       }
       // Fallback for legacy entries without stored token count
-      return total + countTokens(entry.content);
-    }, 0);
+      return total + countTokens(entry.content)
+    }, 0)
   }
 
   /**
@@ -268,26 +286,25 @@ class StoryStore {
    * Returns 0 if no entries exist outside the buffer.
    */
   get tokensOutsideBuffer(): number {
-    const bufferSize = this.memoryConfig.chapterBuffer;
-    const visibleEntries = this.entries.slice(this.lastChapterEndIndex);
+    const bufferSize = this.memoryConfig.chapterBuffer
+    const visibleEntries = this.entries.slice(this.lastChapterEndIndex)
 
     // If all visible entries are within the buffer, nothing to summarize
     if (visibleEntries.length <= bufferSize) {
-      return 0;
+      return 0
     }
 
     // Count tokens for entries outside the buffer
     // Note: slice(0, -0) returns [] in JavaScript, so we need to handle bufferSize === 0 specially
-    const entriesOutsideBuffer = bufferSize === 0
-      ? visibleEntries
-      : visibleEntries.slice(0, -bufferSize);
+    const entriesOutsideBuffer =
+      bufferSize === 0 ? visibleEntries : visibleEntries.slice(0, -bufferSize)
     return entriesOutsideBuffer.reduce((total, entry) => {
       if (entry.metadata?.tokenCount) {
-        return total + entry.metadata.tokenCount;
+        return total + entry.metadata.tokenCount
       }
       // Fallback for legacy entries without stored token count
-      return total + countTokens(entry.content);
-    }, 0);
+      return total + countTokens(entry.content)
+    }, 0)
   }
 
   /**
@@ -298,10 +315,10 @@ class StoryStore {
   get visibleEntries(): StoryEntry[] {
     if (this.chapters.length === 0) {
       // No chapters yet, all entries are visible
-      return this.entries;
+      return this.entries
     }
     // Return only entries after the last chapter
-    return this.entries.slice(this.lastChapterEndIndex);
+    return this.entries.slice(this.lastChapterEndIndex)
   }
 
   /**
@@ -311,11 +328,11 @@ class StoryStore {
   isEntrySummarized(entryId: string): boolean {
     // Ensure index map is up to date
     if (this._entryIdToIndex.size !== this.entries.length) {
-      this.rebuildEntryIdIndex();
+      this.rebuildEntryIdIndex()
     }
-    const entryIndex = this._entryIdToIndex.get(entryId);
-    if (entryIndex === undefined) return false;
-    return entryIndex < this.lastChapterEndIndex;
+    const entryIndex = this._entryIdToIndex.get(entryId)
+    if (entryIndex === undefined) return false
+    return entryIndex < this.lastChapterEndIndex
   }
 
   /**
@@ -324,18 +341,18 @@ class StoryStore {
    * Returns true if repairs were made.
    */
   private async validateChapterIntegrity(): Promise<boolean> {
-    if (this.chapters.length === 0) return false;
+    if (this.chapters.length === 0) return false
 
-    let repairsMade = false;
-    const entryIdSet = new Set(this.entries.map(e => e.id));
-    const chaptersToDelete: string[] = [];
+    let repairsMade = false
+    const entryIdSet = new Set(this.entries.map((e) => e.id))
+    const chaptersToDelete: string[] = []
 
     // Sort chapters by number for proper validation
-    const sortedChapters = [...this.chapters].sort((a, b) => a.number - b.number);
+    const sortedChapters = [...this.chapters].sort((a, b) => a.number - b.number)
 
     for (const chapter of sortedChapters) {
-      const hasValidStart = entryIdSet.has(chapter.startEntryId);
-      const hasValidEnd = entryIdSet.has(chapter.endEntryId);
+      const hasValidStart = entryIdSet.has(chapter.startEntryId)
+      const hasValidEnd = entryIdSet.has(chapter.endEntryId)
 
       if (!hasValidStart || !hasValidEnd) {
         log('Chapter has invalid entry references, marking for deletion', {
@@ -345,101 +362,102 @@ class StoryStore {
           hasValidEnd,
           startEntryId: chapter.startEntryId,
           endEntryId: chapter.endEntryId,
-        });
-        chaptersToDelete.push(chapter.id);
-        repairsMade = true;
+        })
+        chaptersToDelete.push(chapter.id)
+        repairsMade = true
       }
     }
 
     // Delete invalid chapters from database and local state
     for (const chapterId of chaptersToDelete) {
       try {
-        await database.deleteChapter(chapterId);
-        log('Deleted invalid chapter:', chapterId);
+        await database.deleteChapter(chapterId)
+        log('Deleted invalid chapter:', chapterId)
       } catch (error) {
-        log('Failed to delete invalid chapter:', chapterId, error);
+        log('Failed to delete invalid chapter:', chapterId, error)
       }
     }
 
     if (chaptersToDelete.length > 0) {
-      this.chapters = this.chapters.filter(ch => !chaptersToDelete.includes(ch.id));
+      this.chapters = this.chapters.filter((ch) => !chaptersToDelete.includes(ch.id))
       // Invalidate chapter cache after deletions
-      this.invalidateChapterCache();
+      this.invalidateChapterCache()
     }
 
     // Ensure chapters are sorted by number
-    this.chapters = [...this.chapters].sort((a, b) => a.number - b.number);
+    this.chapters = [...this.chapters].sort((a, b) => a.number - b.number)
 
     if (repairsMade) {
       log('Chapter integrity validation complete', {
         deletedChapters: chaptersToDelete.length,
         remainingChapters: this.chapters.length,
-      });
+      })
     }
 
-    return repairsMade;
+    return repairsMade
   }
 
   // Close the current story and reset state
   closeStory(): void {
-    this.currentStory = null;
-    this.entries = [];
-    this.characters = [];
-    this.locations = [];
-    this.items = [];
-    this.storyBeats = [];
-    this.chapters = [];
-    this.checkpoints = [];
-    this.lorebookEntries = [];
-    this.branches = [];
-    this.invalidateWordCountCache();
-    this.invalidateChapterCache();
-    log('Story closed');
+    this.currentStory = null
+    this.entries = []
+    this.characters = []
+    this.locations = []
+    this.items = []
+    this.storyBeats = []
+    this.chapters = []
+    this.checkpoints = []
+    this.lorebookEntries = []
+    this.branches = []
+    this.invalidateWordCountCache()
+    this.invalidateChapterCache()
+    log('Story closed')
   }
 
   // Load all stories for library view
   async loadAllStories(): Promise<void> {
-    this.allStories = await database.getAllStories();
+    this.allStories = await database.getAllStories()
   }
 
   // Load a specific story with all its data
   async loadStory(storyId: string): Promise<void> {
-    const story = await database.getStory(storyId);
+    const story = await database.getStory(storyId)
     if (!story) {
-      throw new Error(`Story not found: ${storyId}`);
+      throw new Error(`Story not found: ${storyId}`)
     }
 
     // Clean up any orphaned embedded_images before loading
     // (fixes FK constraint issues from older data)
-    await database.cleanupOrphanedEmbeddedImages();
+    await database.cleanupOrphanedEmbeddedImages()
 
-    this.currentStory = story;
+    this.currentStory = story
 
     // Load branch-independent data first
-    const [characters, locations, items, storyBeats, checkpoints, lorebookEntries, branches] = await Promise.all([
-      database.getCharacters(storyId),
-      database.getLocations(storyId),
-      database.getItems(storyId),
-      database.getStoryBeats(storyId),
-      database.getCheckpoints(storyId),
-      database.getEntries(storyId),
-      database.getBranches(storyId),
-    ]);
+    const [characters, locations, items, storyBeats, checkpoints, lorebookEntries, branches] =
+      await Promise.all([
+        database.getCharacters(storyId),
+        database.getLocations(storyId),
+        database.getItems(storyId),
+        database.getStoryBeats(storyId),
+        database.getCheckpoints(storyId),
+        database.getEntries(storyId),
+        database.getBranches(storyId),
+      ])
 
-    this.characters = characters;
-    this.locations = locations;
-    this.items = items;
-    this.storyBeats = storyBeats;
-    this.checkpoints = checkpoints;
-    this.lorebookEntries = lorebookEntries;
-    this.branches = branches;
+    this.characters = characters
+    this.locations = locations
+    this.items = items
+    this.storyBeats = storyBeats
+    this.checkpoints = checkpoints
+    this.lorebookEntries = lorebookEntries
+    this.branches = branches
 
     // Load entries and chapters based on current branch
-    await this.reloadEntriesForCurrentBranch();
+    await this.reloadEntriesForCurrentBranch()
 
     // Reset all caches after loading
-    this.invalidateWordCountCache();
-    this.invalidateChapterCache();
+    this.invalidateWordCountCache()
+    this.invalidateChapterCache()
 
     log('Story loaded', {
       id: storyId,
@@ -450,43 +468,43 @@ class StoryStore {
       checkpoints: checkpoints.length,
       branches: branches.length,
       currentBranchId: story.currentBranchId,
-    });
+    })
 
     // Load persisted activation data for this story (stickiness tracking)
-    await ui.loadActivationData(storyId);
+    await ui.loadActivationData(storyId)
 
     // Clear stale lorebook retrieval from previous story to prevent cross-story contamination
-    ui.setLastLorebookRetrieval(null);
+    ui.setLastLorebookRetrieval(null)
 
     // Set current story ID for retry backup tracking
-    ui.setCurrentRetryStoryId(storyId);
+    ui.setCurrentRetryStoryId(storyId)
 
     // Load retry state from DB if we don't have an in-memory backup for this story
     if (story.retryState) {
-      ui.loadRetryBackupFromPersistent(storyId, story.retryState);
+      ui.loadRetryBackupFromPersistent(storyId, story.retryState)
     }
 
     // Load style review state from DB
-    ui.loadStyleReviewState(storyId, story.styleReviewState);
+    ui.loadStyleReviewState(storyId, story.styleReviewState)
 
     // Validate and repair chapter integrity (handles orphaned references)
-    await this.validateChapterIntegrity();
+    await this.validateChapterIntegrity()
 
     // Load persisted action choices for adventure mode
     if (story.mode === 'adventure') {
-      await ui.loadActionChoices(storyId);
+      await ui.loadActionChoices(storyId)
     }
 
     // Load persisted suggestions for creative-writing mode
     if (story.mode === 'creative-writing') {
-      await ui.loadSuggestions(storyId);
+      await ui.loadSuggestions(storyId)
     }
 
     // Set mobile-friendly defaults (close sidebar, etc.)
-    ui.setMobileDefaults();
+    ui.setMobileDefaults()
 
     // Emit event
-    emitStoryLoaded(storyId, story.mode);
+    emitStoryLoaded(storyId, story.mode)
   }
 
   // Create a new story
@@ -494,7 +512,7 @@ class StoryStore {
     title: string,
     templateId?: string,
     genre?: string,
-    mode: StoryMode = 'adventure'
+    mode: StoryMode = 'adventure',
   ): Promise<Story> {
     const storyData = await database.createStory({
       id: crypto.randomUUID(),
@@ -509,35 +527,44 @@ class StoryStore {
       styleReviewState: null,
       timeTracker: null,
       currentBranchId: null,
-    });
+    })
 
-    this.allStories = [storyData, ...this.allStories];
+    this.allStories = [storyData, ...this.allStories]
 
     // Emit event
-    eventBus.emit<StoryCreatedEvent>({ type: 'StoryCreated', storyId: storyData.id, mode });
+    eventBus.emit<StoryCreatedEvent>({ type: 'StoryCreated', storyId: storyData.id, mode })
 
-    return storyData;
+    return storyData
   }
 
   // Add a new story entry
   // The optional id parameter allows pre-generating the entry ID before streaming starts,
   // which is needed for inline image generation during streaming
-  async addEntry(type: StoryEntry['type'], content: string, metadata?: StoryEntry['metadata'], reasoning?: string, id?: string): Promise<StoryEntry> {
+  async addEntry(
+    type: StoryEntry['type'],
+    content: string,
+    metadata?: StoryEntry['metadata'],
+    reasoning?: string,
+    id?: string,
+  ): Promise<StoryEntry> {
     if (!this.currentStory) {
-      throw new Error('No story loaded');
+      throw new Error('No story loaded')
     }
 
     // Count tokens for accurate auto-summarize threshold detection
-    const tokenCount = countTokens(content);
+    const tokenCount = countTokens(content)
 
     // Capture current story time as timeStart for this entry
     // timeEnd defaults to timeStart; for narration entries, timeEnd is updated after classification
     const timeStart = this.currentStory.timeTracker
       ? { ...this.currentStory.timeTracker }
-      : { years: 0, days: 0, hours: 0, minutes: 0 };
-    const timeEnd = { ...timeStart };
+      : { years: 0, days: 0, hours: 0, minutes: 0 }
+    const timeEnd = { ...timeStart }
 
-    const position = await database.getNextEntryPosition(this.currentStory.id, this.currentStory.currentBranchId);
+    const position = await database.getNextEntryPosition(
+      this.currentStory.id,
+      this.currentStory.currentBranchId,
+    )
     const entry = await database.addStoryEntry({
       id: id ?? crypto.randomUUID(),
       storyId: this.currentStory.id,
@@ -548,104 +575,104 @@ class StoryStore {
       metadata: { ...metadata, tokenCount, timeStart, timeEnd },
       branchId: this.currentStory.currentBranchId,
       reasoning,
-    });
+    })
 
-    this.entries = [...this.entries, entry];
+    this.entries = [...this.entries, entry]
 
     // Invalidate caches
-    this.invalidateWordCountCache();
-    this.invalidateChapterCache();
+    this.invalidateWordCountCache()
+    this.invalidateChapterCache()
 
     // Update story's updatedAt
-    await database.updateStory(this.currentStory.id, {});
+    await database.updateStory(this.currentStory.id, {})
 
-    return entry;
+    return entry
   }
 
   // Update a story entry
   async updateEntry(entryId: string, content: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Prevent editing during any generation or retry restore to avoid race conditions
     // Silently return - UI should disable buttons using ui.isGenerating
     if (this._isRetryInProgress || ui.isGenerating) {
-      log('Edit blocked - generation or retry in progress');
-      return;
+      log('Edit blocked - generation or retry in progress')
+      return
     }
 
-    const existingEntry = this.entries.find(e => e.id === entryId);
-    if (!existingEntry) throw new Error('Entry not found');
+    const existingEntry = this.entries.find((e) => e.id === entryId)
+    if (!existingEntry) throw new Error('Entry not found')
 
     // Prevent modifying inherited entries on a branch
     // An entry is inherited if its branchId doesn't match the current branch
-    const currentBranchId = this.currentStory.currentBranchId;
+    const currentBranchId = this.currentStory.currentBranchId
     if ((existingEntry.branchId ?? null) !== currentBranchId) {
       throw new Error(
         'Cannot edit inherited entries. This entry belongs to ' +
-        (existingEntry.branchId === null ? 'the main branch' : 'a parent branch') +
-        '. Create new content on this branch instead.'
-      );
+          (existingEntry.branchId === null ? 'the main branch' : 'a parent branch') +
+          '. Create new content on this branch instead.',
+      )
     }
 
     // Recalculate token count when content changes
-    const tokenCount = countTokens(content);
-    const updatedMetadata = { ...existingEntry.metadata, tokenCount };
+    const tokenCount = countTokens(content)
+    const updatedMetadata = { ...existingEntry.metadata, tokenCount }
 
-    await database.updateStoryEntry(entryId, { content, metadata: updatedMetadata });
-    this.entries = this.entries.map(e =>
-      e.id === entryId ? { ...e, content, metadata: updatedMetadata } : e
-    );
+    await database.updateStoryEntry(entryId, { content, metadata: updatedMetadata })
+    this.entries = this.entries.map((e) =>
+      e.id === entryId ? { ...e, content, metadata: updatedMetadata } : e,
+    )
 
     // Invalidate word count cache (content changed)
-    this.invalidateWordCountCache();
+    this.invalidateWordCountCache()
 
     // Update story's updatedAt
-    await database.updateStory(this.currentStory.id, {});
+    await database.updateStory(this.currentStory.id, {})
   }
 
   // Delete a story entry
   async deleteEntry(entryId: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Prevent deleting during any generation or retry restore to avoid race conditions
     // Silently return - UI should disable buttons using ui.isGenerating
     if (this._isRetryInProgress || ui.isGenerating) {
-      log('Delete blocked - generation or retry in progress');
-      return;
+      log('Delete blocked - generation or retry in progress')
+      return
     }
 
-    const existingEntry = this.entries.find(e => e.id === entryId);
-    if (!existingEntry) throw new Error('Entry not found');
+    const existingEntry = this.entries.find((e) => e.id === entryId)
+    if (!existingEntry) throw new Error('Entry not found')
 
     // Prevent deleting inherited entries on a branch
     // An entry is inherited if its branchId doesn't match the current branch
-    const currentBranchId = this.currentStory.currentBranchId;
+    const currentBranchId = this.currentStory.currentBranchId
     if ((existingEntry.branchId ?? null) !== currentBranchId) {
       throw new Error(
         'Cannot delete inherited entries. This entry belongs to ' +
-        (existingEntry.branchId === null ? 'the main branch' : 'a parent branch') +
-        '. You can only delete entries created on the current branch.'
-      );
+          (existingEntry.branchId === null ? 'the main branch' : 'a parent branch') +
+          '. You can only delete entries created on the current branch.',
+      )
     }
 
     // Check if this entry is a fork point for any branch
-    const branchUsingEntry = this.branches.find(b => b.forkEntryId === entryId);
+    const branchUsingEntry = this.branches.find((b) => b.forkEntryId === entryId)
     if (branchUsingEntry) {
       throw new Error(
         `Cannot delete this entry because it is the fork point for branch "${branchUsingEntry.name}". ` +
-        `Delete the branch first if you want to remove this entry.`
-      );
+          `Delete the branch first if you want to remove this entry.`,
+      )
     }
 
-    await database.deleteStoryEntry(entryId);
-    this.entries = this.entries.filter(e => e.id !== entryId);
+    await database.deleteStoryEntry(entryId)
+    this.entries = this.entries.filter((e) => e.id !== entryId)
 
     // Invalidate caches
-    this.invalidateWordCountCache();
-    this.invalidateChapterCache();
+    this.invalidateWordCountCache()
+    this.invalidateChapterCache()
 
     // Update story's updatedAt
-    await database.updateStory(this.currentStory.id, {});
+    await database.updateStory(this.currentStory.id, {})
   }
 
   /**
@@ -653,43 +680,41 @@ class StoryStore {
    * Called after applyClassificationResult to record the story time after the entry's events.
    */
   async updateEntryTimeEnd(entryId: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const entry = this.entries.find(e => e.id === entryId);
+    const entry = this.entries.find((e) => e.id === entryId)
     if (!entry) {
-      log('updateEntryTimeEnd: Entry not found', entryId);
-      return;
+      log('updateEntryTimeEnd: Entry not found', entryId)
+      return
     }
 
     // Capture current story time as timeEnd
     const timeEnd = this.currentStory.timeTracker
       ? { ...this.currentStory.timeTracker }
-      : { years: 0, days: 0, hours: 0, minutes: 0 };
+      : { years: 0, days: 0, hours: 0, minutes: 0 }
 
-    const updatedMetadata = { ...entry.metadata, timeEnd };
+    const updatedMetadata = { ...entry.metadata, timeEnd }
 
-    await database.updateStoryEntry(entryId, { metadata: updatedMetadata });
-    this.entries = this.entries.map(e =>
-      e.id === entryId ? { ...e, metadata: updatedMetadata } : e
-    );
+    await database.updateStoryEntry(entryId, { metadata: updatedMetadata })
+    this.entries = this.entries.map((e) =>
+      e.id === entryId ? { ...e, metadata: updatedMetadata } : e,
+    )
 
-    log('Entry timeEnd updated', { entryId, timeEnd });
+    log('Entry timeEnd updated', { entryId, timeEnd })
   }
 
   /**
    * Update an entry's reasoning content and persist to database.
    */
   async updateEntryReasoning(entryId: string, reasoning: string): Promise<void> {
-    const entry = this.entries.find(e => e.id === entryId);
-    if (!entry) return;
+    const entry = this.entries.find((e) => e.id === entryId)
+    if (!entry) return
 
     // Update in-memory state
-    this.entries = this.entries.map(e =>
-      e.id === entryId ? { ...e, reasoning } : e
-    );
+    this.entries = this.entries.map((e) => (e.id === entryId ? { ...e, reasoning } : e))
 
     // Persist to database
-    await database.updateStoryEntry(entryId, { reasoning });
+    await database.updateStoryEntry(entryId, { reasoning })
   }
 
   /**
@@ -697,13 +722,11 @@ class StoryStore {
    * Used when background processes update entries (e.g., translation).
    */
   async refreshEntry(entryId: string): Promise<void> {
-    const updatedEntry = await database.getStoryEntry(entryId);
-    if (!updatedEntry) return;
+    const updatedEntry = await database.getStoryEntry(entryId)
+    if (!updatedEntry) return
 
     // Update in-memory state
-    this.entries = this.entries.map(e =>
-      e.id === entryId ? updatedEntry : e
-    );
+    this.entries = this.entries.map((e) => (e.id === entryId ? updatedEntry : e))
   }
 
   /**
@@ -711,27 +734,27 @@ class StoryStore {
    * Used when background processes update translations.
    */
   async refreshWorldState(): Promise<void> {
-    if (!this.currentStory) return;
+    if (!this.currentStory) return
 
-    const storyId = this.currentStory.id;
+    const storyId = this.currentStory.id
     const [characters, locations, items, storyBeats] = await Promise.all([
       database.getCharacters(storyId),
       database.getLocations(storyId),
       database.getItems(storyId),
       database.getStoryBeats(storyId),
-    ]);
+    ])
 
-    this.characters = characters;
-    this.locations = locations;
-    this.items = items;
-    this.storyBeats = storyBeats;
+    this.characters = characters
+    this.locations = locations
+    this.items = items
+    this.storyBeats = storyBeats
 
     log('World state refreshed', {
       characters: characters.length,
       locations: locations.length,
       items: items.length,
       storyBeats: storyBeats.length,
-    });
+    })
   }
 
   /**
@@ -739,57 +762,57 @@ class StoryStore {
    * Used for entry-only retry restore (persistent retry).
    */
   async deleteEntriesFromPosition(position: number): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Find entries to delete (position >= the given position)
-    const entriesToDelete = this.entries.filter(e => e.position >= position);
-    const entryIdsToDelete = new Set(entriesToDelete.map(e => e.id));
+    const entriesToDelete = this.entries.filter((e) => e.position >= position)
+    const entryIdsToDelete = new Set(entriesToDelete.map((e) => e.id))
 
     log('Deleting entries from position', {
       position,
       entriesToDelete: entriesToDelete.length,
       totalEntries: this.entries.length,
-    });
+    })
 
     // Find chapters that reference any of the entries being deleted
     // (chapters have foreign keys to start_entry_id and end_entry_id)
-    const chaptersToDelete = this.chapters.filter(ch =>
-      entryIdsToDelete.has(ch.startEntryId) || entryIdsToDelete.has(ch.endEntryId)
-    );
+    const chaptersToDelete = this.chapters.filter(
+      (ch) => entryIdsToDelete.has(ch.startEntryId) || entryIdsToDelete.has(ch.endEntryId),
+    )
 
     if (chaptersToDelete.length > 0) {
       log('Deleting chapters that reference entries being deleted', {
         chaptersToDelete: chaptersToDelete.length,
-        chapterNumbers: chaptersToDelete.map(ch => ch.number),
-      });
+        chapterNumbers: chaptersToDelete.map((ch) => ch.number),
+      })
 
       // Delete chapters first (to satisfy foreign key constraints)
       for (const chapter of chaptersToDelete) {
-        await database.deleteChapter(chapter.id);
+        await database.deleteChapter(chapter.id)
       }
-      this.chapters = this.chapters.filter(ch => !chaptersToDelete.some(d => d.id === ch.id));
+      this.chapters = this.chapters.filter((ch) => !chaptersToDelete.some((d) => d.id === ch.id))
     }
 
     // Delete embedded images for entries being deleted
     // (explicit deletion to ensure cleanup even if CASCADE isn't working)
     for (const entry of entriesToDelete) {
-      await database.deleteEmbeddedImagesForEntry(entry.id);
+      await database.deleteEmbeddedImagesForEntry(entry.id)
     }
 
     // Now delete entries from database
     for (const entry of entriesToDelete) {
-      await database.deleteStoryEntry(entry.id);
+      await database.deleteStoryEntry(entry.id)
     }
 
     // Update in-memory state
-    this.entries = this.entries.filter(e => e.position < position);
+    this.entries = this.entries.filter((e) => e.position < position)
 
     // Invalidate caches
-    this.invalidateWordCountCache();
-    this.invalidateChapterCache();
+    this.invalidateWordCountCache()
+    this.invalidateChapterCache()
 
     // Update story's updatedAt
-    await database.updateStory(this.currentStory.id, {});
+    await database.updateStory(this.currentStory.id, {})
   }
 
   /**
@@ -800,32 +823,32 @@ class StoryStore {
    * (they are based on permanent chapters, not current chat).
    */
   async deleteEntitiesCreatedAfterBackup(savedIds: {
-    characterIds: string[];
-    locationIds: string[];
-    itemIds: string[];
-    storyBeatIds: string[];
-    embeddedImageIds?: string[];
+    characterIds: string[]
+    locationIds: string[]
+    itemIds: string[]
+    storyBeatIds: string[]
+    embeddedImageIds?: string[]
   }): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const characterIdsSet = new Set(savedIds.characterIds);
-    const locationIdsSet = new Set(savedIds.locationIds);
-    const itemIdsSet = new Set(savedIds.itemIds);
-    const storyBeatIdsSet = new Set(savedIds.storyBeatIds);
-    const embeddedImageIdsSet = new Set(savedIds.embeddedImageIds ?? []);
+    const characterIdsSet = new Set(savedIds.characterIds)
+    const locationIdsSet = new Set(savedIds.locationIds)
+    const itemIdsSet = new Set(savedIds.itemIds)
+    const storyBeatIdsSet = new Set(savedIds.storyBeatIds)
+    const embeddedImageIdsSet = new Set(savedIds.embeddedImageIds ?? [])
 
     // Find entities to delete (not in saved lists)
-    const charactersToDelete = this.characters.filter(c => !characterIdsSet.has(c.id));
-    const locationsToDelete = this.locations.filter(l => !locationIdsSet.has(l.id));
-    const itemsToDelete = this.items.filter(i => !itemIdsSet.has(i.id));
-    const storyBeatsToDelete = this.storyBeats.filter(sb => !storyBeatIdsSet.has(sb.id));
+    const charactersToDelete = this.characters.filter((c) => !characterIdsSet.has(c.id))
+    const locationsToDelete = this.locations.filter((l) => !locationIdsSet.has(l.id))
+    const itemsToDelete = this.items.filter((i) => !itemIdsSet.has(i.id))
+    const storyBeatsToDelete = this.storyBeats.filter((sb) => !storyBeatIdsSet.has(sb.id))
 
     // Embedded images are not in memory - fetch from database to find ones to delete
     // Note: Many embedded images may already be deleted via CASCADE when entries are deleted
-    const currentEmbeddedImages = await database.getEmbeddedImagesForStory(this.currentStory.id);
+    const currentEmbeddedImages = await database.getEmbeddedImagesForStory(this.currentStory.id)
     const embeddedImagesToDelete = savedIds.embeddedImageIds
-      ? currentEmbeddedImages.filter(ei => !embeddedImageIdsSet.has(ei.id))
-      : [];
+      ? currentEmbeddedImages.filter((ei) => !embeddedImageIdsSet.has(ei.id))
+      : []
 
     log('Deleting entities created after backup', {
       characters: charactersToDelete.length,
@@ -833,38 +856,42 @@ class StoryStore {
       items: itemsToDelete.length,
       storyBeats: storyBeatsToDelete.length,
       embeddedImages: embeddedImagesToDelete.length,
-    });
+    })
 
     // Delete from database
     for (const character of charactersToDelete) {
-      await database.deleteCharacter(character.id);
+      await database.deleteCharacter(character.id)
     }
     for (const location of locationsToDelete) {
-      await database.deleteLocation(location.id);
+      await database.deleteLocation(location.id)
     }
     for (const item of itemsToDelete) {
-      await database.deleteItem(item.id);
+      await database.deleteItem(item.id)
     }
     for (const storyBeat of storyBeatsToDelete) {
-      await database.deleteStoryBeat(storyBeat.id);
+      await database.deleteStoryBeat(storyBeat.id)
     }
     for (const embeddedImage of embeddedImagesToDelete) {
-      await database.deleteEmbeddedImage(embeddedImage.id);
+      await database.deleteEmbeddedImage(embeddedImage.id)
     }
 
     // Update in-memory state
-    this.characters = this.characters.filter(c => characterIdsSet.has(c.id));
-    this.locations = this.locations.filter(l => locationIdsSet.has(l.id));
-    this.items = this.items.filter(i => itemIdsSet.has(i.id));
-    this.storyBeats = this.storyBeats.filter(sb => storyBeatIdsSet.has(sb.id));
+    this.characters = this.characters.filter((c) => characterIdsSet.has(c.id))
+    this.locations = this.locations.filter((l) => locationIdsSet.has(l.id))
+    this.items = this.items.filter((i) => itemIdsSet.has(i.id))
+    this.storyBeats = this.storyBeats.filter((sb) => storyBeatIdsSet.has(sb.id))
 
     // Update story's updatedAt
-    await database.updateStory(this.currentStory.id, {});
+    await database.updateStory(this.currentStory.id, {})
   }
 
   // Add a character
-  async addCharacter(name: string, description?: string, relationship?: string): Promise<Character> {
-    if (!this.currentStory) throw new Error('No story loaded');
+  async addCharacter(
+    name: string,
+    description?: string,
+    relationship?: string,
+  ): Promise<Character> {
+    if (!this.currentStory) throw new Error('No story loaded')
 
     const character: Character = {
       id: crypto.randomUUID(),
@@ -878,52 +905,50 @@ class StoryStore {
       visualDescriptors: {},
       portrait: null,
       branchId: this.currentStory.currentBranchId,
-    };
+    }
 
-    await database.addCharacter(character);
-    this.characters = [...this.characters, character];
-    return character;
+    await database.addCharacter(character)
+    this.characters = [...this.characters, character]
+    return character
   }
 
   // Update an existing character (except protagonist swap)
   async updateCharacter(id: string, updates: Partial<Character>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const existing = this.characters.find(c => c.id === id);
-    if (!existing) throw new Error('Character not found');
+    const existing = this.characters.find((c) => c.id === id)
+    if (!existing) throw new Error('Character not found')
 
     if (updates.relationship !== undefined) {
       if (updates.relationship === 'self' && existing.relationship !== 'self') {
-        throw new Error('Use setProtagonist to assign a protagonist');
+        throw new Error('Use setProtagonist to assign a protagonist')
       }
       if (existing.relationship === 'self' && updates.relationship !== 'self') {
-        throw new Error('Swap protagonists before changing the current one');
+        throw new Error('Swap protagonists before changing the current one')
       }
     }
 
-    await database.updateCharacter(id, updates);
-    this.characters = this.characters.map(c =>
-      c.id === id ? { ...c, ...updates } : c
-    );
+    await database.updateCharacter(id, updates)
+    this.characters = this.characters.map((c) => (c.id === id ? { ...c, ...updates } : c))
   }
 
   // Delete a character (protagonist cannot be deleted)
   async deleteCharacter(id: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const existing = this.characters.find(c => c.id === id);
-    if (!existing) throw new Error('Character not found');
+    const existing = this.characters.find((c) => c.id === id)
+    if (!existing) throw new Error('Character not found')
     if (existing.relationship === 'self') {
-      throw new Error('Swap protagonists before deleting the current one');
+      throw new Error('Swap protagonists before deleting the current one')
     }
 
-    await database.deleteCharacter(id);
-    this.characters = this.characters.filter(c => c.id !== id);
+    await database.deleteCharacter(id)
+    this.characters = this.characters.filter((c) => c.id !== id)
   }
 
   // Add a location
   async addLocation(name: string, description?: string, makeCurrent = false): Promise<Location> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     const location: Location = {
       id: crypto.randomUUID(),
@@ -935,83 +960,81 @@ class StoryStore {
       connections: [],
       metadata: null,
       branchId: this.currentStory.currentBranchId,
-    };
+    }
 
-    await database.addLocation(location);
+    await database.addLocation(location)
 
     if (makeCurrent) {
       // Update other locations to not be current
-      this.locations = this.locations.map(l => ({ ...l, current: false }));
+      this.locations = this.locations.map((l) => ({ ...l, current: false }))
     }
 
-    this.locations = [...this.locations, location];
-    return location;
+    this.locations = [...this.locations, location]
+    return location
   }
 
   // Update a location's details
   async updateLocation(id: string, updates: Partial<Location>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const existing = this.locations.find(l => l.id === id);
-    if (!existing) throw new Error('Location not found');
+    const existing = this.locations.find((l) => l.id === id)
+    if (!existing) throw new Error('Location not found')
 
     if (updates.current === true) {
-      await database.setCurrentLocation(this.currentStory.id, id);
-      this.locations = this.locations.map(l => ({
+      await database.setCurrentLocation(this.currentStory.id, id)
+      this.locations = this.locations.map((l) => ({
         ...l,
         current: l.id === id,
         visited: l.id === id ? true : l.visited,
-      }));
+      }))
     } else {
-      await database.updateLocation(id, updates);
-      this.locations = this.locations.map(l =>
-        l.id === id ? { ...l, ...updates } : l
-      );
+      await database.updateLocation(id, updates)
+      this.locations = this.locations.map((l) => (l.id === id ? { ...l, ...updates } : l))
     }
   }
 
   // Set current location
   async setCurrentLocation(locationId: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.setCurrentLocation(this.currentStory.id, locationId);
-    this.locations = this.locations.map(l => ({
+    await database.setCurrentLocation(this.currentStory.id, locationId)
+    this.locations = this.locations.map((l) => ({
       ...l,
       current: l.id === locationId,
       visited: l.id === locationId ? true : l.visited,
-    }));
+    }))
   }
 
   // Toggle location visited status
   async toggleLocationVisited(locationId: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const location = this.locations.find(l => l.id === locationId);
-    if (!location) throw new Error('Location not found');
+    const location = this.locations.find((l) => l.id === locationId)
+    if (!location) throw new Error('Location not found')
 
-    const newVisited = !location.visited;
-    await database.updateLocation(locationId, { visited: newVisited });
-    this.locations = this.locations.map(l =>
-      l.id === locationId ? { ...l, visited: newVisited } : l
-    );
-    log('Location visited toggled:', location.name, newVisited);
+    const newVisited = !location.visited
+    await database.updateLocation(locationId, { visited: newVisited })
+    this.locations = this.locations.map((l) =>
+      l.id === locationId ? { ...l, visited: newVisited } : l,
+    )
+    log('Location visited toggled:', location.name, newVisited)
   }
 
   // Delete a location
   async deleteLocation(locationId: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const location = this.locations.find(l => l.id === locationId);
-    if (!location) throw new Error('Location not found');
+    const location = this.locations.find((l) => l.id === locationId)
+    if (!location) throw new Error('Location not found')
 
-    await database.deleteLocation(locationId);
-    this.locations = this.locations.filter(l => l.id !== locationId);
-    log('Location deleted:', location.name);
+    await database.deleteLocation(locationId)
+    this.locations = this.locations.filter((l) => l.id !== locationId)
+    log('Location deleted:', location.name)
   }
 
   // Add an item to inventory
   async addItem(name: string, description?: string, quantity = 1): Promise<Item> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     const item: Item = {
       id: crypto.randomUUID(),
@@ -1023,40 +1046,42 @@ class StoryStore {
       location: 'inventory',
       metadata: null,
       branchId: this.currentStory.currentBranchId,
-    };
+    }
 
-    await database.addItem(item);
-    this.items = [...this.items, item];
-    return item;
+    await database.addItem(item)
+    this.items = [...this.items, item]
+    return item
   }
 
   // Update an existing item
   async updateItem(id: string, updates: Partial<Item>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const existing = this.items.find(i => i.id === id);
-    if (!existing) throw new Error('Item not found');
+    const existing = this.items.find((i) => i.id === id)
+    if (!existing) throw new Error('Item not found')
 
-    await database.updateItem(id, updates);
-    this.items = this.items.map(i =>
-      i.id === id ? { ...i, ...updates } : i
-    );
+    await database.updateItem(id, updates)
+    this.items = this.items.map((i) => (i.id === id ? { ...i, ...updates } : i))
   }
 
   // Delete an item
   async deleteItem(id: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const existing = this.items.find(i => i.id === id);
-    if (!existing) throw new Error('Item not found');
+    const existing = this.items.find((i) => i.id === id)
+    if (!existing) throw new Error('Item not found')
 
-    await database.deleteItem(id);
-    this.items = this.items.filter(i => i.id !== id);
+    await database.deleteItem(id)
+    this.items = this.items.filter((i) => i.id !== id)
   }
 
   // Add a story beat
-  async addStoryBeat(title: string, type: StoryBeat['type'], description?: string): Promise<StoryBeat> {
-    if (!this.currentStory) throw new Error('No story loaded');
+  async addStoryBeat(
+    title: string,
+    type: StoryBeat['type'],
+    description?: string,
+  ): Promise<StoryBeat> {
+    if (!this.currentStory) throw new Error('No story loaded')
 
     const beat: StoryBeat = {
       id: crypto.randomUUID(),
@@ -1069,78 +1094,76 @@ class StoryStore {
       resolvedAt: null,
       metadata: null,
       branchId: this.currentStory.currentBranchId,
-    };
+    }
 
-    await database.addStoryBeat(beat);
-    this.storyBeats = [...this.storyBeats, beat];
-    return beat;
+    await database.addStoryBeat(beat)
+    this.storyBeats = [...this.storyBeats, beat]
+    return beat
   }
 
   // Update a story beat
   async updateStoryBeat(id: string, updates: Partial<StoryBeat>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const existing = this.storyBeats.find(b => b.id === id);
-    if (!existing) throw new Error('Story beat not found');
+    const existing = this.storyBeats.find((b) => b.id === id)
+    if (!existing) throw new Error('Story beat not found')
 
-    const resolvedUpdates: Partial<StoryBeat> = { ...updates };
+    const resolvedUpdates: Partial<StoryBeat> = { ...updates }
     if (updates.status) {
       if (updates.status === 'completed' || updates.status === 'failed') {
         if (updates.resolvedAt === undefined) {
-          resolvedUpdates.resolvedAt = Date.now();
+          resolvedUpdates.resolvedAt = Date.now()
         }
       } else if (updates.resolvedAt === undefined) {
-        resolvedUpdates.resolvedAt = null;
+        resolvedUpdates.resolvedAt = null
       }
     }
 
-    await database.updateStoryBeat(id, resolvedUpdates);
-    this.storyBeats = this.storyBeats.map(b =>
-      b.id === id ? { ...b, ...resolvedUpdates } : b
-    );
+    await database.updateStoryBeat(id, resolvedUpdates)
+    this.storyBeats = this.storyBeats.map((b) => (b.id === id ? { ...b, ...resolvedUpdates } : b))
   }
 
   // Delete a story beat
   async deleteStoryBeat(id: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const existing = this.storyBeats.find(b => b.id === id);
-    if (!existing) throw new Error('Story beat not found');
+    const existing = this.storyBeats.find((b) => b.id === id)
+    if (!existing) throw new Error('Story beat not found')
 
-    await database.deleteStoryBeat(id);
-    this.storyBeats = this.storyBeats.filter(b => b.id !== id);
+    await database.deleteStoryBeat(id)
+    this.storyBeats = this.storyBeats.filter((b) => b.id !== id)
   }
 
   // Swap the protagonist to another character, updating the old label
   async setProtagonist(newCharacterId: string, previousRelationshipLabel?: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const currentProtagonist = this.characters.find(c => c.relationship === 'self') ?? null;
-    const newProtagonist = this.characters.find(c => c.id === newCharacterId);
-    if (!newProtagonist) throw new Error('Character not found');
+    const currentProtagonist = this.characters.find((c) => c.relationship === 'self') ?? null
+    const newProtagonist = this.characters.find((c) => c.id === newCharacterId)
+    if (!newProtagonist) throw new Error('Character not found')
 
-    if (currentProtagonist?.id === newCharacterId) return;
+    if (currentProtagonist?.id === newCharacterId) return
 
-    let label: string | null = null;
+    let label: string | null = null
     if (currentProtagonist) {
-      label = previousRelationshipLabel?.trim() ?? null;
+      label = previousRelationshipLabel?.trim() ?? null
       if (!label || label.toLowerCase() === 'self') {
-        throw new Error('Provide a relationship label for the previous protagonist');
+        throw new Error('Provide a relationship label for the previous protagonist')
       }
-      await database.updateCharacter(currentProtagonist.id, { relationship: label });
+      await database.updateCharacter(currentProtagonist.id, { relationship: label })
     }
 
-    await database.updateCharacter(newCharacterId, { relationship: 'self' });
+    await database.updateCharacter(newCharacterId, { relationship: 'self' })
 
-    this.characters = this.characters.map(c => {
+    this.characters = this.characters.map((c) => {
       if (currentProtagonist && c.id === currentProtagonist.id) {
-        return { ...c, relationship: label! };
+        return { ...c, relationship: label! }
       }
       if (c.id === newCharacterId) {
-        return { ...c, relationship: 'self' };
+        return { ...c, relationship: 'self' }
       }
-      return c;
-    });
+      return c
+    })
   }
 
   // ===== Lorebook Entry CRUD Methods =====
@@ -1149,10 +1172,14 @@ class StoryStore {
    * Add a new lorebook entry.
    * @param entryData - Entry data. branchId is optional and defaults to current branch.
    */
-  async addLorebookEntry(entryData: Omit<Entry, 'id' | 'storyId' | 'createdAt' | 'updatedAt' | 'branchId'> & { branchId?: string | null }): Promise<Entry> {
-    if (!this.currentStory) throw new Error('No story loaded');
+  async addLorebookEntry(
+    entryData: Omit<Entry, 'id' | 'storyId' | 'createdAt' | 'updatedAt' | 'branchId'> & {
+      branchId?: string | null
+    },
+  ): Promise<Entry> {
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const now = Date.now();
+    const now = Date.now()
     const entry: Entry = {
       ...entryData,
       id: crypto.randomUUID(),
@@ -1161,60 +1188,60 @@ class StoryStore {
       updatedAt: now,
       // Use provided branchId or default to current branch
       branchId: entryData.branchId ?? this.currentStory.currentBranchId,
-    };
+    }
 
-    await database.addEntry(entry);
-    this.lorebookEntries = [...this.lorebookEntries, entry];
-    log('Lorebook entry added:', entry.name);
-    return entry;
+    await database.addEntry(entry)
+    this.lorebookEntries = [...this.lorebookEntries, entry]
+    log('Lorebook entry added:', entry.name)
+    return entry
   }
 
   /**
    * Update a lorebook entry.
    */
   async updateLorebookEntry(id: string, updates: Partial<Entry>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     const updatesWithTimestamp = {
       ...updates,
       updatedAt: Date.now(),
-    };
+    }
 
-    await database.updateEntry(id, updatesWithTimestamp);
-    this.lorebookEntries = this.lorebookEntries.map(e =>
-      e.id === id ? { ...e, ...updatesWithTimestamp } : e
-    );
-    log('Lorebook entry updated:', id);
+    await database.updateEntry(id, updatesWithTimestamp)
+    this.lorebookEntries = this.lorebookEntries.map((e) =>
+      e.id === id ? { ...e, ...updatesWithTimestamp } : e,
+    )
+    log('Lorebook entry updated:', id)
   }
 
   /**
    * Delete a lorebook entry.
    */
   async deleteLorebookEntry(id: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.deleteEntry(id);
-    this.lorebookEntries = this.lorebookEntries.filter(e => e.id !== id);
-    log('Lorebook entry deleted:', id);
+    await database.deleteEntry(id)
+    this.lorebookEntries = this.lorebookEntries.filter((e) => e.id !== id)
+    log('Lorebook entry deleted:', id)
   }
 
   /**
    * Delete multiple lorebook entries (bulk operation).
    */
   async deleteLorebookEntries(ids: string[]): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Delete all entries in parallel
-    await Promise.all(ids.map(id => database.deleteEntry(id)));
-    this.lorebookEntries = this.lorebookEntries.filter(e => !ids.includes(e.id));
-    log('Lorebook entries deleted:', ids.length);
+    await Promise.all(ids.map((id) => database.deleteEntry(id)))
+    this.lorebookEntries = this.lorebookEntries.filter((e) => !ids.includes(e.id))
+    log('Lorebook entries deleted:', ids.length)
   }
 
   /**
    * Get a single lorebook entry by ID.
    */
   getLorebookEntry(id: string): Entry | undefined {
-    return this.lorebookEntries.find(e => e.id === id);
+    return this.lorebookEntries.find((e) => e.id === id)
   }
 
   /**
@@ -1223,8 +1250,8 @@ class StoryStore {
    */
   async applyClassificationResult(result: ClassificationResult): Promise<void> {
     if (!this.currentStory) {
-      log('applyClassificationResult: No story loaded, skipping');
-      return;
+      log('applyClassificationResult: No story loaded, skipping')
+      return
     }
 
     log('applyClassificationResult called', {
@@ -1237,140 +1264,139 @@ class StoryStore {
       newItems: result.entryUpdates.newItems.length,
       newStoryBeats: result.entryUpdates.newStoryBeats.length,
       scene: result.scene,
-    });
+    })
 
-    const storyId = this.currentStory.id;
+    const storyId = this.currentStory.id
 
     // Apply character updates
     for (const update of result.entryUpdates.characterUpdates) {
-      const existing = this.characters.find(c =>
-        c.name.toLowerCase() === update.name.toLowerCase()
-      );
+      const existing = this.characters.find(
+        (c) => c.name.toLowerCase() === update.name.toLowerCase(),
+      )
       if (existing) {
-        log('Updating character:', update.name, update.changes);
-        const changes: Partial<Character> = {};
-        if (update.changes.status) changes.status = update.changes.status;
+        log('Updating character:', update.name, update.changes)
+        const changes: Partial<Character> = {}
+        if (update.changes.status) changes.status = update.changes.status
         if (update.changes.relationship) {
           if (existing.relationship === 'self') {
             // Preserve protagonist relationship; only set via explicit swap.
           } else if (update.changes.relationship !== 'self') {
-            changes.relationship = update.changes.relationship;
+            changes.relationship = update.changes.relationship
           }
         }
         if (update.changes.newTraits?.length || update.changes.removeTraits?.length) {
-          let traits = [...existing.traits];
+          let traits = [...existing.traits]
           if (update.changes.removeTraits?.length) {
-            const toRemove = new Set(update.changes.removeTraits.map(t => t.toLowerCase()));
-            traits = traits.filter(t => !toRemove.has(t.toLowerCase()));
+            const toRemove = new Set(update.changes.removeTraits.map((t) => t.toLowerCase()))
+            traits = traits.filter((t) => !toRemove.has(t.toLowerCase()))
           }
           if (update.changes.newTraits?.length) {
-            traits = [...traits, ...update.changes.newTraits];
+            traits = [...traits, ...update.changes.newTraits]
           }
-          const traitMap = new Map(traits.map(t => [t.toLowerCase(), t]));
-          changes.traits = Array.from(traitMap.values());
+          const traitMap = new Map(traits.map((t) => [t.toLowerCase(), t]))
+          changes.traits = Array.from(traitMap.values())
         }
         // Handle visual descriptor updates for image generation
         // New format: visualDescriptors is a structured object that replaces entirely
-        if (update.changes.visualDescriptors && Object.keys(update.changes.visualDescriptors).length > 0) {
-          changes.visualDescriptors = update.changes.visualDescriptors;
+        if (
+          update.changes.visualDescriptors &&
+          Object.keys(update.changes.visualDescriptors).length > 0
+        ) {
+          changes.visualDescriptors = update.changes.visualDescriptors
         }
-        await database.updateCharacter(existing.id, changes);
-        this.characters = this.characters.map(c =>
-          c.id === existing.id ? { ...c, ...changes } : c
-        );
+        await database.updateCharacter(existing.id, changes)
+        this.characters = this.characters.map((c) =>
+          c.id === existing.id ? { ...c, ...changes } : c,
+        )
       }
     }
 
     // Apply location updates
     for (const update of result.entryUpdates.locationUpdates) {
-      const existing = this.locations.find(l =>
-        l.name.toLowerCase() === update.name.toLowerCase()
-      );
+      const existing = this.locations.find(
+        (l) => l.name.toLowerCase() === update.name.toLowerCase(),
+      )
       if (existing) {
-        log('Updating location:', update.name, update.changes);
-        const changes: Partial<Location> = {};
-        if (update.changes.visited !== undefined) changes.visited = update.changes.visited;
+        log('Updating location:', update.name, update.changes)
+        const changes: Partial<Location> = {}
+        if (update.changes.visited !== undefined) changes.visited = update.changes.visited
         if (update.changes.descriptionAddition) {
-          const addition = update.changes.descriptionAddition.trim();
+          const addition = update.changes.descriptionAddition.trim()
           if (addition) {
             changes.description = existing.description
               ? `${existing.description} ${addition}`
-              : addition;
+              : addition
           }
         }
 
         if (update.changes.current === true) {
-          changes.visited = true;
-          await database.setCurrentLocation(storyId, existing.id);
+          changes.visited = true
+          await database.setCurrentLocation(storyId, existing.id)
           if (Object.keys(changes).length > 0) {
-            await database.updateLocation(existing.id, changes);
+            await database.updateLocation(existing.id, changes)
           }
-          this.locations = this.locations.map(l => {
+          this.locations = this.locations.map((l) => {
             if (l.id === existing.id) {
-              return { ...l, ...changes, current: true, visited: true };
+              return { ...l, ...changes, current: true, visited: true }
             }
-            return { ...l, current: false };
-          });
-          continue;
+            return { ...l, current: false }
+          })
+          continue
         }
 
-        if (update.changes.current === false) changes.current = false;
-        if (Object.keys(changes).length === 0) continue;
-        await database.updateLocation(existing.id, changes);
-        this.locations = this.locations.map(l =>
-          l.id === existing.id ? { ...l, ...changes } : l
-        );
+        if (update.changes.current === false) changes.current = false
+        if (Object.keys(changes).length === 0) continue
+        await database.updateLocation(existing.id, changes)
+        this.locations = this.locations.map((l) =>
+          l.id === existing.id ? { ...l, ...changes } : l,
+        )
       }
     }
 
     // Apply item updates
     for (const update of result.entryUpdates.itemUpdates) {
-      const existing = this.items.find(i =>
-        i.name.toLowerCase() === update.name.toLowerCase()
-      );
+      const existing = this.items.find((i) => i.name.toLowerCase() === update.name.toLowerCase())
       if (existing) {
-        log('Updating item:', update.name, update.changes);
-        const changes: Partial<Item> = {};
-        if (update.changes.quantity !== undefined) changes.quantity = update.changes.quantity;
-        if (update.changes.equipped !== undefined) changes.equipped = update.changes.equipped;
-        if (update.changes.location) changes.location = update.changes.location;
-        await database.updateItem(existing.id, changes);
-        this.items = this.items.map(i =>
-          i.id === existing.id ? { ...i, ...changes } : i
-        );
+        log('Updating item:', update.name, update.changes)
+        const changes: Partial<Item> = {}
+        if (update.changes.quantity !== undefined) changes.quantity = update.changes.quantity
+        if (update.changes.equipped !== undefined) changes.equipped = update.changes.equipped
+        if (update.changes.location) changes.location = update.changes.location
+        await database.updateItem(existing.id, changes)
+        this.items = this.items.map((i) => (i.id === existing.id ? { ...i, ...changes } : i))
       }
     }
 
     // Apply story beat updates (mark as completed/failed)
     for (const update of result.entryUpdates.storyBeatUpdates) {
-      const existing = this.storyBeats.find(b =>
-        b.title.toLowerCase() === update.title.toLowerCase()
-      );
+      const existing = this.storyBeats.find(
+        (b) => b.title.toLowerCase() === update.title.toLowerCase(),
+      )
       if (existing) {
-        log('Updating story beat:', update.title, update.changes);
-        const changes: Partial<StoryBeat> = {};
+        log('Updating story beat:', update.title, update.changes)
+        const changes: Partial<StoryBeat> = {}
         if (update.changes.status) {
-          changes.status = update.changes.status;
+          changes.status = update.changes.status
           // Set resolvedAt timestamp when completing or failing
           if (update.changes.status === 'completed' || update.changes.status === 'failed') {
-            changes.resolvedAt = Date.now();
+            changes.resolvedAt = Date.now()
           }
         }
-        if (update.changes.description) changes.description = update.changes.description;
-        await database.updateStoryBeat(existing.id, changes);
-        this.storyBeats = this.storyBeats.map(b =>
-          b.id === existing.id ? { ...b, ...changes } : b
-        );
+        if (update.changes.description) changes.description = update.changes.description
+        await database.updateStoryBeat(existing.id, changes)
+        this.storyBeats = this.storyBeats.map((b) =>
+          b.id === existing.id ? { ...b, ...changes } : b,
+        )
       }
     }
 
     // Add new characters (check for duplicates)
     for (const newChar of result.entryUpdates.newCharacters) {
-      const exists = this.characters.some(c =>
-        c.name.toLowerCase() === newChar.name.toLowerCase()
-      );
+      const exists = this.characters.some(
+        (c) => c.name.toLowerCase() === newChar.name.toLowerCase(),
+      )
       if (!exists) {
-        log('Adding new character:', newChar.name);
+        log('Adding new character:', newChar.name)
         const character: Character = {
           id: crypto.randomUUID(),
           storyId,
@@ -1383,24 +1409,22 @@ class StoryStore {
           metadata: { source: 'classifier' },
           portrait: null,
           branchId: this.currentStory?.currentBranchId ?? null,
-        };
-        await database.addCharacter(character);
-        this.characters = [...this.characters, character];
+        }
+        await database.addCharacter(character)
+        this.characters = [...this.characters, character]
       }
     }
 
     // Add new locations (check for duplicates)
     for (const newLoc of result.entryUpdates.newLocations) {
-      const exists = this.locations.some(l =>
-        l.name.toLowerCase() === newLoc.name.toLowerCase()
-      );
+      const exists = this.locations.some((l) => l.name.toLowerCase() === newLoc.name.toLowerCase())
       if (!exists) {
-        log('Adding new location:', newLoc.name);
+        log('Adding new location:', newLoc.name)
         // If this is the current location, unset others first
         if (newLoc.current) {
-          this.locations = this.locations.map(l => ({ ...l, current: false }));
+          this.locations = this.locations.map((l) => ({ ...l, current: false }))
           for (const l of this.locations) {
-            await database.updateLocation(l.id, { current: false });
+            await database.updateLocation(l.id, { current: false })
           }
         }
         const location: Location = {
@@ -1413,36 +1437,32 @@ class StoryStore {
           connections: [],
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,
-        };
-        await database.addLocation(location);
-        this.locations = [...this.locations, location];
+        }
+        await database.addLocation(location)
+        this.locations = [...this.locations, location]
       }
     }
 
     // Handle scene.currentLocationName - update current location if specified
     if (result.scene.currentLocationName) {
-      const locationName = result.scene.currentLocationName.toLowerCase();
-      const currentLoc = this.locations.find(l =>
-        l.name.toLowerCase() === locationName
-      );
+      const locationName = result.scene.currentLocationName.toLowerCase()
+      const currentLoc = this.locations.find((l) => l.name.toLowerCase() === locationName)
       if (currentLoc && !currentLoc.current) {
-        log('Setting current location from scene:', currentLoc.name);
-        await database.setCurrentLocation(storyId, currentLoc.id);
-        this.locations = this.locations.map(l => ({
+        log('Setting current location from scene:', currentLoc.name)
+        await database.setCurrentLocation(storyId, currentLoc.id)
+        this.locations = this.locations.map((l) => ({
           ...l,
           current: l.id === currentLoc.id,
           visited: l.id === currentLoc.id ? true : l.visited,
-        }));
+        }))
       }
     }
 
     // Add new items (check for duplicates)
     for (const newItem of result.entryUpdates.newItems) {
-      const exists = this.items.some(i =>
-        i.name.toLowerCase() === newItem.name.toLowerCase()
-      );
+      const exists = this.items.some((i) => i.name.toLowerCase() === newItem.name.toLowerCase())
       if (!exists) {
-        log('Adding new item:', newItem.name);
+        log('Adding new item:', newItem.name)
         const item: Item = {
           id: crypto.randomUUID(),
           storyId,
@@ -1453,19 +1473,19 @@ class StoryStore {
           location: newItem.location ?? 'inventory',
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,
-        };
-        await database.addItem(item);
-        this.items = [...this.items, item];
+        }
+        await database.addItem(item)
+        this.items = [...this.items, item]
       }
     }
 
     // Add new story beats (check for duplicates by title)
     for (const newBeat of result.entryUpdates.newStoryBeats) {
-      const exists = this.storyBeats.some(b =>
-        b.title.toLowerCase() === newBeat.title.toLowerCase()
-      );
+      const exists = this.storyBeats.some(
+        (b) => b.title.toLowerCase() === newBeat.title.toLowerCase(),
+      )
       if (!exists) {
-        log('Adding new story beat:', newBeat.title);
+        log('Adding new story beat:', newBeat.title)
         const beat: StoryBeat = {
           id: crypto.randomUUID(),
           storyId,
@@ -1476,15 +1496,15 @@ class StoryStore {
           triggeredAt: Date.now(),
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,
-        };
-        await database.addStoryBeat(beat);
-        this.storyBeats = [...this.storyBeats, beat];
+        }
+        await database.addStoryBeat(beat)
+        this.storyBeats = [...this.storyBeats, beat]
       }
     }
 
     // Apply time progression from scene data
     if (result.scene.timeProgression && result.scene.timeProgression !== 'none') {
-      await this.applyTimeProgression(result.scene.timeProgression);
+      await this.applyTimeProgression(result.scene.timeProgression)
     }
 
     log('applyClassificationResult complete', {
@@ -1492,7 +1512,7 @@ class StoryStore {
       locations: this.locations.length,
       items: this.items.length,
       storyBeats: this.storyBeats.length,
-    });
+    })
 
     // Emit state updated event if there were any changes
     const hasChanges =
@@ -1503,113 +1523,112 @@ class StoryStore {
       result.entryUpdates.characterUpdates.length > 0 ||
       result.entryUpdates.locationUpdates.length > 0 ||
       result.entryUpdates.itemUpdates.length > 0 ||
-      result.entryUpdates.storyBeatUpdates.length > 0;
+      result.entryUpdates.storyBeatUpdates.length > 0
 
     if (hasChanges) {
       emitStateUpdated({
-        characters: result.entryUpdates.newCharacters.length + result.entryUpdates.characterUpdates.length,
-        locations: result.entryUpdates.newLocations.length + result.entryUpdates.locationUpdates.length,
+        characters:
+          result.entryUpdates.newCharacters.length + result.entryUpdates.characterUpdates.length,
+        locations:
+          result.entryUpdates.newLocations.length + result.entryUpdates.locationUpdates.length,
         items: result.entryUpdates.newItems.length + result.entryUpdates.itemUpdates.length,
-        storyBeats: result.entryUpdates.newStoryBeats.length + result.entryUpdates.storyBeatUpdates.length,
-      });
+        storyBeats:
+          result.entryUpdates.newStoryBeats.length + result.entryUpdates.storyBeatUpdates.length,
+      })
     }
   }
 
   // Clear current story (when switching or closing)
   clearCurrentStory(): void {
-    this.currentStory = null;
-    this.entries = [];
-    this.lorebookEntries = [];
-    this.characters = [];
-    this.locations = [];
-    this.items = [];
-    this.storyBeats = [];
-    this.chapters = [];
-    this.checkpoints = [];
+    this.currentStory = null
+    this.entries = []
+    this.lorebookEntries = []
+    this.characters = []
+    this.locations = []
+    this.items = []
+    this.storyBeats = []
+    this.chapters = []
+    this.checkpoints = []
 
     // Reset all caches
-    this.invalidateWordCountCache();
-    this.invalidateChapterCache();
+    this.invalidateWordCountCache()
+    this.invalidateChapterCache()
 
     // Clear current retry story ID (backups are kept per-story)
-    ui.setCurrentRetryStoryId(null);
+    ui.setCurrentRetryStoryId(null)
 
     // Clear style review state (will be loaded fresh for next story)
-    ui.clearStyleReviewState();
+    ui.clearStyleReviewState()
   }
 
   // Update story mode
   async setStoryMode(mode: StoryMode): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.updateStory(this.currentStory.id, { mode });
-    this.currentStory = { ...this.currentStory, mode };
-    log('Story mode updated:', mode);
+    await database.updateStory(this.currentStory.id, { mode })
+    this.currentStory = { ...this.currentStory, mode }
+    log('Story mode updated:', mode)
 
     // Emit event
-    emitModeChanged(mode);
+    emitModeChanged(mode)
   }
 
   // Update memory configuration
   async setMemoryConfig(config: MemoryConfig): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.updateStory(this.currentStory.id, { memoryConfig: config });
-    this.currentStory = { ...this.currentStory, memoryConfig: config };
-    log('Memory config updated:', config);
+    await database.updateStory(this.currentStory.id, { memoryConfig: config })
+    this.currentStory = { ...this.currentStory, memoryConfig: config }
+    log('Memory config updated:', config)
   }
 
   // Add a chapter
   async addChapter(chapter: Chapter): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.addChapter(chapter);
-    this.chapters = [...this.chapters, chapter];
+    await database.addChapter(chapter)
+    this.chapters = [...this.chapters, chapter]
 
     // Invalidate chapter cache
-    this.invalidateChapterCache();
+    this.invalidateChapterCache()
 
-    log('Chapter added:', chapter.number, chapter.title);
+    log('Chapter added:', chapter.number, chapter.title)
 
     // Emit event
-    emitChapterCreated(chapter.id, chapter.number, chapter.title);
+    emitChapterCreated(chapter.id, chapter.number, chapter.title)
   }
 
   // Get the next chapter number from the database (handles deletions correctly)
   async getNextChapterNumber(): Promise<number> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Use branch-filtered chapters to determine next chapter number
     // this.chapters is already filtered to current branch view (inherited + branch-specific)
     if (this.chapters.length === 0) {
-      return 1;
+      return 1
     }
 
     // Find the maximum chapter number in the current branch view
-    const maxNumber = Math.max(...this.chapters.map(ch => ch.number));
-    return maxNumber + 1;
+    const maxNumber = Math.max(...this.chapters.map((ch) => ch.number))
+    return maxNumber + 1
   }
 
   // Update a chapter's summary
   async updateChapterSummary(chapterId: string, summary: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.updateChapter(chapterId, { summary });
-    this.chapters = this.chapters.map(ch =>
-      ch.id === chapterId ? { ...ch, summary } : ch
-    );
-    log('Chapter summary updated:', chapterId);
+    await database.updateChapter(chapterId, { summary })
+    this.chapters = this.chapters.map((ch) => (ch.id === chapterId ? { ...ch, summary } : ch))
+    log('Chapter summary updated:', chapterId)
   }
 
   // Update a chapter with multiple fields
   async updateChapter(chapterId: string, updates: Partial<Chapter>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.updateChapter(chapterId, updates);
-    this.chapters = this.chapters.map(ch =>
-      ch.id === chapterId ? { ...ch, ...updates } : ch
-    );
-    log('Chapter updated:', chapterId, updates);
+    await database.updateChapter(chapterId, updates)
+    this.chapters = this.chapters.map((ch) => (ch.id === chapterId ? { ...ch, ...updates } : ch))
+    log('Chapter updated:', chapterId, updates)
   }
 
   // Get entries for a specific chapter
@@ -1617,45 +1636,45 @@ class StoryStore {
   getChapterEntries(chapter: Chapter): StoryEntry[] {
     // Ensure index map is up to date
     if (this._entryIdToIndex.size !== this.entries.length) {
-      this.rebuildEntryIdIndex();
+      this.rebuildEntryIdIndex()
     }
-    const startIdx = this._entryIdToIndex.get(chapter.startEntryId);
-    const endIdx = this._entryIdToIndex.get(chapter.endEntryId);
-    if (startIdx === undefined || endIdx === undefined) return [];
-    return this.entries.slice(startIdx, endIdx + 1);
+    const startIdx = this._entryIdToIndex.get(chapter.startEntryId)
+    const endIdx = this._entryIdToIndex.get(chapter.endEntryId)
+    if (startIdx === undefined || endIdx === undefined) return []
+    return this.entries.slice(startIdx, endIdx + 1)
   }
 
   // Delete a chapter
   async deleteChapter(chapterId: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.deleteChapter(chapterId);
-    this.chapters = this.chapters.filter(ch => ch.id !== chapterId);
+    await database.deleteChapter(chapterId)
+    this.chapters = this.chapters.filter((ch) => ch.id !== chapterId)
 
     // Invalidate chapter cache
-    this.invalidateChapterCache();
+    this.invalidateChapterCache()
 
-    log('Chapter deleted:', chapterId);
+    log('Chapter deleted:', chapterId)
   }
 
   // Update memory configuration (partial updates)
   async updateMemoryConfig(updates: Partial<MemoryConfig>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-const newConfig = { ...this.memoryConfig, ...updates };
-    await database.updateStory(this.currentStory.id, { memoryConfig: newConfig });
-    this.currentStory = { ...this.currentStory, memoryConfig: newConfig };
-    log('Memory config updated via updateMemoryConfig:', updates);
+    const newConfig = { ...this.memoryConfig, ...updates }
+    await database.updateStory(this.currentStory.id, { memoryConfig: newConfig })
+    this.currentStory = { ...this.currentStory, memoryConfig: newConfig }
+    log('Memory config updated via updateMemoryConfig:', updates)
   }
 
   // Update story settings (partial updates)
   async updateStorySettings(updates: Partial<StorySettings>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const newSettings = { ...(this.currentStory.settings ?? {}), ...updates };
-    await database.updateStory(this.currentStory.id, { settings: newSettings });
-    this.currentStory = { ...this.currentStory, settings: newSettings };
-    log('Story settings updated via updateStorySettings:', updates);
+    const newSettings = { ...(this.currentStory.settings ?? {}), ...updates }
+    await database.updateStory(this.currentStory.id, { settings: newSettings })
+    this.currentStory = { ...this.currentStory, settings: newSettings }
+    log('Story settings updated via updateStorySettings:', updates)
   }
 
   /**
@@ -1664,79 +1683,79 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * 60 minutes → 1 hour, 24 hours → 1 day, 365 days → 1 year
    */
   private normalizeTime(time: TimeTracker): TimeTracker {
-    let { years, days, hours, minutes } = time;
+    let { years, days, hours, minutes } = time
 
     // Handle negative minutes by borrowing from hours
     while (minutes < 0 && hours > 0) {
-      hours -= 1;
-      minutes += 60;
+      hours -= 1
+      minutes += 60
     }
 
     // Handle negative hours by borrowing from days
     while (hours < 0 && days > 0) {
-      days -= 1;
-      hours += 24;
+      days -= 1
+      hours += 24
     }
 
     // Handle negative days by borrowing from years
     while (days < 0 && years > 0) {
-      years -= 1;
-      days += 365;
+      years -= 1
+      days += 365
     }
 
     // Clamp any remaining negatives to 0 (can't have negative time)
-    years = Math.max(0, years);
-    days = Math.max(0, days);
-    hours = Math.max(0, hours);
-    minutes = Math.max(0, minutes);
+    years = Math.max(0, years)
+    days = Math.max(0, days)
+    hours = Math.max(0, hours)
+    minutes = Math.max(0, minutes)
 
     // Normalize overflow: minutes to hours
     if (minutes >= 60) {
-      hours += Math.floor(minutes / 60);
-      minutes = minutes % 60;
+      hours += Math.floor(minutes / 60)
+      minutes = minutes % 60
     }
 
     // Normalize overflow: hours to days
     if (hours >= 24) {
-      days += Math.floor(hours / 24);
-      hours = hours % 24;
+      days += Math.floor(hours / 24)
+      hours = hours % 24
     }
 
     // Normalize overflow: days to years
     if (days >= 365) {
-      years += Math.floor(days / 365);
-      days = days % 365;
+      years += Math.floor(days / 365)
+      days = days % 365
     }
 
-    return { years, days, hours, minutes };
+    return { years, days, hours, minutes }
   }
 
   // Set time tracker directly
   async setTimeTracker(time: TimeTracker): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const normalized = this.normalizeTime(time);
-    await database.saveTimeTracker(this.currentStory.id, normalized);
-    this.currentStory = { ...this.currentStory, timeTracker: normalized };
-    log('Time tracker set:', normalized);
+    const normalized = this.normalizeTime(time)
+    await database.saveTimeTracker(this.currentStory.id, normalized)
+    this.currentStory = { ...this.currentStory, timeTracker: normalized }
+    log('Time tracker set:', normalized)
   }
 
   // Update time tracker with partial values (adds to current time)
   async addTime(updates: Partial<TimeTracker>): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const current = this.timeTracker;
+    const current = this.timeTracker
     const newTime: TimeTracker = {
       years: current.years + (updates.years ?? 0),
       days: current.days + (updates.days ?? 0),
       hours: current.hours + (updates.hours ?? 0),
       minutes: current.minutes + (updates.minutes ?? 0),
-    };
+    }
 
-    const normalized = this.normalizeTime(newTime);
-    await database.saveTimeTracker(this.currentStory.id, normalized);
-    this.currentStory = { ...this.currentStory, timeTracker: normalized };
-    log('Time added:', updates, '→', normalized);
+    const normalized = this.normalizeTime(newTime)
+    await database.saveTimeTracker(this.currentStory.id, normalized)
+    this.currentStory = { ...this.currentStory, timeTracker: normalized }
+    log('Time added:', updates, '→', normalized)
   }
 
   /**
@@ -1744,18 +1763,18 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * Adds a default amount based on the progression type.
    */
   async applyTimeProgression(progression: 'none' | 'minutes' | 'hours' | 'days'): Promise<void> {
-    if (progression === 'none') return;
+    if (progression === 'none') return
 
     // Default increments for each progression type
     const increments: Record<string, Partial<TimeTracker>> = {
-      minutes: { minutes: 15 },  // ~15 minutes for minor actions
-      hours: { hours: 2 },       // ~2 hours for moderate time passage
-      days: { days: 1 },         // 1 day for significant time jumps
-    };
+      minutes: { minutes: 15 }, // ~15 minutes for minor actions
+      hours: { hours: 2 }, // ~2 hours for moderate time passage
+      days: { days: 1 }, // 1 day for significant time jumps
+    }
 
-    const increment = increments[progression];
+    const increment = increments[progression]
     if (increment) {
-      await this.addTime(increment);
+      await this.addTime(increment)
     }
   }
 
@@ -1764,57 +1783,63 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * Undefined means "skip", null means "clear".
    */
   async restoreTimeTrackerSnapshot(snapshot: TimeTracker | null | undefined): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
-    if (snapshot === undefined) return;
+    if (!this.currentStory) throw new Error('No story loaded')
+    if (snapshot === undefined) return
 
     if (snapshot === null) {
-      await database.clearTimeTracker(this.currentStory.id);
-      this.currentStory = { ...this.currentStory, timeTracker: null };
-      log('Time tracker cleared from snapshot');
-      return;
+      await database.clearTimeTracker(this.currentStory.id)
+      this.currentStory = { ...this.currentStory, timeTracker: null }
+      log('Time tracker cleared from snapshot')
+      return
     }
 
-    const normalized = this.normalizeTime(snapshot);
-    await database.saveTimeTracker(this.currentStory.id, normalized);
-    this.currentStory = { ...this.currentStory, timeTracker: normalized };
-    log('Time tracker restored from snapshot:', normalized);
+    const normalized = this.normalizeTime(snapshot)
+    await database.saveTimeTracker(this.currentStory.id, normalized)
+    this.currentStory = { ...this.currentStory, timeTracker: normalized }
+    log('Time tracker restored from snapshot:', normalized)
   }
 
   // Create a manual chapter at a specific entry index
   async createManualChapter(endEntryIndex: number): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Find the start index (after the last chapter or beginning)
-    const startIndex = this.lastChapterEndIndex;
+    const startIndex = this.lastChapterEndIndex
 
     // Validate the end index
     if (endEntryIndex <= startIndex || endEntryIndex > this.entries.length) {
-      throw new Error('Invalid entry index for chapter creation');
+      throw new Error('Invalid entry index for chapter creation')
     }
 
     // Get the entries for this chapter
-    const chapterEntries = this.entries.slice(startIndex, endEntryIndex);
+    const chapterEntries = this.entries.slice(startIndex, endEntryIndex)
     if (chapterEntries.length === 0) {
-      throw new Error('No entries to create chapter from');
+      throw new Error('No entries to create chapter from')
     }
 
     // Get previous chapters for context (branch-filtered)
-    const previousChapters = [...this.currentBranchChapters].sort((a, b) => a.number - b.number);
+    const previousChapters = [...this.currentBranchChapters].sort((a, b) => a.number - b.number)
 
     // Import aiService dynamically to avoid circular dependency
-    const { aiService } = await import('$lib/services/ai');
+    const { aiService } = await import('$lib/services/ai')
 
     // Generate summary with previous chapters as context
-    const chapterData = await aiService.summarizeChapter(chapterEntries, previousChapters, this.currentStory?.mode ?? 'adventure', this.pov, this.tense);
+    const chapterData = await aiService.summarizeChapter(
+      chapterEntries,
+      previousChapters,
+      this.currentStory?.mode ?? 'adventure',
+      this.pov,
+      this.tense,
+    )
 
     // Get the next chapter number
-    const chapterNumber = await this.getNextChapterNumber();
+    const chapterNumber = await this.getNextChapterNumber()
 
     // Extract time range from entries' metadata
-    const firstEntry = chapterEntries[0];
-    const lastEntry = chapterEntries[chapterEntries.length - 1];
-    const startTime = firstEntry.metadata?.timeStart ?? null;
-    const endTime = lastEntry.metadata?.timeEnd ?? null;
+    const firstEntry = chapterEntries[0]
+    const lastEntry = chapterEntries[chapterEntries.length - 1]
+    const startTime = firstEntry.metadata?.timeStart ?? null
+    const endTime = lastEntry.metadata?.timeEnd ?? null
 
     // Create the chapter
     const chapter: Chapter = {
@@ -1835,18 +1860,18 @@ const newConfig = { ...this.memoryConfig, ...updates };
       emotionalTone: chapterData.emotionalTone,
       branchId: this.currentStory.currentBranchId,
       createdAt: Date.now(),
-    };
+    }
 
-    await this.addChapter(chapter);
-    log('Manual chapter created:', chapter.number, chapter.title);
+    await this.addChapter(chapter)
+    log('Manual chapter created:', chapter.number, chapter.title)
   }
 
   // Create a checkpoint (snapshot of current state)
   async createCheckpoint(name: string): Promise<Checkpoint> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
-    const lastEntry = this.entries[this.entries.length - 1];
-    if (!lastEntry) throw new Error('No entries to checkpoint');
+    const lastEntry = this.entries[this.entries.length - 1]
+    if (!lastEntry) throw new Error('No entries to checkpoint')
 
     const checkpoint: Checkpoint = {
       id: crypto.randomUUID(),
@@ -1861,19 +1886,25 @@ const newConfig = { ...this.memoryConfig, ...updates };
       itemsSnapshot: [...this.items],
       storyBeatsSnapshot: [...this.storyBeats],
       chaptersSnapshot: [...this.chapters],
-      timeTrackerSnapshot: this.currentStory.timeTracker ? { ...this.currentStory.timeTracker } : null,
+      timeTrackerSnapshot: this.currentStory.timeTracker
+        ? { ...this.currentStory.timeTracker }
+        : null,
       lorebookEntriesSnapshot: [...this.lorebookEntries],
       createdAt: Date.now(),
-    };
+    }
 
-    await database.createCheckpoint(checkpoint);
-    this.checkpoints = [checkpoint, ...this.checkpoints];
-    log('Checkpoint created:', name);
+    await database.createCheckpoint(checkpoint)
+    this.checkpoints = [checkpoint, ...this.checkpoints]
+    log('Checkpoint created:', name)
 
     // Emit event
-    eventBus.emit<CheckpointCreatedEvent>({ type: 'CheckpointCreated', checkpointId: checkpoint.id, name });
+    eventBus.emit<CheckpointCreatedEvent>({
+      type: 'CheckpointCreated',
+      checkpointId: checkpoint.id,
+      name,
+    })
 
-    return checkpoint;
+    return checkpoint
   }
 
   /**
@@ -1884,15 +1915,15 @@ const newConfig = { ...this.memoryConfig, ...updates };
   async restoreCheckpoint(_checkpointId: string): Promise<void> {
     throw new Error(
       'Checkpoint restoration is no longer supported. ' +
-      'To explore alternate paths, create a new branch from a checkpoint instead.'
-    );
+        'To explore alternate paths, create a new branch from a checkpoint instead.',
+    )
   }
 
   // Delete a checkpoint
   async deleteCheckpoint(checkpointId: string): Promise<void> {
-    await database.deleteCheckpoint(checkpointId);
-    this.checkpoints = this.checkpoints.filter(cp => cp.id !== checkpointId);
-    log('Checkpoint deleted:', checkpointId);
+    await database.deleteCheckpoint(checkpointId)
+    this.checkpoints = this.checkpoints.filter((cp) => cp.id !== checkpointId)
+    log('Checkpoint deleted:', checkpointId)
   }
 
   // ===== Branch Management =====
@@ -1901,53 +1932,57 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * Get the current branch, or null if on the main branch (for legacy stories)
    */
   get currentBranch(): Branch | null {
-    if (!this.currentStory?.currentBranchId) return null;
-    return this.branches.find(b => b.id === this.currentStory!.currentBranchId) ?? null;
+    if (!this.currentStory?.currentBranchId) return null
+    return this.branches.find((b) => b.id === this.currentStory!.currentBranchId) ?? null
   }
 
   /**
    * Create a new branch from an existing checkpoint.
    * Only entries with checkpoints can be branched from.
    */
-  async createBranchFromCheckpoint(name: string, forkEntryId: string, checkpointId: string): Promise<Branch> {
-    if (!this.currentStory) throw new Error('No story loaded');
+  async createBranchFromCheckpoint(
+    name: string,
+    forkEntryId: string,
+    checkpointId: string,
+  ): Promise<Branch> {
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Verify the checkpoint exists in memory
-    const checkpoint = this.checkpoints.find(cp => cp.id === checkpointId);
+    const checkpoint = this.checkpoints.find((cp) => cp.id === checkpointId)
     if (!checkpoint) {
-      throw new Error('Checkpoint not found in memory');
+      throw new Error('Checkpoint not found in memory')
     }
 
     // Verify the checkpoint matches the fork entry
     if (checkpoint.lastEntryId !== forkEntryId) {
-      throw new Error('Checkpoint does not match fork entry');
+      throw new Error('Checkpoint does not match fork entry')
     }
 
     // Verify all foreign key references exist in the database
-    const dbCheckpoint = await database.getCheckpoint(checkpointId);
+    const dbCheckpoint = await database.getCheckpoint(checkpointId)
     if (!dbCheckpoint) {
-      throw new Error(`Checkpoint ${checkpointId} not found in database`);
+      throw new Error(`Checkpoint ${checkpointId} not found in database`)
     }
 
-    const dbEntry = await database.getStoryEntry(forkEntryId);
+    const dbEntry = await database.getStoryEntry(forkEntryId)
     if (!dbEntry) {
-      throw new Error(`Fork entry ${forkEntryId} not found in database`);
+      throw new Error(`Fork entry ${forkEntryId} not found in database`)
     }
 
-    const dbStory = await database.getStory(this.currentStory.id);
+    const dbStory = await database.getStory(this.currentStory.id)
     if (!dbStory) {
-      throw new Error(`Story ${this.currentStory.id} not found in database`);
+      throw new Error(`Story ${this.currentStory.id} not found in database`)
     }
 
     // Determine parent branch (current branch, or null for main)
     // IMPORTANT: Ensure it's explicitly null, not undefined
-    const parentBranchId = this.currentStory.currentBranchId ?? null;
+    const parentBranchId = this.currentStory.currentBranchId ?? null
 
     // If there's a parent branch, verify it exists
     if (parentBranchId !== null) {
-      const dbParentBranch = await database.getBranch(parentBranchId);
+      const dbParentBranch = await database.getBranch(parentBranchId)
       if (!dbParentBranch) {
-        throw new Error(`Parent branch ${parentBranchId} not found in database`);
+        throw new Error(`Parent branch ${parentBranchId} not found in database`)
       }
     }
 
@@ -1960,78 +1995,84 @@ const newConfig = { ...this.memoryConfig, ...updates };
       forkEntryId,
       checkpointId,
       createdAt: Date.now(),
-    };
+    }
 
-    await database.addBranch(branch);
-    this.branches = [...this.branches, branch];
+    await database.addBranch(branch)
+    this.branches = [...this.branches, branch]
 
     // Copy world state from checkpoint into database with the new branch_id
     // This ensures the branch has its own copy of the world state at the fork point
-    log('Copying world state from checkpoint to branch:', branch.name);
+    log('Copying world state from checkpoint to branch:', branch.name)
 
     // Copy characters
     for (const char of checkpoint.charactersSnapshot) {
-      const branchChar: Character = { ...char, id: crypto.randomUUID(), branchId: branch.id };
-      await database.addCharacter(branchChar);
+      const branchChar: Character = { ...char, id: crypto.randomUUID(), branchId: branch.id }
+      await database.addCharacter(branchChar)
     }
 
     // Copy locations - need to remap connection IDs to new location IDs
-    const locationIdMap = new Map<string, string>(); // old ID -> new ID
+    const locationIdMap = new Map<string, string>() // old ID -> new ID
     for (const loc of checkpoint.locationsSnapshot) {
-      const newId = crypto.randomUUID();
-      locationIdMap.set(loc.id, newId);
+      const newId = crypto.randomUUID()
+      locationIdMap.set(loc.id, newId)
     }
     for (const loc of checkpoint.locationsSnapshot) {
-      const newId = locationIdMap.get(loc.id)!;
+      const newId = locationIdMap.get(loc.id)!
       const branchLoc: Location = {
         ...loc,
         id: newId,
         branchId: branch.id,
         // Remap connections to use new location IDs
-        connections: loc.connections.map(connId => locationIdMap.get(connId) ?? connId),
-      };
-      await database.addLocation(branchLoc);
+        connections: loc.connections.map((connId) => locationIdMap.get(connId) ?? connId),
+      }
+      await database.addLocation(branchLoc)
     }
 
     // Copy items (remap location IDs to the new branch's locations)
     for (const item of checkpoint.itemsSnapshot) {
-      const remappedLocation = item.location === 'inventory'
-        ? 'inventory'
-        : (locationIdMap.get(item.location) ?? item.location);
+      const remappedLocation =
+        item.location === 'inventory'
+          ? 'inventory'
+          : (locationIdMap.get(item.location) ?? item.location)
       const branchItem: Item = {
         ...item,
         id: crypto.randomUUID(),
         branchId: branch.id,
         location: remappedLocation,
-      };
-      await database.addItem(branchItem);
+      }
+      await database.addItem(branchItem)
     }
 
     // Copy story beats
     for (const beat of checkpoint.storyBeatsSnapshot) {
-      const branchBeat: StoryBeat = { ...beat, id: crypto.randomUUID(), branchId: branch.id };
-      await database.addStoryBeat(branchBeat);
+      const branchBeat: StoryBeat = { ...beat, id: crypto.randomUUID(), branchId: branch.id }
+      await database.addStoryBeat(branchBeat)
     }
 
     // Copy lorebook entries (if snapshot exists)
     if (checkpoint.lorebookEntriesSnapshot) {
       for (const entry of checkpoint.lorebookEntriesSnapshot) {
-        const branchEntry: Entry = { ...entry, id: crypto.randomUUID(), branchId: branch.id };
-        await database.addEntry(branchEntry);
+        const branchEntry: Entry = { ...entry, id: crypto.randomUUID(), branchId: branch.id }
+        await database.addEntry(branchEntry)
       }
     }
 
     // Switch to the new branch (skip restore since we just populated the world state)
-    await this.switchBranch(branch.id, true);
+    await this.switchBranch(branch.id, true)
 
     // Reload the world state from database to get the copied items into memory
-    await this.reloadEntriesForCurrentBranch();
+    await this.reloadEntriesForCurrentBranch()
 
     // Restore time tracker from checkpoint
     if (checkpoint.timeTrackerSnapshot) {
-      this.currentStory = { ...this.currentStory!, timeTracker: { ...checkpoint.timeTrackerSnapshot } };
-      await database.updateStory(this.currentStory!.id, { timeTracker: checkpoint.timeTrackerSnapshot });
-      log('Time tracker restored from checkpoint:', checkpoint.timeTrackerSnapshot);
+      this.currentStory = {
+        ...this.currentStory!,
+        timeTracker: { ...checkpoint.timeTrackerSnapshot },
+      }
+      await database.updateStory(this.currentStory!.id, {
+        timeTracker: checkpoint.timeTrackerSnapshot,
+      })
+      log('Time tracker restored from checkpoint:', checkpoint.timeTrackerSnapshot)
     }
 
     log('Branch created:', name, 'from checkpoint:', checkpointId, {
@@ -2040,41 +2081,41 @@ const newConfig = { ...this.memoryConfig, ...updates };
       items: checkpoint.itemsSnapshot.length,
       storyBeats: checkpoint.storyBeatsSnapshot.length,
       lorebookEntries: checkpoint.lorebookEntriesSnapshot?.length ?? 0,
-    });
-    return branch;
+    })
+    return branch
   }
 
   private buildBranchLineage(branchId: string): Branch[] {
-    const lineage: Branch[] = [];
-    let current: Branch | null = this.branches.find(b => b.id === branchId) ?? null;
-    const visited = new Set<string>();
+    const lineage: Branch[] = []
+    let current: Branch | null = this.branches.find((b) => b.id === branchId) ?? null
+    const visited = new Set<string>()
 
     while (current) {
-      if (visited.has(current.id)) break;
-      visited.add(current.id);
-      lineage.unshift(current);
-      const parentId = current.parentBranchId;
-      if (!parentId) break;
-      current = this.branches.find(b => b.id === parentId) ?? null;
+      if (visited.has(current.id)) break
+      visited.add(current.id)
+      lineage.unshift(current)
+      const parentId = current.parentBranchId
+      if (!parentId) break
+      current = this.branches.find((b) => b.id === parentId) ?? null
     }
 
-    return lineage;
+    return lineage
   }
 
   private async getForkEntryPositions(lineage: Branch[]): Promise<Map<string, number | null>> {
     const entries = await Promise.all(
-      lineage.map(branch => database.getStoryEntry(branch.forkEntryId))
-    );
-    const positions = new Map<string, number | null>();
+      lineage.map((branch) => database.getStoryEntry(branch.forkEntryId)),
+    )
+    const positions = new Map<string, number | null>()
     entries.forEach((entry, index) => {
-      positions.set(lineage[index].id, entry?.position ?? null);
-    });
-    return positions;
+      positions.set(lineage[index].id, entry?.position ?? null)
+    })
+    return positions
   }
 
   private getCheckpointBranchId(checkpoint: Checkpoint): string | null {
-    const lastEntry = checkpoint.entriesSnapshot.find(e => e.id === checkpoint.lastEntryId);
-    return (lastEntry?.branchId ?? null);
+    const lastEntry = checkpoint.entriesSnapshot.find((e) => e.id === checkpoint.lastEntryId)
+    return lastEntry?.branchId ?? null
   }
 
   /**
@@ -2085,29 +2126,29 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * @param skipReload - If true, skip reloading entries (used when creating new branch from current state)
    */
   async switchBranch(branchId: string | null, skipReload: boolean = false): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Validate branch exists (if not null)
     if (branchId !== null) {
-      const branch = this.branches.find(b => b.id === branchId);
-      if (!branch) throw new Error('Branch not found');
+      const branch = this.branches.find((b) => b.id === branchId)
+      if (!branch) throw new Error('Branch not found')
     }
 
     // Update story's current branch in database
-    await database.setStoryCurrentBranch(this.currentStory.id, branchId);
-    this.currentStory = { ...this.currentStory, currentBranchId: branchId };
+    await database.setStoryCurrentBranch(this.currentStory.id, branchId)
+    this.currentStory = { ...this.currentStory, currentBranchId: branchId }
 
     // Reload entries from database if not skipping
     // When creating a new branch, we skip because we're already at the correct state
     if (!skipReload) {
-      await this.reloadEntriesForCurrentBranch();
+      await this.reloadEntriesForCurrentBranch()
     }
 
     // Invalidate caches
-    this.invalidateWordCountCache();
-    this.invalidateChapterCache();
+    this.invalidateWordCountCache()
+    this.invalidateChapterCache()
 
-    log('Switched to branch:', branchId ?? 'main');
+    log('Switched to branch:', branchId ?? 'main')
   }
 
   /**
@@ -2117,96 +2158,95 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * - For other branches: loads inherited items (null branch_id) + branch-specific items
    */
   private async reloadEntriesForCurrentBranch(): Promise<void> {
-    if (!this.currentStory) return;
+    if (!this.currentStory) return
 
-    const branchId = this.currentStory.currentBranchId;
+    const branchId = this.currentStory.currentBranchId
 
     if (branchId === null) {
       // Main branch: load all data with null branch_id
-      const [entries, chapters, characters, locations, items, storyBeats, lorebookEntries] = await Promise.all([
-        database.getStoryEntriesForBranch(this.currentStory.id, null),
-        database.getChaptersForBranch(this.currentStory.id, null),
-        database.getCharactersForBranch(this.currentStory.id, null),
-        database.getLocationsForBranch(this.currentStory.id, null),
-        database.getItemsForBranch(this.currentStory.id, null),
-        database.getStoryBeatsForBranch(this.currentStory.id, null),
-        database.getEntriesForBranch(this.currentStory.id, null),
-      ]);
+      const [entries, chapters, characters, locations, items, storyBeats, lorebookEntries] =
+        await Promise.all([
+          database.getStoryEntriesForBranch(this.currentStory.id, null),
+          database.getChaptersForBranch(this.currentStory.id, null),
+          database.getCharactersForBranch(this.currentStory.id, null),
+          database.getLocationsForBranch(this.currentStory.id, null),
+          database.getItemsForBranch(this.currentStory.id, null),
+          database.getStoryBeatsForBranch(this.currentStory.id, null),
+          database.getEntriesForBranch(this.currentStory.id, null),
+        ])
 
-      this.entries = entries;
-      this.chapters = chapters;
-      this.characters = characters;
-      this.locations = locations;
-      this.items = items;
-      this.storyBeats = storyBeats;
-      this.lorebookEntries = lorebookEntries;
+      this.entries = entries
+      this.chapters = chapters
+      this.characters = characters
+      this.locations = locations
+      this.items = items
+      this.storyBeats = storyBeats
+      this.lorebookEntries = lorebookEntries
     } else {
       // Non-main branch: load entries across branch lineage (main -> ancestors -> current)
-      const lineage = this.buildBranchLineage(branchId);
-      if (lineage.length === 0) return;
+      const lineage = this.buildBranchLineage(branchId)
+      if (lineage.length === 0) return
 
-      const forkPositions = await this.getForkEntryPositions(lineage);
-      const rootForkPosition = forkPositions.get(lineage[0].id);
+      const forkPositions = await this.getForkEntryPositions(lineage)
+      const rootForkPosition = forkPositions.get(lineage[0].id)
 
       const inheritedEntries = await database.getStoryEntriesForBranch(
         this.currentStory.id,
         null,
-        rootForkPosition ?? undefined
-      );
+        rootForkPosition ?? undefined,
+      )
 
-      const branchEntries: StoryEntry[] = [];
+      const branchEntries: StoryEntry[] = []
       for (let i = 0; i < lineage.length; i++) {
-        const branch = lineage[i];
-        const childForkPosition = i < lineage.length - 1
-          ? forkPositions.get(lineage[i + 1].id)
-          : undefined;
+        const branch = lineage[i]
+        const childForkPosition =
+          i < lineage.length - 1 ? forkPositions.get(lineage[i + 1].id) : undefined
         const entries = await database.getStoryEntriesForBranch(
           this.currentStory.id,
           branch.id,
-          childForkPosition ?? undefined
-        );
-        branchEntries.push(...entries);
+          childForkPosition ?? undefined,
+        )
+        branchEntries.push(...entries)
       }
 
-      this.entries = [...inheritedEntries, ...branchEntries].sort((a, b) => a.position - b.position);
+      this.entries = [...inheritedEntries, ...branchEntries].sort((a, b) => a.position - b.position)
 
-      const entryPositions = new Map<string, number>();
+      const entryPositions = new Map<string, number>()
       for (const entry of this.entries) {
-        entryPositions.set(entry.id, entry.position);
+        entryPositions.set(entry.id, entry.position)
       }
 
-      const chapters: Chapter[] = [];
-      const mainChapters = await database.getChaptersForBranch(this.currentStory.id, null);
+      const chapters: Chapter[] = []
+      const mainChapters = await database.getChaptersForBranch(this.currentStory.id, null)
       if (rootForkPosition === null || rootForkPosition === undefined) {
-        chapters.push(...mainChapters);
+        chapters.push(...mainChapters)
       } else {
         chapters.push(
-          ...mainChapters.filter(ch => {
-            const endPosition = entryPositions.get(ch.endEntryId);
-            return endPosition !== undefined && endPosition <= rootForkPosition;
-          })
-        );
+          ...mainChapters.filter((ch) => {
+            const endPosition = entryPositions.get(ch.endEntryId)
+            return endPosition !== undefined && endPosition <= rootForkPosition
+          }),
+        )
       }
 
       for (let i = 0; i < lineage.length; i++) {
-        const branch = lineage[i];
-        const childForkPosition = i < lineage.length - 1
-          ? forkPositions.get(lineage[i + 1].id)
-          : undefined;
-        const branchChapters = await database.getChaptersForBranch(this.currentStory.id, branch.id);
+        const branch = lineage[i]
+        const childForkPosition =
+          i < lineage.length - 1 ? forkPositions.get(lineage[i + 1].id) : undefined
+        const branchChapters = await database.getChaptersForBranch(this.currentStory.id, branch.id)
         if (childForkPosition === null || childForkPosition === undefined) {
-          chapters.push(...branchChapters);
+          chapters.push(...branchChapters)
         } else {
           chapters.push(
-            ...branchChapters.filter(ch => {
-              const endPosition = entryPositions.get(ch.endEntryId);
-              return endPosition !== undefined && endPosition <= childForkPosition;
-            })
-          );
+            ...branchChapters.filter((ch) => {
+              const endPosition = entryPositions.get(ch.endEntryId)
+              return endPosition !== undefined && endPosition <= childForkPosition
+            }),
+          )
         }
       }
 
-      this.chapters = chapters.sort((a, b) => a.number - b.number);
+      this.chapters = chapters.sort((a, b) => a.number - b.number)
 
       // Load world state from database (branch-specific snapshots)
       // World state is persisted per-branch via branch_id columns
@@ -2216,27 +2256,27 @@ const newConfig = { ...this.memoryConfig, ...updates };
         database.getItemsForBranch(this.currentStory.id, branchId),
         database.getStoryBeatsForBranch(this.currentStory.id, branchId),
         database.getEntriesForBranch(this.currentStory.id, branchId),
-      ]);
+      ])
 
-      this.characters = characters;
-      this.locations = locations;
-      this.items = items;
-      this.storyBeats = storyBeats;
-      this.lorebookEntries = lorebookEntries;
+      this.characters = characters
+      this.locations = locations
+      this.items = items
+      this.storyBeats = storyBeats
+      this.lorebookEntries = lorebookEntries
 
       // Get the current branch name from lineage for logging
-      const currentBranch = lineage[lineage.length - 1];
+      const currentBranch = lineage[lineage.length - 1]
       log('Loaded world state for branch:', currentBranch?.name ?? branchId, {
         characters: characters.length,
         locations: locations.length,
         items: items.length,
         storyBeats: storyBeats.length,
         lorebookEntries: lorebookEntries.length,
-      });
+      })
     }
 
     // Restore time tracker from the last entry's metadata
-    await this.restoreTimeFromLastEntry();
+    await this.restoreTimeFromLastEntry()
   }
 
   /**
@@ -2244,23 +2284,25 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * Called after loading entries for a branch to ensure time consistency.
    */
   private async restoreTimeFromLastEntry(): Promise<void> {
-    if (!this.currentStory || this.entries.length === 0) return;
+    if (!this.currentStory || this.entries.length === 0) return
 
-    const lastEntry = this.entries[this.entries.length - 1];
-    const timeEnd = lastEntry.metadata?.timeEnd;
+    const lastEntry = this.entries[this.entries.length - 1]
+    const timeEnd = lastEntry.metadata?.timeEnd
 
     if (timeEnd && typeof timeEnd === 'object') {
-      const newTime = timeEnd as TimeTracker;
+      const newTime = timeEnd as TimeTracker
       // Only update if different to avoid unnecessary DB writes
-      const current = this.currentStory.timeTracker;
-      if (!current ||
-          current.years !== newTime.years ||
-          current.days !== newTime.days ||
-          current.hours !== newTime.hours ||
-          current.minutes !== newTime.minutes) {
-        this.currentStory = { ...this.currentStory, timeTracker: newTime };
-        await database.updateStory(this.currentStory.id, { timeTracker: newTime });
-        log('Time tracker restored from last entry:', newTime);
+      const current = this.currentStory.timeTracker
+      if (
+        !current ||
+        current.years !== newTime.years ||
+        current.days !== newTime.days ||
+        current.hours !== newTime.hours ||
+        current.minutes !== newTime.minutes
+      ) {
+        this.currentStory = { ...this.currentStory, timeTracker: newTime }
+        await database.updateStory(this.currentStory.id, { timeTracker: newTime })
+        log('Time tracker restored from last entry:', newTime)
       }
     }
   }
@@ -2269,11 +2311,9 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * Rename a branch.
    */
   async renameBranch(branchId: string, newName: string): Promise<void> {
-    await database.updateBranch(branchId, { name: newName });
-    this.branches = this.branches.map(b =>
-      b.id === branchId ? { ...b, name: newName } : b
-    );
-    log('Branch renamed:', branchId, 'to', newName);
+    await database.updateBranch(branchId, { name: newName })
+    this.branches = this.branches.map((b) => (b.id === branchId ? { ...b, name: newName } : b))
+    log('Branch renamed:', branchId, 'to', newName)
   }
 
   /**
@@ -2281,81 +2321,80 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * Cannot delete the main branch (null), the current branch, or branches with children.
    */
   async deleteBranch(branchId: string): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Cannot delete current branch
     if (this.currentStory.currentBranchId === branchId) {
-      throw new Error('Cannot delete the current branch');
+      throw new Error('Cannot delete the current branch')
     }
 
     // Cannot delete branches that have child branches
-    const childBranches = this.branches.filter(b => b.parentBranchId === branchId);
+    const childBranches = this.branches.filter((b) => b.parentBranchId === branchId)
     if (childBranches.length > 0) {
-      const childNames = childBranches.map(b => `"${b.name}"`).join(', ');
+      const childNames = childBranches.map((b) => `"${b.name}"`).join(', ')
       throw new Error(
         `Cannot delete this branch because it has child branches: ${childNames}. ` +
-        `Delete the child branches first.`
-      );
+          `Delete the child branches first.`,
+      )
     }
 
     // Delete associated checkpoints first
     const checkpointsToDelete = this.checkpoints.filter(
-      checkpoint => this.getCheckpointBranchId(checkpoint) === branchId
-    );
-    await Promise.all(checkpointsToDelete.map(cp => database.deleteCheckpoint(cp.id)));
+      (checkpoint) => this.getCheckpointBranchId(checkpoint) === branchId,
+    )
+    await Promise.all(checkpointsToDelete.map((cp) => database.deleteCheckpoint(cp.id)))
     this.checkpoints = this.checkpoints.filter(
-      checkpoint => this.getCheckpointBranchId(checkpoint) !== branchId
-    );
+      (checkpoint) => this.getCheckpointBranchId(checkpoint) !== branchId,
+    )
 
     // Delete the branch from database
-    await database.deleteBranch(branchId);
+    await database.deleteBranch(branchId)
 
     // Update in-memory state: remove deleted branch
     // Note: We already checked that there are no child branches, so no reparenting needed
-    this.branches = this.branches.filter(b => b.id !== branchId);
+    this.branches = this.branches.filter((b) => b.id !== branchId)
 
-    log('Branch deleted:', branchId);
+    log('Branch deleted:', branchId)
   }
 
   /**
    * Get the total entry count for a branch including inherited history.
    */
   async getBranchEntryCount(branchId: string | null): Promise<number> {
-    if (!this.currentStory) return 0;
+    if (!this.currentStory) return 0
 
     if (branchId === null) {
-      const entries = await database.getStoryEntriesForBranch(this.currentStory.id, null);
-      return entries.length;
+      const entries = await database.getStoryEntriesForBranch(this.currentStory.id, null)
+      return entries.length
     }
 
-    const lineage = this.buildBranchLineage(branchId);
-    if (lineage.length === 0) return 0;
+    const lineage = this.buildBranchLineage(branchId)
+    if (lineage.length === 0) return 0
 
-    const forkPositions = await this.getForkEntryPositions(lineage);
-    const rootForkPosition = forkPositions.get(lineage[0].id);
+    const forkPositions = await this.getForkEntryPositions(lineage)
+    const rootForkPosition = forkPositions.get(lineage[0].id)
 
-    let count = 0;
+    let count = 0
     const mainEntries = await database.getStoryEntriesForBranch(
       this.currentStory.id,
       null,
-      rootForkPosition ?? undefined
-    );
-    count += mainEntries.length;
+      rootForkPosition ?? undefined,
+    )
+    count += mainEntries.length
 
     for (let i = 0; i < lineage.length; i++) {
-      const branch = lineage[i];
-      const childForkPosition = i < lineage.length - 1
-        ? forkPositions.get(lineage[i + 1].id)
-        : undefined;
+      const branch = lineage[i]
+      const childForkPosition =
+        i < lineage.length - 1 ? forkPositions.get(lineage[i + 1].id) : undefined
       const entries = await database.getStoryEntriesForBranch(
         this.currentStory.id,
         branch.id,
-        childForkPosition ?? undefined
-      );
-      count += entries.length;
+        childForkPosition ?? undefined,
+      )
+      count += entries.length
     }
 
-    return count;
+    return count
   }
 
   /**
@@ -2364,22 +2403,22 @@ const newConfig = { ...this.memoryConfig, ...updates };
    */
   getBranchTree(): { branch: Branch | null; children: Branch[] }[] {
     // Build tree starting from root (null parent = main branch children)
-    const rootBranches = this.branches.filter(b => b.parentBranchId === null);
-    const tree: { branch: Branch | null; children: Branch[] }[] = [];
+    const rootBranches = this.branches.filter((b) => b.parentBranchId === null)
+    const tree: { branch: Branch | null; children: Branch[] }[] = []
 
     // Main branch (implicit)
     tree.push({
       branch: null, // null represents main branch
       children: rootBranches,
-    });
+    })
 
     // Add all branches with their children
     for (const branch of this.branches) {
-      const children = this.branches.filter(b => b.parentBranchId === branch.id);
-      tree.push({ branch, children });
+      const children = this.branches.filter((b) => b.parentBranchId === branch.id)
+      tree.push({ branch, children })
     }
 
-    return tree;
+    return tree
   }
 
   /**
@@ -2388,41 +2427,41 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * and allow regeneration.
    */
   async restoreFromRetryBackup(backup: {
-    entries: StoryEntry[];
-    characters: Character[];
-    locations: Location[];
-    items: Item[];
-    storyBeats: StoryBeat[];
-    lorebookEntries?: Entry[]; // Optional - lorebook entries persist across retry operations
-    embeddedImages: EmbeddedImage[];
-    timeTracker?: TimeTracker | null;
+    entries: StoryEntry[]
+    characters: Character[]
+    locations: Location[]
+    items: Item[]
+    storyBeats: StoryBeat[]
+    lorebookEntries?: Entry[] // Optional - lorebook entries persist across retry operations
+    embeddedImages: EmbeddedImage[]
+    timeTracker?: TimeTracker | null
   }): Promise<void> {
-    if (!this.currentStory) throw new Error('No story loaded');
+    if (!this.currentStory) throw new Error('No story loaded')
 
     // Lock editing during retry restore to prevent race conditions
-    this._isRetryInProgress = true;
-    log('Retry restore started - editing locked');
+    this._isRetryInProgress = true
+    log('Retry restore started - editing locked')
 
     try {
       // Debug: Log character visual descriptors before restore
-      const currentCharDescriptors = this.characters.map(c => ({
+      const currentCharDescriptors = this.characters.map((c) => ({
         name: c.name,
         visualDescriptors: c.visualDescriptors,
-      }));
-      const backupCharDescriptors = backup.characters.map(c => ({
+      }))
+      const backupCharDescriptors = backup.characters.map((c) => ({
         name: c.name,
         visualDescriptors: c.visualDescriptors,
-      }));
+      }))
       log('RESTORE DEBUG - Before restore:', {
         currentCharDescriptors,
         backupCharDescriptors,
-      });
+      })
 
       log('Restoring from retry backup...', {
         entriesCount: backup.entries.length,
         currentEntriesCount: this.entries.length,
         embeddedImagesCount: backup.embeddedImages.length,
-      });
+      })
 
       // Restore to database
       await database.restoreRetryBackup(
@@ -2433,8 +2472,8 @@ const newConfig = { ...this.memoryConfig, ...updates };
         backup.locations,
         backup.items,
         backup.storyBeats,
-        backup.embeddedImages
-      );
+        backup.embeddedImages,
+      )
 
       // Reload from database to ensure a clean, fully restored state
       // Note: Lorebook entries are NOT reloaded as they persist across retry operations
@@ -2444,51 +2483,51 @@ const newConfig = { ...this.memoryConfig, ...updates };
         database.getLocations(this.currentStory.id),
         database.getItems(this.currentStory.id),
         database.getStoryBeats(this.currentStory.id),
-      ]);
+      ])
 
       // Debug: Log what we got back from database
-      const dbCharDescriptors = characters.map(c => ({
+      const dbCharDescriptors = characters.map((c) => ({
         name: c.name,
         visualDescriptors: c.visualDescriptors,
-      }));
+      }))
       log('RESTORE DEBUG - After DB reload:', {
         dbCharDescriptors,
-      });
+      })
 
       // Update local state
       // Note: Lorebook entries are NOT updated as they persist across retry operations
-      this.entries = entries;
-      this.characters = characters;
-      this.locations = locations;
-      this.items = items;
-      this.storyBeats = storyBeats;
+      this.entries = entries
+      this.characters = characters
+      this.locations = locations
+      this.items = items
+      this.storyBeats = storyBeats
 
       // Invalidate caches after state restore
-      this.invalidateWordCountCache();
-      this.invalidateChapterCache();
+      this.invalidateWordCountCache()
+      this.invalidateChapterCache()
 
       // Debug: Verify memory state matches
-      const finalCharDescriptors = this.characters.map(c => ({
+      const finalCharDescriptors = this.characters.map((c) => ({
         name: c.name,
         visualDescriptors: c.visualDescriptors,
-      }));
+      }))
       log('RESTORE DEBUG - Final state:', {
         finalCharDescriptors,
-      });
+      })
 
       // Restore time tracker if provided (null clears)
-      await this.restoreTimeTrackerSnapshot(backup.timeTracker);
+      await this.restoreTimeTrackerSnapshot(backup.timeTracker)
 
       log('Retry backup restored', {
         entries: this.entries.length,
         characters: this.characters.length,
         locations: this.locations.length,
         embeddedImages: backup.embeddedImages.length,
-      });
+      })
     } finally {
       // Always unlock editing when restore completes or fails
-      this._isRetryInProgress = false;
-      log('Retry restore completed - editing unlocked');
+      this._isRetryInProgress = false
+      log('Retry restore completed - editing unlocked')
     }
   }
 
@@ -2497,8 +2536,8 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * Used by persistent restore path that doesn't call restoreFromRetryBackup.
    */
   lockRetryInProgress(): void {
-    this._isRetryInProgress = true;
-    log('Retry operation locked - editing disabled');
+    this._isRetryInProgress = true
+    log('Retry operation locked - editing disabled')
   }
 
   /**
@@ -2506,8 +2545,8 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * Used by persistent restore path that doesn't call restoreFromRetryBackup.
    */
   unlockRetryInProgress(): void {
-    this._isRetryInProgress = false;
-    log('Retry operation unlocked - editing enabled');
+    this._isRetryInProgress = false
+    log('Retry operation unlocked - editing enabled')
   }
 
   /**
@@ -2518,25 +2557,29 @@ const newConfig = { ...this.memoryConfig, ...updates };
     log('restoreCharacterSnapshots called', {
       hasCurrentStory: !!this.currentStory,
       snapshotsCount: snapshots?.length ?? 0,
-      snapshots: snapshots?.map(s => ({ id: s.id, visualDescriptors: s.visualDescriptors })),
-      currentCharacters: this.characters.map(c => ({ id: c.id, name: c.name, visualDescriptors: c.visualDescriptors })),
-    });
+      snapshots: snapshots?.map((s) => ({ id: s.id, visualDescriptors: s.visualDescriptors })),
+      currentCharacters: this.characters.map((c) => ({
+        id: c.id,
+        name: c.name,
+        visualDescriptors: c.visualDescriptors,
+      })),
+    })
 
     if (!this.currentStory || !snapshots || snapshots.length === 0) {
-      log('restoreCharacterSnapshots: early return - no story or no snapshots');
-      return;
+      log('restoreCharacterSnapshots: early return - no story or no snapshots')
+      return
     }
 
-    const snapshotById = new Map(snapshots.map(snapshot => [snapshot.id, snapshot]));
-    const updates: Array<{ id: string; updates: Partial<Character> }> = [];
+    const snapshotById = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]))
+    const updates: Array<{ id: string; updates: Partial<Character> }> = []
 
     for (const character of this.characters) {
-      const snapshot = snapshotById.get(character.id);
-      if (!snapshot) continue;
+      const snapshot = snapshotById.get(character.id)
+      if (!snapshot) continue
 
-      let relationship = snapshot.relationship ?? character.relationship;
+      let relationship = snapshot.relationship ?? character.relationship
       if (character.relationship === 'self' && relationship !== 'self') {
-        relationship = 'self';
+        relationship = 'self'
       }
 
       updates.push({
@@ -2548,20 +2591,20 @@ const newConfig = { ...this.memoryConfig, ...updates };
           visualDescriptors: snapshot.visualDescriptors ?? {},
           portrait: snapshot.portrait,
         },
-      });
+      })
     }
 
     for (const update of updates) {
-      await database.updateCharacter(update.id, update.updates);
+      await database.updateCharacter(update.id, update.updates)
     }
 
-    this.characters = this.characters.map(character => {
-      const snapshot = snapshotById.get(character.id);
-      if (!snapshot) return character;
+    this.characters = this.characters.map((character) => {
+      const snapshot = snapshotById.get(character.id)
+      if (!snapshot) return character
 
-      let relationship = snapshot.relationship ?? character.relationship;
+      let relationship = snapshot.relationship ?? character.relationship
       if (character.relationship === 'self' && relationship !== 'self') {
-        relationship = 'self';
+        relationship = 'self'
       }
 
       return {
@@ -2570,23 +2613,27 @@ const newConfig = { ...this.memoryConfig, ...updates };
         status: snapshot.status ?? character.status,
         relationship,
         visualDescriptors: snapshot.visualDescriptors ?? character.visualDescriptors,
-        portrait: snapshot.portrait,  // Use snapshot value directly (null means no portrait)
-      };
-    });
+        portrait: snapshot.portrait, // Use snapshot value directly (null means no portrait)
+      }
+    })
 
     log('restoreCharacterSnapshots complete', {
       updatedCount: updates.length,
-      finalCharacters: this.characters.map(c => ({ id: c.id, name: c.name, visualDescriptors: c.visualDescriptors })),
-    });
+      finalCharacters: this.characters.map((c) => ({
+        id: c.id,
+        name: c.name,
+        visualDescriptors: c.visualDescriptors,
+      })),
+    })
   }
 
   // Delete a story
   async deleteStory(storyId: string): Promise<void> {
-    await database.deleteStory(storyId);
-    this.allStories = this.allStories.filter(s => s.id !== storyId);
+    await database.deleteStory(storyId)
+    this.allStories = this.allStories.filter((s) => s.id !== storyId)
 
     if (this.currentStory?.id === storyId) {
-      this.clearCurrentStory();
+      this.clearCurrentStory()
     }
   }
 
@@ -2595,36 +2642,56 @@ const newConfig = { ...this.memoryConfig, ...updates };
    * This handles the full initialization from the setup wizard including
    * dynamically generated settings, protagonist, characters, and opening scene.
    */
-async createStoryFromWizard(data: {
-    title: string;
-    genre: string;
-    description?: string;
-    mode: StoryMode;
-    settings: { pov: 'first' | 'second' | 'third'; tense: 'past' | 'present'; tone?: string; themes?: string[]; visualProseMode?: boolean; inlineImageMode?: boolean };
-    protagonist: Partial<Character>;
-    startingLocation: Partial<Location>;
-    initialItems: Partial<Item>[];
-    openingScene: string;
-    systemPrompt: string;
-    characters: Partial<Character>[];
-    importedEntries?: ImportedEntry[];
+  async createStoryFromWizard(data: {
+    title: string
+    genre: string
+    description?: string
+    mode: StoryMode
+    settings: {
+      pov: 'first' | 'second' | 'third'
+      tense: 'past' | 'present'
+      tone?: string
+      themes?: string[]
+      visualProseMode?: boolean
+      inlineImageMode?: boolean
+    }
+    protagonist: Partial<Character>
+    startingLocation: Partial<Location>
+    initialItems: Partial<Item>[]
+    openingScene: string
+    systemPrompt: string
+    characters: Partial<Character>[]
+    importedEntries?: ImportedEntry[]
     // Translation data (optional)
     translations?: {
-      language: string;
-      openingScene?: string;
-      protagonist?: { name?: string; description?: string; traits?: string[]; visualDescriptors?: string[] };
-      startingLocation?: { name?: string; description?: string };
-      characters?: { [originalName: string]: { name?: string; description?: string; relationship?: string; traits?: string[]; visualDescriptors?: string[] } };
-    };
+      language: string
+      openingScene?: string
+      protagonist?: {
+        name?: string
+        description?: string
+        traits?: string[]
+        visualDescriptors?: string[]
+      }
+      startingLocation?: { name?: string; description?: string }
+      characters?: {
+        [originalName: string]: {
+          name?: string
+          description?: string
+          relationship?: string
+          traits?: string[]
+          visualDescriptors?: string[]
+        }
+      }
+    }
   }): Promise<Story> {
-log('createStoryFromWizard called', {
+    log('createStoryFromWizard called', {
       title: data.title,
       genre: data.genre,
       mode: data.mode,
       pov: data.settings.pov,
       visualProseMode: data.settings.visualProseMode,
       inlineImageMode: data.settings.inlineImageMode,
-    });
+    })
 
     // Create the base story with custom system prompt stored in settings
     const storyData = await database.createStory({
@@ -2634,7 +2701,7 @@ log('createStoryFromWizard called', {
       genre: data.genre,
       templateId: 'wizard-generated',
       mode: data.mode,
-settings: {
+      settings: {
         pov: data.settings.pov,
         tense: data.settings.tense,
         tone: data.settings.tone,
@@ -2649,16 +2716,16 @@ settings: {
       styleReviewState: null,
       timeTracker: null,
       currentBranchId: null,
-    });
+    })
 
-    this.allStories = [storyData, ...this.allStories];
-    const storyId = storyData.id;
+    this.allStories = [storyData, ...this.allStories]
+    const storyId = storyData.id
 
-    this.currentStory = storyData;
+    this.currentStory = storyData
 
     // Add protagonist
     if (data.protagonist.name) {
-      const protagonistTranslation = data.translations?.protagonist;
+      const protagonistTranslation = data.translations?.protagonist
       const protagonist: Character = {
         id: crypto.randomUUID(),
         storyId,
@@ -2675,21 +2742,21 @@ settings: {
         translatedDescription: protagonistTranslation?.description ?? null,
         translatedTraits: protagonistTranslation?.traits ?? null,
         translatedVisualDescriptors: undefined, // Translations not supported for structured visual descriptors yet
-        translationLanguage: protagonistTranslation ? data.translations?.language ?? null : null,
-      };
-      await database.addCharacter(protagonist);
-      log('Added protagonist:', protagonist.name);
+        translationLanguage: protagonistTranslation ? (data.translations?.language ?? null) : null,
+      }
+      await database.addCharacter(protagonist)
+      log('Added protagonist:', protagonist.name)
     }
 
     // Add starting location
     if (data.startingLocation.name) {
-      const locationTranslation = data.translations?.startingLocation;
+      const locationTranslation = data.translations?.startingLocation
       log('Starting location translation data:', {
         hasTranslations: !!data.translations,
         hasStartingLocation: !!locationTranslation,
         translatedName: locationTranslation?.name,
         translatedDesc: locationTranslation?.description?.substring(0, 50),
-      });
+      })
       const location: Location = {
         id: crypto.randomUUID(),
         storyId,
@@ -2702,21 +2769,26 @@ settings: {
         branchId: null, // New stories start on main branch
         translatedName: locationTranslation?.name ?? null,
         translatedDescription: locationTranslation?.description ?? null,
-        translationLanguage: locationTranslation ? data.translations?.language ?? null : null,
-      };
+        translationLanguage: locationTranslation ? (data.translations?.language ?? null) : null,
+      }
       log('Location object being stored:', {
         name: location.name,
         translatedName: location.translatedName,
         translatedDesc: location.translatedDescription?.substring(0, 50),
         translationLanguage: location.translationLanguage,
-      });
-      await database.addLocation(location);
-      log('Added starting location:', location.name, 'with translation:', !!location.translatedDescription);
+      })
+      await database.addLocation(location)
+      log(
+        'Added starting location:',
+        location.name,
+        'with translation:',
+        !!location.translatedDescription,
+      )
     }
 
     // Add initial items
     for (const itemData of data.initialItems) {
-      if (!itemData.name) continue;
+      if (!itemData.name) continue
       const item: Item = {
         id: crypto.randomUUID(),
         storyId,
@@ -2727,14 +2799,14 @@ settings: {
         location: itemData.location ?? 'inventory',
         metadata: { source: 'wizard' },
         branchId: null, // New stories start on main branch
-      };
-      await database.addItem(item);
+      }
+      await database.addItem(item)
     }
 
     // Add supporting characters
     for (const charData of data.characters) {
-      if (!charData.name) continue;
-      const charTranslation = data.translations?.characters?.[charData.name];
+      if (!charData.name) continue
+      const charTranslation = data.translations?.characters?.[charData.name]
       const character: Character = {
         id: crypto.randomUUID(),
         storyId,
@@ -2752,16 +2824,16 @@ settings: {
         translatedRelationship: charTranslation?.relationship ?? null,
         translatedTraits: charTranslation?.traits ?? null,
         translatedVisualDescriptors: undefined, // Translations not supported for structured visual descriptors yet
-        translationLanguage: charTranslation ? data.translations?.language ?? null : null,
-      };
-      await database.addCharacter(character);
-      log('Added supporting character:', character.name);
+        translationLanguage: charTranslation ? (data.translations?.language ?? null) : null,
+      }
+      await database.addCharacter(character)
+      log('Added supporting character:', character.name)
     }
 
     // Add opening scene as first narration entry
     if (data.openingScene) {
-      const tokenCount = countTokens(data.openingScene);
-      const baseTime = storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 };
+      const tokenCount = countTokens(data.openingScene)
+      const baseTime = storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }
       await database.addStoryEntry({
         id: crypto.randomUUID(),
         storyId,
@@ -2769,34 +2841,41 @@ settings: {
         content: data.openingScene,
         parentId: null,
         position: 0,
-        metadata: { source: 'wizard', tokenCount, timeStart: { ...baseTime }, timeEnd: { ...baseTime } },
+        metadata: {
+          source: 'wizard',
+          tokenCount,
+          timeStart: { ...baseTime },
+          timeEnd: { ...baseTime },
+        },
         branchId: null,
         translatedContent: data.translations?.openingScene ?? null,
-        translationLanguage: data.translations?.openingScene ? data.translations?.language ?? null : null,
-      });
-      log('Added opening scene');
+        translationLanguage: data.translations?.openingScene
+          ? (data.translations?.language ?? null)
+          : null,
+      })
+      log('Added opening scene')
     }
 
     // Add imported lorebook entries
     if (data.importedEntries && data.importedEntries.length > 0) {
-      const entries = convertToEntries(data.importedEntries, 'import');
+      const entries = convertToEntries(data.importedEntries, 'import')
       for (const entryData of entries) {
         const entry: Entry = {
           ...entryData,
           id: crypto.randomUUID(),
           storyId,
-        };
-        await database.addEntry(entry);
+        }
+        await database.addEntry(entry)
       }
-      log('Added imported entries:', data.importedEntries.length);
+      log('Added imported entries:', data.importedEntries.length)
     }
 
     // Emit event
-    eventBus.emit<StoryCreatedEvent>({ type: 'StoryCreated', storyId, mode: data.mode });
+    eventBus.emit<StoryCreatedEvent>({ type: 'StoryCreated', storyId, mode: data.mode })
 
-    log('Story created from wizard:', storyId);
-    return storyData;
+    log('Story created from wizard:', storyId)
+    return storyData
   }
 }
 
-export const story = new StoryStore();
+export const story = new StoryStore()

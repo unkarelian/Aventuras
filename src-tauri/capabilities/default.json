@@ -36,19 +36,39 @@
     "http:default",
     {
       "identifier": "http:allow-fetch",
-      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "https://*:*" }, { "url": "http://*:*" }]
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://*" },
+        { "url": "https://*:*" },
+        { "url": "http://*:*" }
+      ]
     },
     {
       "identifier": "http:allow-fetch-cancel",
-      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "https://*:*" }, { "url": "http://*:*" }]
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://*" },
+        { "url": "https://*:*" },
+        { "url": "http://*:*" }
+      ]
     },
     {
       "identifier": "http:allow-fetch-read-body",
-      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "https://*:*" }, { "url": "http://*:*" }]
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://*" },
+        { "url": "https://*:*" },
+        { "url": "http://*:*" }
+      ]
     },
     {
       "identifier": "http:allow-fetch-send",
-      "allow": [{ "url": "https://*" }, { "url": "http://*" }, { "url": "https://*:*" }, { "url": "http://*:*" }]
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://*" },
+        { "url": "https://*:*" },
+        { "url": "http://*:*" }
+      ]
     }
   ]
 }

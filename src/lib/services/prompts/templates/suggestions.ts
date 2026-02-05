@@ -5,7 +5,7 @@
  * Extracted from definitions.ts as part of the modular prompt reorganization.
  */
 
-import type { PromptTemplate } from '../types';
+import type { PromptTemplate } from '../types'
 
 export const suggestionsTemplate: PromptTemplate = {
   id: 'suggestions',
@@ -65,6 +65,6 @@ Each suggestion should be:
 - Grounded in the current story context and tone
 - Specific enough to write toward, vague enough to allow creativity
 - Appropriate to the established tone and genre`,
-};
+}
 
-export const SUGGESTIONS_TEMPLATES = [suggestionsTemplate];
+export const SUGGESTIONS_TEMPLATES = [suggestionsTemplate]

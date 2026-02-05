@@ -1,12 +1,8 @@
-import { invoke } from '@tauri-apps/api/core';
-import type {
-  SyncServerInfo,
-  SyncStoryPreview,
-  SyncConnectionData,
-} from '$lib/types/sync';
-import type { AventuraExport } from './export';
-import { database } from './database';
-import { story } from '$lib/stores/story.svelte';
+import { invoke } from '@tauri-apps/api/core'
+import type { SyncServerInfo, SyncStoryPreview, SyncConnectionData } from '$lib/types/sync'
+import type { AventuraExport } from './export'
+import { database } from './database'
+import { story } from '$lib/stores/story.svelte'
 
 /**
  * Service for local network sync functionality
@@ -18,28 +14,28 @@ class SyncService {
    * @returns Server info including QR code
    */
   async startServer(storiesJson: string[]): Promise<SyncServerInfo> {
-    return invoke('start_sync_server', { storiesJson });
+    return invoke('start_sync_server', { storiesJson })
   }
 
   /**
    * Stop the sync server
    */
   async stopServer(): Promise<void> {
-    return invoke('stop_sync_server');
+    return invoke('stop_sync_server')
   }
 
   /**
    * Get stories that were pushed to this server
    */
   async getReceivedStories(): Promise<string[]> {
-    return invoke('get_received_stories');
+    return invoke('get_received_stories')
   }
 
   /**
    * Clear received stories after processing
    */
   async clearReceivedStories(): Promise<void> {
-    return invoke('clear_received_stories');
+    return invoke('clear_received_stories')
   }
 
   /**
@@ -50,38 +46,32 @@ class SyncService {
       ip: connection.ip,
       port: connection.port,
       token: connection.token,
-    });
+    })
   }
 
   /**
    * Pull a story from a remote server
    * @returns Story JSON in Aventura export format
    */
-  async pullStory(
-    connection: SyncConnectionData,
-    storyId: string
-  ): Promise<string> {
+  async pullStory(connection: SyncConnectionData, storyId: string): Promise<string> {
     return invoke('sync_pull_story', {
       ip: connection.ip,
       port: connection.port,
       token: connection.token,
       storyId,
-    });
+    })
   }
 
   /**
    * Push a story to a remote server
    */
-  async pushStory(
-    connection: SyncConnectionData,
-    storyJson: string
-  ): Promise<void> {
+  async pushStory(connection: SyncConnectionData, storyJson: string): Promise<void> {
     return invoke('sync_push_story', {
       ip: connection.ip,
       port: connection.port,
       token: connection.token,
       storyJson,
-    });
+    })
   }
 
   /**
@@ -90,10 +80,10 @@ class SyncService {
   async createPreSyncBackup(storyId: string): Promise<void> {
     // Load the story if not already loaded
     if (story.currentStory?.id !== storyId) {
-      await story.loadStory(storyId);
+      await story.loadStory(storyId)
     }
     // Create a checkpoint named "Pre-sync backup"
-    await story.createCheckpoint('Pre-sync backup');
+    await story.createCheckpoint('Pre-sync backup')
   }
 
   /**
@@ -101,24 +91,34 @@ class SyncService {
    */
   async exportStoryToJson(storyId: string): Promise<string> {
     // Get all story data from database
-    const storyData = await database.getStory(storyId);
+    const storyData = await database.getStory(storyId)
     if (!storyData) {
-      throw new Error(`Story not found: ${storyId}`);
+      throw new Error(`Story not found: ${storyId}`)
     }
 
-    const [entries, characters, locations, items, storyBeats, lorebookEntries, embeddedImages, checkpoints, branches, chapters] =
-      await Promise.all([
-        database.getStoryEntries(storyId),
-        database.getCharacters(storyId),
-        database.getLocations(storyId),
-        database.getItems(storyId),
-        database.getStoryBeats(storyId),
-        database.getEntries(storyId),
-        database.getEmbeddedImagesForStory(storyId),
-        database.getCheckpoints(storyId),
-        database.getBranches(storyId),
-        database.getChapters(storyId),
-      ]);
+    const [
+      entries,
+      characters,
+      locations,
+      items,
+      storyBeats,
+      lorebookEntries,
+      embeddedImages,
+      checkpoints,
+      branches,
+      chapters,
+    ] = await Promise.all([
+      database.getStoryEntries(storyId),
+      database.getCharacters(storyId),
+      database.getLocations(storyId),
+      database.getItems(storyId),
+      database.getStoryBeats(storyId),
+      database.getEntries(storyId),
+      database.getEmbeddedImagesForStory(storyId),
+      database.getCheckpoints(storyId),
+      database.getBranches(storyId),
+      database.getChapters(storyId),
+    ])
 
     const exportData: AventuraExport = {
       version: '1.7.0',
@@ -135,28 +135,28 @@ class SyncService {
       checkpoints,
       branches,
       chapters,
-    };
+    }
 
-    return JSON.stringify(exportData);
+    return JSON.stringify(exportData)
   }
 
   /**
    * Export all stories to JSON strings
    */
   async exportAllStoriesToJson(): Promise<string[]> {
-    const allStories = await database.getAllStories();
-    const exports: string[] = [];
+    const allStories = await database.getAllStories()
+    const exports: string[] = []
 
     for (const s of allStories) {
       try {
-        const json = await this.exportStoryToJson(s.id);
-        exports.push(json);
+        const json = await this.exportStoryToJson(s.id)
+        exports.push(json)
       } catch (e) {
-        console.error(`Failed to export story ${s.id}:`, e);
+        console.error(`Failed to export story ${s.id}:`, e)
       }
     }
 
-    return exports;
+    return exports
   }
 
   /**
@@ -164,18 +164,18 @@ class SyncService {
    */
   parseQrCode(data: string): SyncConnectionData {
     try {
-      const parsed = JSON.parse(data);
+      const parsed = JSON.parse(data)
       if (!parsed.ip || !parsed.port || !parsed.token) {
-        throw new Error('Missing required fields');
+        throw new Error('Missing required fields')
       }
       return {
         ip: parsed.ip,
         port: parsed.port,
         token: parsed.token,
         version: parsed.version, // May be undefined for older QR codes
-      };
+      }
     } catch {
-      throw new Error('Invalid QR code data');
+      throw new Error('Invalid QR code data')
     }
   }
 
@@ -183,24 +183,24 @@ class SyncService {
    * Check if a story with the given title already exists locally
    */
   async checkStoryExists(title: string): Promise<boolean> {
-    const allStories = await database.getAllStories();
-    return allStories.some((s) => s.title === title);
+    const allStories = await database.getAllStories()
+    return allStories.some((s) => s.title === title)
   }
 
   /**
    * Find story ID by title (for replacement)
    */
   async findStoryIdByTitle(title: string): Promise<string | null> {
-    const allStories = await database.getAllStories();
-    const found = allStories.find((s) => s.title === title);
-    return found?.id ?? null;
+    const allStories = await database.getAllStories()
+    const found = allStories.find((s) => s.title === title)
+    return found?.id ?? null
   }
 
   /**
    * Delete a story by ID
    */
   async deleteStory(storyId: string): Promise<void> {
-    await database.deleteStory(storyId);
+    await database.deleteStory(storyId)
   }
 
   /**
@@ -208,18 +208,18 @@ class SyncService {
    */
   getStoryPreview(json: string): SyncStoryPreview | null {
     try {
-      const data: AventuraExport = JSON.parse(json);
+      const data: AventuraExport = JSON.parse(json)
       return {
         id: data.story.id,
         title: data.story.title,
         genre: data.story.genre ?? null,
         updatedAt: data.story.updatedAt,
         entryCount: data.entries.length,
-      };
+      }
     } catch {
-      return null;
+      return null
     }
   }
 }
 
-export const syncService = new SyncService();
+export const syncService = new SyncService()

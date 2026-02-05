@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { slide } from "svelte/transition";
+  import { slide } from 'svelte/transition'
   import {
     Archive,
     Loader2,
@@ -12,67 +12,63 @@
     ChevronDown,
     Send,
     AlertCircle,
-  } from "lucide-svelte";
-  import UniversalVaultBrowser from "$lib/components/vault/UniversalVaultBrowser.svelte";
-  import { characterVault } from "$lib/stores/characterVault.svelte";
-  import type { VaultCharacter } from "$lib/types";
-  import type {
-    ExpandedSetting,
-    GeneratedProtagonist,
-    StoryMode,
-  } from "../wizardTypes";
+  } from 'lucide-svelte'
+  import UniversalVaultBrowser from '$lib/components/vault/UniversalVaultBrowser.svelte'
+  import { characterVault } from '$lib/stores/characterVault.svelte'
+  import type { VaultCharacter } from '$lib/types'
+  import type { ExpandedSetting, GeneratedProtagonist, StoryMode } from '../wizardTypes'
 
   // Shadcn Components
-  import * as Card from "$lib/components/ui/card";
-  import * as Collapsible from "$lib/components/ui/collapsible";
-  import * as Alert from "$lib/components/ui/alert";
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Label } from "$lib/components/ui/label";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import { Separator } from "$lib/components/ui/separator";
-  import { Badge } from "$lib/components/ui/badge";
+  import * as Card from '$lib/components/ui/card'
+  import * as Collapsible from '$lib/components/ui/collapsible'
+  import * as Alert from '$lib/components/ui/alert'
+  import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { Separator } from '$lib/components/ui/separator'
+  import { Badge } from '$lib/components/ui/badge'
 
   interface Props {
-    selectedMode: StoryMode;
-    expandedSetting: ExpandedSetting | null;
-    protagonist: GeneratedProtagonist | null;
+    selectedMode: StoryMode
+    expandedSetting: ExpandedSetting | null
+    protagonist: GeneratedProtagonist | null
 
     // Manual protagonist input
-    manualCharacterName: string;
-    manualCharacterDescription: string;
-    manualCharacterBackground: string;
-    manualCharacterMotivation: string;
-    manualCharacterTraits: string;
-    characterElaborationGuidance: string;
+    manualCharacterName: string
+    manualCharacterDescription: string
+    manualCharacterBackground: string
+    manualCharacterMotivation: string
+    manualCharacterTraits: string
+    characterElaborationGuidance: string
 
     // Loading states
-    isGeneratingProtagonist: boolean;
-    isExpandingCharacter: boolean;
-    isRefiningCharacter: boolean;
-    protagonistError: string | null;
+    isGeneratingProtagonist: boolean
+    isExpandingCharacter: boolean
+    isRefiningCharacter: boolean
+    protagonistError: string | null
 
     // Vault states
-    savedToVaultConfirm: boolean;
+    savedToVaultConfirm: boolean
 
     // Manual input handlers
-    onManualNameChange: (value: string) => void;
-    onManualDescriptionChange: (value: string) => void;
-    onManualBackgroundChange: (value: string) => void;
-    onManualMotivationChange: (value: string) => void;
-    onManualTraitsChange: (value: string) => void;
-    onCharacterGuidanceChange: (value: string) => void;
+    onManualNameChange: (value: string) => void
+    onManualDescriptionChange: (value: string) => void
+    onManualBackgroundChange: (value: string) => void
+    onManualMotivationChange: (value: string) => void
+    onManualTraitsChange: (value: string) => void
+    onCharacterGuidanceChange: (value: string) => void
 
     // Action handlers
-    onUseManualCharacter: () => void;
-    onElaborateCharacter: () => void;
-    onElaborateCharacterFurther: () => void;
-    onGenerateProtagonist: () => void;
-    onSaveToVault: () => void;
+    onUseManualCharacter: () => void
+    onElaborateCharacter: () => void
+    onElaborateCharacterFurther: () => void
+    onGenerateProtagonist: () => void
+    onSaveToVault: () => void
 
     // Vault handlers
-    onSelectProtagonistFromVault: (character: VaultCharacter) => void;
-    onNavigateToVault?: () => void;
+    onSelectProtagonistFromVault: (character: VaultCharacter) => void
+    onNavigateToVault?: () => void
   }
 
   let {
@@ -103,81 +99,81 @@
     onSaveToVault,
     onSelectProtagonistFromVault,
     onNavigateToVault,
-  }: Props = $props();
+  }: Props = $props()
 
   // Local state
-  let showAdjustWithAI = $state(false);
-  let showVaultPicker = $state(false);
-  let loadedVaultCharacterId = $state<string | null>(null);
-  let isEditingProtagonist = $state(false);
-  let editName = $state("");
-  let editDescription = $state("");
-  let editBackground = $state("");
-  let editMotivation = $state("");
-  let editTraits = $state("");
-  let activeElaborationSource = $state<"expand" | "refine" | null>(null);
+  let showAdjustWithAI = $state(false)
+  let showVaultPicker = $state(false)
+  let loadedVaultCharacterId = $state<string | null>(null)
+  let isEditingProtagonist = $state(false)
+  let editName = $state('')
+  let editDescription = $state('')
+  let editBackground = $state('')
+  let editMotivation = $state('')
+  let editTraits = $state('')
+  let activeElaborationSource = $state<'expand' | 'refine' | null>(null)
 
   const hasVaultCharacters = $derived(
     characterVault.isLoaded && characterVault.characters.length > 0,
-  );
+  )
 
   $effect(() => {
     if (!isExpandingCharacter && !isRefiningCharacter) {
-      activeElaborationSource = null;
+      activeElaborationSource = null
     }
-  });
+  })
 
   function handleSelectFromVault(character: VaultCharacter) {
-    loadedVaultCharacterId = character.id;
-    onSelectProtagonistFromVault(character);
-    showVaultPicker = false;
+    loadedVaultCharacterId = character.id
+    onSelectProtagonistFromVault(character)
+    showVaultPicker = false
   }
 
   // Inline editing functions
   function handleStartEdit() {
     if (protagonist) {
-      editName = protagonist.name;
-      editDescription = protagonist.description;
-      editBackground = protagonist.background ?? "";
-      editMotivation = protagonist.motivation ?? "";
-      
+      editName = protagonist.name
+      editDescription = protagonist.description
+      editBackground = protagonist.background ?? ''
+      editMotivation = protagonist.motivation ?? ''
+
       // Failsafe for traits
-      let safeTraits = "";
+      let safeTraits = ''
       if (Array.isArray(protagonist.traits)) {
-        safeTraits = protagonist.traits.join(", ");
-      } else if (typeof protagonist.traits === "string") {
-        safeTraits = protagonist.traits;
+        safeTraits = protagonist.traits.join(', ')
+      } else if (typeof protagonist.traits === 'string') {
+        safeTraits = protagonist.traits
       }
-      editTraits = safeTraits;
-      
-      isEditingProtagonist = true;
+      editTraits = safeTraits
+
+      isEditingProtagonist = true
     }
   }
 
   function handleSaveEdit() {
     if (editName.trim()) {
-      onManualNameChange(editName);
-      onManualDescriptionChange(editDescription);
-      onManualBackgroundChange(editBackground);
-      onManualMotivationChange(editMotivation);
-      onManualTraitsChange(editTraits);
-      onUseManualCharacter();
+      onManualNameChange(editName)
+      onManualDescriptionChange(editDescription)
+      onManualBackgroundChange(editBackground)
+      onManualMotivationChange(editMotivation)
+      onManualTraitsChange(editTraits)
+      onUseManualCharacter()
     }
-    isEditingProtagonist = false;
+    isEditingProtagonist = false
   }
 
   function handleCancelEdit() {
-    isEditingProtagonist = false;
+    isEditingProtagonist = false
   }
 
   function handleElaborate() {
-    activeElaborationSource = "expand";
-    onElaborateCharacter();
+    activeElaborationSource = 'expand'
+    onElaborateCharacter()
   }
 
   function handleRefine() {
-    activeElaborationSource = "refine";
-    onElaborateCharacterFurther();
+    activeElaborationSource = 'refine'
+    onElaborateCharacterFurther()
   }
 </script>
 
@@ -187,17 +183,14 @@
       <AlertCircle class="h-4 w-4" />
       <Alert.Title>Missing World Setting</Alert.Title>
       <Alert.Description>
-        Go back to Step 3 and expand your setting first. This helps create a
-        more fitting character.
+        Go back to Step 3 and expand your setting first. This helps create a more fitting character.
       </Alert.Description>
     </Alert.Root>
   {:else}
     <!-- Load from Vault Section -->
     <div class="space-y-1">
       <div class="flex items-center justify-between pb-1">
-        <h4
-          class="text-sm font-medium text-muted-foreground flex items-center gap-2"
-        >
+        <h4 class="text-muted-foreground flex items-center gap-2 text-sm font-medium">
           <Archive class="h-4 w-4" />
           Load from Vault
         </h4>
@@ -212,37 +205,32 @@
       </div>
 
       <div
-        class="rounded-lg border border-muted-foreground/20 bg-muted/10 text-card-foreground shadow-sm"
+        class="border-muted-foreground/20 bg-muted/10 text-card-foreground rounded-lg border shadow-sm"
       >
-        <Collapsible.Root
-          open={showVaultPicker}
-          onOpenChange={(open) => (showVaultPicker = open)}
-        >
-          <div class="flex items-center p-3 pl-4 gap-3">
+        <Collapsible.Root open={showVaultPicker} onOpenChange={(open) => (showVaultPicker = open)}>
+          <div class="flex items-center gap-3 p-3 pl-4">
             <Collapsible.Trigger
-              class="flex items-center gap-2 flex-1 text-left group/trigger w-full justify-between"
+              class="group/trigger flex w-full flex-1 items-center justify-between gap-2 text-left"
             >
               <div class="flex items-center gap-3">
                 <div
-                  class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 transition-colors"
+                  class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-md transition-colors"
                 >
-                  <User class="h-4 w-4 text-primary" />
+                  <User class="text-primary h-4 w-4" />
                 </div>
                 <div class="text-left">
-                  <div class="font-medium text-sm">
-                    {loadedVaultCharacterId
-                      ? "Character Selected"
-                      : "Select a Character"}
+                  <div class="text-sm font-medium">
+                    {loadedVaultCharacterId ? 'Character Selected' : 'Select a Character'}
                   </div>
-                  <div class="text-xs text-muted-foreground">
+                  <div class="text-muted-foreground text-xs">
                     {loadedVaultCharacterId
-                      ? "Click to change selection"
-                      : "Browse your saved protagonists"}
+                      ? 'Click to change selection'
+                      : 'Browse your saved protagonists'}
                   </div>
                 </div>
               </div>
               <div
-                class="flex h-8 w-8 items-center justify-center rounded-md bg-muted/50 transition-colors group-hover/trigger:bg-muted"
+                class="bg-muted/50 group-hover/trigger:bg-muted flex h-8 w-8 items-center justify-center rounded-md transition-colors"
               >
                 <ChevronDown
                   class="h-4 w-4 transition-transform duration-200 group-data-[state=open]/trigger:rotate-180"
@@ -252,7 +240,7 @@
           </div>
 
           <Collapsible.Content>
-            <div class="border-t p-3 h-70">
+            <div class="h-70 border-t p-3">
               <UniversalVaultBrowser
                 type="character"
                 onSelect={handleSelectFromVault}
@@ -270,20 +258,18 @@
     <!-- Create/Edit Section -->
     {#if !protagonist || isEditingProtagonist}
       <div
-        class="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4"
+        class="bg-card text-card-foreground space-y-4 rounded-lg border p-4 shadow-sm"
         transition:slide
       >
         <div class="space-y-1">
-          <h4
-            class="text-sm font-medium text-foreground flex items-center gap-2"
-          >
+          <h4 class="text-foreground flex items-center gap-2 text-sm font-medium">
             <User class="h-4 w-4" />
-            {isEditingProtagonist ? "Edit Character" : "Create Character"}
+            {isEditingProtagonist ? 'Edit Character' : 'Create Character'}
           </h4>
-          <p class="text-xs text-muted-foreground">
-            {selectedMode === "adventure"
-              ? "Create or describe your character for this adventure."
-              : "Define the main character for your story."}
+          <p class="text-muted-foreground text-xs">
+            {selectedMode === 'adventure'
+              ? 'Create or describe your character for this adventure.'
+              : 'Define the main character for your story.'}
           </p>
         </div>
 
@@ -294,7 +280,7 @@
           </Alert.Root>
         {/if}
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="Name"
             id="char-name"
@@ -308,9 +294,7 @@
           <Input
             label="Motivation"
             id="char-motivation"
-            value={isEditingProtagonist
-              ? editMotivation
-              : manualCharacterMotivation}
+            value={isEditingProtagonist ? editMotivation : manualCharacterMotivation}
             oninput={(e) =>
               isEditingProtagonist
                 ? (editMotivation = e.currentTarget.value)
@@ -323,9 +307,7 @@
           <Label for="char-desc">Description</Label>
           <Textarea
             id="char-desc"
-            value={isEditingProtagonist
-              ? editDescription
-              : manualCharacterDescription}
+            value={isEditingProtagonist ? editDescription : manualCharacterDescription}
             oninput={(e) =>
               isEditingProtagonist
                 ? (editDescription = e.currentTarget.value)
@@ -335,14 +317,12 @@
           />
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="space-y-2">
             <Label for="char-bg">Background</Label>
             <Textarea
               id="char-bg"
-              value={isEditingProtagonist
-                ? editBackground
-                : manualCharacterBackground}
+              value={isEditingProtagonist ? editBackground : manualCharacterBackground}
               oninput={(e) =>
                 isEditingProtagonist
                   ? (editBackground = e.currentTarget.value)
@@ -377,15 +357,13 @@
                 <Button
                   variant="outline"
                   size="sm"
-                  class="gap-2 text-muted-foreground"
+                  class="text-muted-foreground gap-2"
                   onclick={() => (showAdjustWithAI = !showAdjustWithAI)}
                 >
                   <Sparkles class="h-3.5 w-3.5" />
-                  {showAdjustWithAI ? "Hide AI Options" : "Expand with AI"}
+                  {showAdjustWithAI ? 'Hide AI Options' : 'Expand with AI'}
                   <ChevronDown
-                    class="h-3 w-3 transition-transform {showAdjustWithAI
-                      ? 'rotate-180'
-                      : ''}"
+                    class="h-3 w-3 transition-transform {showAdjustWithAI ? 'rotate-180' : ''}"
                   />
                 </Button>
 
@@ -402,17 +380,14 @@
 
               <Collapsible.Content>
                 <div
-                  class="rounded-lg border bg-card text-card-foreground shadow-sm mt-3 p-4 space-y-4"
+                  class="bg-card text-card-foreground mt-3 space-y-4 rounded-lg border p-4 shadow-sm"
                 >
                   <div class="space-y-2">
-                    <Label for="ai-guidance" class="text-xs"
-                      >AI Guidance (Optional)</Label
-                    >
+                    <Label for="ai-guidance" class="text-xs">AI Guidance (Optional)</Label>
                     <Textarea
                       id="ai-guidance"
                       value={characterElaborationGuidance}
-                      oninput={(e) =>
-                        onCharacterGuidanceChange(e.currentTarget.value)}
+                      oninput={(e) => onCharacterGuidanceChange(e.currentTarget.value)}
                       placeholder="e.g., Make them more cynical, add a tragic backstory..."
                       class="h-20 resize-none text-sm"
                     />
@@ -425,10 +400,9 @@
                       class="flex-1 gap-2"
                       onclick={handleElaborate}
                       disabled={isExpandingCharacter ||
-                        (!manualCharacterName.trim() &&
-                          !manualCharacterDescription.trim())}
+                        (!manualCharacterName.trim() && !manualCharacterDescription.trim())}
                     >
-                      {#if isExpandingCharacter && activeElaborationSource === "expand"}
+                      {#if isExpandingCharacter && activeElaborationSource === 'expand'}
                         <Loader2 class="h-3.5 w-3.5 animate-spin" />
                         Expanding...
                       {:else}
@@ -459,9 +433,7 @@
           {:else}
             <!-- Edit Actions -->
             <div class="flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onclick={handleCancelEdit}>
-                Cancel
-              </Button>
+              <Button variant="ghost" size="sm" onclick={handleCancelEdit}>Cancel</Button>
               <Button size="sm" onclick={handleSaveEdit}>Save Changes</Button>
             </div>
           {/if}
@@ -471,21 +443,17 @@
       <!-- Display Selected Character -->
       <div transition:slide class="pt-2">
         <Card.Root class="overflow-hidden">
-          <Card.Header class="pb-2 pt-3 px-3 bg-muted/30">
+          <Card.Header class="bg-muted/30 px-3 pt-3 pb-2">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2">
                 <div
-                  class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 border border-primary/20"
+                  class="bg-primary/10 border-primary/20 flex h-8 w-8 items-center justify-center rounded-full border"
                 >
-                  <User class="h-4 w-4 text-primary" />
+                  <User class="text-primary h-4 w-4" />
                 </div>
                 <div>
-                  <Card.Title class="text-base leading-none"
-                    >{protagonist.name}</Card.Title
-                  >
-                  <Card.Description class="text-xs mt-0.5"
-                    >Protagonist</Card.Description
-                  >
+                  <Card.Title class="text-base leading-none">{protagonist.name}</Card.Title>
+                  <Card.Description class="mt-0.5 text-xs">Protagonist</Card.Description>
                 </div>
               </div>
 
@@ -493,7 +461,7 @@
                 <Button
                   variant="ghost"
                   size="icon"
-                  class="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  class="text-muted-foreground hover:text-foreground h-7 w-7"
                   onclick={handleStartEdit}
                   title="Edit"
                 >
@@ -521,18 +489,16 @@
 
           <Card.Content class="space-y-3 p-3">
             <div class="prose prose-sm dark:prose-invert max-w-none">
-              <p
-                class="whitespace-pre-wrap text-muted-foreground leading-snug text-sm"
-              >
+              <p class="text-muted-foreground text-sm leading-snug whitespace-pre-wrap">
                 {protagonist.description}
               </p>
             </div>
 
             {#if protagonist.background || protagonist.motivation}
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div class="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
                 {#if protagonist.background}
                   <div class="space-y-0.5">
-                    <span class="font-medium text-foreground">Background</span>
+                    <span class="text-foreground font-medium">Background</span>
                     <p class="text-muted-foreground leading-tight">
                       {protagonist.background}
                     </p>
@@ -540,7 +506,7 @@
                 {/if}
                 {#if protagonist.motivation}
                   <div class="space-y-0.5">
-                    <span class="font-medium text-foreground">Motivation</span>
+                    <span class="text-foreground font-medium">Motivation</span>
                     <p class="text-muted-foreground leading-tight">
                       {protagonist.motivation}
                     </p>
@@ -553,16 +519,14 @@
               <div class="flex flex-wrap gap-1.5 pt-0.5">
                 {#if Array.isArray(protagonist.traits)}
                   {#each protagonist.traits as trait}
-                    <Badge
-                      variant="secondary"
-                      class="font-normal text-[10px] px-1.5 h-5">{trait}</Badge
+                    <Badge variant="secondary" class="h-5 px-1.5 text-[10px] font-normal"
+                      >{trait}</Badge
                     >
                   {/each}
-                {:else if typeof protagonist.traits === "string"}
-                  <Badge
-                      variant="secondary"
-                      class="font-normal text-[10px] px-1.5 h-5">{protagonist.traits}</Badge
-                    >
+                {:else if typeof protagonist.traits === 'string'}
+                  <Badge variant="secondary" class="h-5 px-1.5 text-[10px] font-normal"
+                    >{protagonist.traits}</Badge
+                  >
                 {/if}
               </div>
             {/if}
@@ -571,8 +535,7 @@
             <div class="flex gap-2 pt-1">
               <Input
                 value={characterElaborationGuidance}
-                oninput={(e) =>
-                  onCharacterGuidanceChange(e.currentTarget.value)}
+                oninput={(e) => onCharacterGuidanceChange(e.currentTarget.value)}
                 placeholder="Refinement notes..."
                 class="h-7 text-xs"
               />
@@ -584,7 +547,7 @@
                 disabled={isRefiningCharacter}
                 title="Refine with AI"
               >
-                {#if isRefiningCharacter && activeElaborationSource === "refine"}
+                {#if isRefiningCharacter && activeElaborationSource === 'refine'}
                   <Loader2 class="h-3 w-3 animate-spin" />
                 {:else}
                   <Sparkles class="h-3 w-3" />

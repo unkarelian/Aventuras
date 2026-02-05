@@ -11,36 +11,39 @@
  */
 
 import type {
-  GenerationEvent, PhaseStartEvent, PhaseCompleteEvent,
-  AbortedEvent, ErrorEvent,
-} from '../types';
-import type { TranslationSettings } from '$lib/types';
-import type { TranslationResult } from '$lib/services/ai/utils/TranslationService';
-import { TranslationService } from '$lib/services/ai/utils/TranslationService';
+  GenerationEvent,
+  PhaseStartEvent,
+  PhaseCompleteEvent,
+  AbortedEvent,
+  ErrorEvent,
+} from '../types'
+import type { TranslationSettings } from '$lib/types'
+import type { TranslationResult } from '$lib/services/ai/utils/TranslationService'
+import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 
 /** Dependencies for translation phase - injected to avoid tight coupling */
 export interface TranslationDependencies {
   translateNarration: (
     content: string,
     targetLanguage: string,
-    isVisualProse: boolean
-  ) => Promise<TranslationResult>;
+    isVisualProse: boolean,
+  ) => Promise<TranslationResult>
 }
 
 /** Input for the translation phase */
 export interface TranslationInput {
-  narrativeContent: string;
-  narrativeEntryId: string;
-  isVisualProse: boolean;
-  translationSettings: TranslationSettings;
-  abortSignal?: AbortSignal;
+  narrativeContent: string
+  narrativeEntryId: string
+  isVisualProse: boolean
+  translationSettings: TranslationSettings
+  abortSignal?: AbortSignal
 }
 
 /** Result from translation phase */
 export interface TranslationResult2 {
-  translated: boolean;
-  translatedContent: string | null;
-  targetLanguage: string | null;
+  translated: boolean
+  translatedContent: string | null
+  targetLanguage: string | null
 }
 
 /**
@@ -53,14 +56,9 @@ export class TranslationPhase {
 
   /** Execute the translation phase - yields events and returns result */
   async *execute(input: TranslationInput): AsyncGenerator<GenerationEvent, TranslationResult2> {
-    yield { type: 'phase_start', phase: 'translation' } satisfies PhaseStartEvent;
+    yield { type: 'phase_start', phase: 'translation' } satisfies PhaseStartEvent
 
-    const {
-      narrativeContent,
-      isVisualProse,
-      translationSettings,
-      abortSignal,
-    } = input;
+    const { narrativeContent, isVisualProse, translationSettings, abortSignal } = input
 
     // Check if translation should be skipped
     if (!TranslationService.shouldTranslateNarration(translationSettings)) {
@@ -68,65 +66,65 @@ export class TranslationPhase {
         translated: false,
         translatedContent: null,
         targetLanguage: null,
-      };
+      }
 
       yield {
         type: 'phase_complete',
         phase: 'translation',
         result,
-      } satisfies PhaseCompleteEvent;
+      } satisfies PhaseCompleteEvent
 
-      return result;
+      return result
     }
 
     if (abortSignal?.aborted) {
-      yield { type: 'aborted', phase: 'translation' } satisfies AbortedEvent;
+      yield { type: 'aborted', phase: 'translation' } satisfies AbortedEvent
       return {
         translated: false,
         translatedContent: null,
         targetLanguage: null,
-      };
+      }
     }
 
-    const targetLanguage = translationSettings.targetLanguage;
+    const targetLanguage = translationSettings.targetLanguage
 
     try {
       const translationResult = await this.deps.translateNarration(
         narrativeContent,
         targetLanguage,
-        isVisualProse
-      );
+        isVisualProse,
+      )
 
       if (abortSignal?.aborted) {
-        yield { type: 'aborted', phase: 'translation' } satisfies AbortedEvent;
+        yield { type: 'aborted', phase: 'translation' } satisfies AbortedEvent
         return {
           translated: false,
           translatedContent: null,
           targetLanguage: null,
-        };
+        }
       }
 
       const result: TranslationResult2 = {
         translated: true,
         translatedContent: translationResult.translatedContent,
         targetLanguage,
-      };
+      }
 
       yield {
         type: 'phase_complete',
         phase: 'translation',
         result,
-      } satisfies PhaseCompleteEvent;
+      } satisfies PhaseCompleteEvent
 
-      return result;
+      return result
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        yield { type: 'aborted', phase: 'translation' } satisfies AbortedEvent;
+        yield { type: 'aborted', phase: 'translation' } satisfies AbortedEvent
         return {
           translated: false,
           translatedContent: null,
           targetLanguage: null,
-        };
+        }
       }
 
       // Translation errors are non-fatal - log and continue with original content
@@ -135,13 +133,13 @@ export class TranslationPhase {
         phase: 'translation',
         error: error instanceof Error ? error : new Error(String(error)),
         fatal: false,
-      } satisfies ErrorEvent;
+      } satisfies ErrorEvent
 
       return {
         translated: false,
         translatedContent: null,
         targetLanguage: null,
-      };
+      }
     }
   }
 }

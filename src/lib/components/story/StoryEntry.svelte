@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { StoryEntry, EmbeddedImage } from "$lib/types";
-  import { story } from "$lib/stores/story.svelte";
-  import { ui } from "$lib/stores/ui.svelte";
-  import { settings } from "$lib/stores/settings.svelte";
+  import type { StoryEntry, EmbeddedImage } from '$lib/types'
+  import { story } from '$lib/stores/story.svelte'
+  import { ui } from '$lib/stores/ui.svelte'
+  import { settings } from '$lib/stores/settings.svelte'
   import {
     User,
     BookOpen,
@@ -17,79 +17,74 @@
     GitBranch,
     Bookmark,
     Volume2,
-  } from "lucide-svelte";
-  import { aiTTSService } from "$lib/services/ai/utils/TTSService";
-  import { parseMarkdown } from "$lib/utils/markdown";
-  import { slide } from "svelte/transition";
-  import { sanitizeTextForTTS } from "$lib/utils/htmlSanitize";
+  } from 'lucide-svelte'
+  import { aiTTSService } from '$lib/services/ai/utils/TTSService'
+  import { parseMarkdown } from '$lib/utils/markdown'
+  import { slide } from 'svelte/transition'
+  import { sanitizeTextForTTS } from '$lib/utils/htmlSanitize'
   import {
     processContentWithImages,
     processVisualProseWithImages,
     processContentWithInlineImages,
     processVisualProseWithInlineImages,
-  } from "$lib/services/image";
-  import { database } from "$lib/services/database";
+  } from '$lib/services/image'
+  import { database } from '$lib/services/database'
   import {
     eventBus,
     type ImageReadyEvent,
     type ImageQueuedEvent,
     type ImageAnalysisFailedEvent,
     type TTSQueuedEvent,
-  } from "$lib/services/events";
-  import { inlineImageService, retryImageGeneration } from "$lib/services/ai/image";
-  import { promptService } from "$lib/services/prompts";
-  import { onMount } from "svelte";
-  import ReasoningBlock from "./ReasoningBlock.svelte";
-  import { countTokens } from "$lib/services/tokenizer";
-  import { Button } from "$lib/components/ui/button";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import { Input } from "$lib/components/ui/input";
-  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
-  import { IMAGE_STUCK_THRESHOLD_MS, DEFAULT_FALLBACK_STYLE_PROMPT } from "$lib/services/ai/image/constants";
+  } from '$lib/services/events'
+  import { inlineImageService, retryImageGeneration } from '$lib/services/ai/image'
+  import { promptService } from '$lib/services/prompts'
+  import { onMount } from 'svelte'
+  import ReasoningBlock from './ReasoningBlock.svelte'
+  import { countTokens } from '$lib/services/tokenizer'
+  import { Button } from '$lib/components/ui/button'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { Input } from '$lib/components/ui/input'
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
+  import {
+    IMAGE_STUCK_THRESHOLD_MS,
+    DEFAULT_FALLBACK_STYLE_PROMPT,
+  } from '$lib/services/ai/image/constants'
 
-  let { entry }: { entry: StoryEntry } = $props();
+  let { entry }: { entry: StoryEntry } = $props()
 
   // Separate token counts for content and reasoning
-  const contentTokens = $derived(entry.metadata?.tokenCount ?? 0);
-  const reasoningTokens = $derived(
-    entry.reasoning ? countTokens(entry.reasoning) : 0,
-  );
+  const contentTokens = $derived(entry.metadata?.tokenCount ?? 0)
+  const reasoningTokens = $derived(entry.reasoning ? countTokens(entry.reasoning) : 0)
 
   // Check if reasoning is enabled in API settings
-  const isReasoningEnabled = $derived(
-    settings.apiSettings.reasoningEffort !== "off",
-  );
+  const isReasoningEnabled = $derived(settings.apiSettings.reasoningEffort !== 'off')
 
   // TTS generation state
-  let isGeneratingTTS = $state(false);
-  let isPlayingTTS = $state(false);
+  let isGeneratingTTS = $state(false)
+  let isPlayingTTS = $state(false)
 
   // Check if this entry is an error entry (either tracked or detected by content)
   const isErrorEntry = $derived(
-    entry.type === "system" &&
+    entry.type === 'system' &&
       (ui.lastGenerationError?.errorEntryId === entry.id ||
-        entry.content.toLowerCase().includes("generation failed") ||
-        entry.content.toLowerCase().includes("failed to generate") ||
-        entry.content.toLowerCase().includes("empty response")),
-  );
+        entry.content.toLowerCase().includes('generation failed') ||
+        entry.content.toLowerCase().includes('failed to generate') ||
+        entry.content.toLowerCase().includes('empty response')),
+  )
 
   // Check if Visual Prose mode is enabled for this story
-  const visualProseMode = $derived(
-    story.currentStory?.settings?.visualProseMode ?? false,
-  );
+  const visualProseMode = $derived(story.currentStory?.settings?.visualProseMode ?? false)
 
   // Check if Inline Image mode is enabled for this story
-  const inlineImageMode = $derived(
-    story.currentStory?.settings?.inlineImageMode ?? false,
-  );
+  const inlineImageMode = $derived(story.currentStory?.settings?.inlineImageMode ?? false)
 
   // Check if this is the latest narration entry (for retry button)
   const isLatestNarration = $derived.by(() => {
-    if (entry.type !== "narration") return false;
-    const narrations = story.entries.filter((e) => e.type === "narration");
-    if (narrations.length === 0) return false;
-    return narrations[narrations.length - 1].id === entry.id;
-  });
+    if (entry.type !== 'narration') return false
+    const narrations = story.entries.filter((e) => e.type === 'narration')
+    if (narrations.length === 0) return false
+    return narrations[narrations.length - 1].id === entry.id
+  })
 
   // Check if retry is available for this entry
   const canRetry = $derived(
@@ -99,55 +94,55 @@
       ui.retryBackup.storyId === story.currentStory.id &&
       !ui.isGenerating &&
       !ui.lastGenerationError,
-  );
+  )
 
   /**
    * Retry generation for this error entry.
    * For tracked errors, uses the UI callback. For legacy errors, finds the previous user action.
    */
   async function handleRetryFromEntry() {
-    console.log("[StoryEntry] handleRetryFromEntry called", {
+    console.log('[StoryEntry] handleRetryFromEntry called', {
       entryId: entry.id,
       isGenerating: ui.isGenerating,
-    });
+    })
 
     if (ui.isGenerating) {
-      console.log("[StoryEntry] Already generating, returning");
-      return;
+      console.log('[StoryEntry] Already generating, returning')
+      return
     }
 
     // If this is the currently tracked error, use the standard retry
     if (ui.lastGenerationError?.errorEntryId === entry.id) {
-      console.log("[StoryEntry] Using tracked error retry");
-      await ui.triggerRetry();
-      return;
+      console.log('[StoryEntry] Using tracked error retry')
+      await ui.triggerRetry()
+      return
     }
 
     // For legacy/untracked errors, find the previous user action and set up retry
-    console.log("[StoryEntry] Legacy error, finding previous user action");
-    const entryIndex = story.entries.findIndex((e) => e.id === entry.id);
+    console.log('[StoryEntry] Legacy error, finding previous user action')
+    const entryIndex = story.entries.findIndex((e) => e.id === entry.id)
     if (entryIndex <= 0) {
-      console.log("[StoryEntry] Entry not found or is first entry");
-      return;
+      console.log('[StoryEntry] Entry not found or is first entry')
+      return
     }
 
     // Find the most recent user action before this error
-    let userActionEntry = null;
+    let userActionEntry = null
     for (let i = entryIndex - 1; i >= 0; i--) {
-      if (story.entries[i].type === "user_action") {
-        userActionEntry = story.entries[i];
-        break;
+      if (story.entries[i].type === 'user_action') {
+        userActionEntry = story.entries[i]
+        break
       }
     }
 
     if (!userActionEntry) {
-      console.log("[StoryEntry] No user action found before error");
-      return;
+      console.log('[StoryEntry] No user action found before error')
+      return
     }
 
-    console.log("[StoryEntry] Found user action", {
+    console.log('[StoryEntry] Found user action', {
       userActionId: userActionEntry.id,
-    });
+    })
 
     // Set up the error state so the retry callback can handle it
     ui.setGenerationError({
@@ -155,143 +150,130 @@
       errorEntryId: entry.id,
       userActionEntryId: userActionEntry.id,
       timestamp: Date.now(),
-    });
+    })
 
-    console.log("[StoryEntry] Error state set, triggering retry");
+    console.log('[StoryEntry] Error state set, triggering retry')
     // Trigger the retry
-    await ui.triggerRetry();
-    console.log("[StoryEntry] Retry complete");
+    await ui.triggerRetry()
+    console.log('[StoryEntry] Retry complete')
   }
 
-  let isEditing = $state(false);
-  let editContent = $state("");
-  let isDeleting = $state(false);
+  let isEditing = $state(false)
+  let editContent = $state('')
+  let isDeleting = $state(false)
 
   // Embedded images state
-  let embeddedImages = $state<EmbeddedImage[]>([]);
-  let expandedImageId = $state<string | null>(null);
-  let clickedElement = $state<HTMLElement | null>(null);
+  let embeddedImages = $state<EmbeddedImage[]>([])
+  let expandedImageId = $state<string | null>(null)
+  let clickedElement = $state<HTMLElement | null>(null)
 
   // Branching state
-  let isBranching = $state(false);
-  let branchName = $state("");
+  let isBranching = $state(false)
+  let branchName = $state('')
 
   // Inline image edit state
-  let isEditingImage = $state(false);
-  let editingImageId = $state<string | null>(null);
-  let editingImagePrompt = $state("");
+  let isEditingImage = $state(false)
+  let editingImageId = $state<string | null>(null)
+  let editingImagePrompt = $state('')
 
   // Timer for checking stuck images
-  let now = $state(Date.now());
+  let now = $state(Date.now())
 
   onMount(() => {
     const interval = setInterval(() => {
-      now = Date.now();
-    }, 1000);
-    return () => clearInterval(interval);
-  });
+      now = Date.now()
+    }, 1000)
+    return () => clearInterval(interval)
+  })
 
   // Helper to get which branch a checkpoint belongs to (by checking its last entry's branchId)
   function getCheckpointBranchId(checkpoint: {
-    entriesSnapshot: { id: string; branchId?: string | null }[];
-    lastEntryId: string;
+    entriesSnapshot: { id: string; branchId?: string | null }[]
+    lastEntryId: string
   }): string | null {
-    const lastEntry = checkpoint.entriesSnapshot.find(
-      (e) => e.id === checkpoint.lastEntryId,
-    );
-    return lastEntry?.branchId ?? null;
+    const lastEntry = checkpoint.entriesSnapshot.find((e) => e.id === checkpoint.lastEntryId)
+    return lastEntry?.branchId ?? null
   }
 
   // Check if this entry has an associated checkpoint (can be branched from)
   // Only show checkpoints that belong to the current branch to prevent incorrect branch lineage
-  const currentBranchId = $derived(story.currentStory?.currentBranchId ?? null);
+  const currentBranchId = $derived(story.currentStory?.currentBranchId ?? null)
   const entryCheckpoint = $derived(
     story.checkpoints.find(
-      (cp) =>
-        cp.lastEntryId === entry.id &&
-        getCheckpointBranchId(cp) === currentBranchId,
+      (cp) => cp.lastEntryId === entry.id && getCheckpointBranchId(cp) === currentBranchId,
     ),
-  );
-  const canBranch = $derived(!!entryCheckpoint);
+  )
+  const canBranch = $derived(!!entryCheckpoint)
 
   // Handle creating a branch from this entry
   async function handleCreateBranch() {
-    if (!branchName.trim()) return;
+    if (!branchName.trim()) return
     if (!entryCheckpoint) {
-      alert("Cannot branch from this entry - no checkpoint available");
-      return;
+      alert('Cannot branch from this entry - no checkpoint available')
+      return
     }
     try {
-      await story.createBranchFromCheckpoint(
-        branchName.trim(),
-        entry.id,
-        entryCheckpoint.id,
-      );
-      isBranching = false;
-      branchName = "";
+      await story.createBranchFromCheckpoint(branchName.trim(), entry.id, entryCheckpoint.id)
+      isBranching = false
+      branchName = ''
     } catch (error) {
-      console.error("[StoryEntry] Failed to create branch:", error);
-      alert(error instanceof Error ? error.message : "Failed to create branch");
+      console.error('[StoryEntry] Failed to create branch:', error)
+      alert(error instanceof Error ? error.message : 'Failed to create branch')
     }
   }
 
   function cancelBranch() {
-    isBranching = false;
-    branchName = "";
+    isBranching = false
+    branchName = ''
   }
 
   // Checkpoint creation state
-  let isCreatingCheckpoint = $state(false);
-  let checkpointName = $state("");
+  let isCreatingCheckpoint = $state(false)
+  let checkpointName = $state('')
 
   // Check if this is the latest entry (checkpoints can only be created at the latest entry)
   const isLatestEntry = $derived(
-    story.entries.length > 0 &&
-      story.entries[story.entries.length - 1].id === entry.id,
-  );
+    story.entries.length > 0 && story.entries[story.entries.length - 1].id === entry.id,
+  )
 
   // Can create checkpoint: latest entry, not a system entry, and no checkpoint exists yet
-  const canCreateCheckpoint = $derived(
-    isLatestEntry && entry.type !== "system" && !entryCheckpoint,
-  );
+  const canCreateCheckpoint = $derived(isLatestEntry && entry.type !== 'system' && !entryCheckpoint)
 
   async function handleCreateCheckpoint() {
-    if (!checkpointName.trim()) return;
+    if (!checkpointName.trim()) return
     try {
-      await story.createCheckpoint(checkpointName.trim());
-      isCreatingCheckpoint = false;
-      checkpointName = "";
+      await story.createCheckpoint(checkpointName.trim())
+      isCreatingCheckpoint = false
+      checkpointName = ''
     } catch (error) {
-      console.error("[StoryEntry] Failed to create checkpoint:", error);
-      alert(
-        error instanceof Error ? error.message : "Failed to create checkpoint",
-      );
+      console.error('[StoryEntry] Failed to create checkpoint:', error)
+      alert(error instanceof Error ? error.message : 'Failed to create checkpoint')
     }
   }
 
   function cancelCheckpoint() {
-    isCreatingCheckpoint = false;
-    checkpointName = "";
+    isCreatingCheckpoint = false
+    checkpointName = ''
   }
 
   // Load embedded images for narration entries
   async function loadEmbeddedImages() {
-    if (entry.type !== "narration") return;
+    if (entry.type !== 'narration') return
     try {
-      embeddedImages = await database.getEmbeddedImagesForEntry(entry.id);
+      embeddedImages = await database.getEmbeddedImagesForEntry(entry.id)
     } catch (err) {
-      console.error("[StoryEntry] Failed to load embedded images:", err);
+      console.error('[StoryEntry] Failed to load embedded images:', err)
     }
   }
 
   // Escape special regex characters (used in TTS sanitization)
   function escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
 
   // Handle creating missing inline images (stuck/lost records)
   async function handleCreateMissingImage() {
-    if (!story.currentStory) return;
+    if (!story.currentStory) return
 
     // Trigger scanning of this entry
     // We pass the full content, the service will find tags and create missing records
@@ -300,81 +282,79 @@
       entryId: entry.id,
       narrativeContent: entry.translatedContent ?? entry.content,
       presentCharacters: story.characters, // Use all story characters for lookup
-    };
+    }
 
-    await inlineImageService.processNarrativeForInlineImages(context);
-    await loadEmbeddedImages();
+    await inlineImageService.processNarrativeForInlineImages(context)
+    await loadEmbeddedImages()
   }
 
   // State for inline image view modal
-  let isViewingImage = $state(false);
-  let viewingImage = $state<typeof embeddedImages[0] | null>(null);
-  let viewingImagePrompt = $state("");
+  let isViewingImage = $state(false)
+  let viewingImage = $state<(typeof embeddedImages)[0] | null>(null)
+  let viewingImagePrompt = $state('')
 
   // Track images currently being regenerated (for loading overlay)
-  let regeneratingImageIds = $state<Set<string>>(new Set());
+  let regeneratingImageIds = $state<Set<string>>(new Set())
 
   // Open the image view/edit modal
-  function openImageViewModal(image: typeof embeddedImages[0]) {
-    viewingImage = image;
+  function openImageViewModal(image: (typeof embeddedImages)[0]) {
+    viewingImage = image
     // Extract original prompt (remove style suffix)
-    viewingImagePrompt = image.prompt.split(". ").slice(0, -1).join(". ") || image.prompt;
-    isViewingImage = true;
+    viewingImagePrompt = image.prompt.split('. ').slice(0, -1).join('. ') || image.prompt
+    isViewingImage = true
   }
 
   // Handle click on embedded image link
   function handleContentClick(event: MouseEvent | KeyboardEvent) {
-    const target = event.target as HTMLElement;
+    const target = event.target as HTMLElement
 
     // Check for clicking on inline generated image (opens view modal)
-    const inlineImage = target.closest(".inline-generated-image") as HTMLElement | null;
+    const inlineImage = target.closest('.inline-generated-image') as HTMLElement | null
     if (inlineImage) {
-      event.preventDefault();
-      event.stopPropagation();
-      const imageId = inlineImage.getAttribute("data-image-id");
+      event.preventDefault()
+      event.stopPropagation()
+      const imageId = inlineImage.getAttribute('data-image-id')
       if (imageId) {
-        const image = embeddedImages.find((img) => img.id === imageId);
+        const image = embeddedImages.find((img) => img.id === imageId)
         if (image) {
-          openImageViewModal(image);
+          openImageViewModal(image)
         }
       }
-      return;
+      return
     }
 
     // Check for inline image action buttons
-    const actionBtn = target.closest(".inline-image-btn") as HTMLElement | null;
+    const actionBtn = target.closest('.inline-image-btn') as HTMLElement | null
     if (actionBtn) {
-      event.preventDefault();
-      event.stopPropagation();
-      const action = actionBtn.getAttribute("data-action");
-      const imageId = actionBtn.getAttribute("data-image-id");
-      const prompt = actionBtn.getAttribute("data-prompt");
+      event.preventDefault()
+      event.stopPropagation()
+      const action = actionBtn.getAttribute('data-action')
+      const imageId = actionBtn.getAttribute('data-image-id')
+      const prompt = actionBtn.getAttribute('data-prompt')
 
-      if (action === "create-missing" && prompt) {
-        handleCreateMissingImage();
-        return;
+      if (action === 'create-missing' && prompt) {
+        handleCreateMissingImage()
+        return
       }
 
       if (action && imageId) {
-        handleInlineImageAction(action, imageId);
+        handleInlineImageAction(action, imageId)
       }
-      return;
+      return
     }
 
     // Check for embedded image link (analyzed/agent mode) - toggle inline expansion
-    const imageLink = target.closest(
-      ".embedded-image-link",
-    ) as HTMLElement | null;
+    const imageLink = target.closest('.embedded-image-link') as HTMLElement | null
     if (imageLink) {
-      const imageId = imageLink.getAttribute("data-image-id");
+      const imageId = imageLink.getAttribute('data-image-id')
       if (imageId) {
         // Toggle expanded view for all statuses
         if (expandedImageId === imageId) {
-          expandedImageId = null;
-          clickedElement = null;
+          expandedImageId = null
+          clickedElement = null
         } else {
-          expandedImageId = imageId;
-          clickedElement = imageLink;
+          expandedImageId = imageId
+          clickedElement = imageLink
         }
       }
     }
@@ -382,141 +362,137 @@
 
   // Handle inline image actions (edit, regenerate)
   async function handleInlineImageAction(action: string, imageId: string) {
-    const image = embeddedImages.find((img) => img.id === imageId);
-    if (!image) return;
+    const image = embeddedImages.find((img) => img.id === imageId)
+    if (!image) return
 
-    if (action === "edit") {
+    if (action === 'edit') {
       // Open edit modal with current prompt
-      editingImageId = imageId;
+      editingImageId = imageId
       // Extract the original prompt from the stored prompt (remove style suffix)
-      editingImagePrompt =
-        image.prompt.split(". ").slice(0, -1).join(". ") || image.prompt;
-      isEditingImage = true;
-    } else if (action === "regenerate") {
+      editingImagePrompt = image.prompt.split('. ').slice(0, -1).join('. ') || image.prompt
+      isEditingImage = true
+    } else if (action === 'regenerate') {
       // Regenerate with same prompt
-      await regenerateInlineImage(imageId, image.prompt);
+      await regenerateInlineImage(imageId, image.prompt)
     }
   }
 
   // Regenerate an inline image with a new or existing prompt
   async function regenerateInlineImage(imageId: string, prompt: string) {
-    const image = embeddedImages.find((img) => img.id === imageId);
-    if (!image) return;
+    const image = embeddedImages.find((img) => img.id === imageId)
+    if (!image) return
 
     // Mark as regenerating (shows loading overlay)
-    regeneratingImageIds = new Set([...regeneratingImageIds, imageId]);
+    regeneratingImageIds = new Set([...regeneratingImageIds, imageId])
 
-    let finalPrompt = prompt;
+    let finalPrompt = prompt
 
     // If it's an inline image, try to reconstruct prompt with CURRENT style
     // This allows style changes in settings to apply when retrying/regenerating
     if (
-      image.generationMode === "inline" &&
+      image.generationMode === 'inline' &&
       image.sourceText &&
-      image.sourceText.startsWith("<pic")
+      image.sourceText.startsWith('<pic')
     ) {
       // Extract raw prompt from sourceText
-      const match = image.sourceText.match(/prompt=["']([^"']+)["']/i);
+      const match = image.sourceText.match(/prompt=["']([^"']+)["']/i)
       if (match && match[1]) {
-        const rawPrompt = match[1];
+        const rawPrompt = match[1]
 
         // Get CURRENT style
-        const imageSettings = settings.systemServicesSettings.imageGeneration;
-        const styleId = imageSettings.styleId;
-        let stylePrompt = "";
+        const imageSettings = settings.systemServicesSettings.imageGeneration
+        const styleId = imageSettings.styleId
+        let stylePrompt = ''
         try {
           const promptContext = {
-            mode: "adventure" as const,
-            pov: "second" as const,
-            tense: "present" as const,
-            protagonistName: "",
-          };
-          stylePrompt = promptService.getPrompt(styleId, promptContext) || "";
+            mode: 'adventure' as const,
+            pov: 'second' as const,
+            tense: 'present' as const,
+            protagonistName: '',
+          }
+          stylePrompt = promptService.getPrompt(styleId, promptContext) || ''
         } catch {
-          stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT;
+          stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT
         }
 
         // Reconstruct full prompt
-        finalPrompt = `${rawPrompt}. ${stylePrompt}`;
-        console.log(
-          "[StoryEntry] Reconstructed prompt with new style:",
-          finalPrompt,
-        );
+        finalPrompt = `${rawPrompt}. ${stylePrompt}`
+        console.log('[StoryEntry] Reconstructed prompt with new style:', finalPrompt)
       }
     }
 
     try {
       // Use centralized retry logic from ImageGenerationService
-      await retryImageGeneration(imageId, finalPrompt);
+      await retryImageGeneration(imageId, finalPrompt)
 
       // Reload images to show updated state
-      await loadEmbeddedImages();
+      await loadEmbeddedImages()
     } finally {
       // Remove from regenerating set
-      const newSet = new Set(regeneratingImageIds);
-      newSet.delete(imageId);
-      regeneratingImageIds = newSet;
+      const newSet = new Set(regeneratingImageIds)
+      newSet.delete(imageId)
+      regeneratingImageIds = newSet
     }
   }
 
   // Handle edit modal submission
   async function handleEditImageSubmit() {
-    if (!editingImageId || !editingImagePrompt.trim()) return;
+    if (!editingImageId || !editingImagePrompt.trim()) return
 
-    const image = embeddedImages.find((img) => img.id === editingImageId);
-    if (!image) return;
+    const image = embeddedImages.find((img) => img.id === editingImageId)
+    if (!image) return
 
     // Get style prompt and append it
-    const imageSettings = settings.systemServicesSettings.imageGeneration;
-    const styleId = imageSettings.styleId;
-    let stylePrompt = "";
+    const imageSettings = settings.systemServicesSettings.imageGeneration
+    const styleId = imageSettings.styleId
+    let stylePrompt = ''
     try {
       const promptContext = {
-        mode: "adventure" as const,
-        pov: "second" as const,
-        tense: "present" as const,
-        protagonistName: "",
-      };
-      stylePrompt = promptService.getPrompt(styleId, promptContext) || "";
+        mode: 'adventure' as const,
+        pov: 'second' as const,
+        tense: 'present' as const,
+        protagonistName: '',
+      }
+      stylePrompt = promptService.getPrompt(styleId, promptContext) || ''
     } catch {
-      stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT;
+      stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT
     }
 
-    const fullPrompt = `${editingImagePrompt.trim()}. ${stylePrompt}`;
+    const fullPrompt = `${editingImagePrompt.trim()}. ${stylePrompt}`
 
     // Close modal and regenerate
-    isEditingImage = false;
-    await regenerateInlineImage(editingImageId, fullPrompt);
-    editingImageId = null;
-    editingImagePrompt = "";
+    isEditingImage = false
+    await regenerateInlineImage(editingImageId, fullPrompt)
+    editingImageId = null
+    editingImagePrompt = ''
   }
 
   // Cancel edit modal
   function handleEditImageCancel() {
-    isEditingImage = false;
-    editingImageId = null;
-    editingImagePrompt = "";
+    isEditingImage = false
+    editingImageId = null
+    editingImagePrompt = ''
   }
 
   // Manage inline image display
   $effect(() => {
     // Clean up any existing inline image displays
-    const existingDisplays = document.querySelectorAll(".inline-image-display");
-    existingDisplays.forEach((el) => el.remove());
+    const existingDisplays = document.querySelectorAll('.inline-image-display')
+    existingDisplays.forEach((el) => el.remove())
 
-    if (!expandedImageId || !clickedElement || !expandedImage) return;
+    if (!expandedImageId || !clickedElement || !expandedImage) return
 
     // Create the inline image container
-    const container = document.createElement("div");
-    container.className = "inline-image-display";
-    container.setAttribute("data-image-id", expandedImageId);
+    const container = document.createElement('div')
+    container.className = 'inline-image-display'
+    container.setAttribute('data-image-id', expandedImageId)
 
     // Build the HTML content based on image status
-    let innerHtml = ``;
+    let innerHtml = ``
 
-    if (expandedImage.status === "complete" && expandedImage.imageData) {
+    if (expandedImage.status === 'complete' && expandedImage.imageData) {
       // Check if regenerating
-      const isRegenerating = regeneratingImageIds.has(expandedImage.id);
+      const isRegenerating = regeneratingImageIds.has(expandedImage.id)
       if (isRegenerating) {
         innerHtml += `
           <div class="inline-image-content-wrapper">
@@ -529,182 +505,164 @@
                 <span class="regenerating-text">Regenerating...</span>
               </div>
             </div>
-          </div>`;
+          </div>`
       } else {
         // Clickable image - opens modal
         innerHtml += `
           <div class="inline-image-content-wrapper clickable-image" data-image-id="${expandedImage.id}">
             <img src="data:image/png;base64,${expandedImage.imageData}" alt="${expandedImage.sourceText}" class="inline-image-content" />
-          </div>`;
+          </div>`
       }
-    } else if (expandedImage.status === "generating") {
-      const isStuck = now - expandedImage.createdAt > IMAGE_STUCK_THRESHOLD_MS;
+    } else if (expandedImage.status === 'generating') {
+      const isStuck = now - expandedImage.createdAt > IMAGE_STUCK_THRESHOLD_MS
       innerHtml += `<div class="inline-image-placeholder generating">
         <div class="placeholder-spinner"></div>
         <span class="placeholder-status">Generating...</span>
         ${isStuck ? `<button class="inline-image-retry" data-image-id="${expandedImage.id}">Force Retry</button>` : ''}
-      </div>`;
-    } else if (expandedImage.status === "pending") {
-      const isStuck = now - expandedImage.createdAt > IMAGE_STUCK_THRESHOLD_MS;
+      </div>`
+    } else if (expandedImage.status === 'pending') {
+      const isStuck = now - expandedImage.createdAt > IMAGE_STUCK_THRESHOLD_MS
       innerHtml += `<div class="inline-image-placeholder pending">
         <div class="placeholder-icon">⏳</div>
         <span class="placeholder-status">Queued...</span>
         ${isStuck ? `<button class="inline-image-retry" data-image-id="${expandedImage.id}">Force Retry</button>` : ''}
-      </div>`;
-    } else if (expandedImage.status === "failed") {
+      </div>`
+    } else if (expandedImage.status === 'failed') {
       innerHtml += `<div class="inline-image-placeholder failed">
         <div class="placeholder-icon">⚠️</div>
         <span class="placeholder-status">Generation Failed</span>
-        ${expandedImage.errorMessage ? `<span class="placeholder-text">${expandedImage.errorMessage}</span>` : ""}
+        ${expandedImage.errorMessage ? `<span class="placeholder-text">${expandedImage.errorMessage}</span>` : ''}
         <button class="inline-image-retry" data-image-id="${expandedImage.id}">Retry Generation</button>
-      </div>`;
+      </div>`
     }
 
-    container.innerHTML = innerHtml;
+    container.innerHTML = innerHtml
 
     // Add retry button handler (for pending/generating/failed)
-    const retryBtn = container.querySelector(".inline-image-retry");
+    const retryBtn = container.querySelector('.inline-image-retry')
     if (retryBtn) {
-      retryBtn.addEventListener("click", async () => {
-        const imageId = retryBtn.getAttribute("data-image-id");
+      retryBtn.addEventListener('click', async () => {
+        const imageId = retryBtn.getAttribute('data-image-id')
         if (imageId && expandedImage) {
-          await regenerateInlineImage(imageId, expandedImage.prompt);
-          expandedImageId = null;
-          clickedElement = null;
+          await regenerateInlineImage(imageId, expandedImage.prompt)
+          expandedImageId = null
+          clickedElement = null
         }
-      });
+      })
     }
 
     // Add click handler for complete image - opens modal
-    const clickableImage = container.querySelector(".clickable-image");
+    const clickableImage = container.querySelector('.clickable-image')
     if (clickableImage) {
-      clickableImage.addEventListener("click", () => {
+      clickableImage.addEventListener('click', () => {
         if (expandedImage) {
-          openImageViewModal(expandedImage);
-          expandedImageId = null;
-          clickedElement = null;
+          openImageViewModal(expandedImage)
+          expandedImageId = null
+          clickedElement = null
         }
-      });
+      })
     }
 
     // Insert after the clicked element's parent paragraph or directly after
-    const paragraph = clickedElement.closest("p");
+    const paragraph = clickedElement.closest('p')
     if (paragraph) {
-      paragraph.insertAdjacentElement("afterend", container);
+      paragraph.insertAdjacentElement('afterend', container)
     } else {
-      clickedElement.insertAdjacentElement("afterend", container);
+      clickedElement.insertAdjacentElement('afterend', container)
     }
 
     // Cleanup function
     return () => {
-      container.remove();
-    };
-  });
+      container.remove()
+    }
+  })
 
   // Get the currently expanded image
   const expandedImage = $derived(
-    expandedImageId
-      ? embeddedImages.find((img) => img.id === expandedImageId)
-      : null,
-  );
+    expandedImageId ? embeddedImages.find((img) => img.id === expandedImageId) : null,
+  )
 
   // Subscribe to ImageReady, ImageQueued, and TTS events
   onMount(() => {
     // Subscribe to ImageQueued events to reload images when new records are created during streaming
-    const unsubImageQueued = eventBus.subscribe<ImageQueuedEvent>(
-      "ImageQueued",
-      (event) => {
-        if (event.entryId === entry.id) {
-          loadEmbeddedImages();
-        }
-      },
-    );
+    const unsubImageQueued = eventBus.subscribe<ImageQueuedEvent>('ImageQueued', (event) => {
+      if (event.entryId === entry.id) {
+        loadEmbeddedImages()
+      }
+    })
 
     // Subscribe to ImageReady events to reload images when one completes
-    const unsubImageReady = eventBus.subscribe<ImageReadyEvent>(
-      "ImageReady",
-      (event) => {
-        if (event.entryId === entry.id) {
-          loadEmbeddedImages();
-        }
-      },
-    );
+    const unsubImageReady = eventBus.subscribe<ImageReadyEvent>('ImageReady', (event) => {
+      if (event.entryId === entry.id) {
+        loadEmbeddedImages()
+      }
+    })
 
     // Subscribe to ImageAnalysisFailed events to show error toast
-    const unsubImageAnalysisFailed =
-      eventBus.subscribe<ImageAnalysisFailedEvent>(
-        "ImageAnalysisFailed",
-        (event) => {
-          if (event.entryId === entry.id) {
-            ui.showToast(
-              `Image generation failed: ${event.error}`,
-              "error",
-              10000,
-            );
-          }
-        },
-      );
-
-    // Subscribe to TTSQueued events to auto-play TTS when triggered from ActionInput
-    const unsubTTSQueued = eventBus.subscribe<TTSQueuedEvent>(
-      "TTSQueued",
+    const unsubImageAnalysisFailed = eventBus.subscribe<ImageAnalysisFailedEvent>(
+      'ImageAnalysisFailed',
       (event) => {
-        if (event.entryId === entry.id && entry.type === "narration") {
-          console.log(
-            "[StoryEntry] Received TTSQueued event, triggering auto-play",
-            { entryId: entry.id },
-          );
-          handleTTSToggle();
-          loadEmbeddedImages();
+        if (event.entryId === entry.id) {
+          ui.showToast(`Image generation failed: ${event.error}`, 'error', 10000)
         }
       },
-    );
+    )
+
+    // Subscribe to TTSQueued events to auto-play TTS when triggered from ActionInput
+    const unsubTTSQueued = eventBus.subscribe<TTSQueuedEvent>('TTSQueued', (event) => {
+      if (event.entryId === entry.id && entry.type === 'narration') {
+        console.log('[StoryEntry] Received TTSQueued event, triggering auto-play', {
+          entryId: entry.id,
+        })
+        handleTTSToggle()
+        loadEmbeddedImages()
+      }
+    })
 
     // Load images on mount if this is a narration entry
-    if (entry.type === "narration") {
-      loadEmbeddedImages();
+    if (entry.type === 'narration') {
+      loadEmbeddedImages()
     }
 
     return () => {
-      unsubImageQueued();
-      unsubImageReady();
-      unsubImageAnalysisFailed();
-      unsubTTSQueued();
-    };
-  });
+      unsubImageQueued()
+      unsubImageReady()
+      unsubImageAnalysisFailed()
+      unsubTTSQueued()
+    }
+  })
 
   const icons = {
     user_action: User,
     narration: BookOpen,
     system: Info,
     retry: BookOpen,
-  };
+  }
 
   const styles = {
-    user_action: "border-l-primary bg-primary/5",
-    narration: "border-l-muted-foreground/40 bg-card",
-    system: "border-l-muted bg-muted/30 italic text-muted-foreground",
-    retry: "border-l-amber-500 bg-amber-500/10",
-  };
+    user_action: 'border-l-primary bg-primary/5',
+    narration: 'border-l-muted-foreground/40 bg-card',
+    system: 'border-l-muted bg-muted/30 italic text-muted-foreground',
+    retry: 'border-l-amber-500 bg-amber-500/10',
+  }
 
-  const Icon = $derived(icons[entry.type]);
+  const Icon = $derived(icons[entry.type])
 
   function startEdit() {
-    editContent = entry.content;
-    isEditing = true;
+    editContent = entry.content
+    isEditing = true
   }
 
   async function saveEdit() {
-    const newContent = editContent.trim();
+    const newContent = editContent.trim()
     if (!newContent || newContent === entry.content) {
-      isEditing = false;
-      return;
+      isEditing = false
+      return
     }
 
     try {
       // Check if this is the last user_action entry
-      const isLastUserAction =
-        entry.type === "user_action" && isLastUserActionEntry();
+      const isLastUserAction = entry.type === 'user_action' && isLastUserActionEntry()
 
       if (
         isLastUserAction &&
@@ -713,20 +671,18 @@
         ui.retryBackup.storyId === story.currentStory.id
       ) {
         // Update the backup with the new content and trigger retry
-        console.log(
-          "[StoryEntry] Editing last user action, triggering retry with new content",
-        );
-        ui.updateRetryBackupContent(newContent);
-        isEditing = false;
-        await ui.triggerRetryLastMessage();
+        console.log('[StoryEntry] Editing last user action, triggering retry with new content')
+        ui.updateRetryBackupContent(newContent)
+        isEditing = false
+        await ui.triggerRetryLastMessage()
       } else {
         // Normal edit - just update the entry
-        await story.updateEntry(entry.id, newContent);
-        isEditing = false;
+        await story.updateEntry(entry.id, newContent)
+        isEditing = false
       }
     } catch (error) {
-      console.error("[StoryEntry] Failed to save edit:", error);
-      alert(error instanceof Error ? error.message : "Failed to save edit");
+      console.error('[StoryEntry] Failed to save edit:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save edit')
     }
   }
 
@@ -735,12 +691,12 @@
    */
   function isLastUserActionEntry(): boolean {
     // Find all user_action entries
-    const userActions = story.entries.filter((e) => e.type === "user_action");
-    if (userActions.length === 0) return false;
+    const userActions = story.entries.filter((e) => e.type === 'user_action')
+    if (userActions.length === 0) return false
 
     // Check if this entry is the last one
-    const lastUserAction = userActions[userActions.length - 1];
-    return lastUserAction.id === entry.id;
+    const lastUserAction = userActions[userActions.length - 1]
+    return lastUserAction.id === entry.id
   }
 
   /**
@@ -749,119 +705,106 @@
   async function handleTTSToggle() {
     // If audio is playing, stop it
     if (isPlayingTTS) {
-      aiTTSService.stopPlayback();
-      isPlayingTTS = false;
-      return;
+      aiTTSService.stopPlayback()
+      isPlayingTTS = false
+      return
     }
 
-    const ttsSettings = settings.systemServicesSettings.tts;
+    const ttsSettings = settings.systemServicesSettings.tts
 
     if (!ttsSettings.enabled) {
-      alert("TTS is not enabled. Please enable it in settings.");
-      return;
+      alert('TTS is not enabled. Please enable it in settings.')
+      return
     }
 
-    isGeneratingTTS = true;
+    isGeneratingTTS = true
 
     try {
       // Initialize/Update service with current settings
-      await aiTTSService.initialize(ttsSettings);
+      await aiTTSService.initialize(ttsSettings)
 
       // Use translated content if available, otherwise use original content
-      const ttsContent = entry.translatedContent ?? entry.content;
+      const ttsContent = entry.translatedContent ?? entry.content
       const textToNarrate = sanitizeTextForTTS(ttsContent, {
         removeTags: ttsSettings.removeHtmlTags,
         removeAllTagContent: ttsSettings.removeAllHtmlContent,
-        htmlTagsToRemoveContent: ttsSettings.htmlTagsToRemoveContent
-          .replace(/\s+/g, "")
-          .split(","),
-      });
+        htmlTagsToRemoveContent: ttsSettings.htmlTagsToRemoveContent.replace(/\s+/g, '').split(','),
+      })
 
       // Remove excluded characters after HTML cleanup
-      const excludedCharArray = ttsSettings.excludedCharacters
-        .replace(/\s+/g, "")
-        .split(",");
-      const hasExcludedChars = excludedCharArray.some(Boolean);
+      const excludedCharArray = ttsSettings.excludedCharacters.replace(/\s+/g, '').split(',')
+      const hasExcludedChars = excludedCharArray.some(Boolean)
       const finalNarrationText = hasExcludedChars
         ? textToNarrate.replace(
-            new RegExp(
-              `[${excludedCharArray.filter(Boolean).map(escapeRegex).join("")}]`,
-              "g",
-            ),
-            "",
+            new RegExp(`[${excludedCharArray.filter(Boolean).map(escapeRegex).join('')}]`, 'g'),
+            '',
           )
-        : textToNarrate;
+        : textToNarrate
 
-      isPlayingTTS = true;
-      isGeneratingTTS = false;
+      isPlayingTTS = true
+      isGeneratingTTS = false
 
-      await aiTTSService.generateAndPlay(finalNarrationText);
+      await aiTTSService.generateAndPlay(finalNarrationText)
 
-      isPlayingTTS = false;
+      isPlayingTTS = false
     } catch (error) {
-      console.error("[StoryEntry] TTS failed:", error);
-      alert(error instanceof Error ? error.message : "Failed to play TTS");
-      isPlayingTTS = false;
-      isGeneratingTTS = false;
+      console.error('[StoryEntry] TTS failed:', error)
+      alert(error instanceof Error ? error.message : 'Failed to play TTS')
+      isPlayingTTS = false
+      isGeneratingTTS = false
     } finally {
-      isGeneratingTTS = false;
+      isGeneratingTTS = false
     }
   }
 
   function cancelEdit() {
-    isEditing = false;
-    editContent = "";
+    isEditing = false
+    editContent = ''
   }
 
   async function confirmDelete() {
     try {
-      await story.deleteEntry(entry.id);
-      isDeleting = false;
+      await story.deleteEntry(entry.id)
+      isDeleting = false
     } catch (error) {
-      console.error("[StoryEntry] Failed to delete entry:", error);
-      alert(error instanceof Error ? error.message : "Failed to delete entry");
-      isDeleting = false;
+      console.error('[StoryEntry] Failed to delete entry:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete entry')
+      isDeleting = false
     }
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      cancelEdit();
-    } else if (event.key === "Enter" && event.ctrlKey) {
-      saveEdit();
+    if (event.key === 'Escape') {
+      cancelEdit()
+    } else if (event.key === 'Enter' && event.ctrlKey) {
+      saveEdit()
     }
   }
 
   $effect(() => {
-    if (
-      entry.type === "narration" &&
-      isLatestEntry &&
-      ui.streamingReasoningExpanded
-    ) {
-      ui.transferStreamingReasoningState(entry.id);
+    if (entry.type === 'narration' && isLatestEntry && ui.streamingReasoningExpanded) {
+      ui.transferStreamingReasoningState(entry.id)
     }
-  });
+  })
 </script>
 
 <div
-  class="group rounded-lg border border-border border-l-4 px-4 pb-4 pt-3 shadow-sm {styles[
+  class="group border-border rounded-lg border border-l-4 px-4 pt-3 pb-4 shadow-sm {styles[
     entry.type
   ]}"
 >
   <!-- Header row: Label + metadata on left, action buttons on right -->
-  <div class="flex items-center gap-2 mb-2">
+  <div class="mb-2 flex items-center gap-2">
     <!-- Left side: Entry type indicator + reasoning toggle -->
-    {#if entry.type === "user_action"}
-      <span class="user-action text-sm font-semibold tracking-wide text-primary"
-        >You</span
-      >
-    {:else if entry.type === "system"}
-      <div class="flex items-center gap-1.5 text-muted-foreground">
+    {#if entry.type === 'user_action'}
+      <span class="user-action text-primary text-sm font-semibold tracking-wide">You</span>
+    {:else if entry.type === 'system'}
+      <div class="text-muted-foreground flex items-center gap-1.5">
         <Icon class="h-4 w-4 shrink-0 translate-y-px" />
-        <span class="text-xs font-medium uppercase tracking-wider">System</span>
+        <span class="text-xs font-medium tracking-wider uppercase">System</span>
       </div>
     {:else}
-      <Icon class="h-4 w-4 shrink-0 translate-y-px text-muted-foreground" />
+      <Icon class="text-muted-foreground h-4 w-4 shrink-0 translate-y-px" />
     {/if}
 
     <!-- Reasoning toggle (inline icon in header) - only show if reasoning is enabled -->
@@ -875,7 +818,7 @@
     {/if}
 
     <!-- Token count badge (shows 0 if no tokens) -->
-    <span class="text-[11px] bg-muted px-1.5 py-0.5 rounded tabular-nums">
+    <span class="bg-muted rounded px-1.5 py-0.5 text-[11px] tabular-nums">
       {#if isReasoningEnabled && reasoningTokens > 0}
         <span class="text-muted-foreground">{reasoningTokens}r</span>
         <span class="text-muted-foreground/50 mx-0.5">+</span>
@@ -888,7 +831,7 @@
     <div class="flex-1"></div>
 
     <!-- Right side: Action buttons toolbar (always visible on mobile, hover-only on desktop) -->
-    {#if !isEditing && !isDeleting && !isBranching && !isCreatingCheckpoint && entry.type !== "system"}
+    {#if !isEditing && !isDeleting && !isBranching && !isCreatingCheckpoint && entry.type !== 'system'}
       <div class="flex items-center gap-0.5">
         {#if canRetry}
           <Button
@@ -928,8 +871,8 @@
           size="icon"
           onclick={handleTTSToggle}
           disabled={isGeneratingTTS}
-          class="h-7 w-7 text-muted-foreground hover:text-foreground"
-          title={isPlayingTTS ? "Stop narration" : "Narrate"}
+          class="text-muted-foreground hover:text-foreground h-7 w-7"
+          title={isPlayingTTS ? 'Stop narration' : 'Narrate'}
         >
           {#if isGeneratingTTS}
             <Loader2 class="h-4 w-4 animate-spin" />
@@ -944,8 +887,8 @@
           size="icon"
           onclick={startEdit}
           disabled={ui.isGenerating}
-          class="h-7 w-7 text-muted-foreground hover:text-foreground"
-          title={ui.isGenerating ? "Cannot edit during generation" : "Edit"}
+          class="text-muted-foreground hover:text-foreground h-7 w-7"
+          title={ui.isGenerating ? 'Cannot edit during generation' : 'Edit'}
         >
           <Pencil class="h-4 w-4" />
         </Button>
@@ -954,8 +897,8 @@
           size="icon"
           onclick={() => (isDeleting = true)}
           disabled={ui.isGenerating}
-          class="h-7 w-7 text-muted-foreground hover:text-red-500"
-          title={ui.isGenerating ? "Cannot delete during generation" : "Delete"}
+          class="text-muted-foreground h-7 w-7 hover:text-red-500"
+          title={ui.isGenerating ? 'Cannot delete during generation' : 'Delete'}
         >
           <Trash2 class="h-4 w-4" />
         </Button>
@@ -978,30 +921,20 @@
             <Check class="mr-1.5 h-4 w-4" />
             Save
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onclick={cancelEdit}
-            class="h-9 px-3"
-          >
+          <Button variant="secondary" size="sm" onclick={cancelEdit} class="h-9 px-3">
             <X class="mr-1.5 h-4 w-4" />
             Cancel
           </Button>
         </div>
-        <p class="text-xs text-muted-foreground hidden sm:block">
+        <p class="text-muted-foreground hidden text-xs sm:block">
           Ctrl+Enter to save, Esc to cancel
         </p>
       </div>
     {:else if isDeleting}
       <div class="space-y-2">
-        <p class="text-sm text-muted-foreground">Delete this entry?</p>
+        <p class="text-muted-foreground text-sm">Delete this entry?</p>
         <div class="flex gap-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            onclick={confirmDelete}
-            class="h-9 px-3"
-          >
+          <Button variant="destructive" size="sm" onclick={confirmDelete} class="h-9 px-3">
             <Trash2 class="mr-1.5 h-4 w-4" />
             Delete
           </Button>
@@ -1018,17 +951,15 @@
       </div>
     {:else if isBranching}
       <div class="space-y-2">
-        <p class="text-sm text-muted-foreground">
-          Create a branch from this point:
-        </p>
+        <p class="text-muted-foreground text-sm">Create a branch from this point:</p>
         <Input
           type="text"
           class="h-9 text-sm"
           placeholder="Branch name..."
           bind:value={branchName}
           onkeydown={(e) => {
-            if (e.key === "Enter") handleCreateBranch();
-            if (e.key === "Escape") cancelBranch();
+            if (e.key === 'Enter') handleCreateBranch()
+            if (e.key === 'Escape') cancelBranch()
           }}
         />
         <div class="flex gap-2">
@@ -1036,38 +967,31 @@
             size="sm"
             onclick={handleCreateBranch}
             disabled={!branchName.trim()}
-            class="h-9 px-3 bg-amber-500 hover:bg-amber-600 text-white"
+            class="h-9 bg-amber-500 px-3 text-white hover:bg-amber-600"
           >
             <GitBranch class="mr-1.5 h-4 w-4" />
             Create Branch
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onclick={cancelBranch}
-            class="h-9 px-3"
-          >
+          <Button variant="secondary" size="sm" onclick={cancelBranch} class="h-9 px-3">
             <X class="mr-1.5 h-4 w-4" />
             Cancel
           </Button>
         </div>
-        <p class="text-xs text-muted-foreground">
+        <p class="text-muted-foreground text-xs">
           This will create a new timeline from this checkpoint.
         </p>
       </div>
     {:else if isCreatingCheckpoint}
       <div class="space-y-2">
-        <p class="text-sm text-muted-foreground">
-          Create a checkpoint at this point:
-        </p>
+        <p class="text-muted-foreground text-sm">Create a checkpoint at this point:</p>
         <Input
           type="text"
           class="h-9 text-sm"
           placeholder="Checkpoint name..."
           bind:value={checkpointName}
           onkeydown={(e) => {
-            if (e.key === "Enter") handleCreateCheckpoint();
-            if (e.key === "Escape") cancelCheckpoint();
+            if (e.key === 'Enter') handleCreateCheckpoint()
+            if (e.key === 'Escape') cancelCheckpoint()
           }}
         />
         <div class="flex gap-2">
@@ -1075,24 +999,18 @@
             size="sm"
             onclick={handleCreateCheckpoint}
             disabled={!checkpointName.trim()}
-            class="h-9 px-3 bg-blue-500 hover:bg-blue-600 text-white"
+            class="h-9 bg-blue-500 px-3 text-white hover:bg-blue-600"
           >
             <Bookmark class="mr-1.5 h-4 w-4" />
             Create Checkpoint
           </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            onclick={cancelCheckpoint}
-            class="h-9 px-3"
-          >
+          <Button variant="secondary" size="sm" onclick={cancelCheckpoint} class="h-9 px-3">
             <X class="mr-1.5 h-4 w-4" />
             Cancel
           </Button>
         </div>
-        <p class="text-xs text-muted-foreground">
-          Checkpoints save the current story state and allow branching from this
-          point.
+        <p class="text-muted-foreground text-xs">
+          Checkpoints save the current story state and allow branching from this point.
         </p>
       </div>
     {:else}
@@ -1108,17 +1026,16 @@
 
       <div
         class="story-text prose-content"
-        class:visual-prose-container={visualProseMode &&
-          entry.type === "narration"}
+        class:visual-prose-container={visualProseMode && entry.type === 'narration'}
         onclick={handleContentClick}
         onkeydown={(e) => {
-          if (e.key === "Enter" || e.key === " ") handleContentClick(e);
+          if (e.key === 'Enter' || e.key === ' ') handleContentClick(e)
         }}
         tabindex="0"
         role="button"
         aria-label="Expand embedded image or interact with story content"
       >
-        {#if entry.type === "narration"}
+        {#if entry.type === 'narration'}
           {@const displayContent = entry.translatedContent ?? entry.content}
           {#if visualProseMode && inlineImageMode}
             <!-- Both Visual Prose and Inline Image mode -->
@@ -1147,7 +1064,7 @@
             <!-- Standard mode with analyzed images -->
             {@html processContentWithImages(displayContent, embeddedImages, regeneratingImageIds)}
           {/if}
-        {:else if entry.type === "user_action"}
+        {:else if entry.type === 'user_action'}
           <!-- User action: show original input (before translation) -->
           {@html parseMarkdown(entry.originalInput ?? entry.content)}
         {:else}
@@ -1173,21 +1090,21 @@
 
 <!-- View/Edit Image Modal -->
 <ResponsiveModal.Root bind:open={isViewingImage}>
-  <ResponsiveModal.Content class="sm:max-w-3xl p-0 gap-0 overflow-hidden">
+  <ResponsiveModal.Content class="gap-0 overflow-hidden p-0 sm:max-w-3xl">
     <!-- Image area -->
-    <div class="relative bg-surface-950 flex items-center justify-center p-4">
+    <div class="bg-surface-950 relative flex items-center justify-center p-4">
       {#if viewingImage}
         <img
           src="data:image/png;base64,{viewingImage.imageData}"
           alt={viewingImage.prompt}
-          class="max-w-full max-h-[40vh] sm:max-h-[50vh] object-contain rounded"
+          class="max-h-[40vh] max-w-full rounded object-contain sm:max-h-[50vh]"
         />
       {/if}
     </div>
 
     <!-- Edit area -->
-    <div class="px-4 py-3 bg-surface-900 border-t border-surface-800">
-      <label class="block text-xs text-surface-400 mb-1.5">Image Prompt</label>
+    <div class="bg-surface-900 border-surface-800 border-t px-4 py-3">
+      <label class="text-surface-400 mb-1.5 block text-xs">Image Prompt</label>
       <Textarea
         bind:value={viewingImagePrompt}
         placeholder="Describe the image you want to generate..."
@@ -1197,21 +1114,28 @@
     </div>
 
     <!-- Footer toolbar -->
-    <div class="flex items-center justify-end gap-2 px-4 py-3 bg-surface-900 border-t border-surface-800">
-      <Button variant="outline" size="sm" onclick={() => isViewingImage = false} class="h-8 text-xs">
+    <div
+      class="bg-surface-900 border-surface-800 flex items-center justify-end gap-2 border-t px-4 py-3"
+    >
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={() => (isViewingImage = false)}
+        class="h-8 text-xs"
+      >
         Close
       </Button>
       <Button
         size="sm"
         onclick={async () => {
           if (viewingImage && viewingImagePrompt.trim()) {
-            const imageId = viewingImage.id;
+            const imageId = viewingImage.id
             // Close modal immediately - loading will show on inline image
-            isViewingImage = false;
+            isViewingImage = false
             // Regenerate with the prompt from the textarea
-            editingImageId = imageId;
-            editingImagePrompt = viewingImagePrompt;
-            await handleEditImageSubmit();
+            editingImageId = imageId
+            editingImagePrompt = viewingImagePrompt
+            await handleEditImageSubmit()
           }
         }}
         disabled={!viewingImagePrompt.trim()}
@@ -1282,7 +1206,7 @@
   }
 
   :global(.embedded-image-link.regenerating)::after {
-    content: " ⟳";
+    content: ' ⟳';
     display: inline;
     animation: spin 1s linear infinite;
   }
@@ -1361,7 +1285,9 @@
   }
 
   :global(.inline-image-content-wrapper.clickable-image .inline-image-content) {
-    transition: filter 0.2s ease, transform 0.2s ease;
+    transition:
+      filter 0.2s ease,
+      transform 0.2s ease;
   }
 
   :global(.inline-image-content-wrapper.clickable-image:hover .inline-image-content) {
@@ -1410,8 +1336,12 @@
   }
 
   @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 
   /* Content container */
@@ -1455,7 +1385,9 @@
   }
 
   @keyframes spinner-rotate {
-    100% { transform: rotate(360deg); }
+    100% {
+      transform: rotate(360deg);
+    }
   }
 
   @keyframes spinner-dash {
@@ -1549,7 +1481,9 @@
     display: block;
     width: 100%;
     height: auto;
-    transition: filter 0.2s ease, transform 0.2s ease;
+    transition:
+      filter 0.2s ease,
+      transform 0.2s ease;
   }
 
   :global(.inline-generated-image:hover img) {

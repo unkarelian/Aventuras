@@ -1,41 +1,41 @@
 <script lang="ts">
-  import { settings } from "$lib/stores/settings.svelte";
-  import { THEMES } from "../../../../themes/themes";
-  import { Switch } from "$lib/components/ui/switch";
-  import { Label } from "$lib/components/ui/label";
-  import * as Select from "$lib/components/ui/select";
-  import { Button } from "$lib/components/ui/button";
-  import { Separator } from "$lib/components/ui/separator";
-  import { getSupportedLanguages } from "$lib/services/ai/utils/TranslationService";
-  import { updaterService } from "$lib/services/updater";
-  import { Download, RefreshCw, Loader2, Languages } from "lucide-svelte";
+  import { settings } from '$lib/stores/settings.svelte'
+  import { THEMES } from '../../../../themes/themes'
+  import { Switch } from '$lib/components/ui/switch'
+  import { Label } from '$lib/components/ui/label'
+  import * as Select from '$lib/components/ui/select'
+  import { Button } from '$lib/components/ui/button'
+  import { Separator } from '$lib/components/ui/separator'
+  import { getSupportedLanguages } from '$lib/services/ai/utils/TranslationService'
+  import { updaterService } from '$lib/services/updater'
+  import { Download, RefreshCw, Loader2, Languages } from 'lucide-svelte'
 
-  let isCheckingUpdates = $state(false);
-  let updateMessage = $state<string | null>(null);
+  let isCheckingUpdates = $state(false)
+  let updateMessage = $state<string | null>(null)
 
   async function handleCheckForUpdates() {
-    isCheckingUpdates = true;
-    updateMessage = null;
+    isCheckingUpdates = true
+    updateMessage = null
     try {
-      const info = await updaterService.checkForUpdates();
+      const info = await updaterService.checkForUpdates()
       if (info.available) {
-        updateMessage = `Update available: v${info.version}`;
+        updateMessage = `Update available: v${info.version}`
       } else {
-        updateMessage = "You're up to date!";
+        updateMessage = "You're up to date!"
       }
     } catch (error) {
-      updateMessage = "Failed to check for updates";
-      console.error("[Interface] Update check failed:", error);
+      updateMessage = 'Failed to check for updates'
+      console.error('[Interface] Update check failed:', error)
     } finally {
-      isCheckingUpdates = false;
+      isCheckingUpdates = false
     }
   }
 
   const fontSizes = [
-    { value: "small", label: "Small" },
-    { value: "medium", label: "Medium" },
-    { value: "large", label: "Large" },
-  ] as const;
+    { value: 'small', label: 'Small' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'large', label: 'Large' },
+  ] as const
 </script>
 
 <div class="space-y-4">
@@ -48,8 +48,7 @@
       onValueChange={(v) => settings.setTheme(v)}
     >
       <Select.Trigger class="h-10 w-full">
-        {THEMES.find((t) => t.id === settings.uiSettings.theme)?.label ??
-          "Select theme"}
+        {THEMES.find((t) => t.id === settings.uiSettings.theme)?.label ?? 'Select theme'}
       </Select.Trigger>
       <Select.Content>
         {#each THEMES as theme}
@@ -59,9 +58,8 @@
         {/each}
       </Select.Content>
     </Select.Root>
-    <p class="mt-1 text-xs text-muted-foreground">
-      {THEMES.find((t) => t.id === settings.uiSettings.theme)?.description ??
-        ""}
+    <p class="text-muted-foreground mt-1 text-xs">
+      {THEMES.find((t) => t.id === settings.uiSettings.theme)?.description ?? ''}
     </p>
   </div>
 
@@ -71,12 +69,10 @@
     <Select.Root
       type="single"
       value={settings.uiSettings.fontSize}
-      onValueChange={(v) =>
-        settings.setFontSize(v as "small" | "medium" | "large")}
+      onValueChange={(v) => settings.setFontSize(v as 'small' | 'medium' | 'large')}
     >
       <Select.Trigger class="h-10 w-full">
-        {fontSizes.find((s) => s.value === settings.uiSettings.fontSize)
-          ?.label ?? "Select size"}
+        {fontSizes.find((s) => s.value === settings.uiSettings.fontSize)?.label ?? 'Select size'}
       </Select.Trigger>
       <Select.Content>
         {#each fontSizes as size}
@@ -92,14 +88,14 @@
   <div class="flex items-center justify-between">
     <div>
       <Label>Word Count</Label>
-      <p class="text-xs text-muted-foreground">
+      <p class="text-muted-foreground text-xs">
         Display current story word count in the status bar
       </p>
     </div>
     <Switch
       checked={settings.uiSettings.showWordCount}
       onCheckedChange={(v) => {
-        settings.uiSettings.showWordCount = v;
+        settings.uiSettings.showWordCount = v
       }}
     />
   </div>
@@ -108,9 +104,7 @@
   <div class="flex items-center justify-between">
     <div>
       <Label>Spellcheck</Label>
-      <p class="text-xs text-muted-foreground">
-        Grammar and spelling suggestions while typing
-      </p>
+      <p class="text-muted-foreground text-xs">Grammar and spelling suggestions while typing</p>
     </div>
     <Switch
       checked={settings.uiSettings.spellcheckEnabled}
@@ -122,7 +116,7 @@
   <div class="flex items-center justify-between">
     <div>
       <Label>Suggestions</Label>
-      <p class="text-xs text-muted-foreground">
+      <p class="text-muted-foreground text-xs">
         Show AI-generated action choices and plot suggestions
       </p>
     </div>
@@ -136,9 +130,7 @@
   <div class="flex items-center justify-between">
     <div>
       <Label>Action Prefixes</Label>
-      <p class="text-xs text-muted-foreground">
-        Show Do/Say/Think buttons for input
-      </p>
+      <p class="text-muted-foreground text-xs">Show Do/Say/Think buttons for input</p>
     </div>
     <Switch
       checked={!settings.uiSettings.disableActionPrefixes}
@@ -150,7 +142,7 @@
   <div class="flex items-center justify-between">
     <div>
       <Label>Reasoning Block</Label>
-      <p class="text-xs text-muted-foreground">Show thought process display</p>
+      <p class="text-muted-foreground text-xs">Show thought process display</p>
     </div>
     <Switch
       checked={settings.uiSettings.showReasoning}
@@ -161,23 +153,23 @@
   <!-- Translation Section -->
   <div class="space-y-3">
     <div class="flex items-center gap-2">
-      <Languages class="h-4 w-4 text-muted-foreground" />
+      <Languages class="text-muted-foreground h-4 w-4" />
       <Label class="text-base font-medium">Translation</Label>
     </div>
 
     <div class="flex items-center justify-between">
       <div>
         <Label>Enable Translation</Label>
-        <p class="text-xs text-muted-foreground">
-          Translate AI responses to your language while keeping English prompts
-          for optimal LLM performance
+        <p class="text-muted-foreground text-xs">
+          Translate AI responses to your language while keeping English prompts for optimal LLM
+          performance
         </p>
       </div>
       <Switch
         checked={settings.translationSettings.enabled}
         onCheckedChange={(v) => {
-          settings.translationSettings.enabled = v;
-          settings.saveTranslationSettings();
+          settings.translationSettings.enabled = v
+          settings.saveTranslationSettings()
         }}
       />
     </div>
@@ -190,14 +182,14 @@
           type="single"
           value={settings.translationSettings.targetLanguage}
           onValueChange={(v) => {
-            settings.translationSettings.targetLanguage = v;
-            settings.saveTranslationSettings();
+            settings.translationSettings.targetLanguage = v
+            settings.saveTranslationSettings()
           }}
         >
           <Select.Trigger class="h-10 w-full">
             {getSupportedLanguages().find(
-              (l) => l.code === settings.translationSettings.targetLanguage
-            )?.name ?? "Select language"}
+              (l) => l.code === settings.translationSettings.targetLanguage,
+            )?.name ?? 'Select language'}
           </Select.Trigger>
           <Select.Content class="max-h-60">
             {#each getSupportedLanguages() as lang}
@@ -207,24 +199,22 @@
             {/each}
           </Select.Content>
         </Select.Root>
-        <p class="mt-1 text-xs text-muted-foreground">
-          Language for translated content display
-        </p>
+        <p class="text-muted-foreground mt-1 text-xs">Language for translated content display</p>
       </div>
 
       <!-- Translate Narration -->
       <div class="flex items-center justify-between">
         <div>
           <Label>Translate Narration</Label>
-          <p class="text-xs text-muted-foreground">
+          <p class="text-muted-foreground text-xs">
             Translate AI-generated story content after generation
           </p>
         </div>
         <Switch
           checked={settings.translationSettings.translateNarration}
           onCheckedChange={(v) => {
-            settings.translationSettings.translateNarration = v;
-            settings.saveTranslationSettings();
+            settings.translationSettings.translateNarration = v
+            settings.saveTranslationSettings()
           }}
         />
       </div>
@@ -233,15 +223,15 @@
       <div class="flex items-center justify-between">
         <div>
           <Label>Translate User Input</Label>
-          <p class="text-xs text-muted-foreground">
+          <p class="text-muted-foreground text-xs">
             Translate your input to English before sending to the AI
           </p>
         </div>
         <Switch
           checked={settings.translationSettings.translateUserInput}
           onCheckedChange={(v) => {
-            settings.translationSettings.translateUserInput = v;
-            settings.saveTranslationSettings();
+            settings.translationSettings.translateUserInput = v
+            settings.saveTranslationSettings()
           }}
         />
       </div>
@@ -250,15 +240,15 @@
       <div class="flex items-center justify-between">
         <div>
           <Label>Translate World State</Label>
-          <p class="text-xs text-muted-foreground">
+          <p class="text-muted-foreground text-xs">
             Translate character names, locations, and items in the UI
           </p>
         </div>
         <Switch
           checked={settings.translationSettings.translateWorldState}
           onCheckedChange={(v) => {
-            settings.translationSettings.translateWorldState = v;
-            settings.saveTranslationSettings();
+            settings.translationSettings.translateWorldState = v
+            settings.saveTranslationSettings()
           }}
         />
       </div>
@@ -288,7 +278,7 @@
         {/if}
       </Button>
       {#if updateMessage}
-        <span class="text-sm text-muted-foreground">{updateMessage}</span>
+        <span class="text-muted-foreground text-sm">{updateMessage}</span>
       {/if}
     </div>
 
@@ -296,7 +286,7 @@
     <div class="flex items-center justify-between">
       <div>
         <Label>Check on Startup</Label>
-        <p class="text-xs text-muted-foreground">
+        <p class="text-muted-foreground text-xs">
           Automatically check for updates when the app starts
         </p>
       </div>
@@ -310,7 +300,7 @@
     <div class="flex items-center justify-between">
       <div>
         <Label>Auto-download Updates</Label>
-        <p class="text-xs text-muted-foreground">
+        <p class="text-muted-foreground text-xs">
           Automatically download updates in the background
         </p>
       </div>

@@ -3,12 +3,12 @@
    Official dark theme with vibrant purple/pink accents
    Based on https://draculatheme.com/
    ============================================= */
-[data-theme="dracula"] {
+[data-theme='dracula'] {
   /*
      Dracula Surface Scale
      Full gradient from light to dark based on Dracula colors
   */
-  --color-surface-50: #f8f8f2;  /* Foreground (lightest) */
+  --color-surface-50: #f8f8f2; /* Foreground (lightest) */
   --color-surface-100: #e6e6dc; /* Very light gray */
   --color-surface-200: #c2c2b8; /* Light gray */
   --color-surface-300: #9ea09e; /* Mid-light gray */
@@ -27,7 +27,7 @@
   --color-accent-200: #cfbbff;
   --color-accent-300: #b799ff;
   --color-accent-400: #9f77ff;
-  --color-accent-500: #bd93f9;  /* Purple */
+  --color-accent-500: #bd93f9; /* Purple */
   --color-accent-600: #9776c7;
   --color-accent-700: #715995;
   --color-accent-800: #4b3c63;
@@ -45,48 +45,48 @@
   --dracula-comment: #6272a4;
 
   /* Semantic colors */
-  --bg-primary: #282a36;            /* Background */
-  --bg-secondary: #2a2c38;          /* Surface */
-  --bg-tertiary: #2e3040;           /* Overlay */
-  --text-primary: #f8f8f2;          /* Foreground */
-  --text-secondary: #6272a4;        /* Comment */
-  --text-muted: #515470;            /* Muted */
-  --text-accent: #bd93f9;           /* Purple */
-  --border-primary: #44475a;        /* Selection */
-  --border-secondary: #2e3040;      /* Overlay */
+  --bg-primary: #282a36; /* Background */
+  --bg-secondary: #2a2c38; /* Surface */
+  --bg-tertiary: #2e3040; /* Overlay */
+  --text-primary: #f8f8f2; /* Foreground */
+  --text-secondary: #6272a4; /* Comment */
+  --text-muted: #515470; /* Muted */
+  --text-accent: #bd93f9; /* Purple */
+  --border-primary: #44475a; /* Selection */
+  --border-secondary: #2e3040; /* Overlay */
   --scrollbar-track: #2a2c38;
   --scrollbar-thumb: #44475a;
   --scrollbar-thumb-hover: #6272a4;
 
   /* Shadcn Variables */
   --radius: 0.5rem;
-  --background: #282a36;            /* Background */
-  --foreground: #f8f8f2;            /* Foreground */
+  --background: #282a36; /* Background */
+  --foreground: #f8f8f2; /* Foreground */
 
-  --card: #2a2c38;                  /* Surface */
-  --card-foreground: #f8f8f2;       /* Foreground */
+  --card: #2a2c38; /* Surface */
+  --card-foreground: #f8f8f2; /* Foreground */
 
-  --popover: #2a2c38;               /* Surface */
-  --popover-foreground: #f8f8f2;    /* Foreground */
+  --popover: #2a2c38; /* Surface */
+  --popover-foreground: #f8f8f2; /* Foreground */
 
-  --primary: #bd93f9;               /* Purple */
-  --primary-foreground: #282a36;    /* Background */
+  --primary: #bd93f9; /* Purple */
+  --primary-foreground: #282a36; /* Background */
 
-  --secondary: #2e3040;             /* Overlay */
-  --secondary-foreground: #f8f8f2;  /* Foreground */
+  --secondary: #2e3040; /* Overlay */
+  --secondary-foreground: #f8f8f2; /* Foreground */
 
-  --muted: #2e3040;                 /* Overlay */
-  --muted-foreground: #6272a4;      /* Comment */
+  --muted: #2e3040; /* Overlay */
+  --muted-foreground: #6272a4; /* Comment */
 
-  --accent: #44475a;                /* Selection */
-  --accent-foreground: #bd93f9;     /* Purple */
+  --accent: #44475a; /* Selection */
+  --accent-foreground: #bd93f9; /* Purple */
 
-  --destructive: #ff5555;           /* Red */
+  --destructive: #ff5555; /* Red */
   --destructive-foreground: #282a36; /* Background */
 
-  --border: #44475a;                /* Selection */
-  --input: #44475a;                 /* Selection */
-  --ring: #bd93f9;                  /* Purple */
+  --border: #44475a; /* Selection */
+  --input: #44475a; /* Selection */
+  --ring: #bd93f9; /* Purple */
 
   /* Special effects */
   --crt-scanline: transparent;
@@ -97,102 +97,102 @@
 
 /* Background overrides - Standard Dark Theme */
 
-[data-theme="dracula"] .bg-surface-900 {
+[data-theme='dracula'] .bg-surface-900 {
   background-color: #282a36; /* Background */
 }
 
-[data-theme="dracula"] .bg-surface-850 {
+[data-theme='dracula'] .bg-surface-850 {
   background-color: #2a2c38; /* Surface */
 }
 
-[data-theme="dracula"] .bg-surface-800 {
+[data-theme='dracula'] .bg-surface-800 {
   background-color: #2e3040; /* Overlay */
 }
 
-[data-theme="dracula"] .bg-surface-700 {
+[data-theme='dracula'] .bg-surface-700 {
   background-color: #383a4c; /* Highlight Med */
 }
 
-[data-theme="dracula"] .bg-surface-600 {
+[data-theme='dracula'] .bg-surface-600 {
   background-color: #44475a; /* Selection */
 }
 
-[data-theme="dracula"] .bg-surface-500 {
+[data-theme='dracula'] .bg-surface-500 {
   background-color: #44475a;
 }
 
-[data-theme="dracula"] .bg-surface-400 {
+[data-theme='dracula'] .bg-surface-400 {
   background-color: #383a4c;
 }
 
-[data-theme="dracula"] .bg-surface-300 {
+[data-theme='dracula'] .bg-surface-300 {
   background-color: #2e3040;
 }
 
-[data-theme="dracula"] .bg-surface-200 {
+[data-theme='dracula'] .bg-surface-200 {
   background-color: #2a2c38;
 }
 
-[data-theme="dracula"] .bg-surface-100 {
+[data-theme='dracula'] .bg-surface-100 {
   background-color: #282a36;
 }
 
-[data-theme="dracula"] .bg-surface-50 {
+[data-theme='dracula'] .bg-surface-50 {
   background-color: #282a36;
 }
 
 /* Text color overrides - maintain proper contrast hierarchy */
 /* Lower numbers = brighter (for active text), Higher numbers = dimmer (for placeholder) */
-[data-theme="dracula"] .text-surface-50 {
+[data-theme='dracula'] .text-surface-50 {
   color: #f8f8f2; /* Foreground - brightest */
 }
 
-[data-theme="dracula"] .text-surface-100 {
+[data-theme='dracula'] .text-surface-100 {
   color: #f8f8f2; /* Foreground */
 }
 
-[data-theme="dracula"] .text-surface-200 {
+[data-theme='dracula'] .text-surface-200 {
   color: #f8f8f2; /* Foreground - for input text */
 }
 
-[data-theme="dracula"] .text-surface-300 {
+[data-theme='dracula'] .text-surface-300 {
   color: #bfbfbf; /* Light gray */
 }
 
-[data-theme="dracula"] .text-surface-400 {
+[data-theme='dracula'] .text-surface-400 {
   color: #6272a4; /* Comment */
 }
 
-[data-theme="dracula"] .text-surface-500 {
+[data-theme='dracula'] .text-surface-500 {
   color: #6272a4; /* Comment - for placeholder */
 }
 
 /* Placeholder color override for inputs */
-[data-theme="dracula"] textarea::placeholder,
-[data-theme="dracula"] input::placeholder {
+[data-theme='dracula'] textarea::placeholder,
+[data-theme='dracula'] input::placeholder {
   color: #6272a4 !important; /* Comment */
 }
 
 /* Border color overrides */
-[data-theme="dracula"] .border-surface-700 {
+[data-theme='dracula'] .border-surface-700 {
   border-color: #44475a;
 }
 
-[data-theme="dracula"] .border-surface-600 {
+[data-theme='dracula'] .border-surface-600 {
   border-color: #6272a4;
 }
 
 /* Select dropdown styling */
-[data-theme="dracula"] select.input {
+[data-theme='dracula'] select.input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23f8f8f2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-[data-theme="dracula"] select.input option {
+[data-theme='dracula'] select.input option {
   background-color: #2a2c38;
   color: #f8f8f2;
 }
 
-[data-theme="dracula"] select.input option:checked {
+[data-theme='dracula'] select.input option:checked {
   background-color: #bd93f9;
   color: #282a36;
 }

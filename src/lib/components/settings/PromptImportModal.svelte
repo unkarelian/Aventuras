@@ -1,11 +1,7 @@
 <script lang="ts">
-  import { settings } from "$lib/stores/settings.svelte";
-  import { promptExportService } from "$lib/services/promptExport";
-  import type {
-    ParsedPromptImport,
-    ImportPresetConfig,
-    ReasoningEffort,
-  } from "$lib/types";
+  import { settings } from '$lib/stores/settings.svelte'
+  import { promptExportService } from '$lib/services/promptExport'
+  import type { ParsedPromptImport, ImportPresetConfig, ReasoningEffort } from '$lib/types'
   import {
     Upload,
     FileJson,
@@ -15,133 +11,127 @@
     AlertTriangle,
     ChevronDown,
     Sparkles,
-  } from "lucide-svelte";
-  import { fly, fade, slide } from "svelte/transition";
+  } from 'lucide-svelte'
+  import { fly, fade, slide } from 'svelte/transition'
 
   // Shadcn Components
-  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Label } from "$lib/components/ui/label";
-  import * as Select from "$lib/components/ui/select";
-  import {
-    Alert,
-    AlertDescription,
-    AlertTitle,
-  } from "$lib/components/ui/alert";
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
-  import { Separator } from "$lib/components/ui/separator";
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
+  import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
+  import * as Select from '$lib/components/ui/select'
+  import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert'
+  import { ScrollArea } from '$lib/components/ui/scroll-area'
+  import { Separator } from '$lib/components/ui/separator'
 
   interface Props {
-    open: boolean;
-    onClose: () => void;
+    open: boolean
+    onClose: () => void
   }
 
-  let { open, onClose }: Props = $props();
+  let { open, onClose }: Props = $props()
 
   // State
-  let currentStep = $state<1 | 2 | 3>(1);
-  let dragOver = $state(false);
-  let parseResult = $state<ParsedPromptImport | null>(null);
-  let error = $state<string | null>(null);
-  let presetConfigs = $state<Map<string, ImportPresetConfig>>(new Map());
-  let expandedPreset = $state<string | null>(null);
-  let isImporting = $state(false);
-  let importSuccess = $state(false);
+  let currentStep = $state<1 | 2 | 3>(1)
+  let dragOver = $state(false)
+  let parseResult = $state<ParsedPromptImport | null>(null)
+  let error = $state<string | null>(null)
+  let presetConfigs = $state<Map<string, ImportPresetConfig>>(new Map())
+  let expandedPreset = $state<string | null>(null)
+  let isImporting = $state(false)
+  let importSuccess = $state(false)
 
   // Derived
   const availableProfiles = $derived(
     settings.apiSettings.profiles.map((p) => ({ value: p.id, label: p.name })),
-  );
+  )
 
   function getAvailableModelsForProfile(profileId: string) {
-    const profile = settings.apiSettings.profiles.find(
-      (p) => p.id === profileId,
-    );
-    if (!profile) return [];
+    const profile = settings.apiSettings.profiles.find((p) => p.id === profileId)
+    if (!profile) return []
     return [...profile.customModels, ...profile.fetchedModels].map((m) => ({
       value: m,
       label: m,
-    }));
+    }))
   }
 
   const importStats = $derived.by(() => {
-    if (!parseResult?.data) return null;
-    const data = parseResult.data;
+    if (!parseResult?.data) return null
+    const data = parseResult.data
     return {
       customMacros: data.promptSettings.customMacros.length,
       macroOverrides: data.promptSettings.macroOverrides.length,
       templateOverrides: data.promptSettings.templateOverrides.length,
       presets: data.generationPresets.length,
-    };
-  });
+    }
+  })
 
-  const stepTitles = ["Select File", "Configure", "Import"];
+  const stepTitles = ['Select File', 'Configure', 'Import']
 
   // Functions
   function resetState() {
-    currentStep = 1;
-    parseResult = null;
-    error = null;
-    presetConfigs = new Map();
-    expandedPreset = null;
-    isImporting = false;
-    importSuccess = false;
+    currentStep = 1
+    parseResult = null
+    error = null
+    presetConfigs = new Map()
+    expandedPreset = null
+    isImporting = false
+    importSuccess = false
   }
 
   function handleOpenChange(newOpen: boolean) {
     if (!newOpen) {
-      resetState();
-      onClose();
+      resetState()
+      onClose()
     }
   }
 
   function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    dragOver = false;
-    const file = e.dataTransfer?.files[0];
-    if (file) processFile(file);
+    e.preventDefault()
+    dragOver = false
+    const file = e.dataTransfer?.files[0]
+    if (file) processFile(file)
   }
 
   function handleDragOver(e: DragEvent) {
-    e.preventDefault();
-    dragOver = true;
+    e.preventDefault()
+    dragOver = true
   }
 
   function handleDragLeave() {
-    dragOver = false;
+    dragOver = false
   }
 
   async function processFile(file: File) {
-    error = null;
-    parseResult = null;
+    error = null
+    parseResult = null
 
-    if (!file.name.endsWith(".json")) {
-      error = "Please select a JSON file";
-      return;
+    if (!file.name.endsWith('.json')) {
+      error = 'Please select a JSON file'
+      return
     }
 
     try {
-      const text = await file.text();
-      processContent(text);
+      const text = await file.text()
+      processContent(text)
     } catch (err) {
-      error = err instanceof Error ? err.message : "Failed to read file";
+      error = err instanceof Error ? err.message : 'Failed to read file'
     }
   }
 
   function processContent(text: string) {
-    const result = promptExportService.parseImportFile(text);
+    const result = promptExportService.parseImportFile(text)
 
     if (!result.success) {
-      error = result.errors.join(", ");
-      return;
+      error = result.errors.join(', ')
+      return
     }
 
-    parseResult = result;
+    parseResult = result
 
-    const configs = new Map<string, ImportPresetConfig>();
-    const profiles = settings.apiSettings.profiles;
-    const defaultProfileId = profiles.length > 0 ? profiles[0].id : "";
+    const configs = new Map<string, ImportPresetConfig>()
+    const profiles = settings.apiSettings.profiles
+    const defaultProfileId = profiles.length > 0 ? profiles[0].id : ''
 
     for (const preset of result.data!.generationPresets) {
       configs.set(preset.id, {
@@ -153,66 +143,63 @@
         maxTokens: preset.maxTokens,
         reasoningEffort: preset.reasoningEffort,
         manualBody: preset.manualBody,
-      });
+      })
     }
-    presetConfigs = configs;
-    currentStep = 2;
+    presetConfigs = configs
+    currentStep = 2
   }
 
   async function handleBrowse() {
-    error = null;
-    parseResult = null;
+    error = null
+    parseResult = null
     try {
-      const text = await promptExportService.pickAndReadImportFile();
+      const text = await promptExportService.pickAndReadImportFile()
       if (text) {
-        processContent(text);
+        processContent(text)
       }
     } catch (err) {
-      error = err instanceof Error ? err.message : "Failed to read file";
+      error = err instanceof Error ? err.message : 'Failed to read file'
     }
   }
 
-  function updatePresetConfig(
-    presetId: string,
-    updates: Partial<ImportPresetConfig>,
-  ) {
-    const newConfigs = new Map(presetConfigs);
-    const config = newConfigs.get(presetId)!;
-    newConfigs.set(presetId, { ...config, ...updates });
-    presetConfigs = newConfigs;
+  function updatePresetConfig(presetId: string, updates: Partial<ImportPresetConfig>) {
+    const newConfigs = new Map(presetConfigs)
+    const config = newConfigs.get(presetId)!
+    newConfigs.set(presetId, { ...config, ...updates })
+    presetConfigs = newConfigs
   }
 
   function togglePresetExpanded(presetId: string) {
-    expandedPreset = expandedPreset === presetId ? null : presetId;
+    expandedPreset = expandedPreset === presetId ? null : presetId
   }
 
   async function handleImport() {
-    if (!parseResult?.data) return;
+    if (!parseResult?.data) return
 
-    isImporting = true;
-    error = null;
+    isImporting = true
+    error = null
 
     try {
-      await promptExportService.applyImport(parseResult.data, presetConfigs);
-      importSuccess = true;
-      currentStep = 3;
+      await promptExportService.applyImport(parseResult.data, presetConfigs)
+      importSuccess = true
+      currentStep = 3
 
       setTimeout(() => {
-        handleOpenChange(false);
-      }, 2000);
+        handleOpenChange(false)
+      }, 2000)
     } catch (err) {
-      error = err instanceof Error ? err.message : "Import failed";
+      error = err instanceof Error ? err.message : 'Import failed'
     } finally {
-      isImporting = false;
+      isImporting = false
     }
   }
 </script>
 
 <ResponsiveModal.Root {open} onOpenChange={handleOpenChange}>
-  <ResponsiveModal.Content class="sm:max-w-xl max-h-[85vh] flex flex-col p-0 gap-0">
+  <ResponsiveModal.Content class="flex max-h-[85vh] flex-col gap-0 p-0 sm:max-w-xl">
     <ResponsiveModal.Header class="px-6 pt-6 pb-4">
       <ResponsiveModal.Title class="flex items-center gap-2">
-        <Upload class="h-5 w-5 text-primary" />
+        <Upload class="text-primary h-5 w-5" />
         Import Prompts
       </ResponsiveModal.Title>
       <ResponsiveModal.Description>
@@ -220,12 +207,11 @@
       </ResponsiveModal.Description>
 
       <!-- Progress Steps -->
-      <div class="flex items-center gap-2 mt-4">
+      <div class="mt-4 flex items-center gap-2">
         {#each [1, 2, 3] as step}
-          <div class="flex-1 flex items-center gap-2">
+          <div class="flex flex-1 items-center gap-2">
             <div
-              class="h-1.5 flex-1 rounded-full transition-all duration-300 {step <
-              currentStep
+              class="h-1.5 flex-1 rounded-full transition-all duration-300 {step < currentStep
                 ? 'bg-primary'
                 : step === currentStep
                   ? 'bg-primary'
@@ -249,12 +235,12 @@
       <!-- Warnings -->
       {#if parseResult?.warnings && parseResult.warnings.length > 0}
         <Alert
-          class="mb-4 border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20"
+          class="mb-4 border-amber-500/50 bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400"
         >
           <AlertTriangle class="h-4 w-4 text-amber-500" />
           <AlertTitle>Warnings</AlertTitle>
           <AlertDescription>
-            <ul class="list-disc list-inside">
+            <ul class="list-inside list-disc">
               {#each parseResult.warnings as warning}
                 <li>{warning}</li>
               {/each}
@@ -267,24 +253,24 @@
       {#if currentStep === 1}
         <div class="space-y-4" transition:fade={{ duration: 150 }}>
           <button
-            class="w-full border-2 border-dashed rounded-xl p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring {dragOver
+            class="focus-visible:ring-ring flex w-full cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed p-10 text-center transition-all focus-visible:ring-2 focus-visible:outline-none {dragOver
               ? 'border-primary bg-primary/5 scale-[1.02]'
               : 'border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50'}"
             ondrop={handleDrop}
             ondragover={handleDragOver}
             ondragleave={handleDragLeave}
             onclick={handleBrowse}
-            onkeydown={(e) => e.key === "Enter" && handleBrowse()}
+            onkeydown={(e) => e.key === 'Enter' && handleBrowse()}
           >
-            <div class="p-4 rounded-full bg-muted">
-              <FileJson class="h-8 w-8 text-muted-foreground" />
+            <div class="bg-muted rounded-full p-4">
+              <FileJson class="text-muted-foreground h-8 w-8" />
             </div>
             <div>
-              <p class="text-sm font-medium mb-1">Drop your file here</p>
-              <p class="text-xs text-muted-foreground">or click to browse</p>
+              <p class="mb-1 text-sm font-medium">Drop your file here</p>
+              <p class="text-muted-foreground text-xs">or click to browse</p>
             </div>
           </button>
-          <p class="text-center text-xs text-muted-foreground">
+          <p class="text-muted-foreground text-center text-xs">
             Supports Aventuras prompt export files (.json)
           </p>
         </div>
@@ -294,87 +280,69 @@
         <div class="space-y-4" transition:fade={{ duration: 150 }}>
           <!-- Stats Summary -->
           {#if importStats}
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <div
-                class="p-3 rounded-lg bg-muted/50 text-center border border-border"
-              >
-                <div class="text-lg font-bold text-foreground">
+            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div class="bg-muted/50 border-border rounded-lg border p-3 text-center">
+                <div class="text-foreground text-lg font-bold">
                   {importStats.templateOverrides}
                 </div>
-                <div class="text-xs text-muted-foreground">Prompts</div>
+                <div class="text-muted-foreground text-xs">Prompts</div>
               </div>
-              <div
-                class="p-3 rounded-lg bg-muted/50 text-center border border-border"
-              >
-                <div class="text-lg font-bold text-foreground">
+              <div class="bg-muted/50 border-border rounded-lg border p-3 text-center">
+                <div class="text-foreground text-lg font-bold">
                   {importStats.customMacros}
                 </div>
-                <div class="text-xs text-muted-foreground">Macros</div>
+                <div class="text-muted-foreground text-xs">Macros</div>
               </div>
-              <div
-                class="p-3 rounded-lg bg-muted/50 text-center border border-border"
-              >
-                <div class="text-lg font-bold text-foreground">
+              <div class="bg-muted/50 border-border rounded-lg border p-3 text-center">
+                <div class="text-foreground text-lg font-bold">
                   {importStats.macroOverrides}
                 </div>
-                <div class="text-xs text-muted-foreground">Overrides</div>
+                <div class="text-muted-foreground text-xs">Overrides</div>
               </div>
-              <div
-                class="p-3 rounded-lg bg-muted/50 text-center border border-border"
-              >
-                <div class="text-lg font-bold text-foreground">
+              <div class="bg-muted/50 border-border rounded-lg border p-3 text-center">
+                <div class="text-foreground text-lg font-bold">
                   {importStats.presets}
                 </div>
-                <div class="text-xs text-muted-foreground">Presets</div>
+                <div class="text-muted-foreground text-xs">Presets</div>
               </div>
             </div>
           {/if}
 
           <!-- Presets Configuration -->
           <div>
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-medium text-muted-foreground">
-                Generation Presets
-              </h3>
+            <div class="mb-3 flex items-center justify-between">
+              <h3 class="text-muted-foreground text-sm font-medium">Generation Presets</h3>
             </div>
 
             <div class="space-y-3">
               {#each parseResult.data.generationPresets as preset (preset.id)}
                 {@const config = presetConfigs.get(preset.id)!}
                 {@const isExpanded = expandedPreset === preset.id}
-                {@const availableModels = getAvailableModelsForProfile(
-                  config.profileId,
-                )}
+                {@const availableModels = getAvailableModelsForProfile(config.profileId)}
 
                 <div
-                  class="rounded-lg border border-border bg-card text-card-foreground shadow-sm transition-all"
+                  class="border-border bg-card text-card-foreground rounded-lg border shadow-sm transition-all"
                 >
                   <!-- Preset Header -->
                   <button
-                    class="w-full px-4 py-3 flex flex-col gap-3 text-left hover:bg-muted/50 transition-colors rounded-t-lg {isExpanded
+                    class="hover:bg-muted/50 flex w-full flex-col gap-3 rounded-t-lg px-4 py-3 text-left transition-colors {isExpanded
                       ? ''
                       : 'rounded-b-lg'}"
                     onclick={() => togglePresetExpanded(preset.id)}
                   >
                     <!-- Header Row -->
-                    <div class="flex items-center gap-3 w-full min-w-0">
-                      <Sparkles class="h-4 w-4 text-primary flex-shrink-0" />
-                      <div
-                        class="flex-1 min-w-0 flex items-center gap-2 overflow-hidden"
-                      >
-                        <span class="text-sm font-medium truncate"
-                          >{preset.name}</span
-                        >
+                    <div class="flex w-full min-w-0 items-center gap-3">
+                      <Sparkles class="text-primary h-4 w-4 flex-shrink-0" />
+                      <div class="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+                        <span class="truncate text-sm font-medium">{preset.name}</span>
                         <span
-                          class="text-xs text-muted-foreground truncate border-l border-border pl-2"
+                          class="text-muted-foreground border-border truncate border-l pl-2 text-xs"
                         >
-                          Was: <span class="text-foreground"
-                            >{preset.model}</span
-                          >
+                          Was: <span class="text-foreground">{preset.model}</span>
                         </span>
                       </div>
                       <ChevronDown
-                        class="h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 {isExpanded
+                        class="text-muted-foreground h-4 w-4 flex-shrink-0 transition-transform {isExpanded
                           ? 'rotate-180'
                           : ''}"
                       />
@@ -382,39 +350,33 @@
 
                     <!-- Controls Row (Always visible now for easier access) -->
                     <div
-                      class="flex items-center gap-2 w-full"
+                      class="flex w-full items-center gap-2"
                       onclick={(e) => e.stopPropagation()}
                     >
                       <!-- Profile Select -->
-                      <div class="flex-1 min-w-0">
+                      <div class="min-w-0 flex-1">
                         <Select.Root
                           type="single"
                           value={config.profileId}
                           onValueChange={(v) => {
-                            if (!v) return;
-                            const models = getAvailableModelsForProfile(v);
-                            const newModel =
-                              models.length > 0
-                                ? models[0].value
-                                : config.model;
+                            if (!v) return
+                            const models = getAvailableModelsForProfile(v)
+                            const newModel = models.length > 0 ? models[0].value : config.model
                             updatePresetConfig(preset.id, {
                               profileId: v,
                               model: newModel,
-                            });
+                            })
                           }}
                         >
                           <Select.Trigger class="h-8 text-xs">
                             <span class="truncate">
-                              {availableProfiles.find(
-                                (p) => p.value === config.profileId,
-                              )?.label || "Select Profile"}
+                              {availableProfiles.find((p) => p.value === config.profileId)?.label ||
+                                'Select Profile'}
                             </span>
                           </Select.Trigger>
                           <Select.Content>
                             {#each availableProfiles as profile}
-                              <Select.Item
-                                value={profile.value}
-                                label={profile.label}
+                              <Select.Item value={profile.value} label={profile.label}
                                 >{profile.label}</Select.Item
                               >
                             {/each}
@@ -423,34 +385,30 @@
                       </div>
 
                       <!-- Model Select -->
-                      <div class="flex-1 min-w-0">
+                      <div class="min-w-0 flex-1">
                         <Select.Root
                           type="single"
                           value={config.model}
                           onValueChange={(v) => {
-                            if (v) updatePresetConfig(preset.id, { model: v });
+                            if (v) updatePresetConfig(preset.id, { model: v })
                           }}
                         >
                           <Select.Trigger class="h-8 text-xs">
                             <span class="truncate">
-                              {availableModels.find(
-                                (m) => m.value === config.model,
-                              )?.label ||
+                              {availableModels.find((m) => m.value === config.model)?.label ||
                                 config.model ||
-                                "Select Model"}
+                                'Select Model'}
                             </span>
                           </Select.Trigger>
                           <Select.Content>
                             {#if availableModels.length > 0}
                               {#each availableModels as model}
-                                <Select.Item
-                                  value={model.value}
-                                  label={model.label}>{model.label}</Select.Item
+                                <Select.Item value={model.value} label={model.label}
+                                  >{model.label}</Select.Item
                                 >
                               {/each}
                             {:else}
-                              <Select.Item value="nomodel" disabled
-                                >No models available</Select.Item
+                              <Select.Item value="nomodel" disabled>No models available</Select.Item
                               >
                             {/if}
                           </Select.Content>
@@ -462,15 +420,13 @@
                   <!-- Expanded Settings -->
                   {#if isExpanded}
                     <div
-                      class="px-4 pb-4 pt-2 border-t border-border"
+                      class="border-border border-t px-4 pt-2 pb-4"
                       transition:slide={{ duration: 200 }}
                     >
                       <div class="grid grid-cols-2 gap-4">
                         <!-- Temperature -->
                         <div class="space-y-1.5">
-                          <Label class="text-xs text-muted-foreground"
-                            >Temperature</Label
-                          >
+                          <Label class="text-muted-foreground text-xs">Temperature</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -480,17 +436,14 @@
                             value={config.temperature}
                             oninput={(e) =>
                               updatePresetConfig(preset.id, {
-                                temperature:
-                                  parseFloat(e.currentTarget.value) || 0,
+                                temperature: parseFloat(e.currentTarget.value) || 0,
                               })}
                           />
                         </div>
 
                         <!-- Max Tokens -->
                         <div class="space-y-1.5">
-                          <Label class="text-xs text-muted-foreground"
-                            >Max Tokens</Label
-                          >
+                          <Label class="text-muted-foreground text-xs">Max Tokens</Label>
                           <Input
                             type="number"
                             min="1"
@@ -505,15 +458,11 @@
 
                         <!-- Reasoning Effort -->
                         <div class="col-span-2 space-y-1.5">
-                          <Label class="text-xs text-muted-foreground"
-                            >Reasoning Effort</Label
-                          >
+                          <Label class="text-muted-foreground text-xs">Reasoning Effort</Label>
                           <div class="grid grid-cols-4 gap-2">
-                            {#each ["off", "low", "medium", "high"] as level}
+                            {#each ['off', 'low', 'medium', 'high'] as level}
                               <Button
-                                variant={config.reasoningEffort === level
-                                  ? "default"
-                                  : "outline"}
+                                variant={config.reasoningEffort === level ? 'default' : 'outline'}
                                 size="sm"
                                 class="h-7 text-xs capitalize"
                                 onclick={() =>
@@ -536,12 +485,11 @@
 
           <!-- Warning -->
           <Alert
-            class="border-amber-500/50 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20"
+            class="border-amber-500/50 bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400"
           >
             <AlertTriangle class="h-4 w-4 text-amber-500" />
             <AlertDescription class="text-xs">
-              Importing will <span class="font-bold">replace</span> all current prompts,
-              macros, and presets.
+              Importing will <span class="font-bold">replace</span> all current prompts, macros, and presets.
             </AlertDescription>
           </Alert>
         </div>
@@ -549,32 +497,26 @@
         <!-- Step 3: Success -->
       {:else if currentStep === 3}
         <div class="py-12 text-center" transition:fade={{ duration: 150 }}>
-          <div
-            class="inline-flex p-4 rounded-full bg-green-100 dark:bg-green-900/30 mb-4"
-          >
+          <div class="mb-4 inline-flex rounded-full bg-green-100 p-4 dark:bg-green-900/30">
             <Check class="h-10 w-10 text-green-600 dark:text-green-400" />
           </div>
-          <h3 class="text-xl font-semibold mb-2">Import Complete!</h3>
-          <p class="text-muted-foreground">
-            Your prompts have been imported successfully.
-          </p>
+          <h3 class="mb-2 text-xl font-semibold">Import Complete!</h3>
+          <p class="text-muted-foreground">Your prompts have been imported successfully.</p>
         </div>
       {/if}
     </div>
 
     <!-- Footer -->
     {#if currentStep !== 3}
-      <ResponsiveModal.Footer class="px-6 py-4 border-t border-border bg-muted/20">
+      <ResponsiveModal.Footer class="border-border bg-muted/20 border-t px-6 py-4">
         {#if currentStep === 1}
-          <Button variant="ghost" onclick={() => handleOpenChange(false)}>
-            Cancel
-          </Button>
+          <Button variant="ghost" onclick={() => handleOpenChange(false)}>Cancel</Button>
         {:else if currentStep === 2}
           <Button
             variant="ghost"
             onclick={() => {
-              currentStep = 1;
-              parseResult = null;
+              currentStep = 1
+              parseResult = null
             }}
           >
             Back

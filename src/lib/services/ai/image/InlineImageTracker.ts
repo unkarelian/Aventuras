@@ -14,44 +14,44 @@
  * 3. After entry is created, call flushToDatabase() to persist images
  */
 
-import { extractPicTags, type ParsedPicTag } from '$lib/utils/inlineImageParser';
-import { generateImage as sdkGenerateImage } from '$lib/services/ai/sdk/generate';
-import { PROVIDERS } from '$lib/services/ai/sdk/providers/config';
-import { database } from '$lib/services/database';
-import { promptService } from '$lib/services/prompts';
-import { settings } from '$lib/stores/settings.svelte';
-import { emitImageQueued, emitImageReady } from '$lib/services/events';
-import { normalizeImageDataUrl } from '$lib/utils/image';
-import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants';
-import { createLogger } from '../core/config';
-import type { Character, EmbeddedImage } from '$lib/types';
+import { extractPicTags, type ParsedPicTag } from '$lib/utils/inlineImageParser'
+import { generateImage as sdkGenerateImage } from '$lib/services/ai/sdk/generate'
+import { PROVIDERS } from '$lib/services/ai/sdk/providers/config'
+import { database } from '$lib/services/database'
+import { promptService } from '$lib/services/prompts'
+import { settings } from '$lib/stores/settings.svelte'
+import { emitImageQueued, emitImageReady } from '$lib/services/events'
+import { normalizeImageDataUrl } from '$lib/utils/image'
+import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants'
+import { createLogger } from '../core/config'
+import type { Character, EmbeddedImage } from '$lib/types'
 
-const log = createLogger('InlineImageTracker');
+const log = createLogger('InlineImageTracker')
 
 interface PendingImage {
-  id: string;
-  tag: ParsedPicTag;
-  prompt: string;
-  profileId: string;
-  model: string;
-  size: string;
-  referenceImageUrls?: string[];
+  id: string
+  tag: ParsedPicTag
+  prompt: string
+  profileId: string
+  model: string
+  size: string
+  referenceImageUrls?: string[]
   /** Promise that resolves to base64 image data or null on failure */
-  generationPromise: Promise<{ base64: string | null; error?: string }>;
+  generationPromise: Promise<{ base64: string | null; error?: string }>
 }
 
 export class InlineImageTracker {
   /** Set of original tag text that have already been processed */
-  private processedTags = new Set<string>();
+  private processedTags = new Set<string>()
   /** Pending image generations (results stored in memory until flushed) */
-  private pendingImages: PendingImage[] = [];
+  private pendingImages: PendingImage[] = []
 
   constructor(
     private storyId: string,
     private entryId: string,
-    private getCharacters: () => Character[]
+    private getCharacters: () => Character[],
   ) {
-    log('Tracker created', { storyId, entryId });
+    log('Tracker created', { storyId, entryId })
   }
 
   /**
@@ -59,21 +59,21 @@ export class InlineImageTracker {
    * Called on each streaming chunk with the full accumulated content.
    */
   processChunk(accumulatedContent: string): void {
-    const tags = extractPicTags(accumulatedContent);
+    const tags = extractPicTags(accumulatedContent)
 
     for (const tag of tags) {
       if (this.processedTags.has(tag.originalTag)) {
-        continue;
+        continue
       }
 
-      this.processedTags.add(tag.originalTag);
+      this.processedTags.add(tag.originalTag)
 
       log('New complete <pic> tag detected', {
         prompt: tag.prompt.slice(0, 50) + '...',
         characters: tag.characters,
-      });
+      })
 
-      this.startGeneration(tag);
+      this.startGeneration(tag)
     }
   }
 
@@ -82,59 +82,57 @@ export class InlineImageTracker {
    * the result in pendingImages for later DB persistence.
    */
   private startGeneration(tag: ParsedPicTag): void {
-    const imageSettings = settings.systemServicesSettings.imageGeneration;
-    if (!imageSettings?.enabled) return;
+    const imageSettings = settings.systemServicesSettings.imageGeneration
+    if (!imageSettings?.enabled) return
 
-    const imageId = crypto.randomUUID();
+    const imageId = crypto.randomUUID()
 
     // Determine profile and model
-    let profileId = imageSettings.profileId;
-    let modelToUse = imageSettings.model;
-    let referenceImageUrls: string[] | undefined;
+    let profileId = imageSettings.profileId
+    let modelToUse = imageSettings.model
+    let referenceImageUrls: string[] | undefined
 
     // Check for portrait mode with character references
     if (imageSettings.portraitMode && tag.characters.length > 0) {
-      const portraitUrls: string[] = [];
-      const characters = this.getCharacters();
+      const portraitUrls: string[] = []
+      const characters = this.getCharacters()
 
       for (const charName of tag.characters.slice(0, 3)) {
-        const character = characters.find(
-          c => c.name.toLowerCase() === charName.toLowerCase()
-        );
-        const portraitUrl = normalizeImageDataUrl(character?.portrait);
+        const character = characters.find((c) => c.name.toLowerCase() === charName.toLowerCase())
+        const portraitUrl = normalizeImageDataUrl(character?.portrait)
         if (portraitUrl) {
-          portraitUrls.push(portraitUrl);
+          portraitUrls.push(portraitUrl)
         }
       }
 
       if (portraitUrls.length > 0) {
-        profileId = imageSettings.referenceProfileId || imageSettings.profileId;
-        modelToUse = imageSettings.referenceModel || imageSettings.model;
-        referenceImageUrls = portraitUrls;
+        profileId = imageSettings.referenceProfileId || imageSettings.profileId
+        modelToUse = imageSettings.referenceModel || imageSettings.model
+        referenceImageUrls = portraitUrls
       }
     }
 
     if (!profileId) {
-      log('No image profile configured, skipping');
-      return;
+      log('No image profile configured, skipping')
+      return
     }
 
     // Check if provider supports image generation
-    const profile = settings.getProfile(profileId);
-    if (!profile) return;
-    const capabilities = PROVIDERS[profile.providerType].capabilities;
-    if (!capabilities?.imageGeneration) return;
+    const profile = settings.getProfile(profileId)
+    if (!profile) return
+    const capabilities = PROVIDERS[profile.providerType].capabilities
+    if (!capabilities?.imageGeneration) return
 
     // Build full prompt with style
-    const stylePrompt = this.getStylePrompt(imageSettings.styleId);
-    const fullPrompt = `${tag.prompt}. ${stylePrompt}`;
+    const stylePrompt = this.getStylePrompt(imageSettings.styleId)
+    const fullPrompt = `${tag.prompt}. ${stylePrompt}`
 
     log('Starting async image generation', {
       imageId,
       prompt: tag.prompt.slice(0, 50) + '...',
       profileId,
       model: modelToUse,
-    });
+    })
 
     // Start generation - store promise for later resolution
     const generationPromise = this.generateImage(
@@ -142,8 +140,8 @@ export class InlineImageTracker {
       modelToUse,
       fullPrompt,
       imageSettings.size,
-      referenceImageUrls
-    );
+      referenceImageUrls,
+    )
 
     this.pendingImages.push({
       id: imageId,
@@ -154,7 +152,7 @@ export class InlineImageTracker {
       size: imageSettings.size,
       referenceImageUrls,
       generationPromise,
-    });
+    })
   }
 
   /**
@@ -165,7 +163,7 @@ export class InlineImageTracker {
     model: string,
     prompt: string,
     size: string,
-    referenceImageUrls?: string[]
+    referenceImageUrls?: string[],
   ): Promise<{ base64: string | null; error?: string }> {
     try {
       const result = await sdkGenerateImage({
@@ -174,18 +172,18 @@ export class InlineImageTracker {
         prompt,
         size,
         referenceImages: referenceImageUrls,
-      });
+      })
 
       if (!result.base64) {
-        return { base64: null, error: 'No image data returned' };
+        return { base64: null, error: 'No image data returned' }
       }
 
-      log('Image generated successfully (in memory)');
-      return { base64: result.base64 };
+      log('Image generated successfully (in memory)')
+      return { base64: result.base64 }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log('Image generation failed', { error: errorMessage });
-      return { base64: null, error: errorMessage };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      log('Image generation failed', { error: errorMessage })
+      return { base64: null, error: errorMessage }
     }
   }
 
@@ -199,14 +197,14 @@ export class InlineImageTracker {
         pov: 'second' as const,
         tense: 'present' as const,
         protagonistName: '',
-      };
-      const customized = promptService.getPrompt(styleId, promptContext);
-      if (customized) return customized;
+      }
+      const customized = promptService.getPrompt(styleId, promptContext)
+      if (customized) return customized
     } catch {
       // Template not found
     }
 
-    return DEFAULT_FALLBACK_STYLE_PROMPT;
+    return DEFAULT_FALLBACK_STYLE_PROMPT
   }
 
   /**
@@ -216,18 +214,18 @@ export class InlineImageTracker {
    */
   async flushToDatabase(): Promise<void> {
     if (this.pendingImages.length === 0) {
-      log('No pending images to flush');
-      return;
+      log('No pending images to flush')
+      return
     }
 
-    log('Flushing pending images to database', { count: this.pendingImages.length });
+    log('Flushing pending images to database', { count: this.pendingImages.length })
 
-    const imageSettings = settings.systemServicesSettings.imageGeneration;
+    const imageSettings = settings.systemServicesSettings.imageGeneration
 
     for (const pending of this.pendingImages) {
       // Determine dimensions from size setting
-      const width = pending.size === '1024x1024' ? 1024 : (pending.size === '2048x2048' ? 2048 : 512);
-      const height = width;
+      const width = pending.size === '1024x1024' ? 1024 : pending.size === '2048x2048' ? 2048 : 512
+      const height = width
 
       // Create DB record immediately with 'generating' status
       const embeddedImage: Omit<EmbeddedImage, 'createdAt'> = {
@@ -243,42 +241,49 @@ export class InlineImageTracker {
         height,
         status: 'generating',
         generationMode: 'inline',
-      };
+      }
 
-      await database.createEmbeddedImage(embeddedImage);
-      emitImageQueued(pending.id, this.entryId);
+      await database.createEmbeddedImage(embeddedImage)
+      emitImageQueued(pending.id, this.entryId)
 
-      log('Image record created with generating status', { imageId: pending.id });
+      log('Image record created with generating status', { imageId: pending.id })
 
       // Update record when generation completes (non-blocking)
-      pending.generationPromise.then(async (result) => {
-        await database.updateEmbeddedImage(pending.id, {
-          imageData: result.base64 || '',
-          status: result.base64 ? 'complete' : 'failed',
-          errorMessage: result.error,
-        });
-        emitImageReady(pending.id, this.entryId, !!result.base64);
-        log('Image record updated', { imageId: pending.id, status: result.base64 ? 'complete' : 'failed' });
-      }).catch((error) => {
-        log('Failed to update image record', { imageId: pending.id, error });
-      });
+      pending.generationPromise
+        .then(async (result) => {
+          await database.updateEmbeddedImage(pending.id, {
+            imageData: result.base64 || '',
+            status: result.base64 ? 'complete' : 'failed',
+            errorMessage: result.error,
+          })
+          emitImageReady(pending.id, this.entryId, !!result.base64)
+          log('Image record updated', {
+            imageId: pending.id,
+            status: result.base64 ? 'complete' : 'failed',
+          })
+        })
+        .catch((error) => {
+          log('Failed to update image record', { imageId: pending.id, error })
+        })
     }
 
-    log('All pending images flushed (generation continues in background)', { count: this.pendingImages.length });
-    this.pendingImages = [];
+    log('All pending images flushed (generation continues in background)', {
+      count: this.pendingImages.length,
+    })
+    this.pendingImages = []
   }
 
   /**
    * Get count of processed tags.
    */
   get processedCount(): number {
-    return this.processedTags.size;
+    return this.processedTags.size
   }
 
   /**
    * Check if there are pending images being generated.
    */
   get hasPendingImages(): boolean {
-    return this.pendingImages.length > 0;
+    return this.pendingImages.length > 0
   }
 }

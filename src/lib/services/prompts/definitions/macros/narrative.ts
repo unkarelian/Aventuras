@@ -7,7 +7,7 @@
  * - primingMessage: Initial user message establishing narrator role
  */
 
-import type { ComplexMacro } from '../../types';
+import type { ComplexMacro } from '../../types'
 
 /**
  * Style instruction macro - provides POV and tense guidance
@@ -107,7 +107,7 @@ Refer to the protagonist as "{{protagonistName}}" or "they/them".
 Example: "{{protagonistName}} stepped forward..." or "They examined the door..."`,
     },
   ],
-};
+}
 
 /**
  * Response instruction macro - final rules for response format
@@ -217,7 +217,7 @@ STYLE:
 End at a natural narrative beat.`,
     },
   ],
-};
+}
 
 /**
  * Priming message macro - initial user message establishing narrator role
@@ -389,7 +389,7 @@ Your role:
 I am the author directing the story. Write what I ask for.`,
     },
   ],
-};
+}
 
 /**
  * Combined export for registration
@@ -398,4 +398,4 @@ export const narrativeMacros: ComplexMacro[] = [
   styleInstructionMacro,
   responseInstructionMacro,
   primingMessageMacro,
-];
+]

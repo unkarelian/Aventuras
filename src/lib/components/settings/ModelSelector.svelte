@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { settings } from "$lib/stores/settings.svelte";
+  import { settings } from '$lib/stores/settings.svelte'
   import {
     Server,
     Check,
@@ -8,30 +8,30 @@
     RefreshCw,
     Star,
     AlertTriangle,
-  } from "lucide-svelte";
-  import VirtualList from "@tutorlatin/svelte-tiny-virtual-list";
-  import * as Select from "$lib/components/ui/select";
-  import * as Command from "$lib/components/ui/command";
-  import * as Popover from "$lib/components/ui/popover";
-  import { Button } from "$lib/components/ui/button";
-  import { Label } from "$lib/components/ui/label";
-  import { cn } from "$lib/utils/cn";
+  } from 'lucide-svelte'
+  import VirtualList from '@tutorlatin/svelte-tiny-virtual-list'
+  import * as Select from '$lib/components/ui/select'
+  import * as Command from '$lib/components/ui/command'
+  import * as Popover from '$lib/components/ui/popover'
+  import { Button } from '$lib/components/ui/button'
+  import { Label } from '$lib/components/ui/label'
+  import { cn } from '$lib/utils/cn'
 
-  const ITEM_HEIGHT = 32;
-  const MAX_LIST_HEIGHT = 300;
+  const ITEM_HEIGHT = 32
+  const MAX_LIST_HEIGHT = 300
 
   interface Props {
-    profileId: string | null;
-    model: string;
-    onProfileChange: (profileId: string | null) => void;
-    onModelChange: (model: string) => void;
-    showProfileSelector?: boolean;
-    onManageProfiles?: () => void;
-    label?: string;
-    placeholder?: string;
-    class?: string;
-    onRefreshModels?: () => void;
-    isRefreshingModels?: boolean;
+    profileId: string | null
+    model: string
+    onProfileChange: (profileId: string | null) => void
+    onModelChange: (model: string) => void
+    showProfileSelector?: boolean
+    onManageProfiles?: () => void
+    label?: string
+    placeholder?: string
+    class?: string
+    onRefreshModels?: () => void
+    isRefreshingModels?: boolean
   }
 
   let {
@@ -41,97 +41,88 @@
     onModelChange,
     showProfileSelector = true,
     onManageProfiles,
-    label = "Model",
-    placeholder = "Select or type model...",
+    label = 'Model',
+    placeholder = 'Select or type model...',
     class: className,
     onRefreshModels,
     isRefreshingModels = false,
-  }: Props = $props();
+  }: Props = $props()
 
   // Local state for model search/input
-  let open = $state(false);
-  let inputValue = $state("");
+  let open = $state(false)
+  let inputValue = $state('')
 
   // Resolve the effective profile ID (with fallback to default)
-  let effectiveProfileId = $derived(
-    profileId || settings.getDefaultProfileIdForProvider(),
-  );
+  let effectiveProfileId = $derived(profileId || settings.getDefaultProfileIdForProvider())
 
   // Get available models for the selected profile (excluding hidden, favorites first)
-  let availableModels = $derived(settings.getAvailableModels(effectiveProfileId));
+  let availableModels = $derived(settings.getAvailableModels(effectiveProfileId))
 
   // Number of favorite models (for separator)
   let favoriteCount = $derived.by(() => {
-    if (!effectiveProfileId) return 0;
-    const profile = settings.getProfile(effectiveProfileId);
-    if (!profile) return 0;
-    const favSet = new Set(profile.favoriteModels ?? []);
-    const hidden = new Set(profile.hiddenModels ?? []);
-    return [...new Set([...profile.fetchedModels, ...profile.customModels])]
-      .filter((m) => !hidden.has(m) && favSet.has(m)).length;
-  });
+    if (!effectiveProfileId) return 0
+    const profile = settings.getProfile(effectiveProfileId)
+    if (!profile) return 0
+    const favSet = new Set(profile.favoriteModels ?? [])
+    const hidden = new Set(profile.hiddenModels ?? [])
+    return [...new Set([...profile.fetchedModels, ...profile.customModels])].filter(
+      (m) => !hidden.has(m) && favSet.has(m),
+    ).length
+  })
 
   // Check if currently selected model is missing from the profile
   let isModelMissing = $derived(
     model.length > 0 && availableModels.length > 0 && !availableModels.includes(model),
-  );
+  )
 
   // Filter models based on search input
   let filteredModels = $derived.by(() => {
-    if (!inputValue.trim()) return availableModels;
-    const search = inputValue.toLowerCase();
-    return availableModels.filter((m) => m.toLowerCase().includes(search));
-  });
+    if (!inputValue.trim()) return availableModels
+    const search = inputValue.toLowerCase()
+    return availableModels.filter((m) => m.toLowerCase().includes(search))
+  })
 
   // Check if input matches an existing model exactly
   let inputMatchesExisting = $derived(
     availableModels.some((m) => m.toLowerCase() === inputValue.toLowerCase()),
-  );
+  )
 
   // Should show "Use custom" option
-  let showCustomOption = $derived(
-    inputValue.length > 0 && !inputMatchesExisting,
-  );
+  let showCustomOption = $derived(inputValue.length > 0 && !inputMatchesExisting)
 
   // Total item count for virtual list
-  let totalItemCount = $derived(
-    filteredModels.length + (showCustomOption ? 1 : 0),
-  );
+  let totalItemCount = $derived(filteredModels.length + (showCustomOption ? 1 : 0))
 
   // Calculate list height (cap at MAX_LIST_HEIGHT)
-  let listHeight = $derived(
-    Math.min(totalItemCount * ITEM_HEIGHT, MAX_LIST_HEIGHT),
-  );
+  let listHeight = $derived(Math.min(totalItemCount * ITEM_HEIGHT, MAX_LIST_HEIGHT))
 
   // Get selected profile name
   let selectedProfileName = $derived.by(() => {
-    if (!profileId) return "Select Profile";
-    const profile = settings.getProfile(profileId);
-    return profile?.name || "Unknown";
-  });
+    if (!profileId) return 'Select Profile'
+    const profile = settings.getProfile(profileId)
+    return profile?.name || 'Unknown'
+  })
 
   // Create framework options for Select
   let profileOptions = $derived(
     settings.apiSettings.profiles.map((p) => ({
       value: p.id,
-      label:
-        p.name +
-        (settings.apiSettings.defaultProfileId === p.id ? " (Default)" : ""),
+      label: p.name + (settings.apiSettings.defaultProfileId === p.id ? ' (Default)' : ''),
     })),
-  );
+  )
 
   function handleSelectProfile(val: string) {
-    onProfileChange(val);
+    onProfileChange(val)
   }
 
   function handleSelectModel(modelName: string) {
-    onModelChange(modelName);
-    open = false;
-    inputValue = "";
+    onModelChange(modelName)
+    open = false
+    inputValue = ''
   }
 </script>
 
-<div class={cn("grid gap-4", className)}>
+<div class={cn('grid gap-4', className)}>
   {#if showProfileSelector}
     <div class="grid gap-2">
       <Label>API Profile</Label>
@@ -172,13 +163,11 @@
         <Button
           variant="text"
           size="sm"
-          class="h-auto p-0 text-xs text-muted-foreground hover:text-primary no-underline"
+          class="text-muted-foreground hover:text-primary h-auto p-0 text-xs no-underline"
           onclick={onRefreshModels}
           disabled={isRefreshingModels}
         >
-          <RefreshCw
-            class={cn("h-3 w-3 mr-1", isRefreshingModels && "animate-spin")}
-          />
+          <RefreshCw class={cn('mr-1 h-3 w-3', isRefreshingModels && 'animate-spin')} />
           Refresh
         </Button>
       {/if}
@@ -205,10 +194,7 @@
       </Popover.Trigger>
       <Popover.Content class="w-[var(--bits-popover-anchor-width)] p-0">
         <Command.Root shouldFilter={false}>
-          <Command.Input
-            bind:value={inputValue}
-            placeholder="Search or type model..."
-          />
+          <Command.Input bind:value={inputValue} placeholder="Search or type model..." />
           <Command.List>
             {#if totalItemCount === 0}
               <Command.Empty>No models found.</Command.Empty>
@@ -244,10 +230,8 @@
                             {:else}
                               <Check
                                 class={cn(
-                                  "mr-2 h-4 w-4",
-                                  model === modelOption
-                                    ? "opacity-100"
-                                    : "opacity-0",
+                                  'mr-2 h-4 w-4',
+                                  model === modelOption ? 'opacity-100' : 'opacity-0',
                                 )}
                               />
                             {/if}
@@ -265,11 +249,9 @@
       </Popover.Content>
     </Popover.Root>
     {#if isModelMissing}
-      <p class="text-[0.8rem] text-yellow-500">
-        Model not found in this profile's model list.
-      </p>
+      <p class="text-[0.8rem] text-yellow-500">Model not found in this profile's model list.</p>
     {:else if availableModels.length === 0}
-      <p class="text-[0.8rem] text-muted-foreground">
+      <p class="text-muted-foreground text-[0.8rem]">
         No models available. Add models to the profile.
       </p>
     {/if}

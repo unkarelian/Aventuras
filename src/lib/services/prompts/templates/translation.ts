@@ -5,7 +5,7 @@
  * and UI elements between languages.
  */
 
-import type { PromptTemplate } from '../types';
+import type { PromptTemplate } from '../types'
 
 /**
  * Translate Narration prompt template
@@ -29,7 +29,7 @@ Rules:
 
 Respond with ONLY the translated text, no explanations or notes.`,
   userContent: `{{content}}`,
-};
+}
 
 /**
  * Translate User Input prompt template
@@ -50,7 +50,7 @@ Rules:
 
 Respond with ONLY the English translation, no explanations.`,
   userContent: `{{content}}`,
-};
+}
 
 /**
  * Translate UI Elements prompt template
@@ -68,7 +68,7 @@ Translate each item in the JSON array below. For each item:
 - Keep "id" unchanged
 - Preserve proper nouns and character names`,
   userContent: `{{elementsJson}}`,
-};
+}
 
 /**
  * Translate Suggestions prompt template
@@ -87,7 +87,7 @@ Translate the JSON array of suggestions below. For each item:
 - Preserve character names and proper nouns
 - Maintain the tone and creative intent`,
   userContent: `{{suggestionsJson}}`,
-};
+}
 
 /**
  * Translate Action Choices prompt template
@@ -106,7 +106,7 @@ Translate the JSON array of action choices below. For each item:
 - Preserve character names and proper nouns
 - Match the tone and style (casual, urgent, dramatic, etc.)`,
   userContent: `{{choicesJson}}`,
-};
+}
 
 /**
  * Translate Wizard Content prompt template
@@ -133,7 +133,7 @@ Rules:
 
 Respond with ONLY the translated text, no explanations.`,
   userContent: `{{content}}`,
-};
+}
 
 /**
  * Translation templates array for registration
@@ -145,4 +145,4 @@ export const translationTemplates: PromptTemplate[] = [
   translateSuggestionsTemplate,
   translateActionChoicesTemplate,
   translateWizardContentTemplate,
-];
+]

@@ -5,7 +5,7 @@
  * These are used with ToolLoopAgent's stopWhen parameter.
  */
 
-import type { StopCondition, ToolSet } from 'ai';
+import type { StopCondition, ToolSet } from 'ai'
 
 /**
  * Stop when a specific terminal tool is called.
@@ -16,29 +16,29 @@ import type { StopCondition, ToolSet } from 'ai';
  */
 export function stopOnTerminalTool<TTools extends ToolSet = ToolSet>(
   toolName: string,
-  maxSteps: number = 10
+  maxSteps: number = 10,
 ): StopCondition<TTools> {
   return ({ steps }) => {
     // Check step limit first
     if (steps.length >= maxSteps) {
-      return true;
+      return true
     }
 
     // Check if the terminal tool was called in the most recent step
-    const lastStep = steps[steps.length - 1];
+    const lastStep = steps[steps.length - 1]
     if (!lastStep) {
-      return false;
+      return false
     }
 
     // Check for tool calls in the last step
-    const toolCalls = lastStep.toolCalls;
+    const toolCalls = lastStep.toolCalls
     if (!toolCalls || toolCalls.length === 0) {
-      return false;
+      return false
     }
 
     // Stop if the terminal tool was called
-    return toolCalls.some(tc => tc.toolName === toolName);
-  };
+    return toolCalls.some((tc) => tc.toolName === toolName)
+  }
 }
 
 /**
@@ -50,29 +50,29 @@ export function stopOnTerminalTool<TTools extends ToolSet = ToolSet>(
  */
 export function stopOnAnyToolCall<TTools extends ToolSet = ToolSet>(
   toolNames: string[],
-  maxSteps: number = 10
+  maxSteps: number = 10,
 ): StopCondition<TTools> {
-  const toolSet = new Set(toolNames);
+  const toolSet = new Set(toolNames)
 
   return ({ steps }) => {
     // Check step limit first
     if (steps.length >= maxSteps) {
-      return true;
+      return true
     }
 
     // Check if any terminal tool was called in the most recent step
-    const lastStep = steps[steps.length - 1];
+    const lastStep = steps[steps.length - 1]
     if (!lastStep) {
-      return false;
+      return false
     }
 
-    const toolCalls = lastStep.toolCalls;
+    const toolCalls = lastStep.toolCalls
     if (!toolCalls || toolCalls.length === 0) {
-      return false;
+      return false
     }
 
-    return toolCalls.some(tc => toolSet.has(tc.toolName));
-  };
+    return toolCalls.some((tc) => toolSet.has(tc.toolName))
+  }
 }
 
 /**
@@ -84,7 +84,7 @@ export function stopOnAnyToolCall<TTools extends ToolSet = ToolSet>(
 export function stopOnAny<TTools extends ToolSet = ToolSet>(
   ...conditions: StopCondition<TTools>[]
 ): StopCondition<TTools> {
-  return (context) => conditions.some(condition => condition(context));
+  return (context) => conditions.some((condition) => condition(context))
 }
 
 /**
@@ -95,24 +95,24 @@ export function stopOnAny<TTools extends ToolSet = ToolSet>(
  * @param maxSteps - Maximum steps before forced stop (default: 50)
  */
 export function stopWhenDone<TTools extends ToolSet = ToolSet>(
-  maxSteps: number = 50
+  maxSteps: number = 50,
 ): StopCondition<TTools> {
   return ({ steps }) => {
     // Check step limit first (safety)
     if (steps.length >= maxSteps) {
-      return true;
+      return true
     }
 
     // If no steps yet, continue
-    const lastStep = steps[steps.length - 1];
+    const lastStep = steps[steps.length - 1]
     if (!lastStep) {
-      return false;
+      return false
     }
 
     // Stop if the last step had no tool calls (model is done)
-    const toolCalls = lastStep.toolCalls;
-    return !toolCalls || toolCalls.length === 0;
-  };
+    const toolCalls = lastStep.toolCalls
+    return !toolCalls || toolCalls.length === 0
+  }
 }
 
 /**
@@ -126,7 +126,7 @@ export function stopWhenDone<TTools extends ToolSet = ToolSet>(
 export function stopOnCostExceeded<TTools extends ToolSet = ToolSet>(
   maxCostUsd: number,
   inputCostPer1k: number = 0.01,
-  outputCostPer1k: number = 0.03
+  outputCostPer1k: number = 0.03,
 ): StopCondition<TTools> {
   return ({ steps }) => {
     const totalUsage = steps.reduce(
@@ -134,12 +134,12 @@ export function stopOnCostExceeded<TTools extends ToolSet = ToolSet>(
         inputTokens: acc.inputTokens + (step.usage?.inputTokens ?? 0),
         outputTokens: acc.outputTokens + (step.usage?.outputTokens ?? 0),
       }),
-      { inputTokens: 0, outputTokens: 0 }
-    );
+      { inputTokens: 0, outputTokens: 0 },
+    )
 
     const costEstimate =
-      (totalUsage.inputTokens * inputCostPer1k + totalUsage.outputTokens * outputCostPer1k) / 1000;
+      (totalUsage.inputTokens * inputCostPer1k + totalUsage.outputTokens * outputCostPer1k) / 1000
 
-    return costEstimate > maxCostUsd;
-  };
+    return costEstimate > maxCostUsd
+  }
 }

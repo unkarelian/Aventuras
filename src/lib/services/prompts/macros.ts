@@ -5,7 +5,7 @@
  * Supports simple text substitution and complex conditional variants.
  */
 
-import { BUILTIN_MACROS } from './definitions';
+import { BUILTIN_MACROS } from './definitions'
 import type {
   Macro,
   SimpleMacro,
@@ -14,43 +14,43 @@ import type {
   PromptContext,
   MacroOverride,
   VariantKey,
-} from './types';
-import { settings } from '$lib/stores/settings.svelte';
-import { getLanguageDisplayName } from '$lib/services/ai/utils/TranslationService';
+} from './types'
+import { settings } from '$lib/stores/settings.svelte'
+import { getLanguageDisplayName } from '$lib/services/ai/utils/TranslationService'
 
 /**
  * Macro expansion engine
  * Resolves macro tokens to their values based on context and overrides.
  */
 export class MacroEngine {
-  private builtinMacros: Map<string, Macro>;
-  private customMacros: Map<string, Macro> = new Map();
-  private globalOverrides: MacroOverride[] = [];
+  private builtinMacros: Map<string, Macro>
+  private customMacros: Map<string, Macro> = new Map()
+  private globalOverrides: MacroOverride[] = []
 
   constructor() {
     // Index builtin macros by token
-    this.builtinMacros = new Map(BUILTIN_MACROS.map(m => [m.token, m]));
+    this.builtinMacros = new Map(BUILTIN_MACROS.map((m) => [m.token, m]))
   }
 
   /**
    * Register custom macros (user-created)
    */
   setCustomMacros(macros: Macro[]): void {
-    this.customMacros = new Map(macros.map(m => [m.token, m]));
+    this.customMacros = new Map(macros.map((m) => [m.token, m]))
   }
 
   /**
    * Register global overrides for macro values
    */
   setGlobalOverrides(overrides: MacroOverride[]): void {
-    this.globalOverrides = overrides;
+    this.globalOverrides = overrides
   }
 
   /**
    * Remove a global override for a specific macro
    */
   removeGlobalOverride(macroId: string): void {
-    this.globalOverrides = this.globalOverrides.filter(o => o.macroId !== macroId);
+    this.globalOverrides = this.globalOverrides.filter((o) => o.macroId !== macroId)
   }
 
   /**
@@ -58,24 +58,21 @@ export class MacroEngine {
    * Used for persistence/export.
    */
   getGlobalOverrides(): MacroOverride[] {
-    return [...this.globalOverrides];
+    return [...this.globalOverrides]
   }
 
   /**
    * Get all available macros (builtin + custom)
    */
   getAllMacros(): Macro[] {
-    return [
-      ...Array.from(this.builtinMacros.values()),
-      ...Array.from(this.customMacros.values()),
-    ];
+    return [...Array.from(this.builtinMacros.values()), ...Array.from(this.customMacros.values())]
   }
 
   /**
    * Get a macro by its token
    */
   getMacro(token: string): Macro | undefined {
-    return this.builtinMacros.get(token) ?? this.customMacros.get(token);
+    return this.builtinMacros.get(token) ?? this.customMacros.get(token)
   }
 
   /**
@@ -86,25 +83,21 @@ export class MacroEngine {
    * @param storyOverrides - Story-specific overrides (take precedence over global)
    * @returns The resolved macro value, or the original {{token}} if not found
    */
-  resolve(
-    token: string,
-    context: PromptContext,
-    storyOverrides?: MacroOverride[]
-  ): string {
-    const macro = this.getMacro(token);
+  resolve(token: string, context: PromptContext, storyOverrides?: MacroOverride[]): string {
+    const macro = this.getMacro(token)
 
     // Unknown macro - check custom values in context, otherwise leave as-is
     if (!macro) {
       if (context.customValues && token in context.customValues) {
-        return context.customValues[token];
+        return context.customValues[token]
       }
-      return `{{${token}}}`;
+      return `{{${token}}}`
     }
 
     if (macro.type === 'simple') {
-      return this.resolveSimple(macro, context, storyOverrides);
+      return this.resolveSimple(macro, context, storyOverrides)
     } else {
-      return this.resolveComplex(macro, context, storyOverrides);
+      return this.resolveComplex(macro, context, storyOverrides)
     }
   }
 
@@ -121,26 +114,26 @@ export class MacroEngine {
     prompt: string,
     context: PromptContext,
     storyOverrides?: MacroOverride[],
-    maxDepth: number = 5
+    maxDepth: number = 5,
   ): string {
     // Clamp maxDepth to valid range to prevent issues with invalid input
-    const safeDepth = Math.max(0, Math.min(maxDepth, 10));
+    const safeDepth = Math.max(0, Math.min(maxDepth, 10))
     if (safeDepth <= 0) {
       // Prevent infinite recursion
-      return prompt;
+      return prompt
     }
 
     // Use a fresh regex literal in replace to avoid stateful global regex issues
     let expanded = prompt.replace(/\{\{(\w+)\}\}/g, (_match, token) => {
-      return this.resolve(token, context, storyOverrides);
-    });
+      return this.resolve(token, context, storyOverrides)
+    })
 
     // Check if any macros remain (nested expansion) - use fresh regex to avoid state issues
     if (/\{\{(\w+)\}\}/.test(expanded)) {
-      expanded = this.expand(expanded, context, storyOverrides, safeDepth - 1);
+      expanded = this.expand(expanded, context, storyOverrides, safeDepth - 1)
     }
 
-    return expanded;
+    return expanded
   }
 
   /**
@@ -150,17 +143,17 @@ export class MacroEngine {
    * @returns Array of macro tokens found (without {{ }})
    */
   findMacros(prompt: string): string[] {
-    const macroPattern = /\{\{(\w+)\}\}/g;
-    const tokens: string[] = [];
-    let match;
+    const macroPattern = /\{\{(\w+)\}\}/g
+    const tokens: string[] = []
+    let match
 
     while ((match = macroPattern.exec(prompt)) !== null) {
       if (!tokens.includes(match[1])) {
-        tokens.push(match[1]);
+        tokens.push(match[1])
       }
     }
 
-    return tokens;
+    return tokens
   }
 
   /**
@@ -170,19 +163,19 @@ export class MacroEngine {
    * @returns Array of { token, start, end } positions
    */
   getMacroPositions(prompt: string): Array<{ token: string; start: number; end: number }> {
-    const macroPattern = /\{\{(\w+)\}\}/g;
-    const positions: Array<{ token: string; start: number; end: number }> = [];
-    let match;
+    const macroPattern = /\{\{(\w+)\}\}/g
+    const positions: Array<{ token: string; start: number; end: number }> = []
+    let match
 
     while ((match = macroPattern.exec(prompt)) !== null) {
       positions.push({
         token: match[1],
         start: match.index,
         end: match.index + match[0].length,
-      });
+      })
     }
 
-    return positions;
+    return positions
   }
 
   /**
@@ -191,71 +184,77 @@ export class MacroEngine {
   private resolveSimple(
     macro: SimpleMacro,
     context: PromptContext,
-    storyOverrides?: MacroOverride[]
+    storyOverrides?: MacroOverride[],
   ): string {
     // Check story overrides first (highest priority)
-    const storyOverride = this.findOverride(macro.id, storyOverrides);
+    const storyOverride = this.findOverride(macro.id, storyOverrides)
     if (storyOverride?.value !== undefined) {
-      return storyOverride.value;
+      return storyOverride.value
     }
 
     // Check global overrides
-    const globalOverride = this.findOverride(macro.id, this.globalOverrides);
+    const globalOverride = this.findOverride(macro.id, this.globalOverrides)
     if (globalOverride?.value !== undefined) {
-      return globalOverride.value;
+      return globalOverride.value
     }
 
     // Dynamic resolution from context
     if (macro.dynamic) {
       switch (macro.token) {
         case 'protagonistName':
-          return context.protagonistName || macro.defaultValue;
+          return context.protagonistName || macro.defaultValue
         case 'currentLocation':
-          return context.currentLocation || macro.defaultValue;
+          return context.currentLocation || macro.defaultValue
         case 'storyTime':
-          return context.storyTime || macro.defaultValue;
+          return context.storyTime || macro.defaultValue
         case 'genre':
-          return context.genre || macro.defaultValue;
+          return context.genre || macro.defaultValue
         case 'tone':
-          return context.tone || macro.defaultValue;
+          return context.tone || macro.defaultValue
         case 'settingDescription':
-          return context.settingDescription || macro.defaultValue;
+          return context.settingDescription || macro.defaultValue
         case 'themes':
-          return context.themes?.join(', ') || macro.defaultValue;
+          return context.themes?.join(', ') || macro.defaultValue
         case 'storyContextBlock':
-          return this.buildStoryContextBlock(context);
+          return this.buildStoryContextBlock(context)
         case 'visualProseBlock':
           // Resolve to visual prose instructions if mode is enabled, empty otherwise
           if (context.visualProseMode) {
-            return this.resolve('visualProseInstructions', context, storyOverrides);
+            return this.resolve('visualProseInstructions', context, storyOverrides)
           }
-          return '';
+          return ''
         case 'inlineImageBlock':
           // Resolve to inline image instructions if mode is enabled, empty otherwise
           if (context.inlineImageMode) {
-            return this.resolve('inlineImageInstructions', context, storyOverrides);
+            return this.resolve('inlineImageInstructions', context, storyOverrides)
           }
-          return '';
+          return ''
         case 'targetLanguage':
           // Derive from translation settings
-          if (settings.translationSettings?.enabled && settings.translationSettings?.targetLanguage) {
-            return getLanguageDisplayName(settings.translationSettings.targetLanguage);
+          if (
+            settings.translationSettings?.enabled &&
+            settings.translationSettings?.targetLanguage
+          ) {
+            return getLanguageDisplayName(settings.translationSettings.targetLanguage)
           }
-          return macro.defaultValue;
+          return macro.defaultValue
         case 'sourceLanguage':
           // Derive from translation settings
-          if (settings.translationSettings?.enabled && settings.translationSettings?.sourceLanguage) {
-            const code = settings.translationSettings.sourceLanguage;
-            return code === 'auto' ? 'the detected language' : getLanguageDisplayName(code);
+          if (
+            settings.translationSettings?.enabled &&
+            settings.translationSettings?.sourceLanguage
+          ) {
+            const code = settings.translationSettings.sourceLanguage
+            return code === 'auto' ? 'the detected language' : getLanguageDisplayName(code)
           }
-          return macro.defaultValue;
+          return macro.defaultValue
         default:
           // Unknown dynamic macro, fall through to default
-          break;
+          break
       }
     }
 
-    return macro.defaultValue;
+    return macro.defaultValue
   }
 
   /**
@@ -263,26 +262,26 @@ export class MacroEngine {
    * Only includes sections that have values.
    */
   private buildStoryContextBlock(context: PromptContext): string {
-    const lines: string[] = [];
+    const lines: string[] = []
 
     if (context.genre) {
-      lines.push(`- Genre: ${context.genre}`);
+      lines.push(`- Genre: ${context.genre}`)
     }
     if (context.tone) {
-      lines.push(`- Tone: ${context.tone}`);
+      lines.push(`- Tone: ${context.tone}`)
     }
     if (context.settingDescription) {
-      lines.push(`- Setting: ${context.settingDescription}`);
+      lines.push(`- Setting: ${context.settingDescription}`)
     }
     if (context.themes && context.themes.length > 0) {
-      lines.push(`- Themes: ${context.themes.join(', ')}`);
+      lines.push(`- Themes: ${context.themes.join(', ')}`)
     }
 
     if (lines.length === 0) {
-      return '';
+      return ''
     }
 
-    return `# Story Context\n${lines.join('\n')}`;
+    return `# Story Context\n${lines.join('\n')}`
   }
 
   /**
@@ -291,53 +290,50 @@ export class MacroEngine {
   private resolveComplex(
     macro: ComplexMacro,
     context: PromptContext,
-    storyOverrides?: MacroOverride[]
+    storyOverrides?: MacroOverride[],
   ): string {
     // Check story overrides first
-    const storyOverride = this.findOverride(macro.id, storyOverrides);
+    const storyOverride = this.findOverride(macro.id, storyOverrides)
     if (storyOverride?.variantOverrides) {
       const overrideVariant = this.findBestVariant(
         storyOverride.variantOverrides,
         context,
-        macro.variesBy
-      );
+        macro.variesBy,
+      )
       if (overrideVariant) {
-        return overrideVariant.content;
+        return overrideVariant.content
       }
     }
 
     // Check global overrides
-    const globalOverride = this.findOverride(macro.id, this.globalOverrides);
+    const globalOverride = this.findOverride(macro.id, this.globalOverrides)
     if (globalOverride?.variantOverrides) {
       const overrideVariant = this.findBestVariant(
         globalOverride.variantOverrides,
         context,
-        macro.variesBy
-      );
+        macro.variesBy,
+      )
       if (overrideVariant) {
-        return overrideVariant.content;
+        return overrideVariant.content
       }
     }
 
     // Use builtin variants
-    const variant = this.findBestVariant(macro.variants, context, macro.variesBy);
+    const variant = this.findBestVariant(macro.variants, context, macro.variesBy)
     if (variant) {
-      return variant.content;
+      return variant.content
     }
 
     // Fallback
-    return macro.fallbackContent || '';
+    return macro.fallbackContent || ''
   }
 
   /**
    * Find an override by macro ID
    */
-  private findOverride(
-    macroId: string,
-    overrides?: MacroOverride[]
-  ): MacroOverride | undefined {
-    if (!overrides) return undefined;
-    return overrides.find(o => o.macroId === macroId);
+  private findOverride(macroId: string, overrides?: MacroOverride[]): MacroOverride | undefined {
+    if (!overrides) return undefined
+    return overrides.find((o) => o.macroId === macroId)
   }
 
   /**
@@ -353,21 +349,21 @@ export class MacroEngine {
   private findBestVariant(
     variants: MacroVariant[],
     context: PromptContext,
-    variesBy: ComplexMacro['variesBy']
+    variesBy: ComplexMacro['variesBy'],
   ): MacroVariant | undefined {
-    let bestVariant: MacroVariant | undefined;
-    let bestScore = -Infinity;
+    let bestVariant: MacroVariant | undefined
+    let bestScore = -Infinity
 
     for (const variant of variants) {
-      const score = this.scoreVariant(variant.key, context, variesBy);
+      const score = this.scoreVariant(variant.key, context, variesBy)
       if (score > bestScore) {
-        bestScore = score;
-        bestVariant = variant;
+        bestScore = score
+        bestVariant = variant
       }
     }
 
     // Only return if we found a non-disqualified variant
-    return bestScore >= 0 ? bestVariant : undefined;
+    return bestScore >= 0 ? bestVariant : undefined
   }
 
   /**
@@ -376,46 +372,46 @@ export class MacroEngine {
   private scoreVariant(
     key: VariantKey,
     context: PromptContext,
-    variesBy: ComplexMacro['variesBy']
+    variesBy: ComplexMacro['variesBy'],
   ): number {
-    let score = 0;
+    let score = 0
 
     // Mode dimension
     if (variesBy.mode) {
       if (key.mode === undefined) {
-        score += 1; // Wildcard
+        score += 1 // Wildcard
       } else if (key.mode === context.mode) {
-        score += 2; // Exact match
+        score += 2 // Exact match
       } else {
-        score -= 10; // Mismatch
+        score -= 10 // Mismatch
       }
     }
 
     // POV dimension
     if (variesBy.pov) {
       if (key.pov === undefined) {
-        score += 1; // Wildcard
+        score += 1 // Wildcard
       } else if (key.pov === context.pov) {
-        score += 2; // Exact match
+        score += 2 // Exact match
       } else {
-        score -= 10; // Mismatch
+        score -= 10 // Mismatch
       }
     }
 
     // Tense dimension
     if (variesBy.tense) {
       if (key.tense === undefined) {
-        score += 1; // Wildcard
+        score += 1 // Wildcard
       } else if (key.tense === context.tense) {
-        score += 2; // Exact match
+        score += 2 // Exact match
       } else {
-        score -= 10; // Mismatch
+        score -= 10 // Mismatch
       }
     }
 
-    return score;
+    return score
   }
 }
 
 // Singleton instance
-export const macroEngine = new MacroEngine();
+export const macroEngine = new MacroEngine()

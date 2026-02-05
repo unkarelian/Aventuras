@@ -10,7 +10,7 @@
  * placeholders are filled programmatically with runtime data.
  */
 
-import type { ContextPlaceholder } from '../../types';
+import type { ContextPlaceholder } from '../../types'
 
 /**
  * All context placeholders that can appear in prompt templates.
@@ -542,16 +542,14 @@ export const CONTEXT_PLACEHOLDERS: ContextPlaceholder[] = [
     name: 'Entries JSON',
     token: 'entriesJson',
     category: 'service',
-    description:
-      'JSON array of lorebook entries to classify (with index, name, content, keywords)',
+    description: 'JSON array of lorebook entries to classify (with index, name, content, keywords)',
   },
   {
     id: 'style-guidance',
     name: 'Style Guidance',
     token: 'styleGuidance',
     category: 'service',
-    description:
-      "Instructions for matching the user's writing style based on their recent actions",
+    description: "Instructions for matching the user's writing style based on their recent actions",
   },
   {
     id: 'npcs-present',
@@ -697,11 +695,11 @@ export const CONTEXT_PLACEHOLDERS: ContextPlaceholder[] = [
     description:
       'SillyTavern placeholder for the human user - used in character card import instructions',
   },
-];
+]
 
 /**
  * Get a context placeholder by its token
  */
 export function getPlaceholderByToken(token: string): ContextPlaceholder | undefined {
-  return CONTEXT_PLACEHOLDERS.find((p) => p.token === token);
+  return CONTEXT_PLACEHOLDERS.find((p) => p.token === token)
 }

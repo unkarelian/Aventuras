@@ -11,7 +11,7 @@
  * - sourceLanguage: Source language for translation
  */
 
-import type { SimpleMacro } from '../../types';
+import type { SimpleMacro } from '../../types'
 
 /**
  * Visual Prose instructions macro - HTML/CSS creative instructions
@@ -74,7 +74,7 @@ Example structure:
 
 Create atmospheric layouts, styled dialogue, themed visual elements. Match visual style to genre and mood.
 </VisualProse>`,
-};
+}
 
 /**
  * Inline Image instructions macro - <pic> tag instructions
@@ -119,7 +119,7 @@ Elena drew her blade, firelight dancing along the steel edge as she faced the cr
 - Do not use <pic> for every scene - reserve for truly striking visual moments
 - Keep prompts between 50-150 words for best results
 </InlineImages>`,
-};
+}
 
 /**
  * Visual Prose block macro - auto-resolved based on visualProseMode in context
@@ -135,7 +135,7 @@ export const visualProseBlockMacro: SimpleMacro = {
   description:
     'Visual Prose instructions - auto-resolved based on visualProseMode in context (empty if disabled)',
   defaultValue: '',
-};
+}
 
 /**
  * Inline Image block macro - auto-resolved based on inlineImageMode in context
@@ -151,7 +151,7 @@ export const inlineImageBlockMacro: SimpleMacro = {
   description:
     'Inline image instructions - auto-resolved based on inlineImageMode in context (empty if disabled)',
   defaultValue: '',
-};
+}
 
 /**
  * Response length macro - target word count for AI responses
@@ -165,7 +165,7 @@ export const responseLengthMacro: SimpleMacro = {
   dynamic: false,
   description: 'Target word count for AI responses',
   defaultValue: '500',
-};
+}
 
 /**
  * Target language macro - for translation services
@@ -179,7 +179,7 @@ export const targetLanguageMacro: SimpleMacro = {
   dynamic: true,
   description: 'The target language for translation (e.g., Spanish, French)',
   defaultValue: 'English',
-};
+}
 
 /**
  * Source language macro - for translation services
@@ -193,7 +193,7 @@ export const sourceLanguageMacro: SimpleMacro = {
   dynamic: true,
   description: 'The source language for translation',
   defaultValue: 'auto-detect',
-};
+}
 
 /**
  * Combined export for registration
@@ -206,4 +206,4 @@ export const featureMacros: SimpleMacro[] = [
   responseLengthMacro,
   targetLanguageMacro,
   sourceLanguageMacro,
-];
+]

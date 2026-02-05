@@ -1,19 +1,16 @@
-import type { VaultScenario, VaultScenarioSource, VaultScenarioNpc } from '$lib/types';
-import type { CardImportResult } from '$lib/services/characterCardImporter';
-import { database } from '$lib/services/database';
-import { discoveryService, type DiscoveryCard } from '$lib/services/discovery';
-import {
-  readCharacterCardFile,
-  convertCardToScenario,
-} from '$lib/services/characterCardImporter';
-import type { Genre } from '$lib/services/ai/wizard/ScenarioService';
-import { ui } from './ui.svelte';
+import type { VaultScenario, VaultScenarioSource, VaultScenarioNpc } from '$lib/types'
+import type { CardImportResult } from '$lib/services/characterCardImporter'
+import { database } from '$lib/services/database'
+import { discoveryService, type DiscoveryCard } from '$lib/services/discovery'
+import { readCharacterCardFile, convertCardToScenario } from '$lib/services/characterCardImporter'
+import type { Genre } from '$lib/services/ai/wizard/ScenarioService'
+import { ui } from './ui.svelte'
 
-const DEBUG = true;
+const DEBUG = true
 
 function log(...args: any[]) {
   if (DEBUG) {
-    console.log('[ScenarioVault]', ...args);
+    console.log('[ScenarioVault]', ...args)
   }
 }
 
@@ -22,70 +19,70 @@ function log(...args: any[]) {
  * Scenarios are extracted from character cards and can be loaded in the wizard.
  */
 class ScenarioVaultStore {
-  scenarios = $state<VaultScenario[]>([]);
-  isLoaded = $state(false);
+  scenarios = $state<VaultScenario[]>([])
+  isLoaded = $state(false)
 
   get favorites(): VaultScenario[] {
-    return this.scenarios.filter(s => s.favorite);
+    return this.scenarios.filter((s) => s.favorite)
   }
 
   async load(): Promise<void> {
     try {
-      this.scenarios = await database.getVaultScenarios();
-      this.isLoaded = true;
-      log('Loaded', this.scenarios.length, 'vault scenarios');
+      this.scenarios = await database.getVaultScenarios()
+      this.isLoaded = true
+      log('Loaded', this.scenarios.length, 'vault scenarios')
     } catch (error) {
-      console.error('[ScenarioVault] Failed to load:', error);
-      this.scenarios = [];
-      this.isLoaded = true;
+      console.error('[ScenarioVault] Failed to load:', error)
+      this.scenarios = []
+      this.isLoaded = true
     }
   }
 
   async add(input: Omit<VaultScenario, 'id' | 'createdAt' | 'updatedAt'>): Promise<VaultScenario> {
-    const now = Date.now();
+    const now = Date.now()
     const scenario: VaultScenario = {
       ...input,
       id: crypto.randomUUID(),
       createdAt: now,
       updatedAt: now,
-    };
+    }
 
-    await database.addVaultScenario(scenario);
-    this.scenarios = [scenario, ...this.scenarios];
-    log('Added vault scenario:', scenario.name);
-    return scenario;
+    await database.addVaultScenario(scenario)
+    this.scenarios = [scenario, ...this.scenarios]
+    log('Added vault scenario:', scenario.name)
+    return scenario
   }
 
   async update(id: string, updates: Partial<VaultScenario>): Promise<void> {
-    await database.updateVaultScenario(id, updates);
-    this.scenarios = this.scenarios.map(s =>
-      s.id === id ? { ...s, ...updates, updatedAt: Date.now() } : s
-    );
-    log('Updated vault scenario:', id);
+    await database.updateVaultScenario(id, updates)
+    this.scenarios = this.scenarios.map((s) =>
+      s.id === id ? { ...s, ...updates, updatedAt: Date.now() } : s,
+    )
+    log('Updated vault scenario:', id)
   }
 
   async delete(id: string): Promise<void> {
-    await database.deleteVaultScenario(id);
-    this.scenarios = this.scenarios.filter(s => s.id !== id);
-    log('Deleted vault scenario:', id);
+    await database.deleteVaultScenario(id)
+    this.scenarios = this.scenarios.filter((s) => s.id !== id)
+    log('Deleted vault scenario:', id)
   }
 
   async toggleFavorite(id: string): Promise<void> {
-    const scenario = this.scenarios.find(s => s.id === id);
+    const scenario = this.scenarios.find((s) => s.id === id)
     if (scenario) {
-      await this.update(id, { favorite: !scenario.favorite });
+      await this.update(id, { favorite: !scenario.favorite })
     }
   }
 
   getById(id: string): VaultScenario | undefined {
-    return this.scenarios.find(s => s.id === id);
+    return this.scenarios.find((s) => s.id === id)
   }
 
   async search(query: string): Promise<VaultScenario[]> {
     if (!query.trim()) {
-      return this.scenarios;
+      return this.scenarios
     }
-    return database.searchVaultScenarios(query);
+    return database.searchVaultScenarios(query)
   }
 
   /**
@@ -94,19 +91,20 @@ class ScenarioVaultStore {
   async saveFromImport(
     result: CardImportResult,
     filename: string,
-    options?: { tags?: string[]; sourceUrl?: string }
+    options?: { tags?: string[]; sourceUrl?: string },
   ): Promise<VaultScenario> {
-    const npcs: VaultScenarioNpc[] = result.npcs.map(npc => ({
+    const npcs: VaultScenarioNpc[] = result.npcs.map((npc) => ({
       name: npc.name,
       role: npc.role,
       description: npc.description,
       relationship: npc.relationship,
       traits: npc.traits || [],
-    }));
+    }))
 
     return this.add({
       name: result.storyTitle || filename.replace(/\.[^/.]+$/, ''),
-      description: result.settingSeed.slice(0, 200) + (result.settingSeed.length > 200 ? '...' : ''),
+      description:
+        result.settingSeed.slice(0, 200) + (result.settingSeed.length > 200 ? '...' : ''),
       settingSeed: result.settingSeed,
       npcs,
       primaryCharacterName: result.primaryCharacterName,
@@ -122,7 +120,7 @@ class ScenarioVaultStore {
         npcCount: npcs.length,
         sourceUrl: options?.sourceUrl,
       },
-    });
+    })
   }
 
   /**
@@ -133,11 +131,11 @@ class ScenarioVaultStore {
     settingSeed: string,
     npcs: VaultScenarioNpc[],
     options?: {
-      description?: string;
-      firstMessage?: string;
-      alternateGreetings?: string[];
-      tags?: string[];
-    }
+      description?: string
+      firstMessage?: string
+      alternateGreetings?: string[]
+      tags?: string[]
+    },
   ): Promise<VaultScenario> {
     return this.add({
       name,
@@ -156,15 +154,15 @@ class ScenarioVaultStore {
         alternateGreetingsCount: options?.alternateGreetings?.length || 0,
         npcCount: npcs.length,
       },
-    });
+    })
   }
 
   /**
    * Import scenario from Discovery in the background.
    */
   async importFromDiscovery(card: DiscoveryCard, genre: Genre = 'fantasy'): Promise<void> {
-    const tempId = crypto.randomUUID();
-    const now = Date.now();
+    const tempId = crypto.randomUUID()
+    const now = Date.now()
 
     // 1. Create placeholder
     const placeholder: VaultScenario = {
@@ -186,37 +184,43 @@ class ScenarioVaultStore {
         importing: true,
         sourceUrl: card.imageUrl || card.avatarUrl,
       },
-    };
+    }
 
-    this.scenarios = [placeholder, ...this.scenarios];
-    log('Started background import for:', card.name);
+    this.scenarios = [placeholder, ...this.scenarios]
+    log('Started background import for:', card.name)
 
     // 2. Process in background
-    this._processDiscoveryImport(tempId, card, genre).catch(err => {
-      const message = err instanceof Error ? err.message : `Failed to import ${card.name}`;
-      ui.showToast(message, 'error');
-      this.scenarios = this.scenarios.filter(s => s.id !== tempId);
-    });
+    this._processDiscoveryImport(tempId, card, genre).catch((err) => {
+      const message = err instanceof Error ? err.message : `Failed to import ${card.name}`
+      ui.showToast(message, 'error')
+      this.scenarios = this.scenarios.filter((s) => s.id !== tempId)
+    })
   }
 
-  private async _processDiscoveryImport(tempId: string, card: DiscoveryCard, genre: Genre): Promise<void> {
-    const blob = await discoveryService.downloadCard(card);
-    const file = new File([blob], `${card.name}.${blob.type.includes('json') ? 'json' : 'png'}`, { type: blob.type });
+  private async _processDiscoveryImport(
+    tempId: string,
+    card: DiscoveryCard,
+    genre: Genre,
+  ): Promise<void> {
+    const blob = await discoveryService.downloadCard(card)
+    const file = new File([blob], `${card.name}.${blob.type.includes('json') ? 'json' : 'png'}`, {
+      type: blob.type,
+    })
 
     await this._processFileImport(tempId, file, {
       sourceUrl: card.imageUrl || card.avatarUrl,
       tags: card.tags,
       genre,
-    });
+    })
   }
 
   /**
    * Import scenario from a file in the background.
    */
   async importFromFile(file: File, genre: Genre = 'fantasy'): Promise<void> {
-    const tempId = crypto.randomUUID();
-    const now = Date.now();
-    const name = file.name.replace(/\.[^/.]+$/, '');
+    const tempId = crypto.randomUUID()
+    const now = Date.now()
+    const name = file.name.replace(/\.[^/.]+$/, '')
 
     // 1. Create placeholder
     const placeholder: VaultScenario = {
@@ -235,48 +239,49 @@ class ScenarioVaultStore {
       createdAt: now,
       updatedAt: now,
       metadata: { importing: true },
-    };
+    }
 
-    this.scenarios = [placeholder, ...this.scenarios];
-    log('Started file import for:', name);
+    this.scenarios = [placeholder, ...this.scenarios]
+    log('Started file import for:', name)
 
     // 2. Process in background
-    this._processFileImport(tempId, file, { genre }).catch(err => {
-      const message = err instanceof Error ? err.message : `Failed to import ${name}`;
-      ui.showToast(message, 'error');
-      this.scenarios = this.scenarios.filter(s => s.id !== tempId);
-    });
+    this._processFileImport(tempId, file, { genre }).catch((err) => {
+      const message = err instanceof Error ? err.message : `Failed to import ${name}`
+      ui.showToast(message, 'error')
+      this.scenarios = this.scenarios.filter((s) => s.id !== tempId)
+    })
   }
 
   private async _processFileImport(
     tempId: string,
     file: File,
-    options: { sourceUrl?: string; tags?: string[]; genre?: Genre }
+    options: { sourceUrl?: string; tags?: string[]; genre?: Genre },
   ): Promise<void> {
     // Parse and convert
-    const jsonString = await readCharacterCardFile(file);
+    const jsonString = await readCharacterCardFile(file)
     const result = await convertCardToScenario(
       jsonString,
       'adventure', // Default mode
-      options.genre || 'fantasy'
-    );
+      options.genre || 'fantasy',
+    )
 
     if (!result.success && result.errors.length > 0 && !result.settingSeed) {
-      throw new Error(result.errors.join('; '));
+      throw new Error(result.errors.join('; '))
     }
 
-    const npcs: VaultScenarioNpc[] = result.npcs.map(npc => ({
+    const npcs: VaultScenarioNpc[] = result.npcs.map((npc) => ({
       name: npc.name,
       role: npc.role,
       description: npc.description,
       relationship: npc.relationship,
       traits: npc.traits || [],
-    }));
+    }))
 
     const finalData: VaultScenario = {
       id: tempId,
       name: result.storyTitle || file.name.replace(/\.[^/.]+$/, ''),
-      description: result.settingSeed.slice(0, 200) + (result.settingSeed.length > 200 ? '...' : ''),
+      description:
+        result.settingSeed.slice(0, 200) + (result.settingSeed.length > 200 ? '...' : ''),
       settingSeed: result.settingSeed,
       npcs,
       primaryCharacterName: result.primaryCharacterName,
@@ -294,15 +299,15 @@ class ScenarioVaultStore {
         npcCount: npcs.length,
         sourceUrl: options.sourceUrl,
       },
-    };
+    }
 
     // Save to DB
-    await database.addVaultScenario(finalData);
+    await database.addVaultScenario(finalData)
 
     // Update store
-    this.scenarios = this.scenarios.map(s => s.id === tempId ? finalData : s);
-    log('Completed import for:', finalData.name);
+    this.scenarios = this.scenarios.map((s) => (s.id === tempId ? finalData : s))
+    log('Completed import for:', finalData.name)
   }
 }
 
-export const scenarioVault = new ScenarioVaultStore();
+export const scenarioVault = new ScenarioVaultStore()

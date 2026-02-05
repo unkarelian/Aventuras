@@ -3,12 +3,12 @@
    Light theme with warm, muted pastels inspired by café aesthetics.
    Part of the Catppuccin color palette family.
    ============================================= */
-[data-theme="catppuccin-latte"] {
+[data-theme='catppuccin-latte'] {
   /*
      Catppuccin Latte Surface Scale
      Based on official Catppuccin palette
   */
-  --color-surface-50: #eff1f5;  /* Base */
+  --color-surface-50: #eff1f5; /* Base */
   --color-surface-100: #e6e9ef; /* Mantle */
   --color-surface-200: #dce0e8; /* Crust */
   --color-surface-300: #ccd0da; /* Surface 0 */
@@ -51,13 +51,13 @@
   --catppuccin-lavender: #7287fd;
 
   /* Semantic colors */
-  --bg-primary: var(--color-surface-50);    /* Base */
+  --bg-primary: var(--color-surface-50); /* Base */
   --bg-secondary: var(--color-surface-100); /* Mantle */
-  --bg-tertiary: var(--color-surface-200);  /* Crust */
+  --bg-tertiary: var(--color-surface-200); /* Crust */
   --text-primary: var(--color-surface-900); /* Text */
   --text-secondary: var(--color-surface-800); /* Overlay 2 */
-  --text-muted: var(--color-surface-700);   /* Overlay 1 */
-  --text-accent: var(--catppuccin-blue);    /* Blue accent */
+  --text-muted: var(--color-surface-700); /* Overlay 1 */
+  --text-accent: var(--catppuccin-blue); /* Blue accent */
   --border-primary: var(--color-surface-400); /* Surface 1 */
   --border-secondary: var(--color-surface-300); /* Surface 0 */
   --scrollbar-track: var(--color-surface-100);
@@ -66,33 +66,33 @@
 
   /* Shadcn Variables */
   --radius: 0.5rem;
-  --background: #eff1f5;              /* Base */
-  --foreground: #4c4f69;              /* Text */
+  --background: #eff1f5; /* Base */
+  --foreground: #4c4f69; /* Text */
 
-  --card: #e6e9ef;                    /* Mantle */
-  --card-foreground: #4c4f69;         /* Text */
+  --card: #e6e9ef; /* Mantle */
+  --card-foreground: #4c4f69; /* Text */
 
-  --popover: #e6e9ef;                 /* Mantle */
-  --popover-foreground: #4c4f69;      /* Text */
+  --popover: #e6e9ef; /* Mantle */
+  --popover-foreground: #4c4f69; /* Text */
 
-  --primary: #1e66f5;                 /* Blue */
-  --primary-foreground: #eff1f5;      /* Base */
+  --primary: #1e66f5; /* Blue */
+  --primary-foreground: #eff1f5; /* Base */
 
-  --secondary: #dce0e8;               /* Crust */
-  --secondary-foreground: #4c4f69;    /* Text */
+  --secondary: #dce0e8; /* Crust */
+  --secondary-foreground: #4c4f69; /* Text */
 
-  --muted: #dce0e8;                   /* Crust */
-  --muted-foreground: #6c6f85;        /* Subtext 0 */
+  --muted: #dce0e8; /* Crust */
+  --muted-foreground: #6c6f85; /* Subtext 0 */
 
-  --accent: #ccd0da;                  /* Surface 0 */
-  --accent-foreground: #1e66f5;       /* Blue */
+  --accent: #ccd0da; /* Surface 0 */
+  --accent-foreground: #1e66f5; /* Blue */
 
-  --destructive: #d20f39;             /* Red */
-  --destructive-foreground: #eff1f5;  /* Base */
+  --destructive: #d20f39; /* Red */
+  --destructive-foreground: #eff1f5; /* Base */
 
-  --border: #ccd0da;                  /* Surface 0 */
-  --input: #ccd0da;                   /* Surface 0 */
-  --ring: #1e66f5;                    /* Blue */
+  --border: #ccd0da; /* Surface 0 */
+  --input: #ccd0da; /* Surface 0 */
+  --ring: #1e66f5; /* Blue */
 
   /* Special effects */
   --crt-scanline: transparent;
@@ -103,95 +103,95 @@
 
 /* Background overrides - INVERTED Logic for Light Theme */
 
-[data-theme="catppuccin-latte"] .bg-surface-900 {
+[data-theme='catppuccin-latte'] .bg-surface-900 {
   background-color: var(--color-surface-50); /* Base */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-850 {
+[data-theme='catppuccin-latte'] .bg-surface-850 {
   background-color: var(--color-surface-100); /* Mantle */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-800 {
+[data-theme='catppuccin-latte'] .bg-surface-800 {
   background-color: var(--color-surface-100); /* Mantle */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-700 {
+[data-theme='catppuccin-latte'] .bg-surface-700 {
   background-color: var(--color-surface-200); /* Crust */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-600 {
+[data-theme='catppuccin-latte'] .bg-surface-600 {
   background-color: var(--color-surface-300); /* Surface 0 */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-500 {
+[data-theme='catppuccin-latte'] .bg-surface-500 {
   background-color: var(--color-surface-400); /* Surface 1 */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-400 {
+[data-theme='catppuccin-latte'] .bg-surface-400 {
   background-color: var(--color-surface-400); /* Surface 1 */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-300 {
+[data-theme='catppuccin-latte'] .bg-surface-300 {
   background-color: var(--color-surface-500); /* Surface 2 */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-200 {
+[data-theme='catppuccin-latte'] .bg-surface-200 {
   background-color: var(--color-surface-600); /* Overlay 0 */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-100 {
+[data-theme='catppuccin-latte'] .bg-surface-100 {
   background-color: var(--color-surface-700); /* Overlay 1 */
 }
 
-[data-theme="catppuccin-latte"] .bg-surface-50 {
+[data-theme='catppuccin-latte'] .bg-surface-50 {
   background-color: var(--color-surface-800); /* Overlay 2 */
 }
 
 /* Text color overrides - INVERT for light theme */
-[data-theme="catppuccin-latte"] .text-surface-50 {
+[data-theme='catppuccin-latte'] .text-surface-50 {
   color: var(--color-surface-950);
 }
 
-[data-theme="catppuccin-latte"] .text-surface-100 {
+[data-theme='catppuccin-latte'] .text-surface-100 {
   color: var(--color-surface-900);
 }
 
-[data-theme="catppuccin-latte"] .text-surface-200 {
+[data-theme='catppuccin-latte'] .text-surface-200 {
   color: var(--color-surface-850);
 }
 
-[data-theme="catppuccin-latte"] .text-surface-300 {
+[data-theme='catppuccin-latte'] .text-surface-300 {
   color: var(--color-surface-800);
 }
 
-[data-theme="catppuccin-latte"] .text-surface-400 {
+[data-theme='catppuccin-latte'] .text-surface-400 {
   color: var(--color-surface-700);
 }
 
-[data-theme="catppuccin-latte"] .text-surface-500 {
+[data-theme='catppuccin-latte'] .text-surface-500 {
   color: var(--color-surface-700);
 }
 
 /* Border color overrides */
-[data-theme="catppuccin-latte"] .border-surface-700 {
+[data-theme='catppuccin-latte'] .border-surface-700 {
   border-color: var(--color-surface-300);
 }
 
-[data-theme="catppuccin-latte"] .border-surface-600 {
+[data-theme='catppuccin-latte'] .border-surface-600 {
   border-color: var(--color-surface-400);
 }
 
 /* Select dropdown styling */
-[data-theme="catppuccin-latte"] select.input {
+[data-theme='catppuccin-latte'] select.input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234c4f69' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-[data-theme="catppuccin-latte"] select.input option {
+[data-theme='catppuccin-latte'] select.input option {
   background-color: var(--color-surface-100);
   color: var(--color-surface-900);
 }
 
-[data-theme="catppuccin-latte"] select.input option:checked {
+[data-theme='catppuccin-latte'] select.input option:checked {
   background-color: var(--catppuccin-blue);
   color: var(--color-surface-50);
 }

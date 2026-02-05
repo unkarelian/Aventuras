@@ -1,11 +1,7 @@
 <script lang="ts">
-  import type {
-    VaultScenario,
-    VaultScenarioNpc,
-    VaultCharacter,
-  } from "$lib/types";
-  import { scenarioVault } from "$lib/stores/scenarioVault.svelte";
-  import { characterVault } from "$lib/stores/characterVault.svelte";
+  import type { VaultScenario, VaultScenarioNpc, VaultCharacter } from '$lib/types'
+  import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
+  import { characterVault } from '$lib/stores/characterVault.svelte'
   import {
     X,
     Save,
@@ -20,66 +16,64 @@
     Search,
     Loader2,
     User,
-  } from "lucide-svelte";
-  import TagInput from "$lib/components/tags/TagInput.svelte";
-  import VaultListItem from "./shared/VaultListItem.svelte";
-  import { normalizeImageDataUrl } from "$lib/utils/image";
-  import { cn } from "$lib/utils/cn";
+  } from 'lucide-svelte'
+  import TagInput from '$lib/components/tags/TagInput.svelte'
+  import VaultListItem from './shared/VaultListItem.svelte'
+  import { normalizeImageDataUrl } from '$lib/utils/image'
+  import { cn } from '$lib/utils/cn'
 
-  import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import { Label } from "$lib/components/ui/label";
-  import * as Tabs from "$lib/components/ui/tabs";
-  import * as Avatar from "$lib/components/ui/avatar";
-  import * as Collapsible from "$lib/components/ui/collapsible";
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
+  import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { Label } from '$lib/components/ui/label'
+  import * as Tabs from '$lib/components/ui/tabs'
+  import * as Avatar from '$lib/components/ui/avatar'
+  import * as Collapsible from '$lib/components/ui/collapsible'
 
   interface Props {
-    scenario: VaultScenario;
-    onClose: () => void;
+    scenario: VaultScenario
+    onClose: () => void
   }
 
-  let { scenario, onClose }: Props = $props();
+  let { scenario, onClose }: Props = $props()
 
   // Form State
-  let name = $state(scenario.name);
-  let description = $state(scenario.description || "");
-  let settingSeed = $state(scenario.settingSeed);
-  let npcs = $state<VaultScenarioNpc[]>(
-    JSON.parse(JSON.stringify(scenario.npcs)),
-  );
-  let firstMessage = $state(scenario.firstMessage || "");
-  let alternateGreetings = $state<string[]>([...scenario.alternateGreetings]);
-  let tags = $state<string[]>([...scenario.tags]);
+  let name = $state(scenario.name)
+  let description = $state(scenario.description || '')
+  let settingSeed = $state(scenario.settingSeed)
+  let npcs = $state<VaultScenarioNpc[]>(JSON.parse(JSON.stringify(scenario.npcs)))
+  let firstMessage = $state(scenario.firstMessage || '')
+  let alternateGreetings = $state<string[]>([...scenario.alternateGreetings])
+  let tags = $state<string[]>([...scenario.tags])
 
-  let saving = $state(false);
-  let error = $state<string | null>(null);
+  let saving = $state(false)
+  let error = $state<string | null>(null)
 
-  let showCharacterSelector = $state(false);
-  let charSearchQuery = $state("");
+  let showCharacterSelector = $state(false)
+  let charSearchQuery = $state('')
 
   // Tab state
-  let activeTab = $state("general");
+  let activeTab = $state('general')
 
   const filteredCharacters = $derived.by(() => {
-    if (!showCharacterSelector) return [];
-    let chars = characterVault.characters;
+    if (!showCharacterSelector) return []
+    let chars = characterVault.characters
     if (charSearchQuery.trim()) {
-      const q = charSearchQuery.toLowerCase();
-      chars = chars.filter((c) => c.name.toLowerCase().includes(q));
+      const q = charSearchQuery.toLowerCase()
+      chars = chars.filter((c) => c.name.toLowerCase().includes(q))
     }
-    return chars;
-  });
+    return chars
+  })
 
   async function handleSave() {
     if (!name.trim()) {
-      error = "Scenario name is required";
-      return;
+      error = 'Scenario name is required'
+      return
     }
 
-    saving = true;
-    error = null;
+    saving = true
+    error = null
 
     try {
       await scenarioVault.update(scenario.id, {
@@ -96,72 +90,68 @@
           hasFirstMessage: !!firstMessage,
           alternateGreetingsCount: alternateGreetings.length,
         },
-      });
-      onClose();
+      })
+      onClose()
     } catch (e) {
-      error = e instanceof Error ? e.message : "Failed to save scenario";
+      error = e instanceof Error ? e.message : 'Failed to save scenario'
     } finally {
-      saving = false;
+      saving = false
     }
   }
 
   function addNpc() {
     npcs.push({
-      name: "New NPC",
-      role: "Supporting Character",
-      description: "",
-      relationship: "Neutral",
+      name: 'New NPC',
+      role: 'Supporting Character',
+      description: '',
+      relationship: 'Neutral',
       traits: [],
-    });
-    npcs = npcs; // Trigger reactivity
+    })
+    npcs = npcs // Trigger reactivity
   }
 
   function removeNpc(index: number) {
-    npcs = npcs.filter((_, i) => i !== index);
+    npcs = npcs.filter((_, i) => i !== index)
   }
 
   function addNpcFromCharacter(char: VaultCharacter) {
     npcs.push({
       name: char.name,
-      role: "Supporting Character",
-      description: char.description || "",
-      relationship: "Neutral",
+      role: 'Supporting Character',
+      description: char.description || '',
+      relationship: 'Neutral',
       traits: [...char.traits],
-    });
-    npcs = npcs;
-    showCharacterSelector = false;
+    })
+    npcs = npcs
+    showCharacterSelector = false
   }
 
   function addGreeting() {
-    alternateGreetings = [...alternateGreetings, ""];
+    alternateGreetings = [...alternateGreetings, '']
   }
 
   function removeGreeting(index: number) {
-    alternateGreetings = alternateGreetings.filter((_, i) => i !== index);
+    alternateGreetings = alternateGreetings.filter((_, i) => i !== index)
   }
 </script>
 
 <ResponsiveModal.Root
   open={true}
   onOpenChange={(open) => {
-    if (!open) onClose();
+    if (!open) onClose()
   }}
 >
   <ResponsiveModal.Content
-    class="md:max-w-4xl flex flex-col h-[95vh] md:h-[85vh] p-0 overflow-hidden"
+    class="flex h-[95vh] flex-col overflow-hidden p-0 md:h-[85vh] md:max-w-4xl"
   >
-    <ResponsiveModal.Header class="px-6 py-4 border-b bg-muted/40">
+    <ResponsiveModal.Header class="bg-muted/40 border-b px-6 py-4">
       <div class="flex items-center gap-3">
-        <div
-          class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10"
-        >
-          <MapPin class="h-5 w-5 text-primary" />
+        <div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
+          <MapPin class="text-primary h-5 w-5" />
         </div>
         <div>
           <h2 class="text-lg font-semibold">Edit Scenario</h2>
-          <p class="text-sm text-muted-foreground">
-            Modify your scenario settings and characters.
-          </p>
+          <p class="text-muted-foreground text-sm">Modify your scenario settings and characters.</p>
         </div>
       </div>
     </ResponsiveModal.Header>
@@ -169,39 +159,39 @@
     <Tabs.Root
       value={activeTab}
       onValueChange={(v) => (activeTab = v)}
-      class="flex-1 flex flex-col overflow-hidden"
+      class="flex flex-1 flex-col overflow-hidden"
     >
-      <div class="border-b bg-muted/20">
-        <Tabs.List class="w-full justify-start h-12 bg-transparent p-0">
+      <div class="bg-muted/20 border-b">
+        <Tabs.List class="h-12 w-full justify-start bg-transparent p-0">
           <Tabs.Trigger
             value="general"
-            class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-4"
+            class="data-[state=active]:border-primary h-full rounded-none px-4 data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
           >
-            <FileText class="h-4 w-4 mr-2" />
+            <FileText class="mr-2 h-4 w-4" />
             General
           </Tabs.Trigger>
           <Tabs.Trigger
             value="npcs"
-            class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-4"
+            class="data-[state=active]:border-primary h-full rounded-none px-4 data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
           >
-            <Users class="h-4 w-4 mr-2" />
+            <Users class="mr-2 h-4 w-4" />
             NPCs ({npcs.length})
           </Tabs.Trigger>
           <Tabs.Trigger
             value="opening"
-            class="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-full px-4"
+            class="data-[state=active]:border-primary h-full rounded-none px-4 data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
           >
-            <MessageSquare class="h-4 w-4 mr-2" />
+            <MessageSquare class="mr-2 h-4 w-4" />
             Opening
           </Tabs.Trigger>
         </Tabs.List>
       </div>
 
-      <div class="flex-1 overflow-y-auto bg-background">
-        <div class="px-6 py-2 max-w-3xl mx-auto space-y-6">
+      <div class="bg-background flex-1 overflow-y-auto">
+        <div class="mx-auto max-w-3xl space-y-6 px-6 py-2">
           {#if error}
             <div
-              class="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive flex items-center gap-2"
+              class="bg-destructive/10 border-destructive/20 text-destructive flex items-center gap-2 rounded-md border p-3 text-sm"
             >
               <Loader2 class="h-4 w-4" />
               {error}
@@ -212,11 +202,7 @@
             <div class="space-y-4">
               <div class="space-y-2">
                 <Label for="name">Scenario Name</Label>
-                <Input
-                  id="name"
-                  bind:value={name}
-                  placeholder="e.g. The Cyberpunk City"
-                />
+                <Input id="name" bind:value={name} placeholder="e.g. The Cyberpunk City" />
               </div>
 
               <div class="space-y-2">
@@ -237,16 +223,16 @@
                     id="seed"
                     bind:value={settingSeed}
                     rows={10}
-                    class="font-mono text-sm leading-relaxed resize-y min-h-[200px]"
+                    class="min-h-[200px] resize-y font-mono text-sm leading-relaxed"
                     placeholder="Detailed world setting..."
                   />
                   <div
-                    class="absolute bottom-2 right-2 text-xs text-muted-foreground bg-background/80 px-2 py-0.5 rounded"
+                    class="text-muted-foreground bg-background/80 absolute right-2 bottom-2 rounded px-2 py-0.5 text-xs"
                   >
                     Markdown supported
                   </div>
                 </div>
-                <p class="text-[0.8rem] text-muted-foreground">
+                <p class="text-muted-foreground text-[0.8rem]">
                   The core world details used for generation.
                 </p>
               </div>
@@ -265,18 +251,16 @@
 
           <Tabs.Content value="npcs" class="mt-0 space-y-6">
             <div
-              class="flex items-center justify-between sticky top-0 bg-background z-10 pt-2 pb-4 border-b mb-4"
+              class="bg-background sticky top-0 z-10 mb-4 flex items-center justify-between border-b pt-2 pb-4"
             >
-              <h3 class="text-sm font-medium text-muted-foreground">
-                Supporting Characters
-              </h3>
+              <h3 class="text-muted-foreground text-sm font-medium">Supporting Characters</h3>
               <div class="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onclick={() => {
-                    charSearchQuery = "";
-                    showCharacterSelector = true;
+                    charSearchQuery = ''
+                    showCharacterSelector = true
                   }}
                 >
                   <Users class="h-3.5 w-3.5 " />
@@ -292,44 +276,40 @@
             <div class="space-y-3">
               {#if npcs.length === 0}
                 <div
-                  class="flex flex-col items-center justify-center p-8 border border-dashed rounded-lg text-muted-foreground bg-muted/30"
+                  class="text-muted-foreground bg-muted/30 flex flex-col items-center justify-center rounded-lg border border-dashed p-8"
                 >
-                  <Users class="h-10 w-10 opacity-20 mb-2" />
+                  <Users class="mb-2 h-10 w-10 opacity-20" />
                   <p>No NPCs defined yet.</p>
-                  <Button variant="link" onclick={addNpc}
-                    >Create your first NPC</Button
-                  >
+                  <Button variant="link" onclick={addNpc}>Create your first NPC</Button>
                 </div>
               {:else}
                 {#each npcs as npc, i}
-                  <div
-                    class="rounded-lg border bg-card text-card-foreground shadow-sm group"
-                  >
+                  <div class="bg-card text-card-foreground group rounded-lg border shadow-sm">
                     <Collapsible.Root>
-                      <div class="flex items-center p-3 pl-4 gap-3">
+                      <div class="flex items-center gap-3 p-3 pl-4">
                         <Collapsible.Trigger
-                          class="flex items-center gap-2 flex-1 text-left group/trigger"
+                          class="group/trigger flex flex-1 items-center gap-2 text-left"
                         >
                           <div
-                            class="flex h-8 w-8 items-center justify-center rounded-md bg-muted/50 transition-colors group-hover/trigger:bg-muted"
+                            class="bg-muted/50 group-hover/trigger:bg-muted flex h-8 w-8 items-center justify-center rounded-md transition-colors"
                           >
                             <ChevronRight
                               class="h-4 w-4 transition-transform duration-200 group-data-[state=open]/trigger:rotate-90"
                             />
                           </div>
                           <div class="flex-1">
-                            <div class="font-medium text-sm">
-                              {npc.name || "Unnamed NPC"}
+                            <div class="text-sm font-medium">
+                              {npc.name || 'Unnamed NPC'}
                             </div>
-                            <div class="text-xs text-muted-foreground">
-                              {npc.role || "No role"}
+                            <div class="text-muted-foreground text-xs">
+                              {npc.role || 'No role'}
                             </div>
                           </div>
                         </Collapsible.Trigger>
                         <Button
                           variant="ghost"
                           size="icon"
-                          class="h-8 w-8 text-muted-foreground hover:text-destructive"
+                          class="text-muted-foreground hover:text-destructive h-8 w-8"
                           onclick={() => removeNpc(i)}
                         >
                           <Trash2 class="h-4 w-4" />
@@ -337,10 +317,8 @@
                       </div>
 
                       <Collapsible.Content>
-                        <div
-                          class="px-4 pb-4 pt-0 space-y-4 border-t bg-muted/10 mt-2 p-4"
-                        >
-                          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-muted/10 mt-2 space-y-4 border-t p-4 px-4 pt-0 pb-4">
+                          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div class="space-y-2">
                               <Label class="text-xs">Name</Label>
                               <Input bind:value={npc.name} class="h-8" />
@@ -360,21 +338,18 @@
                             />
                           </div>
 
-                          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div class="space-y-2">
                               <Label class="text-xs">Relationship</Label>
-                              <Input
-                                bind:value={npc.relationship}
-                                class="h-8"
-                              />
+                              <Input bind:value={npc.relationship} class="h-8" />
                             </div>
                             <div class="space-y-2">
                               <Label class="text-xs">Traits</Label>
                               <Input
-                                value={npc.traits.join(", ")}
+                                value={npc.traits.join(', ')}
                                 oninput={(e) =>
                                   (npc.traits = e.currentTarget.value
-                                    .split(",")
+                                    .split(',')
                                     .map((t) => t.trim())
                                     .filter(Boolean))}
                                 class="h-8"
@@ -400,9 +375,7 @@
                 class="font-mono text-sm leading-relaxed"
                 placeholder="The opening scene..."
               />
-              <p class="text-[0.8rem] text-muted-foreground">
-                Shown when the story begins.
-              </p>
+              <p class="text-muted-foreground text-[0.8rem]">Shown when the story begins.</p>
             </div>
 
             <div class="space-y-4">
@@ -424,7 +397,7 @@
                   <Button
                     variant="ghost"
                     size="icon"
-                    class="absolute top-2 right-2 h-6 w-6 text-muted-foreground hover:text-destructive"
+                    class="text-muted-foreground hover:text-destructive absolute top-2 right-2 h-6 w-6"
                     onclick={() => removeGreeting(i)}
                   >
                     <Trash2 class="h-3 w-3" />
@@ -433,9 +406,7 @@
               {/each}
 
               {#if alternateGreetings.length === 0}
-                <p
-                  class="text-sm text-muted-foreground italic text-center py-4"
-                >
+                <p class="text-muted-foreground py-4 text-center text-sm italic">
                   No variations added.
                 </p>
               {/if}
@@ -445,11 +416,9 @@
       </div>
     </Tabs.Root>
 
-    <ResponsiveModal.Footer class="border-t bg-muted/40 px-6 py-4">
+    <ResponsiveModal.Footer class="bg-muted/40 border-t px-6 py-4">
       <div class="flex w-full items-center justify-end gap-2">
-        <Button variant="outline" onclick={onClose} disabled={saving}>
-          Cancel
-        </Button>
+        <Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
         <Button onclick={handleSave} disabled={saving || !name.trim()}>
           {#if saving}
             <Loader2 class=" h-4 w-4 animate-spin" />
@@ -469,16 +438,14 @@
     open={showCharacterSelector}
     onOpenChange={(open) => (showCharacterSelector = open)}
   >
-    <ResponsiveModal.Content class="sm:max-w-md h-[500px] flex flex-col p-0">
-      <ResponsiveModal.Header class="px-4 py-3 border-b">
+    <ResponsiveModal.Content class="flex h-[500px] flex-col p-0 sm:max-w-md">
+      <ResponsiveModal.Header class="border-b px-4 py-3">
         <h3 class="font-semibold">Import Character</h3>
       </ResponsiveModal.Header>
 
-      <div class="p-4 border-b">
+      <div class="border-b p-4">
         <div class="relative">
-          <Search
-            class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-          />
+          <Search class="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
             bind:value={charSearchQuery}
             placeholder="Search characters..."
@@ -490,32 +457,30 @@
 
       <div class="flex-1 overflow-y-auto p-2">
         {#if filteredCharacters.length === 0}
-          <div
-            class="flex flex-col items-center justify-center h-full text-muted-foreground"
-          >
-            <Users class="h-8 w-8 mb-2 opacity-50" />
+          <div class="text-muted-foreground flex h-full flex-col items-center justify-center">
+            <Users class="mb-2 h-8 w-8 opacity-50" />
             <p>No characters found</p>
           </div>
         {:else}
           {#each filteredCharacters as char}
             <button
-              class="w-full flex items-center gap-3 p-3 rounded-md hover:bg-muted text-left transition-colors"
+              class="hover:bg-muted flex w-full items-center gap-3 rounded-md p-3 text-left transition-colors"
               onclick={() => addNpcFromCharacter(char)}
             >
               <Avatar.Root class="h-10 w-10 border">
                 <Avatar.Image
-                  src={normalizeImageDataUrl(char.portrait) ?? ""}
+                  src={normalizeImageDataUrl(char.portrait) ?? ''}
                   class="object-cover"
                 />
                 <Avatar.Fallback><User class="h-5 w-5" /></Avatar.Fallback>
               </Avatar.Root>
-              <div class="flex-1 min-w-0">
-                <div class="font-medium truncate">{char.name}</div>
-                <div class="text-xs text-muted-foreground truncate">
-                  {char.traits.slice(0, 3).join(", ")}
+              <div class="min-w-0 flex-1">
+                <div class="truncate font-medium">{char.name}</div>
+                <div class="text-muted-foreground truncate text-xs">
+                  {char.traits.slice(0, 3).join(', ')}
                 </div>
               </div>
-              <Plus class="h-4 w-4 text-muted-foreground" />
+              <Plus class="text-muted-foreground h-4 w-4" />
             </button>
           {/each}
         {/if}

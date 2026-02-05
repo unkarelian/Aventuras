@@ -7,46 +7,60 @@
  * - Yield phase events
  */
 
-import type { GenerationContext, GenerationEvent, PhaseStartEvent, PhaseCompleteEvent } from '../types';
-import type { StoryEntry, Character, Location, Item, StoryBeat, EmbeddedImage, TimeTracker, ActionInputType } from '$lib/types';
+import type {
+  GenerationContext,
+  GenerationEvent,
+  PhaseStartEvent,
+  PhaseCompleteEvent,
+} from '../types'
+import type {
+  StoryEntry,
+  Character,
+  Location,
+  Item,
+  StoryBeat,
+  EmbeddedImage,
+  TimeTracker,
+  ActionInputType,
+} from '$lib/types'
 
 /**
  * Data needed for retry backup - prepared by this phase, applied by caller
  */
 export interface RetryBackupData {
-  storyId: string;
-  entries: StoryEntry[];
-  characters: Character[];
-  locations: Location[];
-  items: Item[];
-  storyBeats: StoryBeat[];
-  embeddedImages: EmbeddedImage[];
-  userActionContent: string;
-  rawInput: string;
-  actionType: ActionInputType;
-  wasRawActionChoice: boolean;
-  timeTracker: TimeTracker | null;
+  storyId: string
+  entries: StoryEntry[]
+  characters: Character[]
+  locations: Location[]
+  items: Item[]
+  storyBeats: StoryBeat[]
+  embeddedImages: EmbeddedImage[]
+  userActionContent: string
+  rawInput: string
+  actionType: ActionInputType
+  wasRawActionChoice: boolean
+  timeTracker: TimeTracker | null
 }
 
 /**
  * Result from pre-generation phase
  */
 export interface PreGenerationResult {
-  retryBackupData: RetryBackupData;
-  worldState: GenerationContext['worldState'];
-  visualProseMode: boolean;
-  streamingEntryId: string;
+  retryBackupData: RetryBackupData
+  worldState: GenerationContext['worldState']
+  visualProseMode: boolean
+  streamingEntryId: string
 }
 
 /**
  * Additional context needed for pre-generation
  */
 export interface PreGenerationInput {
-  context: GenerationContext;
-  embeddedImages: EmbeddedImage[];
-  rawInput: string;
-  actionType: ActionInputType;
-  wasRawActionChoice: boolean;
+  context: GenerationContext
+  embeddedImages: EmbeddedImage[]
+  rawInput: string
+  actionType: ActionInputType
+  wasRawActionChoice: boolean
 }
 
 /**
@@ -66,10 +80,10 @@ export class PreGenerationPhase {
     yield {
       type: 'phase_start',
       phase: 'pre',
-    } satisfies PhaseStartEvent;
+    } satisfies PhaseStartEvent
 
-    const { context, embeddedImages, rawInput, actionType, wasRawActionChoice } = input;
-    const { story, worldState } = context;
+    const { context, embeddedImages, rawInput, actionType, wasRawActionChoice } = input
+    const { story, worldState } = context
 
     // Prepare retry backup data
     // The actual backup is created by the caller using ui.createRetryBackup()
@@ -86,28 +100,28 @@ export class PreGenerationPhase {
       actionType,
       wasRawActionChoice,
       timeTracker: story.timeTracker ?? null,
-    };
+    }
 
     // Check if Visual Prose mode is enabled for this story
-    const visualProseMode = story.settings?.visualProseMode ?? false;
+    const visualProseMode = story.settings?.visualProseMode ?? false
 
     // Generate a temp entry ID for Visual Prose CSS scoping during streaming
-    const streamingEntryId = crypto.randomUUID();
+    const streamingEntryId = crypto.randomUUID()
 
     const result: PreGenerationResult = {
       retryBackupData,
       worldState,
       visualProseMode,
       streamingEntryId,
-    };
+    }
 
     // Emit phase complete
     yield {
       type: 'phase_complete',
       phase: 'pre',
       result,
-    } satisfies PhaseCompleteEvent;
+    } satisfies PhaseCompleteEvent
 
-    return result;
+    return result
   }
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { slide } from "svelte/transition";
+  import { slide } from 'svelte/transition'
   import {
     Archive,
     Loader2,
@@ -13,65 +13,62 @@
     ChevronDown,
     Send,
     User,
-  } from "lucide-svelte";
-  import UniversalVaultBrowser from "$lib/components/vault/UniversalVaultBrowser.svelte";
-  import { characterVault } from "$lib/stores/characterVault.svelte";
-  import type { VaultCharacter } from "$lib/types";
-  import type {
-    GeneratedProtagonist,
-    GeneratedCharacter,
-  } from "../wizardTypes";
+  } from 'lucide-svelte'
+  import UniversalVaultBrowser from '$lib/components/vault/UniversalVaultBrowser.svelte'
+  import { characterVault } from '$lib/stores/characterVault.svelte'
+  import type { VaultCharacter } from '$lib/types'
+  import type { GeneratedProtagonist, GeneratedCharacter } from '../wizardTypes'
 
   // Shadcn Components
-  import * as Card from "$lib/components/ui/card";
-  import * as Collapsible from "$lib/components/ui/collapsible";
-  import * as Alert from "$lib/components/ui/alert";
-  import * as Avatar from "$lib/components/ui/avatar";
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Label } from "$lib/components/ui/label";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import { Separator } from "$lib/components/ui/separator";
-  import { Badge } from "$lib/components/ui/badge";
+  import * as Card from '$lib/components/ui/card'
+  import * as Collapsible from '$lib/components/ui/collapsible'
+  import * as Alert from '$lib/components/ui/alert'
+  import * as Avatar from '$lib/components/ui/avatar'
+  import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { Separator } from '$lib/components/ui/separator'
+  import { Badge } from '$lib/components/ui/badge'
 
   interface Props {
-    protagonist: GeneratedProtagonist | null;
-    supportingCharacters: GeneratedCharacter[];
+    protagonist: GeneratedProtagonist | null
+    supportingCharacters: GeneratedCharacter[]
 
     // Supporting character form
-    showSupportingCharacterForm: boolean;
-    editingSupportingCharacterIndex: number | null;
-    supportingCharacterName: string;
-    supportingCharacterRole: string;
-    supportingCharacterDescription: string;
-    supportingCharacterRelationship: string;
-    supportingCharacterTraits: string;
-    supportingCharacterGuidance: string;
+    showSupportingCharacterForm: boolean
+    editingSupportingCharacterIndex: number | null
+    supportingCharacterName: string
+    supportingCharacterRole: string
+    supportingCharacterDescription: string
+    supportingCharacterRelationship: string
+    supportingCharacterTraits: string
+    supportingCharacterGuidance: string
 
     // Loading states
-    isGeneratingCharacters: boolean;
-    isElaboratingSupportingCharacter: boolean;
+    isGeneratingCharacters: boolean
+    isElaboratingSupportingCharacter: boolean
 
     // Form handlers
-    onSupportingNameChange: (value: string) => void;
-    onSupportingRoleChange: (value: string) => void;
-    onSupportingDescriptionChange: (value: string) => void;
-    onSupportingRelationshipChange: (value: string) => void;
-    onSupportingTraitsChange: (value: string) => void;
-    onSupportingGuidanceChange: (value: string) => void;
+    onSupportingNameChange: (value: string) => void
+    onSupportingRoleChange: (value: string) => void
+    onSupportingDescriptionChange: (value: string) => void
+    onSupportingRelationshipChange: (value: string) => void
+    onSupportingTraitsChange: (value: string) => void
+    onSupportingGuidanceChange: (value: string) => void
 
     // Action handlers
-    onOpenSupportingForm: () => void;
-    onEditSupportingCharacter: (index: number) => void;
-    onCancelSupportingForm: () => void;
-    onUseSupportingAsIs: () => void;
-    onElaborateSupportingCharacter: () => void;
-    onDeleteSupportingCharacter: (index: number) => void;
-    onGenerateCharacters: () => void;
+    onOpenSupportingForm: () => void
+    onEditSupportingCharacter: (index: number) => void
+    onCancelSupportingForm: () => void
+    onUseSupportingAsIs: () => void
+    onElaborateSupportingCharacter: () => void
+    onDeleteSupportingCharacter: (index: number) => void
+    onGenerateCharacters: () => void
 
     // Vault handlers
-    onSelectSupportingFromVault: (character: VaultCharacter) => void;
-    onNavigateToVault?: () => void;
+    onSelectSupportingFromVault: (character: VaultCharacter) => void
+    onNavigateToVault?: () => void
   }
 
   let {
@@ -102,32 +99,30 @@
     onGenerateCharacters,
     onSelectSupportingFromVault,
     onNavigateToVault,
-  }: Props = $props();
+  }: Props = $props()
 
   // Local state
-  let showAdjustWithAI = $state(false);
-  let showVaultPicker = $state(false);
-  let loadedVaultCharacterId = $state<string | null>(null);
+  let showAdjustWithAI = $state(false)
+  let showVaultPicker = $state(false)
+  let loadedVaultCharacterId = $state<string | null>(null)
 
   const hasVaultCharacters = $derived(
     characterVault.isLoaded && characterVault.characters.length > 0,
-  );
+  )
 
   const addedVaultCharacterIds = $derived(
-    supportingCharacters
-      .map((c) => c.vaultId)
-      .filter((id): id is string => !!id),
-  );
+    supportingCharacters.map((c) => c.vaultId).filter((id): id is string => !!id),
+  )
 
   function handleSelectFromVault(character: VaultCharacter) {
-    loadedVaultCharacterId = character.id;
-    onSelectSupportingFromVault(character);
+    loadedVaultCharacterId = character.id
+    onSelectSupportingFromVault(character)
     // Don't close immediately so user can add multiple if they want,
     // though the disabled logic handles preventing duplicates.
     // Actually, maybe close it to indicate success? User preference.
     // Let's keep it open for multi-select feel or close it?
     // The previous implementation for cards closed it. Let's close it.
-    showVaultPicker = false;
+    showVaultPicker = false
   }
 </script>
 
@@ -135,18 +130,15 @@
   <!-- Header / Description -->
   <div class="space-y-1">
     <h3 class="text-lg font-medium">Supporting Cast</h3>
-    <p class="text-sm text-muted-foreground">
-      Add side characters, allies, or antagonists to enrich your story. This
-      step is optional.
+    <p class="text-muted-foreground text-sm">
+      Add side characters, allies, or antagonists to enrich your story. This step is optional.
     </p>
   </div>
 
   <!-- Load from Vault Section -->
   <div class="space-y-1">
     <div class="flex items-center justify-between pb-1">
-      <h4
-        class="text-sm font-medium text-muted-foreground flex items-center gap-2"
-      >
+      <h4 class="text-muted-foreground flex items-center gap-2 text-sm font-medium">
         <Archive class="h-4 w-4" />
         Load from Vault
       </h4>
@@ -161,37 +153,32 @@
     </div>
 
     <div
-      class="rounded-lg border border-muted-foreground/20 bg-muted/10 text-card-foreground shadow-sm"
+      class="border-muted-foreground/20 bg-muted/10 text-card-foreground rounded-lg border shadow-sm"
     >
-      <Collapsible.Root
-        open={showVaultPicker}
-        onOpenChange={(open) => (showVaultPicker = open)}
-      >
-        <div class="flex items-center p-3 pl-4 gap-3">
+      <Collapsible.Root open={showVaultPicker} onOpenChange={(open) => (showVaultPicker = open)}>
+        <div class="flex items-center gap-3 p-3 pl-4">
           <Collapsible.Trigger
-            class="flex items-center gap-2 flex-1 text-left group/trigger w-full justify-between"
+            class="group/trigger flex w-full flex-1 items-center justify-between gap-2 text-left"
           >
             <div class="flex items-center gap-3">
               <div
-                class="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 transition-colors"
+                class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-md transition-colors"
               >
-                <Users class="h-4 w-4 text-primary" />
+                <Users class="text-primary h-4 w-4" />
               </div>
               <div class="text-left">
-                <div class="font-medium text-sm">
+                <div class="text-sm font-medium">
                   {supportingCharacters.length > 0
-                    ? `${supportingCharacters.length} Character${supportingCharacters.length === 1 ? "" : "s"} Added`
-                    : "Add from Vault"}
+                    ? `${supportingCharacters.length} Character${supportingCharacters.length === 1 ? '' : 's'} Added`
+                    : 'Add from Vault'}
                 </div>
-                <div class="text-xs text-muted-foreground">
-                  {hasVaultCharacters
-                    ? "Browse your saved characters"
-                    : "Vault is empty"}
+                <div class="text-muted-foreground text-xs">
+                  {hasVaultCharacters ? 'Browse your saved characters' : 'Vault is empty'}
                 </div>
               </div>
             </div>
             <div
-              class="flex h-8 w-8 items-center justify-center rounded-md bg-muted/50 transition-colors group-hover/trigger:bg-muted"
+              class="bg-muted/50 group-hover/trigger:bg-muted flex h-8 w-8 items-center justify-center rounded-md transition-colors"
             >
               <ChevronDown
                 class="h-4 w-4 transition-transform duration-200 group-data-[state=open]/trigger:rotate-180"
@@ -201,7 +188,7 @@
         </div>
 
         <Collapsible.Content>
-          <div class="border-t p-3 h-80">
+          <div class="h-80 border-t p-3">
             <UniversalVaultBrowser
               type="character"
               onSelect={handleSelectFromVault}
@@ -219,36 +206,30 @@
 
   <!-- Add New / Generate Section -->
   {#if !showSupportingCharacterForm}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" transition:slide>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" transition:slide>
       <Button
         variant="outline"
-        class="h-12 justify-start gap-3 border-dashed hover:border-solid hover:border-primary/50"
+        class="hover:border-primary/50 h-12 justify-start gap-3 border-dashed hover:border-solid"
         onclick={onOpenSupportingForm}
       >
-        <div
-          class="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10"
-        >
-          <Plus class="h-4 w-4 text-primary" />
+        <div class="bg-primary/10 flex h-6 w-6 items-center justify-center rounded-full">
+          <Plus class="text-primary h-4 w-4" />
         </div>
         <span class="text-sm">Create New Character</span>
       </Button>
 
       <Button
         variant="outline"
-        class="h-12 justify-start gap-3 border-dashed hover:border-solid hover:border-primary/50"
+        class="hover:border-primary/50 h-12 justify-start gap-3 border-dashed hover:border-solid"
         onclick={onGenerateCharacters}
         disabled={isGeneratingCharacters || !protagonist}
-        title={!protagonist
-          ? "Create a protagonist first"
-          : "Generate 3 AI characters"}
+        title={!protagonist ? 'Create a protagonist first' : 'Generate 3 AI characters'}
       >
-        <div
-          class="flex h-6 w-6 items-center justify-center rounded-full bg-accent/10"
-        >
+        <div class="bg-accent/10 flex h-6 w-6 items-center justify-center rounded-full">
           {#if isGeneratingCharacters}
-            <Loader2 class="h-4 w-4 animate-spin text-accent-foreground" />
+            <Loader2 class="text-accent-foreground h-4 w-4 animate-spin" />
           {:else}
-            <Sparkles class="h-4 w-4 text-accent-foreground" />
+            <Sparkles class="text-accent-foreground h-4 w-4" />
           {/if}
         </div>
         <span class="text-sm">Generate Cast with AI</span>
@@ -256,29 +237,19 @@
     </div>
   {:else}
     <!-- Creation Form -->
-    <div
-      class="rounded-lg border bg-card text-card-foreground shadow-sm p-3"
-      transition:slide
-    >
-      <div class="flex items-center justify-between mb-2">
-        <h4 class="text-sm font-medium flex items-center gap-2">
+    <div class="bg-card text-card-foreground rounded-lg border p-3 shadow-sm" transition:slide>
+      <div class="mb-2 flex items-center justify-between">
+        <h4 class="flex items-center gap-2 text-sm font-medium">
           <User class="h-4 w-4" />
-          {editingSupportingCharacterIndex !== null
-            ? "Edit Character"
-            : "New Character"}
+          {editingSupportingCharacterIndex !== null ? 'Edit Character' : 'New Character'}
         </h4>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="h-8 w-8"
-          onclick={onCancelSupportingForm}
-        >
+        <Button variant="ghost" size="icon" class="h-8 w-8" onclick={onCancelSupportingForm}>
           <X class="h-4 w-4" />
         </Button>
       </div>
 
       <div class="space-y-2.5">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <Input
             label="Name"
             id="supp-name"
@@ -300,20 +271,18 @@
           <Textarea
             id="supp-desc"
             value={supportingCharacterDescription}
-            oninput={(e) =>
-              onSupportingDescriptionChange(e.currentTarget.value)}
+            oninput={(e) => onSupportingDescriptionChange(e.currentTarget.value)}
             placeholder="Appearance, personality..."
-            class="min-h-20 text-sm resize-none"
+            class="min-h-20 resize-none text-sm"
           />
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <Input
             label="Relationship"
             id="supp-rel"
             value={supportingCharacterRelationship}
-            oninput={(e) =>
-              onSupportingRelationshipChange(e.currentTarget.value)}
+            oninput={(e) => onSupportingRelationshipChange(e.currentTarget.value)}
             placeholder="e.g., Childhood friend..."
           />
           <Input
@@ -335,33 +304,29 @@
             <Button
               variant="ghost"
               size="sm"
-              class="h-8 text-xs text-muted-foreground gap-2 px-0 hover:bg-transparent hover:text-foreground"
+              class="text-muted-foreground hover:text-foreground h-8 gap-2 px-0 text-xs hover:bg-transparent"
               onclick={() => (showAdjustWithAI = !showAdjustWithAI)}
             >
               <Sparkles class="h-3.5 w-3.5" />
-              {showAdjustWithAI ? "Hide AI Options" : "Adjust with AI"}
+              {showAdjustWithAI ? 'Hide AI Options' : 'Adjust with AI'}
               <ChevronDown
-                class="h-3 w-3 transition-transform {showAdjustWithAI
-                  ? 'rotate-180'
-                  : ''}"
+                class="h-3 w-3 transition-transform {showAdjustWithAI ? 'rotate-180' : ''}"
               />
             </Button>
           </div>
 
-          <Collapsible.Content class="space-y-2 -mt-3">
+          <Collapsible.Content class="-mt-3 space-y-2">
             <div class="space-y-1.5">
               <Label
                 for="ai-guidance-supp"
-                class="text-[10px] uppercase text-muted-foreground tracking-wider"
-                >Guidance</Label
+                class="text-muted-foreground text-[10px] tracking-wider uppercase">Guidance</Label
               >
               <Textarea
                 id="ai-guidance-supp"
                 value={supportingCharacterGuidance}
-                oninput={(e) =>
-                  onSupportingGuidanceChange(e.currentTarget.value)}
+                oninput={(e) => onSupportingGuidanceChange(e.currentTarget.value)}
                 placeholder="e.g., Make them more sinister..."
-                class="h-16 text-xs resize-none"
+                class="h-16 resize-none text-xs"
               />
             </div>
             <Button
@@ -369,8 +334,7 @@
               size="sm"
               class="w-full gap-2"
               onclick={onElaborateSupportingCharacter}
-              disabled={isElaboratingSupportingCharacter ||
-                !supportingCharacterName.trim()}
+              disabled={isElaboratingSupportingCharacter || !supportingCharacterName.trim()}
             >
               {#if isElaboratingSupportingCharacter}
                 <Loader2 class="h-3.5 w-3.5 animate-spin" />
@@ -386,18 +350,14 @@
         <Separator class="my-2" />
 
         <div class="flex justify-end gap-2">
-          <Button variant="ghost" onclick={onCancelSupportingForm}>
-            Cancel
-          </Button>
+          <Button variant="ghost" onclick={onCancelSupportingForm}>Cancel</Button>
           <Button
             class="gap-2"
             onclick={onUseSupportingAsIs}
             disabled={!supportingCharacterName.trim()}
           >
             <Check class="h-4 w-4" />
-            {editingSupportingCharacterIndex !== null
-              ? "Update"
-              : "Add Character"}
+            {editingSupportingCharacterIndex !== null ? 'Update' : 'Add Character'}
           </Button>
         </div>
       </div>
@@ -407,13 +367,13 @@
   <!-- Character List -->
   {#if supportingCharacters.length > 0}
     <div class="grid grid-cols-1 gap-3 pt-2">
-      <h4 class="text-sm font-medium text-muted-foreground mb-1">
+      <h4 class="text-muted-foreground mb-1 text-sm font-medium">
         Cast Members ({supportingCharacters.length})
       </h4>
       {#each supportingCharacters as char, index (index)}
-        <Card.Root class="group transition-all hover:border-primary/30">
-          <Card.Content class="p-2.5 flex items-start gap-2.5">
-            <Avatar.Root class="h-8 w-8 border mt-0.5">
+        <Card.Root class="group hover:border-primary/30 transition-all">
+          <Card.Content class="flex items-start gap-2.5 p-2.5">
+            <Avatar.Root class="mt-0.5 h-8 w-8 border">
               <!-- If we had a portrait for generated chars, we'd use it here.
                      For now, fallback. -->
               <Avatar.Fallback class="bg-primary/10 text-primary">
@@ -421,27 +381,24 @@
               </Avatar.Fallback>
             </Avatar.Root>
 
-            <div class="flex-1 min-w-0">
+            <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2 overflow-hidden">
-                  <span class="font-medium text-sm truncate">{char.name}</span>
+                  <span class="truncate text-sm font-medium">{char.name}</span>
                   {#if char.role}
-                    <Badge
-                      variant="secondary"
-                      class="text-[10px] px-1 h-4 font-normal"
-                    >
+                    <Badge variant="secondary" class="h-4 px-1 text-[10px] font-normal">
                       {char.role}
                     </Badge>
                   {/if}
                 </div>
 
                 <div
-                  class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  class="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100"
                 >
                   <Button
                     variant="ghost"
                     size="icon"
-                    class="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    class="text-muted-foreground hover:text-foreground h-6 w-6"
                     onclick={() => onEditSupportingCharacter(index)}
                     title="Edit"
                   >
@@ -450,7 +407,7 @@
                   <Button
                     variant="ghost"
                     size="icon"
-                    class="h-6 w-6 text-muted-foreground hover:text-destructive"
+                    class="text-muted-foreground hover:text-destructive h-6 w-6"
                     onclick={() => onDeleteSupportingCharacter(index)}
                     title="Delete"
                   >
@@ -459,14 +416,12 @@
                 </div>
               </div>
 
-              <p
-                class="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2"
-              >
+              <p class="text-muted-foreground mt-0.5 line-clamp-2 text-xs leading-snug">
                 {char.description}
               </p>
 
               {#if char.relationship}
-                <p class="text-[10px] text-muted-foreground/70 mt-0.5 italic">
+                <p class="text-muted-foreground/70 mt-0.5 text-[10px] italic">
                   {char.relationship}
                 </p>
               {/if}

@@ -5,7 +5,7 @@
  * chapter analysis, summarization, and context retrieval.
  */
 
-import type { PromptTemplate } from '../types';
+import type { PromptTemplate } from '../types'
 
 /**
  * Chapter Analysis prompt template
@@ -35,7 +35,7 @@ Last valid message ID: {{lastValidId}}
 {{messagesInRange}}
 
 Select the single best chapter endpoint from this range.`,
-};
+}
 
 /**
  * Chapter Summarization prompt template
@@ -70,7 +70,7 @@ CHAPTER CONTENT:
 """
 {{chapterContent}}
 """`,
-};
+}
 
 /**
  * Retrieval Decision prompt template
@@ -106,7 +106,7 @@ Guidelines:
 - Often, no chapters need to be queried - return empty arrays if nothing is relevant
 - Maximum {{maxChaptersPerRetrieval}} chapters per query
 - Consider: characters mentioned, locations being revisited, plot threads referenced`,
-};
+}
 
 /**
  * Lore Management prompt template
@@ -146,7 +146,7 @@ Please review the story content and identify:
 3. Redundant or duplicate entries that should be merged
 
 Use the available tools to make necessary changes, then call finish_lore_management when done.`,
-};
+}
 
 /**
  * Interactive Lorebook prompt template
@@ -193,7 +193,7 @@ When creating entries from wiki content, distill the information into what's mos
 
 Current lorebook: {{lorebookName}}
 Total entries: {{entryCount}}`,
-};
+}
 
 /**
  * Agentic Retrieval prompt template
@@ -240,7 +240,7 @@ RECENT SCENE:
 {{entryList}}
 
 Please gather relevant context from past chapters that will help respond to this situation. Focus on information that is actually needed - often, no retrieval is necessary for simple actions.`,
-};
+}
 
 /**
  * Memory templates array for registration
@@ -252,4 +252,4 @@ export const memoryTemplates: PromptTemplate[] = [
   loreManagementPromptTemplate,
   interactiveLorebookPromptTemplate,
   agenticRetrievalPromptTemplate,
-];
+]

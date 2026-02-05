@@ -13,17 +13,17 @@
  */
 
 // Main orchestrator (exports singleton instance)
-export { aiService } from '../index';
+export { aiService } from '../index'
 
 // Narrative generation
 export {
   NarrativeService,
   type NarrativeWorldState,
   type NarrativeOptions,
-} from './NarrativeService';
+} from './NarrativeService'
 
 // Classification
-export { ClassifierService, type ClassificationContext } from './ClassifierService';
+export { ClassifierService, type ClassificationContext } from './ClassifierService'
 // Classifier output types - import from schema
 export type {
   ClassificationResult,
@@ -37,30 +37,35 @@ export type {
   NewItem,
   StoryBeatUpdate,
   NewStoryBeat,
-} from '../sdk/schemas/classifier';
+} from '../sdk/schemas/classifier'
 
 // Memory
-export { MemoryService, DEFAULT_MEMORY_CONFIG, type RetrievedContext, type RetrievalContext } from './MemoryService';
+export {
+  MemoryService,
+  DEFAULT_MEMORY_CONFIG,
+  type RetrievedContext,
+  type RetrievalContext,
+} from './MemoryService'
 // Memory output types - import from schema
 export type {
   ChapterAnalysis,
   ChapterSummaryResult,
   RetrievalDecision,
-} from '../sdk/schemas/memory';
+} from '../sdk/schemas/memory'
 
 // Suggestions and choices - types exported from schemas
-export { SuggestionsService } from './SuggestionsService';
-export type { Suggestion, SuggestionsResult } from '../sdk/schemas/suggestions';
+export { SuggestionsService } from './SuggestionsService'
+export type { Suggestion, SuggestionsResult } from '../sdk/schemas/suggestions'
 
-export { ActionChoicesService } from './ActionChoicesService';
-export type { ActionChoice, ActionChoicesResult } from '../sdk/schemas/actionchoices';
+export { ActionChoicesService } from './ActionChoicesService'
+export type { ActionChoice, ActionChoicesResult } from '../sdk/schemas/actionchoices'
 
 // Style analysis
 export {
   StyleReviewerService,
   type StyleReviewResult,
   type PhraseAnalysis,
-} from './StyleReviewerService';
+} from './StyleReviewerService'
 
 // Context building
 export {
@@ -70,4 +75,4 @@ export {
   type ContextConfig,
   type WorldState,
   type RelevantEntry,
-} from './ContextBuilder';
+} from './ContextBuilder'

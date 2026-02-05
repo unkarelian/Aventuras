@@ -8,11 +8,16 @@
  */
 
 import type {
-  GenerationEvent, PhaseStartEvent, PhaseCompleteEvent,
-  AbortedEvent, ErrorEvent, ClassificationCompleteEvent, WorldState,
-} from '../types';
-import type { Story, StoryEntry, TimeTracker } from '$lib/types';
-import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier';
+  GenerationEvent,
+  PhaseStartEvent,
+  PhaseCompleteEvent,
+  AbortedEvent,
+  ErrorEvent,
+  ClassificationCompleteEvent,
+  WorldState,
+} from '../types'
+import type { Story, StoryEntry, TimeTracker } from '$lib/types'
+import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier'
 
 /** Dependencies for classification phase - injected to avoid tight coupling */
 export interface ClassificationDependencies {
@@ -22,25 +27,25 @@ export interface ClassificationDependencies {
     worldState: WorldState,
     story: Story | null | undefined,
     chatHistoryEntries: StoryEntry[],
-    timeTracker: TimeTracker | null | undefined
-  ) => Promise<ClassificationResult>;
+    timeTracker: TimeTracker | null | undefined,
+  ) => Promise<ClassificationResult>
 }
 
 /** Input for the classification phase */
 export interface ClassificationInput {
-  narrativeContent: string;
-  narrativeEntryId: string;
-  userActionContent: string;
-  worldState: WorldState;
-  story: Story | null | undefined;
-  visibleEntries: StoryEntry[];
-  abortSignal?: AbortSignal;
+  narrativeContent: string
+  narrativeEntryId: string
+  userActionContent: string
+  worldState: WorldState
+  story: Story | null | undefined
+  visibleEntries: StoryEntry[]
+  abortSignal?: AbortSignal
 }
 
 /** Result from classification phase */
 export interface ClassificationPhaseResult {
-  classificationResult: ClassificationResult;
-  narrativeEntryId: string;
+  classificationResult: ClassificationResult
+  narrativeEntryId: string
 }
 
 /**
@@ -51,8 +56,10 @@ export class ClassificationPhase {
   constructor(private deps: ClassificationDependencies) {}
 
   /** Execute the classification phase - yields events and returns result */
-  async *execute(input: ClassificationInput): AsyncGenerator<GenerationEvent, ClassificationPhaseResult | null> {
-    yield { type: 'phase_start', phase: 'classification' } satisfies PhaseStartEvent;
+  async *execute(
+    input: ClassificationInput,
+  ): AsyncGenerator<GenerationEvent, ClassificationPhaseResult | null> {
+    yield { type: 'phase_start', phase: 'classification' } satisfies PhaseStartEvent
 
     const {
       narrativeContent,
@@ -62,19 +69,17 @@ export class ClassificationPhase {
       story,
       visibleEntries,
       abortSignal,
-    } = input;
+    } = input
 
     if (abortSignal?.aborted) {
-      yield { type: 'aborted', phase: 'classification' } satisfies AbortedEvent;
-      return null;
+      yield { type: 'aborted', phase: 'classification' } satisfies AbortedEvent
+      return null
     }
 
     try {
       // Filter out the current narration entry to avoid sending it twice
       // (once in chatHistory, once as narrativeResponse)
-      const chatHistoryEntries = visibleEntries.filter(
-        (e) => e.id !== narrativeEntryId
-      );
+      const chatHistoryEntries = visibleEntries.filter((e) => e.id !== narrativeEntryId)
 
       const classificationResult = await this.deps.classifyResponse(
         narrativeContent,
@@ -82,36 +87,36 @@ export class ClassificationPhase {
         worldState,
         story,
         chatHistoryEntries,
-        story?.timeTracker
-      );
+        story?.timeTracker,
+      )
 
       if (abortSignal?.aborted) {
-        yield { type: 'aborted', phase: 'classification' } satisfies AbortedEvent;
-        return null;
+        yield { type: 'aborted', phase: 'classification' } satisfies AbortedEvent
+        return null
       }
 
       // Emit classification complete event
       yield {
         type: 'classification_complete',
         result: classificationResult,
-      } satisfies ClassificationCompleteEvent;
+      } satisfies ClassificationCompleteEvent
 
       const result: ClassificationPhaseResult = {
         classificationResult,
         narrativeEntryId,
-      };
+      }
 
       yield {
         type: 'phase_complete',
         phase: 'classification',
         result,
-      } satisfies PhaseCompleteEvent;
+      } satisfies PhaseCompleteEvent
 
-      return result;
+      return result
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        yield { type: 'aborted', phase: 'classification' } satisfies AbortedEvent;
-        return null;
+        yield { type: 'aborted', phase: 'classification' } satisfies AbortedEvent
+        return null
       }
 
       // Classification errors are non-fatal - world state just won't be updated
@@ -120,9 +125,9 @@ export class ClassificationPhase {
         phase: 'classification',
         error: error instanceof Error ? error : new Error(String(error)),
         fatal: false,
-      } satisfies ErrorEvent;
+      } satisfies ErrorEvent
 
-      return null;
+      return null
     }
   }
 }

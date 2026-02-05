@@ -20,7 +20,7 @@ export {
   type RetrievedEntry,
   type EntryRetrievalConfig,
   type LiveWorldState,
-} from './EntryRetrievalService';
+} from './EntryRetrievalService'
 
 // Agentic Retrieval
 export {
@@ -29,7 +29,7 @@ export {
   type AgenticRetrievalContext,
   type AgenticRetrievalResult,
   type AgenticRetrievalSettings,
-} from './AgenticRetrievalService';
+} from './AgenticRetrievalService'
 
 // Timeline Fill
 export {
@@ -40,5 +40,5 @@ export {
   type ResolvedTimelineQuery,
   type TimelineQueryResult,
   type TimelineChapterInfo,
-} from './TimelineFillService';
-export type { TimelineQuery } from '../sdk/schemas/timeline';
+} from './TimelineFillService'
+export type { TimelineQuery } from '../sdk/schemas/timeline'

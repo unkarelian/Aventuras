@@ -17,40 +17,40 @@ import type {
   TimeTracker,
   ActionInputType,
   PersistentCharacterSnapshot,
-} from '$lib/types';
+} from '$lib/types'
 
 function log(...args: unknown[]) {
-  console.log('[RetryService]', ...args);
+  console.log('[RetryService]', ...args)
 }
 
 /**
  * Backup data structure - mirrors RetryBackup from ui.svelte.ts
  */
 export interface RetryBackupData {
-  storyId: string;
-  timestamp: number;
-  entries: StoryEntry[];
-  characters: Character[];
-  locations: Location[];
-  items: Item[];
-  storyBeats: StoryBeat[];
-  embeddedImages: EmbeddedImage[];
-  userActionContent: string;
-  rawInput: string;
-  actionType: ActionInputType;
-  wasRawActionChoice: boolean;
-  activationData: Record<string, number>;
-  storyPosition: number;
-  entryCountBeforeAction: number;
-  hasFullState: boolean;
-  hasEntityIds: boolean;
-  characterIds: string[];
-  locationIds: string[];
-  itemIds: string[];
-  storyBeatIds: string[];
-  embeddedImageIds?: string[];
-  characterSnapshots?: PersistentCharacterSnapshot[];
-  timeTracker: TimeTracker | null | undefined;
+  storyId: string
+  timestamp: number
+  entries: StoryEntry[]
+  characters: Character[]
+  locations: Location[]
+  items: Item[]
+  storyBeats: StoryBeat[]
+  embeddedImages: EmbeddedImage[]
+  userActionContent: string
+  rawInput: string
+  actionType: ActionInputType
+  wasRawActionChoice: boolean
+  activationData: Record<string, number>
+  storyPosition: number
+  entryCountBeforeAction: number
+  hasFullState: boolean
+  hasEntityIds: boolean
+  characterIds: string[]
+  locationIds: string[]
+  itemIds: string[]
+  storyBeatIds: string[]
+  embeddedImageIds?: string[]
+  characterSnapshots?: PersistentCharacterSnapshot[]
+  timeTracker: TimeTracker | null | undefined
 }
 
 /**
@@ -59,42 +59,42 @@ export interface RetryBackupData {
 export interface RetryStoreCallbacks {
   // Story store operations
   restoreFromRetryBackup: (backup: {
-    entries: StoryEntry[];
-    characters: Character[];
-    locations: Location[];
-    items: Item[];
-    storyBeats: StoryBeat[];
-    embeddedImages: EmbeddedImage[];
-    timeTracker?: TimeTracker | null;
-  }) => Promise<void>;
-  deleteEntriesFromPosition: (position: number) => Promise<void>;
+    entries: StoryEntry[]
+    characters: Character[]
+    locations: Location[]
+    items: Item[]
+    storyBeats: StoryBeat[]
+    embeddedImages: EmbeddedImage[]
+    timeTracker?: TimeTracker | null
+  }) => Promise<void>
+  deleteEntriesFromPosition: (position: number) => Promise<void>
   deleteEntitiesCreatedAfterBackup: (savedIds: {
-    characterIds: string[];
-    locationIds: string[];
-    itemIds: string[];
-    storyBeatIds: string[];
-    embeddedImageIds?: string[];
-  }) => Promise<void>;
-  restoreCharacterSnapshots: (snapshots?: PersistentCharacterSnapshot[]) => Promise<void>;
-  restoreTimeTrackerSnapshot: (snapshot: TimeTracker | null | undefined) => Promise<void>;
-  lockRetryInProgress: () => void;
-  unlockRetryInProgress: () => void;
+    characterIds: string[]
+    locationIds: string[]
+    itemIds: string[]
+    storyBeatIds: string[]
+    embeddedImageIds?: string[]
+  }) => Promise<void>
+  restoreCharacterSnapshots: (snapshots?: PersistentCharacterSnapshot[]) => Promise<void>
+  restoreTimeTrackerSnapshot: (snapshot: TimeTracker | null | undefined) => Promise<void>
+  lockRetryInProgress: () => void
+  unlockRetryInProgress: () => void
 
   // UI store operations
-  restoreActivationData: (data: Record<string, number>, position: number) => void;
-  clearActivationData: () => void;
-  setLastLorebookRetrieval: (result: null) => void;
+  restoreActivationData: (data: Record<string, number>, position: number) => void
+  clearActivationData: () => void
+  setLastLorebookRetrieval: (result: null) => void
 }
 
 /**
  * Result of a restore operation
  */
 export interface RestoreResult {
-  success: boolean;
-  error?: string;
-  restoredActionType?: ActionInputType;
-  restoredWasRawActionChoice?: boolean;
-  restoredRawInput?: string;
+  success: boolean
+  error?: string
+  restoredActionType?: ActionInputType
+  restoredWasRawActionChoice?: boolean
+  restoredRawInput?: string
 }
 
 /**
@@ -117,15 +117,15 @@ export class RetryService {
       hasFullState: backup.hasFullState,
       hasEntityIds: backup.hasEntityIds,
       entryCountBeforeAction: backup.entryCountBeforeAction,
-    });
+    })
 
     try {
       if (backup.hasFullState) {
         // Full state restore path
-        await this.restoreFullState(backup, callbacks);
+        await this.restoreFullState(backup, callbacks)
       } else {
         // Persistent (ID-based) restore path
-        await this.restorePersistentState(backup, callbacks);
+        await this.restorePersistentState(backup, callbacks)
       }
 
       return {
@@ -133,13 +133,13 @@ export class RetryService {
         restoredActionType: backup.actionType,
         restoredWasRawActionChoice: backup.wasRawActionChoice,
         restoredRawInput: backup.rawInput,
-      };
+      }
     } catch (error) {
-      log('Restore failed', error);
+      log('Restore failed', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown restore error',
-      };
+      }
     }
   }
 
@@ -150,10 +150,10 @@ export class RetryService {
     backup: RetryBackupData,
     callbacks: RetryStoreCallbacks,
   ): Promise<void> {
-    log('Restoring full state from backup');
+    log('Restoring full state from backup')
 
     // Restore activation data first
-    callbacks.restoreActivationData(backup.activationData, backup.storyPosition);
+    callbacks.restoreActivationData(backup.activationData, backup.storyPosition)
 
     // Restore story state (this handles locking internally)
     await callbacks.restoreFromRetryBackup({
@@ -164,9 +164,9 @@ export class RetryService {
       storyBeats: backup.storyBeats,
       embeddedImages: backup.embeddedImages,
       timeTracker: backup.timeTracker,
-    });
+    })
 
-    log('Full state restore complete');
+    log('Full state restore complete')
   }
 
   /**
@@ -180,42 +180,42 @@ export class RetryService {
     log('Restoring persistent state (ID-based)', {
       entryCountBeforeAction: backup.entryCountBeforeAction,
       hasEntityIds: backup.hasEntityIds,
-    });
+    })
 
     // Lock editing during restore
-    callbacks.lockRetryInProgress();
+    callbacks.lockRetryInProgress()
 
     try {
       // Clear activation data
-      callbacks.clearActivationData();
+      callbacks.clearActivationData()
 
       // Delete entries from the backup position onward
-      log('Deleting entries from position', backup.entryCountBeforeAction);
-      await callbacks.deleteEntriesFromPosition(backup.entryCountBeforeAction);
+      log('Deleting entries from position', backup.entryCountBeforeAction)
+      await callbacks.deleteEntriesFromPosition(backup.entryCountBeforeAction)
 
       // Delete entities created after backup (if we have ID snapshots)
       if (backup.hasEntityIds) {
-        log('Deleting entities created after backup');
+        log('Deleting entities created after backup')
         await callbacks.deleteEntitiesCreatedAfterBackup({
           characterIds: backup.characterIds,
           locationIds: backup.locationIds,
           itemIds: backup.itemIds,
           storyBeatIds: backup.storyBeatIds,
           embeddedImageIds: backup.embeddedImageIds,
-        });
+        })
       } else {
-        log('Skipping entity cleanup (no ID snapshot)');
+        log('Skipping entity cleanup (no ID snapshot)')
       }
 
       // Restore character field snapshots
-      await callbacks.restoreCharacterSnapshots(backup.characterSnapshots);
+      await callbacks.restoreCharacterSnapshots(backup.characterSnapshots)
 
       // Restore time tracker
-      await callbacks.restoreTimeTrackerSnapshot(backup.timeTracker);
+      await callbacks.restoreTimeTrackerSnapshot(backup.timeTracker)
 
-      log('Persistent state restore complete');
+      log('Persistent state restore complete')
     } finally {
-      callbacks.unlockRetryInProgress();
+      callbacks.unlockRetryInProgress()
     }
   }
 
@@ -226,28 +226,28 @@ export class RetryService {
     backup: RetryBackupData,
     callbacks: RetryStoreCallbacks,
     uiCleanup: {
-      clearGenerationError: () => void;
-      clearSuggestions: () => void;
-      clearActionChoices: () => void;
+      clearGenerationError: () => void
+      clearSuggestions: () => void
+      clearActionChoices: () => void
     },
   ): Promise<RestoreResult> {
-    log('handleStopGeneration called');
+    log('handleStopGeneration called')
 
     // Clear UI state first
-    uiCleanup.clearGenerationError();
-    uiCleanup.clearSuggestions();
-    uiCleanup.clearActionChoices();
+    uiCleanup.clearGenerationError()
+    uiCleanup.clearSuggestions()
+    uiCleanup.clearActionChoices()
 
     // Restore activation data for full state path
     if (backup.hasFullState) {
-      callbacks.restoreActivationData(backup.activationData, backup.storyPosition);
+      callbacks.restoreActivationData(backup.activationData, backup.storyPosition)
     }
 
     // Clear lorebook retrieval debug state
-    callbacks.setLastLorebookRetrieval(null);
+    callbacks.setLastLorebookRetrieval(null)
 
     // Perform restore
-    return this.restoreFromBackup(backup, callbacks);
+    return this.restoreFromBackup(backup, callbacks)
   }
 
   /**
@@ -257,30 +257,30 @@ export class RetryService {
     backup: RetryBackupData,
     callbacks: RetryStoreCallbacks,
     uiCleanup: {
-      clearGenerationError: () => void;
-      clearSuggestions: () => void;
-      clearActionChoices: () => void;
-      clearImageContext: () => void;
+      clearGenerationError: () => void
+      clearSuggestions: () => void
+      clearActionChoices: () => void
+      clearImageContext: () => void
     },
   ): Promise<RestoreResult> {
     log('handleRetryLastMessage called', {
       hasFullState: backup.hasFullState,
       entryCountBeforeAction: backup.entryCountBeforeAction,
-    });
+    })
 
     // Clear UI state
-    uiCleanup.clearGenerationError();
-    uiCleanup.clearSuggestions();
-    uiCleanup.clearActionChoices();
-    uiCleanup.clearImageContext();
+    uiCleanup.clearGenerationError()
+    uiCleanup.clearSuggestions()
+    uiCleanup.clearActionChoices()
+    uiCleanup.clearImageContext()
 
     // Clear lorebook retrieval debug state
-    callbacks.setLastLorebookRetrieval(null);
+    callbacks.setLastLorebookRetrieval(null)
 
     // Perform restore
-    return this.restoreFromBackup(backup, callbacks);
+    return this.restoreFromBackup(backup, callbacks)
   }
 }
 
 // Export singleton instance
-export const retryService = new RetryService();
+export const retryService = new RetryService()

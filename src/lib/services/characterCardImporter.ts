@@ -5,176 +5,184 @@
  * Supports both JSON files and PNG files with embedded character data.
  */
 
-import type { StoryMode, VisualDescriptors } from '$lib/types';
-import type { Genre, GeneratedCharacter } from '$lib/services/ai/wizard/ScenarioService';
-import { promptService, type PromptContext } from '$lib/services/prompts';
-import { generateStructured } from './ai/sdk/generate';
-import {
-  cardImportResultSchema,
-  vaultCharacterImportSchema,
-} from './ai/sdk/schemas/cardimport';
-import { createLogger } from './ai/core/config';
+import type { StoryMode, VisualDescriptors } from '$lib/types'
+import type { Genre, GeneratedCharacter } from '$lib/services/ai/wizard/ScenarioService'
+import { promptService, type PromptContext } from '$lib/services/prompts'
+import { generateStructured } from './ai/sdk/generate'
+import { cardImportResultSchema, vaultCharacterImportSchema } from './ai/sdk/schemas/cardimport'
+import { createLogger } from './ai/core/config'
 
-const log = createLogger('CharacterCardImporter');
+const log = createLogger('CharacterCardImporter')
 
 // ===== PNG Metadata Extraction =====
 
-const PNG_SIGNATURE = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 
 export function isPngFile(data: ArrayBuffer | Uint8Array): boolean {
-  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
-  if (bytes.length < 8) return false;
+  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
+  if (bytes.length < 8) return false
 
   for (let i = 0; i < 8; i++) {
-    if (bytes[i] !== PNG_SIGNATURE[i]) return false;
+    if (bytes[i] !== PNG_SIGNATURE[i]) return false
   }
-  return true;
+  return true
 }
 
 export function extractCharacterCardFromPng(data: ArrayBuffer | Uint8Array): string | null {
-  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
+  const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data
 
   if (!isPngFile(bytes)) {
-    log('Not a valid PNG file');
-    return null;
+    log('Not a valid PNG file')
+    return null
   }
 
-  let offset = 8;
+  let offset = 8
 
   while (offset < bytes.length) {
-    if (offset + 4 > bytes.length) break;
-    const length = (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
-    offset += 4;
+    if (offset + 4 > bytes.length) break
+    const length =
+      (bytes[offset] << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3]
+    offset += 4
 
-    if (offset + 4 > bytes.length) break;
-    const type = String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
-    offset += 4;
+    if (offset + 4 > bytes.length) break
+    const type = String.fromCharCode(
+      bytes[offset],
+      bytes[offset + 1],
+      bytes[offset + 2],
+      bytes[offset + 3],
+    )
+    offset += 4
 
     if (type === 'tEXt') {
-      if (offset + length > bytes.length) break;
-      const chunkData = bytes.slice(offset, offset + length);
+      if (offset + length > bytes.length) break
+      const chunkData = bytes.slice(offset, offset + length)
 
-      let nullIndex = -1;
+      let nullIndex = -1
       for (let i = 0; i < chunkData.length; i++) {
         if (chunkData[i] === 0) {
-          nullIndex = i;
-          break;
+          nullIndex = i
+          break
         }
       }
 
       if (nullIndex > 0) {
-        const keyword = new TextDecoder('latin1').decode(chunkData.slice(0, nullIndex));
+        const keyword = new TextDecoder('latin1').decode(chunkData.slice(0, nullIndex))
 
         if (keyword.toLowerCase() === 'chara') {
-          const textData = chunkData.slice(nullIndex + 1);
-          const base64String = new TextDecoder('latin1').decode(textData);
+          const textData = chunkData.slice(nullIndex + 1)
+          const base64String = new TextDecoder('latin1').decode(textData)
 
           try {
-            const jsonString = atob(base64String);
-            log('Found character data in PNG tEXt chunk');
-            return jsonString;
+            const jsonString = atob(base64String)
+            log('Found character data in PNG tEXt chunk')
+            return jsonString
           } catch (e) {
-            log('Failed to decode base64 character data:', e);
-            return null;
+            log('Failed to decode base64 character data:', e)
+            return null
           }
         }
       }
     }
 
-    offset += length + 4;
+    offset += length + 4
 
-    if (type === 'IEND') break;
+    if (type === 'IEND') break
   }
 
-  log('No character data found in PNG');
-  return null;
+  log('No character data found in PNG')
+  return null
 }
 
 export async function readCharacterCardFile(file: File): Promise<string> {
-  const fileName = file.name.toLowerCase();
+  const fileName = file.name.toLowerCase()
 
   if (fileName.endsWith('.png')) {
-    log('Reading PNG file:', file.name);
-    const arrayBuffer = await file.arrayBuffer();
-    const jsonString = extractCharacterCardFromPng(arrayBuffer);
+    log('Reading PNG file:', file.name)
+    const arrayBuffer = await file.arrayBuffer()
+    const jsonString = extractCharacterCardFromPng(arrayBuffer)
 
     if (!jsonString) {
-      throw new Error('No character data found in PNG file. The image may not be a valid SillyTavern character card.');
+      throw new Error(
+        'No character data found in PNG file. The image may not be a valid SillyTavern character card.',
+      )
     }
 
-    return jsonString;
+    return jsonString
   }
 
-  log('Reading JSON file:', file.name);
-  return await file.text();
+  log('Reading JSON file:', file.name)
+  return await file.text()
 }
 
 // ===== SillyTavern Card Types =====
 
 export interface SillyTavernCardV1 {
-  name: string;
-  description: string;
-  personality: string;
-  scenario: string;
-  first_mes: string;
-  mes_example: string;
+  name: string
+  description: string
+  personality: string
+  scenario: string
+  first_mes: string
+  mes_example: string
 }
 
 export interface SillyTavernCardV2 {
-  spec: 'chara_card_v2' | 'chara_card_v3';
-  spec_version: string;
+  spec: 'chara_card_v2' | 'chara_card_v3'
+  spec_version: string
   data: SillyTavernCardV1 & {
-    creator_notes?: string;
-    system_prompt?: string;
-    post_history_instructions?: string;
-    alternate_greetings?: string[];
-    character_book?: unknown;
-    tags?: string[];
-    creator?: string;
-    character_version?: string;
-    extensions?: Record<string, unknown>;
-  };
-  name?: string;
-  description?: string;
-  personality?: string;
-  scenario?: string;
-  first_mes?: string;
-  mes_example?: string;
-  creator_notes?: string;
-  tags?: string[];
+    creator_notes?: string
+    system_prompt?: string
+    post_history_instructions?: string
+    alternate_greetings?: string[]
+    character_book?: unknown
+    tags?: string[]
+    creator?: string
+    character_version?: string
+    extensions?: Record<string, unknown>
+  }
+  name?: string
+  description?: string
+  personality?: string
+  scenario?: string
+  first_mes?: string
+  mes_example?: string
+  creator_notes?: string
+  tags?: string[]
 }
 
 export interface ParsedCard {
-  name: string;
-  description: string;
-  personality: string;
-  scenario: string;
-  firstMessage: string;
-  alternateGreetings: string[];
-  exampleMessages: string;
-  creator_notes?: string;
-  tags?: string[];
-  version: 'v1' | 'v2' | 'v3';
+  name: string
+  description: string
+  personality: string
+  scenario: string
+  firstMessage: string
+  alternateGreetings: string[]
+  exampleMessages: string
+  creator_notes?: string
+  tags?: string[]
+  version: 'v1' | 'v2' | 'v3'
 }
 
 export interface CardImportResult {
-  success: boolean;
-  settingSeed: string;
-  npcs: GeneratedCharacter[];
-  primaryCharacterName: string;
-  storyTitle: string;
-  firstMessage: string;
-  alternateGreetings: string[];
-  errors: string[];
+  success: boolean
+  settingSeed: string
+  npcs: GeneratedCharacter[]
+  primaryCharacterName: string
+  storyTitle: string
+  firstMessage: string
+  alternateGreetings: string[]
+  errors: string[]
 }
 
 // ===== Card Parsing =====
 
 function isV2OrV3Card(data: unknown): data is SillyTavernCardV2 {
-  if (typeof data !== 'object' || data === null) return false;
-  if (!('spec' in data) || !('data' in data)) return false;
-  const spec = (data as SillyTavernCardV2).spec;
-  return spec === 'chara_card_v2' || spec === 'chara_card_v3';
+  if (typeof data !== 'object' || data === null) return false
+  if (!('spec' in data) || !('data' in data)) return false
+  const spec = (data as SillyTavernCardV2).spec
+  return spec === 'chara_card_v2' || spec === 'chara_card_v3'
 }
 
 function isV1Card(data: unknown): data is SillyTavernCardV1 {
@@ -184,16 +192,16 @@ function isV1Card(data: unknown): data is SillyTavernCardV1 {
     'name' in data &&
     'description' in data &&
     !('spec' in data)
-  );
+  )
 }
 
 export function parseCharacterCard(jsonString: string): ParsedCard | null {
   try {
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(jsonString)
 
     if (isV2OrV3Card(data)) {
-      const version = data.spec === 'chara_card_v3' ? 'v3' : 'v2';
-      log(`Detected ${version.toUpperCase()} card format`);
+      const version = data.spec === 'chara_card_v3' ? 'v3' : 'v2'
+      log(`Detected ${version.toUpperCase()} card format`)
       return {
         name: data.data.name || data.name || 'Unknown Character',
         description: data.data.description || data.description || '',
@@ -205,11 +213,11 @@ export function parseCharacterCard(jsonString: string): ParsedCard | null {
         creator_notes: data.data.creator_notes || data.creator_notes,
         tags: data.data.tags || data.tags,
         version,
-      };
+      }
     }
 
     if (isV1Card(data)) {
-      log('Detected V1 card format');
+      log('Detected V1 card format')
       return {
         name: data.name || 'Unknown Character',
         description: data.description || '',
@@ -219,46 +227,50 @@ export function parseCharacterCard(jsonString: string): ParsedCard | null {
         alternateGreetings: [],
         exampleMessages: data.mes_example || '',
         version: 'v1',
-      };
+      }
     }
 
-    log('Unknown card format');
-    return null;
+    log('Unknown card format')
+    return null
   } catch (error) {
-    log('Failed to parse card JSON:', error);
-    return null;
+    log('Failed to parse card JSON:', error)
+    return null
   }
 }
 
 // ===== Macro Replacement =====
 
 export function normalizeUserMacro(text: string): string {
-  if (!text) return '';
-  return text.replace(/\{\{user\}\}/gi, '{{user}}');
+  if (!text) return ''
+  return text.replace(/\{\{user\}\}/gi, '{{user}}')
 }
 
 // ===== LLM Conversion =====
 
 function buildCardContext(card: ParsedCard): string {
-  const sections: string[] = [];
+  const sections: string[] = []
 
   if (card.scenario.trim()) {
-    sections.push(`<scenario>\n${normalizeUserMacro(card.scenario)}\n</scenario>`);
+    sections.push(`<scenario>\n${normalizeUserMacro(card.scenario)}\n</scenario>`)
   }
 
   if (card.description.trim()) {
-    sections.push(`<character_description>\n${normalizeUserMacro(card.description)}\n</character_description>`);
+    sections.push(
+      `<character_description>\n${normalizeUserMacro(card.description)}\n</character_description>`,
+    )
   }
 
   if (card.personality.trim()) {
-    sections.push(`<personality>\n${normalizeUserMacro(card.personality)}\n</personality>`);
+    sections.push(`<personality>\n${normalizeUserMacro(card.personality)}\n</personality>`)
   }
 
   if (card.exampleMessages.trim()) {
-    sections.push(`<example_messages>\n${normalizeUserMacro(card.exampleMessages)}\n</example_messages>`);
+    sections.push(
+      `<example_messages>\n${normalizeUserMacro(card.exampleMessages)}\n</example_messages>`,
+    )
   }
 
-  return sections.join('\n\n');
+  return sections.join('\n\n')
 }
 
 /**
@@ -268,9 +280,9 @@ export async function convertCardToScenario(
   jsonString: string,
   mode: StoryMode,
   genre: Genre,
-  profileId?: string | null
+  profileId?: string | null,
 ): Promise<CardImportResult> {
-  const card = parseCharacterCard(jsonString);
+  const card = parseCharacterCard(jsonString)
   if (!card) {
     return {
       success: false,
@@ -280,18 +292,20 @@ export async function convertCardToScenario(
       storyTitle: '',
       firstMessage: '',
       alternateGreetings: [],
-      errors: ['Failed to parse character card. Please ensure the file is a valid SillyTavern character card JSON.'],
-    };
+      errors: [
+        'Failed to parse character card. Please ensure the file is a valid SillyTavern character card JSON.',
+      ],
+    }
   }
 
-  log('Parsed card:', { name: card.name, version: card.version });
+  log('Parsed card:', { name: card.name, version: card.version })
 
-  const cardTitle = card.name;
-  const preprocessedFirstMessage = normalizeUserMacro(card.firstMessage);
-  const preprocessedAlternateGreetings = card.alternateGreetings.map(g => normalizeUserMacro(g));
+  const cardTitle = card.name
+  const preprocessedFirstMessage = normalizeUserMacro(card.firstMessage)
+  const preprocessedAlternateGreetings = card.alternateGreetings.map((g) => normalizeUserMacro(g))
 
   // Build card content for LLM
-  const cardContent = buildCardContext(card);
+  const cardContent = buildCardContext(card)
 
   // Minimal context for prompt rendering
   const promptContext: PromptContext = {
@@ -299,33 +313,41 @@ export async function convertCardToScenario(
     pov: 'second',
     tense: 'present',
     protagonistName: '',
-  };
+  }
 
-  const system = promptService.renderPrompt('character-card-import', promptContext);
+  const system = promptService.renderPrompt('character-card-import', promptContext)
   const prompt = promptService.renderUserPrompt('character-card-import', promptContext, {
     genre,
     title: cardTitle,
     cardContent,
-  });
+  })
 
-  const result = await generateStructured({
-    presetId: 'classification',
-    schema: cardImportResultSchema,
-    system,
-    prompt,
-    
-  },"character-card-import");
+  const result = await generateStructured(
+    {
+      presetId: 'classification',
+      schema: cardImportResultSchema,
+      system,
+      prompt,
+    },
+    'character-card-import',
+  )
 
   // Convert LLM result to CardImportResult format
-  const npcs: GeneratedCharacter[] = result.npcs.map(npc => ({
+  const npcs: GeneratedCharacter[] = result.npcs.map((npc) => ({
     name: npc.name,
     role: npc.role,
     description: npc.description,
     relationship: npc.relationship,
-    traits: npc.personality.split(',').map(t => t.trim()).filter(Boolean),
-  }));
+    traits: npc.personality
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean),
+  }))
 
-  log('Card import successful', { primaryCharacter: result.primaryCharacterName, npcCount: npcs.length });
+  log('Card import successful', {
+    primaryCharacter: result.primaryCharacterName,
+    npcCount: npcs.length,
+  })
 
   return {
     success: true,
@@ -336,14 +358,14 @@ export async function convertCardToScenario(
     firstMessage: preprocessedFirstMessage,
     alternateGreetings: preprocessedAlternateGreetings,
     errors: [],
-  };
+  }
 }
 
 export interface SanitizedCharacter {
-  name: string;
-  description: string;
-  traits: string[];
-  visualDescriptors: VisualDescriptors;
+  name: string
+  description: string
+  traits: string[]
+  visualDescriptors: VisualDescriptors
 }
 
 /**
@@ -351,16 +373,16 @@ export interface SanitizedCharacter {
  */
 export async function sanitizeCharacterCard(
   jsonString: string,
-  profileId?: string | null
+  profileId?: string | null,
 ): Promise<SanitizedCharacter | null> {
-  const card = parseCharacterCard(jsonString);
+  const card = parseCharacterCard(jsonString)
   if (!card) {
-    log('Failed to parse card for sanitization');
-    return null;
+    log('Failed to parse card for sanitization')
+    return null
   }
 
   // Build card content for LLM
-  const cardContent = buildCardContext(card);
+  const cardContent = buildCardContext(card)
 
   // Minimal context for prompt rendering
   const promptContext: PromptContext = {
@@ -368,32 +390,35 @@ export async function sanitizeCharacterCard(
     pov: 'second',
     tense: 'present',
     protagonistName: '',
-  };
+  }
 
-  const system = promptService.renderPrompt('vault-character-import', promptContext);
+  const system = promptService.renderPrompt('vault-character-import', promptContext)
   const prompt = promptService.renderUserPrompt('vault-character-import', promptContext, {
     cardContent,
-  });
+  })
 
-  const result = await generateStructured({
-    presetId: 'classification',
-    schema: vaultCharacterImportSchema,
-    system,
-    prompt,
-  },'vault-character-import');
+  const result = await generateStructured(
+    {
+      presetId: 'classification',
+      schema: vaultCharacterImportSchema,
+      system,
+      prompt,
+    },
+    'vault-character-import',
+  )
 
-  log('Character sanitization successful', { name: result.name });
+  log('Character sanitization successful', { name: result.name })
 
   // Convert array of visual descriptors to VisualDescriptors object
-  const visualDescriptors: VisualDescriptors = {};
+  const visualDescriptors: VisualDescriptors = {}
   result.visualDescriptors.forEach((desc, i) => {
-    visualDescriptors[`descriptor_${i}`] = desc;
-  });
+    visualDescriptors[`descriptor_${i}`] = desc
+  })
 
   return {
     name: result.name,
     description: result.description,
     traits: result.traits,
     visualDescriptors,
-  };
+  }
 }

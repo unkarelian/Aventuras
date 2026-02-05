@@ -4,138 +4,212 @@
  * Imports lorebooks from various formats (primarily SillyTavern) into Aventura's Entry system.
  */
 
-import type { Entry, EntryType, EntryInjectionMode, EntryCreator } from '$lib/types';
-import type { StoryMode } from '$lib/services/prompts';
-import { promptService, type PromptContext } from '$lib/services/prompts';
-import { generateStructured } from './ai/sdk/generate';
-import { lorebookClassificationResultSchema } from './ai/sdk/schemas/lorebook';
-import { createLogger } from './ai/core/config';
+import type { Entry, EntryType, EntryInjectionMode, EntryCreator } from '$lib/types'
+import type { StoryMode } from '$lib/services/prompts'
+import { promptService, type PromptContext } from '$lib/services/prompts'
+import { generateStructured } from './ai/sdk/generate'
+import { lorebookClassificationResultSchema } from './ai/sdk/schemas/lorebook'
+import { createLogger } from './ai/core/config'
 
-const log = createLogger('LorebookImporter');
+const log = createLogger('LorebookImporter')
 
 // ===== SillyTavern Format Types =====
 
 interface SillyTavernCharacterFilter {
-  isExclude: boolean;
-  names: string[];
-  tags: string[];
+  isExclude: boolean
+  names: string[]
+  tags: string[]
 }
 
 interface SillyTavernEntry {
-  uid: number;
-  key: string[];
-  keysecondary: string[];
-  comment: string;
-  content: string;
-  constant: boolean;
-  vectorized: boolean;
-  selective: boolean;
-  selectiveLogic: number;
-  addMemo: boolean;
-  order: number;
-  position: number;
-  disable: boolean;
-  ignoreBudget: boolean;
-  excludeRecursion: boolean;
-  preventRecursion: boolean;
-  matchPersonaDescription: boolean;
-  matchCharacterDescription: boolean;
-  matchCharacterPersonality: boolean;
-  matchCharacterDepthPrompt: boolean;
-  matchScenario: boolean;
-  matchCreatorNotes: boolean;
-  delayUntilRecursion: number;
-  probability: number;
-  useProbability: boolean;
-  depth: number;
-  outletName: string;
-  group: string;
-  groupOverride: boolean;
-  groupWeight: number;
-  scanDepth: number | null;
-  caseSensitive: boolean | null;
-  matchWholeWords: boolean | null;
-  useGroupScoring: boolean | null;
-  automationId: string;
-  role: string | null;
-  sticky: boolean | null;
-  cooldown: number | null;
-  delay: number | null;
-  triggers: string[];
-  displayIndex: number;
-  characterFilter: SillyTavernCharacterFilter;
+  uid: number
+  key: string[]
+  keysecondary: string[]
+  comment: string
+  content: string
+  constant: boolean
+  vectorized: boolean
+  selective: boolean
+  selectiveLogic: number
+  addMemo: boolean
+  order: number
+  position: number
+  disable: boolean
+  ignoreBudget: boolean
+  excludeRecursion: boolean
+  preventRecursion: boolean
+  matchPersonaDescription: boolean
+  matchCharacterDescription: boolean
+  matchCharacterPersonality: boolean
+  matchCharacterDepthPrompt: boolean
+  matchScenario: boolean
+  matchCreatorNotes: boolean
+  delayUntilRecursion: number
+  probability: number
+  useProbability: boolean
+  depth: number
+  outletName: string
+  group: string
+  groupOverride: boolean
+  groupWeight: number
+  scanDepth: number | null
+  caseSensitive: boolean | null
+  matchWholeWords: boolean | null
+  useGroupScoring: boolean | null
+  automationId: string
+  role: string | null
+  sticky: boolean | null
+  cooldown: number | null
+  delay: number | null
+  triggers: string[]
+  displayIndex: number
+  characterFilter: SillyTavernCharacterFilter
 }
 
 interface SillyTavernLorebook {
-  entries: Record<string, SillyTavernEntry>;
-  name?: string;
-  description?: string;
-  scan_depth?: number;
-  token_budget?: number;
-  recursive_scanning?: boolean;
-  extensions?: Record<string, unknown>;
+  entries: Record<string, SillyTavernEntry>
+  name?: string
+  description?: string
+  scan_depth?: number
+  token_budget?: number
+  recursive_scanning?: boolean
+  extensions?: Record<string, unknown>
 }
 
 // ===== Import Result Types =====
 
 export interface ImportedEntry {
-  name: string;
-  type: EntryType;
-  description: string;
-  keywords: string[];
-  injectionMode: EntryInjectionMode;
-  priority: number;
-  disabled: boolean;
-  group: string | null;
-  originalData?: SillyTavernEntry;
+  name: string
+  type: EntryType
+  description: string
+  keywords: string[]
+  injectionMode: EntryInjectionMode
+  priority: number
+  disabled: boolean
+  group: string | null
+  originalData?: SillyTavernEntry
 }
 
 export interface LorebookImportResult {
-  success: boolean;
-  entries: ImportedEntry[];
-  errors: string[];
-  warnings: string[];
+  success: boolean
+  entries: ImportedEntry[]
+  errors: string[]
+  warnings: string[]
   metadata: {
-    format: 'aventura' | 'sillytavern' | 'unknown';
-    totalEntries: number;
-    importedEntries: number;
-    skippedEntries: number;
-  };
+    format: 'aventura' | 'sillytavern' | 'unknown'
+    totalEntries: number
+    importedEntries: number
+    skippedEntries: number
+  }
 }
 
 // ===== Entry Type Inference =====
 
 const TYPE_KEYWORDS: Record<EntryType, string[]> = {
   character: [
-    'character', 'person', 'npc', 'protagonist', 'antagonist', 'villain', 'hero',
-    'he is', 'she is', 'they are', 'personality', 'appearance', 'occupation',
-    'age:', 'gender:', 'species:', 'race:', 'class:'
+    'character',
+    'person',
+    'npc',
+    'protagonist',
+    'antagonist',
+    'villain',
+    'hero',
+    'he is',
+    'she is',
+    'they are',
+    'personality',
+    'appearance',
+    'occupation',
+    'age:',
+    'gender:',
+    'species:',
+    'race:',
+    'class:',
   ],
   location: [
-    'location', 'place', 'area', 'region', 'city', 'town', 'village', 'building',
-    'room', 'forest', 'mountain', 'ocean', 'river', 'located in', 'found at',
-    'geography', 'terrain', 'climate'
+    'location',
+    'place',
+    'area',
+    'region',
+    'city',
+    'town',
+    'village',
+    'building',
+    'room',
+    'forest',
+    'mountain',
+    'ocean',
+    'river',
+    'located in',
+    'found at',
+    'geography',
+    'terrain',
+    'climate',
   ],
   item: [
-    'item', 'weapon', 'armor', 'tool', 'artifact', 'object', 'equipment',
-    'potion', 'scroll', 'key', 'contains', 'grants', 'provides', 'equip'
+    'item',
+    'weapon',
+    'armor',
+    'tool',
+    'artifact',
+    'object',
+    'equipment',
+    'potion',
+    'scroll',
+    'key',
+    'contains',
+    'grants',
+    'provides',
+    'equip',
   ],
   faction: [
-    'faction', 'organization', 'guild', 'group', 'clan', 'tribe', 'kingdom',
-    'empire', 'alliance', 'order', 'members', 'leader', 'founded'
+    'faction',
+    'organization',
+    'guild',
+    'group',
+    'clan',
+    'tribe',
+    'kingdom',
+    'empire',
+    'alliance',
+    'order',
+    'members',
+    'leader',
+    'founded',
   ],
   concept: [
-    'concept', 'magic', 'system', 'rule', 'lore', 'history', 'tradition',
-    'technology', 'science', 'religion', 'culture', 'custom', 'law'
+    'concept',
+    'magic',
+    'system',
+    'rule',
+    'lore',
+    'history',
+    'tradition',
+    'technology',
+    'science',
+    'religion',
+    'culture',
+    'custom',
+    'law',
   ],
   event: [
-    'event', 'war', 'battle', 'ceremony', 'festival', 'disaster', 'catastrophe',
-    'happened', 'occurred', 'took place', 'anniversary', 'historical'
+    'event',
+    'war',
+    'battle',
+    'ceremony',
+    'festival',
+    'disaster',
+    'catastrophe',
+    'happened',
+    'occurred',
+    'took place',
+    'anniversary',
+    'historical',
   ],
-};
+}
 
 function inferEntryType(name: string, content: string): EntryType {
-  const textToAnalyze = `${name} ${content}`.toLowerCase();
+  const textToAnalyze = `${name} ${content}`.toLowerCase()
 
   const scores: Record<EntryType, number> = {
     character: 0,
@@ -144,27 +218,27 @@ function inferEntryType(name: string, content: string): EntryType {
     faction: 0,
     concept: 0,
     event: 0,
-  };
+  }
 
   for (const [type, keywords] of Object.entries(TYPE_KEYWORDS) as [EntryType, string[]][]) {
     for (const keyword of keywords) {
       if (textToAnalyze.includes(keyword)) {
-        scores[type]++;
+        scores[type]++
       }
     }
   }
 
-  let maxType: EntryType = 'concept';
-  let maxScore = 0;
+  let maxType: EntryType = 'concept'
+  let maxScore = 0
 
   for (const [type, score] of Object.entries(scores) as [EntryType, number][]) {
     if (score > maxScore) {
-      maxScore = score;
-      maxType = type;
+      maxScore = score
+      maxType = type
     }
   }
 
-  return maxType;
+  return maxType
 }
 
 /**
@@ -174,13 +248,13 @@ function inferEntryType(name: string, content: string): EntryType {
 export async function classifyEntriesWithLLM(
   entries: ImportedEntry[],
   onProgress?: (classified: number, total: number) => void,
-  mode: StoryMode = 'adventure'
+  mode: StoryMode = 'adventure',
 ): Promise<ImportedEntry[]> {
-  if (entries.length === 0) return entries;
+  if (entries.length === 0) return entries
 
-  const BATCH_SIZE = 20; // Process in batches to avoid token limits
-  const result = [...entries];
-  let classified = 0;
+  const BATCH_SIZE = 20 // Process in batches to avoid token limits
+  const result = [...entries]
+  let classified = 0
 
   // Minimal context for prompt rendering
   const promptContext: PromptContext = {
@@ -188,13 +262,13 @@ export async function classifyEntriesWithLLM(
     pov: 'second',
     tense: 'present',
     protagonistName: '',
-  };
+  }
 
-  const system = promptService.renderPrompt('lorebook-classifier', promptContext);
+  const system = promptService.renderPrompt('lorebook-classifier', promptContext)
 
   // Process in batches
   for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-    const batch = entries.slice(i, i + BATCH_SIZE);
+    const batch = entries.slice(i, i + BATCH_SIZE)
 
     // Build entries JSON for the prompt
     const entriesJson = JSON.stringify(
@@ -205,53 +279,56 @@ export async function classifyEntriesWithLLM(
         keywords: entry.keywords.slice(0, 10),
       })),
       null,
-      2
-    );
+      2,
+    )
 
     const prompt = promptService.renderUserPrompt('lorebook-classifier', promptContext, {
       entriesJson,
-    });
+    })
 
-    const classifications = await generateStructured({
-      presetId: 'classification',
-      schema: lorebookClassificationResultSchema,
-      system,
-      prompt,
-    }, 'lorebook-classifier');
+    const classifications = await generateStructured(
+      {
+        presetId: 'classification',
+        schema: lorebookClassificationResultSchema,
+        system,
+        prompt,
+      },
+      'lorebook-classifier',
+    )
 
     // Apply classifications to batch
     for (const classification of classifications) {
-      const globalIndex = i + classification.index;
+      const globalIndex = i + classification.index
       if (globalIndex < result.length) {
         result[globalIndex] = {
           ...result[globalIndex],
           type: classification.type as EntryType,
-        };
+        }
       }
     }
 
-    classified += batch.length;
+    classified += batch.length
     if (onProgress) {
-      onProgress(classified, entries.length);
+      onProgress(classified, entries.length)
     }
 
-    log('Classified batch', { batch: i / BATCH_SIZE + 1, classified, total: entries.length });
+    log('Classified batch', { batch: i / BATCH_SIZE + 1, classified, total: entries.length })
   }
 
-  return result;
+  return result
 }
 
 function determineInjectionMode(entry: SillyTavernEntry): EntryInjectionMode {
   if (entry.disable) {
-    return 'never';
+    return 'never'
   }
   if (entry.constant) {
-    return 'always';
+    return 'always'
   }
   if (entry.selective && entry.key.length > 0) {
-    return 'keyword';
+    return 'keyword'
   }
-  return 'relevant';
+  return 'relevant'
 }
 
 export function parseSillyTavernLorebook(jsonString: string): LorebookImportResult {
@@ -266,44 +343,43 @@ export function parseSillyTavernLorebook(jsonString: string): LorebookImportResu
       importedEntries: 0,
       skippedEntries: 0,
     },
-  };
+  }
 
   try {
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(jsonString)
 
     if (!data.entries || typeof data.entries !== 'object') {
-      result.errors.push('Invalid lorebook format: missing "entries" object');
-      return result;
+      result.errors.push('Invalid lorebook format: missing "entries" object')
+      return result
     }
 
-    result.metadata.format = 'sillytavern';
+    result.metadata.format = 'sillytavern'
 
-    const entries = Object.values(data.entries) as SillyTavernEntry[];
-    result.metadata.totalEntries = entries.length;
+    const entries = Object.values(data.entries) as SillyTavernEntry[]
+    result.metadata.totalEntries = entries.length
 
     log('Parsing SillyTavern lorebook', {
       totalEntries: entries.length,
       name: data.name || 'Unnamed',
-    });
+    })
 
     for (const entry of entries) {
       try {
         if (!entry.content?.trim() && !entry.comment?.trim()) {
-          result.warnings.push(`Skipped empty entry (UID: ${entry.uid})`);
-          result.metadata.skippedEntries++;
-          continue;
+          result.warnings.push(`Skipped empty entry (UID: ${entry.uid})`)
+          result.metadata.skippedEntries++
+          continue
         }
 
-        let name = entry.comment?.trim();
+        let name = entry.comment?.trim()
         if (!name) {
-          name = entry.key?.[0] || `Entry ${entry.uid}`;
-          result.warnings.push(`Entry UID ${entry.uid} has no name, using "${name}"`);
+          name = entry.key?.[0] || `Entry ${entry.uid}`
+          result.warnings.push(`Entry UID ${entry.uid} has no name, using "${name}"`)
         }
 
-        const keywords = [
-          ...(entry.key || []),
-          ...(entry.keysecondary || []),
-        ].filter(k => k && k.trim());
+        const keywords = [...(entry.key || []), ...(entry.keysecondary || [])].filter(
+          (k) => k && k.trim(),
+        )
 
         const importedEntry: ImportedEntry = {
           name,
@@ -315,41 +391,39 @@ export function parseSillyTavernLorebook(jsonString: string): LorebookImportResu
           disabled: entry.disable ?? false,
           group: entry.group?.trim() || null,
           originalData: entry,
-        };
+        }
 
-        result.entries.push(importedEntry);
-        result.metadata.importedEntries++;
-
+        result.entries.push(importedEntry)
+        result.metadata.importedEntries++
       } catch (entryError) {
-        const errorMsg = entryError instanceof Error ? entryError.message : 'Unknown error';
-        result.errors.push(`Failed to parse entry UID ${entry.uid}: ${errorMsg}`);
-        result.metadata.skippedEntries++;
+        const errorMsg = entryError instanceof Error ? entryError.message : 'Unknown error'
+        result.errors.push(`Failed to parse entry UID ${entry.uid}: ${errorMsg}`)
+        result.metadata.skippedEntries++
       }
     }
 
-    result.success = result.metadata.importedEntries > 0;
+    result.success = result.metadata.importedEntries > 0
 
     log('Import complete', {
       imported: result.metadata.importedEntries,
       skipped: result.metadata.skippedEntries,
       errors: result.errors.length,
       warnings: result.warnings.length,
-    });
-
+    })
   } catch (parseError) {
-    const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown error';
-    result.errors.push(`Failed to parse JSON: ${errorMsg}`);
-    log('Parse error:', parseError);
+    const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown error'
+    result.errors.push(`Failed to parse JSON: ${errorMsg}`)
+    log('Parse error:', parseError)
   }
 
-  return result;
+  return result
 }
 
 function isAventuraFormat(data: unknown): data is Entry[] {
-  if (!Array.isArray(data)) return false;
-  if (data.length === 0) return false;
+  if (!Array.isArray(data)) return false
+  if (data.length === 0) return false
 
-  const first = data[0];
+  const first = data[0]
   return (
     typeof first === 'object' &&
     first !== null &&
@@ -360,7 +434,7 @@ function isAventuraFormat(data: unknown): data is Entry[] {
     typeof first.injection === 'object' &&
     first.injection !== null &&
     'mode' in first.injection
-  );
+  )
 }
 
 export function parseAventuraLorebook(jsonString: string): LorebookImportResult {
@@ -375,33 +449,33 @@ export function parseAventuraLorebook(jsonString: string): LorebookImportResult 
       importedEntries: 0,
       skippedEntries: 0,
     },
-  };
+  }
 
   try {
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(jsonString)
 
     if (!isAventuraFormat(data)) {
-      result.errors.push('Invalid Aventura format: expected array of Entry objects');
-      result.metadata.format = 'unknown';
-      return result;
+      result.errors.push('Invalid Aventura format: expected array of Entry objects')
+      result.metadata.format = 'unknown'
+      return result
     }
 
-    result.metadata.totalEntries = data.length;
+    result.metadata.totalEntries = data.length
 
-    log('Parsing Aventura lorebook', { totalEntries: data.length });
+    log('Parsing Aventura lorebook', { totalEntries: data.length })
 
     for (const entry of data) {
       try {
         if (!entry.name?.trim()) {
-          result.warnings.push(`Skipped entry with no name`);
-          result.metadata.skippedEntries++;
-          continue;
+          result.warnings.push(`Skipped entry with no name`)
+          result.metadata.skippedEntries++
+          continue
         }
 
         if (!entry.description?.trim() && !entry.hiddenInfo?.trim()) {
-          result.warnings.push(`Skipped empty entry: ${entry.name}`);
-          result.metadata.skippedEntries++;
-          continue;
+          result.warnings.push(`Skipped empty entry: ${entry.name}`)
+          result.metadata.skippedEntries++
+          continue
         }
 
         const importedEntry: ImportedEntry = {
@@ -414,48 +488,46 @@ export function parseAventuraLorebook(jsonString: string): LorebookImportResult 
           disabled: entry.injection?.mode === 'never',
           group: null,
           originalData: entry as unknown as SillyTavernEntry,
-        };
+        }
 
-        result.entries.push(importedEntry);
-        result.metadata.importedEntries++;
-
+        result.entries.push(importedEntry)
+        result.metadata.importedEntries++
       } catch (entryError) {
-        const errorMsg = entryError instanceof Error ? entryError.message : 'Unknown error';
-        result.errors.push(`Failed to parse entry "${entry.name}": ${errorMsg}`);
-        result.metadata.skippedEntries++;
+        const errorMsg = entryError instanceof Error ? entryError.message : 'Unknown error'
+        result.errors.push(`Failed to parse entry "${entry.name}": ${errorMsg}`)
+        result.metadata.skippedEntries++
       }
     }
 
-    result.success = result.metadata.importedEntries > 0;
+    result.success = result.metadata.importedEntries > 0
 
     log('Aventura import complete', {
       imported: result.metadata.importedEntries,
       skipped: result.metadata.skippedEntries,
       errors: result.errors.length,
       warnings: result.warnings.length,
-    });
-
+    })
   } catch (parseError) {
-    const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown error';
-    result.errors.push(`Failed to parse JSON: ${errorMsg}`);
-    log('Parse error:', parseError);
+    const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown error'
+    result.errors.push(`Failed to parse JSON: ${errorMsg}`)
+    log('Parse error:', parseError)
   }
 
-  return result;
+  return result
 }
 
 export function parseLorebook(jsonString: string): LorebookImportResult {
   try {
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(jsonString)
 
     if (isAventuraFormat(data)) {
-      log('Detected Aventura format');
-      return parseAventuraLorebook(jsonString);
+      log('Detected Aventura format')
+      return parseAventuraLorebook(jsonString)
     }
 
     if (data && typeof data === 'object' && 'entries' in data) {
-      log('Detected SillyTavern format');
-      return parseSillyTavernLorebook(jsonString);
+      log('Detected SillyTavern format')
+      return parseSillyTavernLorebook(jsonString)
     }
 
     return {
@@ -469,10 +541,9 @@ export function parseLorebook(jsonString: string): LorebookImportResult {
         importedEntries: 0,
         skippedEntries: 0,
       },
-    };
-
+    }
   } catch (parseError) {
-    const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown error';
+    const errorMsg = parseError instanceof Error ? parseError.message : 'Unknown error'
     return {
       success: false,
       entries: [],
@@ -484,19 +555,20 @@ export function parseLorebook(jsonString: string): LorebookImportResult {
         importedEntries: 0,
         skippedEntries: 0,
       },
-    };
+    }
   }
 }
 
 export function convertToEntries(
   importedEntries: ImportedEntry[],
-  createdBy: EntryCreator = 'import'
+  createdBy: EntryCreator = 'import',
 ): Omit<Entry, 'id' | 'storyId'>[] {
-  const now = Date.now();
+  const now = Date.now()
 
-  return importedEntries.map(imported => {
-    const original = imported.originalData as unknown as Partial<Entry>;
-    const isAventuraEntry = original && 'state' in original && 'injection' in original && original.injection?.mode;
+  return importedEntries.map((imported) => {
+    const original = imported.originalData as unknown as Partial<Entry>
+    const isAventuraEntry =
+      original && 'state' in original && 'injection' in original && original.injection?.mode
 
     if (isAventuraEntry && original.state) {
       return {
@@ -521,12 +593,12 @@ export function convertToEntries(
         updatedAt: now,
         loreManagementBlacklisted: original.loreManagementBlacklisted || false,
         branchId: null,
-      };
+      }
     }
 
-    const baseState = { type: imported.type };
+    const baseState = { type: imported.type }
 
-    let state: Entry['state'];
+    let state: Entry['state']
     switch (imported.type) {
       case 'character':
         state = {
@@ -542,8 +614,8 @@ export function convertToEntries(
           },
           knownFacts: [],
           revealedSecrets: [],
-        };
-        break;
+        }
+        break
       case 'location':
         state = {
           ...baseState,
@@ -553,8 +625,8 @@ export function convertToEntries(
           changes: [],
           presentCharacters: [],
           presentItems: [],
-        };
-        break;
+        }
+        break
       case 'item':
         state = {
           ...baseState,
@@ -563,8 +635,8 @@ export function convertToEntries(
           currentLocation: null,
           condition: null,
           uses: [],
-        };
-        break;
+        }
+        break
       case 'faction':
         state = {
           ...baseState,
@@ -572,8 +644,8 @@ export function convertToEntries(
           playerStanding: 0,
           status: 'unknown',
           knownMembers: [],
-        };
-        break;
+        }
+        break
       case 'event':
         state = {
           ...baseState,
@@ -582,8 +654,8 @@ export function convertToEntries(
           occurredAt: null,
           witnesses: [],
           consequences: [],
-        };
-        break;
+        }
+        break
       case 'concept':
       default:
         state = {
@@ -592,8 +664,8 @@ export function convertToEntries(
           revealed: false,
           comprehensionLevel: 'unknown',
           relatedEntries: [],
-        };
-        break;
+        }
+        break
     }
 
     return {
@@ -618,27 +690,27 @@ export function convertToEntries(
       updatedAt: now,
       loreManagementBlacklisted: false,
       branchId: null,
-    };
-  });
+    }
+  })
 }
 
 export function previewLorebook(jsonString: string): {
-  success: boolean;
+  success: boolean
   preview: {
-    name: string;
-    type: EntryType;
-    hasContent: boolean;
-    keywordCount: number;
-    injectionMode: EntryInjectionMode;
-  }[];
-  errors: string[];
-  totalCount: number;
+    name: string
+    type: EntryType
+    hasContent: boolean
+    keywordCount: number
+    injectionMode: EntryInjectionMode
+  }[]
+  errors: string[]
+  totalCount: number
 } {
-  const result = parseSillyTavernLorebook(jsonString);
+  const result = parseSillyTavernLorebook(jsonString)
 
   return {
     success: result.success,
-    preview: result.entries.map(e => ({
+    preview: result.entries.map((e) => ({
       name: e.name,
       type: e.type,
       hasContent: e.description.length > 0,
@@ -647,7 +719,7 @@ export function previewLorebook(jsonString: string): {
     })),
     errors: result.errors,
     totalCount: result.metadata.totalEntries,
-  };
+  }
 }
 
 export function groupEntriesByType(entries: ImportedEntry[]): Record<EntryType, ImportedEntry[]> {
@@ -658,22 +730,22 @@ export function groupEntriesByType(entries: ImportedEntry[]): Record<EntryType, 
     faction: [],
     concept: [],
     event: [],
-  };
-
-  for (const entry of entries) {
-    grouped[entry.type].push(entry);
   }
 
-  return grouped;
+  for (const entry of entries) {
+    grouped[entry.type].push(entry)
+  }
+
+  return grouped
 }
 
 export function getImportSummary(entries: ImportedEntry[]): {
-  total: number;
-  byType: Record<EntryType, number>;
-  withContent: number;
-  withKeywords: number;
-  alwaysInject: number;
-  disabled: number;
+  total: number
+  byType: Record<EntryType, number>
+  withContent: number
+  withKeywords: number
+  alwaysInject: number
+  disabled: number
 } {
   const byType: Record<EntryType, number> = {
     character: 0,
@@ -682,19 +754,19 @@ export function getImportSummary(entries: ImportedEntry[]): {
     faction: 0,
     concept: 0,
     event: 0,
-  };
+  }
 
-  let withContent = 0;
-  let withKeywords = 0;
-  let alwaysInject = 0;
-  let disabled = 0;
+  let withContent = 0
+  let withKeywords = 0
+  let alwaysInject = 0
+  let disabled = 0
 
   for (const entry of entries) {
-    byType[entry.type]++;
-    if (entry.description.length > 0) withContent++;
-    if (entry.keywords.length > 0) withKeywords++;
-    if (entry.injectionMode === 'always') alwaysInject++;
-    if (entry.disabled) disabled++;
+    byType[entry.type]++
+    if (entry.description.length > 0) withContent++
+    if (entry.keywords.length > 0) withKeywords++
+    if (entry.injectionMode === 'always') alwaysInject++
+    if (entry.disabled) disabled++
   }
 
   return {
@@ -704,5 +776,5 @@ export function getImportSummary(entries: ImportedEntry[]): {
     withKeywords,
     alwaysInject,
     disabled,
-  };
+  }
 }

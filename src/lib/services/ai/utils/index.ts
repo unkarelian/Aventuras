@@ -6,7 +6,11 @@
  * - TTS: Text-to-speech service
  */
 
-export { TranslationService, type TranslationResult, type UITranslationItem } from './TranslationService';
+export {
+  TranslationService,
+  type TranslationResult,
+  type UITranslationItem,
+} from './TranslationService'
 
 export {
   AITTSService,
@@ -21,4 +25,4 @@ export {
   DEFAULT_VOLUME,
   type TTSSettings,
   type TTSVoice,
-} from './TTSService';
+} from './TTSService'

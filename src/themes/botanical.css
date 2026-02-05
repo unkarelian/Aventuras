@@ -2,14 +2,14 @@
    BOTANICAL THEME
    Earthy, plant-like calm. Soft sage backgrounds with deep moss text.
    ============================================= */
-[data-theme="botanical"] {
+[data-theme='botanical'] {
   /* 
      Botanical Scale 
      50 = Mist (Card BG)
      100 = Light Sage (Main BG)
      200-900 = Text and Borders
   */
-  --color-surface-50: #e4ede4;  /* Distinct Pale Green (Card BG) */
+  --color-surface-50: #e4ede4; /* Distinct Pale Green (Card BG) */
   --color-surface-100: #d6e3d5; /* Soft Sage (Main BG) */
   --color-surface-200: #c4d6c2; /* Stronger Sage (Borders/Secondary) */
   --color-surface-300: #a3bfa0; /* Sage Green */
@@ -51,33 +51,33 @@
 
   /* Shadcn Variables (Botanical) */
   --radius: 0.5rem;
-  --background: hsl(115 20% 86%);    /* Surface 100 approx */
-  --foreground: hsl(115 20% 12%);    /* Surface 900 approx */
-  
-  --card: hsl(115 20% 91%);          /* Surface 50 approx */
+  --background: hsl(115 20% 86%); /* Surface 100 approx */
+  --foreground: hsl(115 20% 12%); /* Surface 900 approx */
+
+  --card: hsl(115 20% 91%); /* Surface 50 approx */
   --card-foreground: hsl(115 20% 12%);
-  
-  --popover: hsl(115 20% 91%);       /* Surface 50 approx */
+
+  --popover: hsl(115 20% 91%); /* Surface 50 approx */
   --popover-foreground: hsl(115 20% 12%);
-  
-  --primary: hsl(120 28% 33%);       /* Earthy Forest Green (Accent 600/700 hybrid) */
+
+  --primary: hsl(120 28% 33%); /* Earthy Forest Green (Accent 600/700 hybrid) */
   --primary-foreground: hsl(115 20% 95%);
-  
-  --secondary: hsl(115 15% 80%);     /* Surface 200 approx */
+
+  --secondary: hsl(115 15% 80%); /* Surface 200 approx */
   --secondary-foreground: hsl(115 20% 12%);
-  
-  --muted: hsl(115 15% 80%);         /* Surface 200 approx */
+
+  --muted: hsl(115 15% 80%); /* Surface 200 approx */
   --muted-foreground: hsl(115 15% 35%); /* Surface 600 approx */
-  
-  --accent: hsl(115 15% 80%);        /* Surface 200 approx */
+
+  --accent: hsl(115 15% 80%); /* Surface 200 approx */
   --accent-foreground: hsl(120 28% 33%);
-  
-  --destructive: hsl(0 50% 50%);     /* Muted Red */
+
+  --destructive: hsl(0 50% 50%); /* Muted Red */
   --destructive-foreground: hsl(0 0% 98%);
-  
-  --border: hsl(115 15% 70%);        /* Surface 300 approx */
-  --input: hsl(115 15% 70%);         /* Surface 300 approx */
-  --ring: hsl(120 28% 33%);          /* Matches Primary */
+
+  --border: hsl(115 15% 70%); /* Surface 300 approx */
+  --input: hsl(115 15% 70%); /* Surface 300 approx */
+  --ring: hsl(120 28% 33%); /* Matches Primary */
 
   /* Special effects */
   --crt-scanline: transparent;
@@ -87,95 +87,95 @@
 }
 
 /* Background overrides - INVERTED Logic for Light Theme */
-[data-theme="botanical"] .bg-surface-900 {
+[data-theme='botanical'] .bg-surface-900 {
   background-color: var(--color-surface-100);
 }
 
-[data-theme="botanical"] .bg-surface-850 {
+[data-theme='botanical'] .bg-surface-850 {
   background-color: var(--color-surface-50);
 }
 
-[data-theme="botanical"] .bg-surface-800 {
+[data-theme='botanical'] .bg-surface-800 {
   background-color: var(--color-surface-50);
 }
 
-[data-theme="botanical"] .bg-surface-700 {
+[data-theme='botanical'] .bg-surface-700 {
   background-color: var(--color-surface-200);
 }
 
-[data-theme="botanical"] .bg-surface-600 {
+[data-theme='botanical'] .bg-surface-600 {
   background-color: var(--color-surface-200);
 }
 
-[data-theme="botanical"] .bg-surface-500 {
+[data-theme='botanical'] .bg-surface-500 {
   background-color: var(--color-surface-300);
 }
 
-[data-theme="botanical"] .bg-surface-400 {
+[data-theme='botanical'] .bg-surface-400 {
   background-color: var(--color-surface-300);
 }
 
-[data-theme="botanical"] .bg-surface-300 {
+[data-theme='botanical'] .bg-surface-300 {
   background-color: var(--color-surface-400);
 }
 
-[data-theme="botanical"] .bg-surface-200 {
+[data-theme='botanical'] .bg-surface-200 {
   background-color: var(--color-surface-500);
 }
 
-[data-theme="botanical"] .bg-surface-100 {
+[data-theme='botanical'] .bg-surface-100 {
   background-color: var(--color-surface-600);
 }
 
-[data-theme="botanical"] .bg-surface-50 {
+[data-theme='botanical'] .bg-surface-50 {
   background-color: var(--color-surface-700);
 }
 
 /* Text color overrides */
-[data-theme="botanical"] .text-surface-50 {
+[data-theme='botanical'] .text-surface-50 {
   color: var(--color-surface-950);
 }
 
-[data-theme="botanical"] .text-surface-100 {
+[data-theme='botanical'] .text-surface-100 {
   color: var(--color-surface-900);
 }
 
-[data-theme="botanical"] .text-surface-200 {
+[data-theme='botanical'] .text-surface-200 {
   color: var(--color-surface-800);
 }
 
-[data-theme="botanical"] .text-surface-300 {
+[data-theme='botanical'] .text-surface-300 {
   color: var(--color-surface-700);
 }
 
-[data-theme="botanical"] .text-surface-400 {
+[data-theme='botanical'] .text-surface-400 {
   color: var(--color-surface-600);
 }
 
-[data-theme="botanical"] .text-surface-500 {
+[data-theme='botanical'] .text-surface-500 {
   color: var(--color-surface-600);
 }
 
 /* Border color overrides */
-[data-theme="botanical"] .border-surface-700 {
+[data-theme='botanical'] .border-surface-700 {
   border-color: var(--color-surface-300);
 }
 
-[data-theme="botanical"] .border-surface-600 {
+[data-theme='botanical'] .border-surface-600 {
   border-color: var(--color-surface-400);
 }
 
 /* Select dropdown styling */
-[data-theme="botanical"] select.input {
+[data-theme='botanical'] select.input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233f543d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
-[data-theme="botanical"] select.input option {
+[data-theme='botanical'] select.input option {
   background-color: var(--color-surface-100);
   color: var(--color-surface-900);
 }
 
-[data-theme="botanical"] select.input option:checked {
+[data-theme='botanical'] select.input option:checked {
   background-color: var(--color-accent-500);
   color: white;
 }

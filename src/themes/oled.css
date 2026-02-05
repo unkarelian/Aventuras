@@ -2,7 +2,7 @@
    OLED THEME
    Pure black background for high contrast/battery saving
    ============================================= */
-[data-theme="oled"] {
+[data-theme='oled'] {
   /* Shadcn Variables (OLED) */
   --radius: 0.5rem;
   --background: hsl(0 0% 0%);

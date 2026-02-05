@@ -4,10 +4,10 @@
  */
 
 export interface ThemeMetadata {
-  id: string;
-  label: string;
-  description: string;
-  isDark: boolean;
+  id: string
+  label: string
+  description: string
+  isDark: boolean
 }
 
 export const THEMES: ThemeMetadata[] = [
@@ -32,13 +32,15 @@ export const THEMES: ThemeMetadata[] = [
   {
     id: 'pastel-dreams',
     label: 'Pastel Dreams',
-    description: 'Soft lavender-pink with sky-blue accents, radiating gentle affection and cheerful sweetness',
+    description:
+      'Soft lavender-pink with sky-blue accents, radiating gentle affection and cheerful sweetness',
     isDark: false,
   },
   {
     id: 'ocean-breeze',
     label: 'Ocean Breeze',
-    description: 'Coastal elegance with stormy teal depths and warm coral accents, crisp and tranquil',
+    description:
+      'Coastal elegance with stormy teal depths and warm coral accents, crisp and tranquil',
     isDark: false,
   },
   {
@@ -167,16 +169,16 @@ export const THEMES: ThemeMetadata[] = [
     description: 'Light variant with cream backgrounds and warm earthy accents',
     isDark: false,
   },
-];
+]
 
 /**
  * Get theme metadata by ID
  */
 export function getTheme(id: string): ThemeMetadata | undefined {
-  return THEMES.find((theme) => theme.id === id);
+  return THEMES.find((theme) => theme.id === id)
 }
 
 /**
  * Type for all valid theme IDs
  */
-export type ThemeId = typeof THEMES[number]['id'];
+export type ThemeId = (typeof THEMES)[number]['id']

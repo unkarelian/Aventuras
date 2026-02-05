@@ -1,50 +1,47 @@
 <script lang="ts">
-  import { User, Loader2, X, Wand2, ImageUp, AlertCircle } from "lucide-svelte";
-  import { normalizeImageDataUrl } from "$lib/utils/image";
-  import type {
-    GeneratedProtagonist,
-    GeneratedCharacter,
-  } from "../wizardTypes";
+  import { User, Loader2, X, Wand2, ImageUp, AlertCircle } from 'lucide-svelte'
+  import { normalizeImageDataUrl } from '$lib/utils/image'
+  import type { GeneratedProtagonist, GeneratedCharacter } from '../wizardTypes'
 
   // Shadcn Components
-  import * as Card from "$lib/components/ui/card";
-  import * as Avatar from "$lib/components/ui/avatar";
-  import * as Alert from "$lib/components/ui/alert";
-  import { Button } from "$lib/components/ui/button";
-  import { Label } from "$lib/components/ui/label";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import { Badge } from "$lib/components/ui/badge";
-  import { Separator } from "$lib/components/ui/separator";
+  import * as Card from '$lib/components/ui/card'
+  import * as Avatar from '$lib/components/ui/avatar'
+  import * as Alert from '$lib/components/ui/alert'
+  import { Button } from '$lib/components/ui/button'
+  import { Label } from '$lib/components/ui/label'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { Badge } from '$lib/components/ui/badge'
+  import { Separator } from '$lib/components/ui/separator'
 
   interface Props {
-    protagonist: GeneratedProtagonist | null;
-    supportingCharacters: GeneratedCharacter[];
-    imageGenerationEnabled: boolean;
+    protagonist: GeneratedProtagonist | null
+    supportingCharacters: GeneratedCharacter[]
+    imageGenerationEnabled: boolean
 
     // Protagonist portrait
-    protagonistVisualDescriptors: string;
-    protagonistPortrait: string | null;
-    isGeneratingProtagonistPortrait: boolean;
-    isUploadingProtagonistPortrait: boolean;
+    protagonistVisualDescriptors: string
+    protagonistPortrait: string | null
+    isGeneratingProtagonistPortrait: boolean
+    isUploadingProtagonistPortrait: boolean
 
     // Supporting character portraits (keyed by name)
-    supportingCharacterVisualDescriptors: Record<string, string>;
-    supportingCharacterPortraits: Record<string, string | null>;
-    generatingPortraitName: string | null;
-    uploadingCharacterName: string | null;
+    supportingCharacterVisualDescriptors: Record<string, string>
+    supportingCharacterPortraits: Record<string, string | null>
+    generatingPortraitName: string | null
+    uploadingCharacterName: string | null
 
-    portraitError: string | null;
+    portraitError: string | null
 
     // Handlers
-    onProtagonistDescriptorsChange: (value: string) => void;
-    onGenerateProtagonistPortrait: () => void;
-    onRemoveProtagonistPortrait: () => void;
-    onProtagonistPortraitUpload: (event: Event) => void;
+    onProtagonistDescriptorsChange: (value: string) => void
+    onGenerateProtagonistPortrait: () => void
+    onRemoveProtagonistPortrait: () => void
+    onProtagonistPortraitUpload: (event: Event) => void
 
-    onSupportingDescriptorsChange: (name: string, value: string) => void;
-    onGenerateSupportingPortrait: (name: string) => void;
-    onRemoveSupportingPortrait: (name: string) => void;
-    onSupportingPortraitUpload: (event: Event, name: string) => void;
+    onSupportingDescriptorsChange: (name: string, value: string) => void
+    onGenerateSupportingPortrait: (name: string) => void
+    onRemoveSupportingPortrait: (name: string) => void
+    onSupportingPortraitUpload: (event: Event, name: string) => void
   }
 
   let {
@@ -68,27 +65,25 @@
     onGenerateSupportingPortrait,
     onRemoveSupportingPortrait,
     onSupportingPortraitUpload,
-  }: Props = $props();
+  }: Props = $props()
 </script>
 
 <div class="space-y-4">
   <div class="space-y-1">
     <h3 class="text-lg font-medium">Character Portraits</h3>
-    <p class="text-sm text-muted-foreground">
-      Upload or generate visual representations for your cast. Portraits allow
-      characters to appear in story illustrations.
+    <p class="text-muted-foreground text-sm">
+      Upload or generate visual representations for your cast. Portraits allow characters to appear
+      in story illustrations.
     </p>
   </div>
 
   {#if !imageGenerationEnabled}
     <Alert.Root variant="warning" class="py-2">
       <AlertCircle class="h-4 w-4" />
-      <Alert.Title class="text-xs font-semibold"
-        >Generation Disabled</Alert.Title
-      >
+      <Alert.Title class="text-xs font-semibold">Generation Disabled</Alert.Title>
       <Alert.Description class="text-xs">
-        Image generation is not configured. You can manually upload portraits or
-        enable generation in Settings.
+        Image generation is not configured. You can manually upload portraits or enable generation
+        in Settings.
       </Alert.Description>
     </Alert.Root>
   {/if}
@@ -109,21 +104,21 @@
           <!-- Portrait Preview -->
           <div class="shrink-0">
             {#if protagonistPortrait}
-              <div class="relative group">
+              <div class="group relative">
                 <Avatar.Root class="h-24 w-24 rounded-lg border shadow-sm">
                   <Avatar.Image
-                    src={normalizeImageDataUrl(protagonistPortrait) ?? ""}
+                    src={normalizeImageDataUrl(protagonistPortrait) ?? ''}
                     alt="{protagonist.name} portrait"
                     class="object-cover"
                   />
-                  <Avatar.Fallback class="rounded-lg bg-muted">
-                    <User class="h-8 w-8 text-muted-foreground" />
+                  <Avatar.Fallback class="bg-muted rounded-lg">
+                    <User class="text-muted-foreground h-8 w-8" />
                   </Avatar.Fallback>
                 </Avatar.Root>
                 <Button
                   size="icon"
                   variant="destructive"
-                  class="absolute -right-2 -top-2 h-6 w-6 rounded-full opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+                  class="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 shadow-md transition-opacity group-hover:opacity-100"
                   onclick={onRemoveProtagonistPortrait}
                   title="Remove portrait"
                 >
@@ -132,33 +127,29 @@
               </div>
             {:else}
               <div
-                class="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/30"
+                class="border-muted bg-muted/30 flex h-24 w-24 items-center justify-center rounded-lg border-2 border-dashed"
               >
-                <User class="h-8 w-8 text-muted-foreground/50" />
+                <User class="text-muted-foreground/50 h-8 w-8" />
               </div>
             {/if}
           </div>
 
           <!-- Controls -->
-          <div class="flex-1 min-w-0">
+          <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between">
-              <h4 class="font-medium truncate">{protagonist.name}</h4>
-              <Badge variant="default" class="text-[10px] px-1.5 h-5"
-                >Protagonist</Badge
-              >
+              <h4 class="truncate font-medium">{protagonist.name}</h4>
+              <Badge variant="default" class="h-5 px-1.5 text-[10px]">Protagonist</Badge>
             </div>
 
-            <div class="space-y-1.5 mb-2">
-              <Label
-                class="text-[10px] uppercase text-muted-foreground tracking-wider"
+            <div class="mb-2 space-y-1.5">
+              <Label class="text-muted-foreground text-[10px] tracking-wider uppercase"
                 >Appearance</Label
               >
               <Textarea
                 value={protagonistVisualDescriptors}
-                oninput={(e) =>
-                  onProtagonistDescriptorsChange(e.currentTarget.value)}
+                oninput={(e) => onProtagonistDescriptorsChange(e.currentTarget.value)}
                 placeholder="e.g., long silver hair, violet eyes, fair skin, elegant dark blue coat..."
-                class="min-h-[60px] text-xs resize-none"
+                class="min-h-[60px] resize-none text-xs"
                 rows="2"
               />
             </div>
@@ -168,9 +159,8 @@
                 <Button
                   variant="outline"
                   size="sm"
-                  class="h-7 text-xs gap-1.5"
-                  disabled={isUploadingProtagonistPortrait ||
-                    isGeneratingProtagonistPortrait}
+                  class="h-7 gap-1.5 text-xs"
+                  disabled={isUploadingProtagonistPortrait || isGeneratingProtagonistPortrait}
                 >
                   {#if isUploadingProtagonistPortrait}
                     <Loader2 class="h-3 w-3 animate-spin" />
@@ -185,8 +175,7 @@
                   accept="image/*"
                   class="absolute inset-0 cursor-pointer opacity-0"
                   onchange={onProtagonistPortraitUpload}
-                  disabled={isUploadingProtagonistPortrait ||
-                    isGeneratingProtagonistPortrait}
+                  disabled={isUploadingProtagonistPortrait || isGeneratingProtagonistPortrait}
                 />
               </div>
 
@@ -194,21 +183,21 @@
                 <Button
                   variant="secondary"
                   size="sm"
-                  class="h-7 text-xs gap-1.5"
+                  class="h-7 gap-1.5 text-xs"
                   onclick={onGenerateProtagonistPortrait}
                   disabled={isGeneratingProtagonistPortrait ||
                     isUploadingProtagonistPortrait ||
                     !protagonistVisualDescriptors.trim()}
                   title={!protagonistVisualDescriptors.trim()
-                    ? "Add appearance descriptors to generate"
-                    : ""}
+                    ? 'Add appearance descriptors to generate'
+                    : ''}
                 >
                   {#if isGeneratingProtagonistPortrait}
                     <Loader2 class="h-3 w-3 animate-spin" />
                     Generating...
                   {:else}
                     <Wand2 class="h-3 w-3" />
-                    {protagonistPortrait ? "Regenerate" : "Generate"}
+                    {protagonistPortrait ? 'Regenerate' : 'Generate'}
                   {/if}
                 </Button>
               {/if}
@@ -220,9 +209,9 @@
   {:else}
     <Card.Root class="border-dashed">
       <Card.Content
-        class="flex flex-col items-center justify-center p-6 text-center text-muted-foreground"
+        class="text-muted-foreground flex flex-col items-center justify-center p-6 text-center"
       >
-        <User class="h-8 w-8 mb-2 opacity-50" />
+        <User class="mb-2 h-8 w-8 opacity-50" />
         <p class="text-sm">No protagonist created. Go back to create one.</p>
       </Card.Content>
     </Card.Root>
@@ -233,9 +222,7 @@
     <div class="space-y-2">
       <div class="flex items-center gap-2 pb-1">
         <Separator class="flex-1" />
-        <h4
-          class="text-xs font-medium text-muted-foreground uppercase tracking-wider"
-        >
+        <h4 class="text-muted-foreground text-xs font-medium tracking-wider uppercase">
           Supporting Cast
         </h4>
         <Separator class="flex-1" />
@@ -249,25 +236,21 @@
                 <!-- Portrait Preview -->
                 <div class="shrink-0">
                   {#if supportingCharacterPortraits[char.name]}
-                    <div class="relative group">
-                      <Avatar.Root
-                        class="h-20 w-20 rounded-lg border shadow-sm"
-                      >
+                    <div class="group relative">
+                      <Avatar.Root class="h-20 w-20 rounded-lg border shadow-sm">
                         <Avatar.Image
-                          src={normalizeImageDataUrl(
-                            supportingCharacterPortraits[char.name],
-                          ) ?? ""}
+                          src={normalizeImageDataUrl(supportingCharacterPortraits[char.name]) ?? ''}
                           alt="{char.name} portrait"
                           class="object-cover"
                         />
-                        <Avatar.Fallback class="rounded-lg bg-muted">
-                          <User class="h-6 w-6 text-muted-foreground" />
+                        <Avatar.Fallback class="bg-muted rounded-lg">
+                          <User class="text-muted-foreground h-6 w-6" />
                         </Avatar.Fallback>
                       </Avatar.Root>
                       <Button
                         size="icon"
                         variant="destructive"
-                        class="absolute -right-2 -top-2 h-5 w-5 rounded-full opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+                        class="absolute -top-2 -right-2 h-5 w-5 rounded-full opacity-0 shadow-md transition-opacity group-hover:opacity-100"
                         onclick={() => onRemoveSupportingPortrait(char.name)}
                         title="Remove portrait"
                       >
@@ -276,21 +259,18 @@
                     </div>
                   {:else}
                     <div
-                      class="flex h-20 w-20 items-center justify-center rounded-lg border-2 border-dashed border-muted bg-muted/30"
+                      class="border-muted bg-muted/30 flex h-20 w-20 items-center justify-center rounded-lg border-2 border-dashed"
                     >
-                      <User class="h-6 w-6 text-muted-foreground/50" />
+                      <User class="text-muted-foreground/50 h-6 w-6" />
                     </div>
                   {/if}
                 </div>
 
                 <!-- Controls -->
-                <div class="flex-1 min-w-0 space-y-2">
+                <div class="min-w-0 flex-1 space-y-2">
                   <div class="flex items-center justify-between">
-                    <h4 class="font-medium text-sm truncate">{char.name}</h4>
-                    <Badge
-                      variant="secondary"
-                      class="text-[10px] px-1.5 h-4 font-normal"
-                    >
+                    <h4 class="truncate text-sm font-medium">{char.name}</h4>
+                    <Badge variant="secondary" class="h-4 px-1.5 text-[10px] font-normal">
                       {char.role}
                     </Badge>
                   </div>
@@ -298,15 +278,11 @@
                   <div class="space-y-1">
                     <!-- Compact Label/Input group -->
                     <Textarea
-                      value={supportingCharacterVisualDescriptors[char.name] ||
-                        ""}
+                      value={supportingCharacterVisualDescriptors[char.name] || ''}
                       oninput={(e) =>
-                        onSupportingDescriptorsChange(
-                          char.name,
-                          e.currentTarget.value,
-                        )}
+                        onSupportingDescriptorsChange(char.name, e.currentTarget.value)}
                       placeholder="Appearance (e.g., short dark hair, green eyes)..."
-                      class="min-h-[50px] text-xs resize-none"
+                      class="min-h-[50px] resize-none text-xs"
                       rows="2"
                     />
                   </div>
@@ -316,7 +292,7 @@
                       <Button
                         variant="outline"
                         size="sm"
-                        class="h-6 text-xs gap-1.5 px-2"
+                        class="h-6 gap-1.5 px-2 text-xs"
                         disabled={uploadingCharacterName === char.name ||
                           generatingPortraitName !== null}
                       >
@@ -332,8 +308,7 @@
                         type="file"
                         accept="image/*"
                         class="absolute inset-0 cursor-pointer opacity-0"
-                        onchange={(e) =>
-                          onSupportingPortraitUpload(e, char.name)}
+                        onchange={(e) => onSupportingPortraitUpload(e, char.name)}
                         disabled={uploadingCharacterName !== null ||
                           generatingPortraitName !== null}
                       />
@@ -343,28 +318,21 @@
                       <Button
                         variant="secondary"
                         size="sm"
-                        class="h-6 text-xs gap-1.5 px-2"
+                        class="h-6 gap-1.5 px-2 text-xs"
                         onclick={() => onGenerateSupportingPortrait(char.name)}
                         disabled={generatingPortraitName !== null ||
                           uploadingCharacterName !== null ||
-                          !(
-                            supportingCharacterVisualDescriptors[char.name] ||
-                            ""
-                          ).trim()}
-                        title={!(
-                          supportingCharacterVisualDescriptors[char.name] || ""
-                        ).trim()
-                          ? "Add appearance descriptors to generate"
-                          : ""}
+                          !(supportingCharacterVisualDescriptors[char.name] || '').trim()}
+                        title={!(supportingCharacterVisualDescriptors[char.name] || '').trim()
+                          ? 'Add appearance descriptors to generate'
+                          : ''}
                       >
                         {#if generatingPortraitName === char.name}
                           <Loader2 class="h-2.5 w-2.5 animate-spin" />
                           Gen...
                         {:else}
                           <Wand2 class="h-2.5 w-2.5" />
-                          {supportingCharacterPortraits[char.name]
-                            ? "Regen"
-                            : "Generate"}
+                          {supportingCharacterPortraits[char.name] ? 'Regen' : 'Generate'}
                         {/if}
                       </Button>
                     {/if}
@@ -379,13 +347,13 @@
   {/if}
 
   {#if !protagonist && supportingCharacters.length === 0}
-    <Card.Root class="border-dashed bg-muted/30">
+    <Card.Root class="bg-muted/30 border-dashed">
       <Card.Content
-        class="flex flex-col items-center justify-center p-8 text-center text-muted-foreground"
+        class="text-muted-foreground flex flex-col items-center justify-center p-8 text-center"
       >
-        <User class="h-10 w-10 mb-3 opacity-50" />
+        <User class="mb-3 h-10 w-10 opacity-50" />
         <p>No characters created yet.</p>
-        <p class="text-xs mt-1">Go back to step 5 to create characters.</p>
+        <p class="mt-1 text-xs">Go back to step 5 to create characters.</p>
       </Card.Content>
     </Card.Root>
   {/if}

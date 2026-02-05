@@ -1,4 +1,4 @@
-import type { TemplateInitialState } from '$lib/types';
+import type { TemplateInitialState } from '$lib/types'
 
 /**
  * Quick Start Seed - pre-configured data for the story wizard
@@ -7,11 +7,11 @@ import type { TemplateInitialState } from '$lib/types';
  * all stories use the centralized prompt system.
  */
 export interface QuickStartSeed {
-  id: string;
-  name: string;
-  description: string;
-  genre: string;
-  initialState: TemplateInitialState;
+  id: string
+  name: string
+  description: string
+  genre: string
+  initialState: TemplateInitialState
 }
 
 /**
@@ -23,7 +23,8 @@ export const QUICK_START_SEEDS: QuickStartSeed[] = [
   {
     id: 'fantasy-adventure',
     name: 'Fantasy Adventure',
-    description: 'Epic quests, magic, mythical creatures, and heroic journeys in a medieval fantasy world.',
+    description:
+      'Epic quests, magic, mythical creatures, and heroic journeys in a medieval fantasy world.',
     genre: 'Fantasy',
     initialState: {
       protagonist: {
@@ -33,31 +34,36 @@ export const QUICK_START_SEEDS: QuickStartSeed[] = [
       },
       startingLocation: {
         name: 'The Crossroads Inn',
-        description: 'A weathered tavern where travelers share tales of distant lands and rumors of adventure.',
+        description:
+          'A weathered tavern where travelers share tales of distant lands and rumors of adventure.',
       },
     },
   },
   {
     id: 'scifi-exploration',
     name: 'Sci-Fi Exploration',
-    description: 'Explore the cosmos, encounter alien civilizations, and unravel the mysteries of the universe.',
+    description:
+      'Explore the cosmos, encounter alien civilizations, and unravel the mysteries of the universe.',
     genre: 'Sci-Fi',
     initialState: {
       protagonist: {
         name: 'The Captain',
-        description: 'Commander of a small independent vessel, seeking fortune and discovery among the stars',
+        description:
+          'Commander of a small independent vessel, seeking fortune and discovery among the stars',
         traits: ['resourceful', 'adaptable', 'ambitious'],
       },
       startingLocation: {
         name: 'Nexus Station',
-        description: 'A bustling space station at the intersection of major trade routes, home to traders, mercenaries, and those seeking to disappear.',
+        description:
+          'A bustling space station at the intersection of major trade routes, home to traders, mercenaries, and those seeking to disappear.',
       },
     },
   },
   {
     id: 'mystery-investigation',
     name: 'Mystery Investigation',
-    description: 'Solve intricate puzzles, uncover hidden truths, and bring justice to light as a detective.',
+    description:
+      'Solve intricate puzzles, uncover hidden truths, and bring justice to light as a detective.',
     genre: 'Mystery',
     initialState: {
       protagonist: {
@@ -74,7 +80,8 @@ export const QUICK_START_SEEDS: QuickStartSeed[] = [
   {
     id: 'horror-survival',
     name: 'Horror Survival',
-    description: 'Face your fears, survive the night, and confront the darkness that lurks in the shadows.',
+    description:
+      'Face your fears, survive the night, and confront the darkness that lurks in the shadows.',
     genre: 'Horror',
     initialState: {
       protagonist: {
@@ -84,14 +91,16 @@ export const QUICK_START_SEEDS: QuickStartSeed[] = [
       },
       startingLocation: {
         name: 'The Old House',
-        description: 'A decrepit Victorian mansion on the outskirts of town, long abandoned -until tonight.',
+        description:
+          'A decrepit Victorian mansion on the outskirts of town, long abandoned -until tonight.',
       },
     },
   },
-{
+  {
     id: 'slice-of-life',
     name: 'Slice of Life',
-    description: 'Experience everyday moments, build relationships, and find meaning in the ordinary.',
+    description:
+      'Experience everyday moments, build relationships, and find meaning in the ordinary.',
     genre: 'Slice of Life',
     initialState: {
       protagonist: {
@@ -101,14 +110,16 @@ export const QUICK_START_SEEDS: QuickStartSeed[] = [
       },
       startingLocation: {
         name: 'Your New Apartment',
-        description: 'A small but cozy apartment in a new city, boxes still waiting to be unpacked.',
+        description:
+          'A small but cozy apartment in a new city, boxes still waiting to be unpacked.',
       },
     },
   },
   {
     id: 'historical-drama',
     name: 'Historical Drama',
-    description: 'Live through pivotal moments in history, navigating political intrigue and personal struggles.',
+    description:
+      'Live through pivotal moments in history, navigating political intrigue and personal struggles.',
     genre: 'Historical',
     initialState: {
       protagonist: {
@@ -118,15 +129,16 @@ export const QUICK_START_SEEDS: QuickStartSeed[] = [
       },
       startingLocation: {
         name: 'The Royal Court',
-        description: 'A grand palace filled with whispered schemes and dangerous alliances, where every smile hides a dagger.',
+        description:
+          'A grand palace filled with whispered schemes and dangerous alliances, where every smile hides a dagger.',
       },
     },
   },
-];
+]
 
 /**
  * Get a quick start seed by ID
  */
 export function getQuickStartSeed(id: string): QuickStartSeed | undefined {
-  return QUICK_START_SEEDS.find(seed => seed.id === id);
+  return QUICK_START_SEEDS.find((seed) => seed.id === id)
 }

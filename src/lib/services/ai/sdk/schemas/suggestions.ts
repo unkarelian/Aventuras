@@ -5,7 +5,7 @@
  * This replaces the manual JSON parsing and validation in SuggestionsService.
  */
 
-import { z } from 'zod';
+import { z } from 'zod'
 
 /**
  * Schema for a single story suggestion.
@@ -15,7 +15,7 @@ export const suggestionSchema = z.object({
   text: z.string().describe('The suggestion text'),
   /** Type of suggestion: action, dialogue, revelation, or twist */
   type: z.enum(['action', 'dialogue', 'revelation', 'twist']).describe('Type of suggestion'),
-});
+})
 
 /**
  * Schema for the suggestions result.
@@ -23,8 +23,8 @@ export const suggestionSchema = z.object({
  */
 export const suggestionsResultSchema = z.object({
   suggestions: z.array(suggestionSchema).max(3).describe('Up to 3 story suggestions'),
-});
+})
 
 // Type exports inferred from schemas
-export type Suggestion = z.infer<typeof suggestionSchema>;
-export type SuggestionsResult = z.infer<typeof suggestionsResultSchema>;
+export type Suggestion = z.infer<typeof suggestionSchema>
+export type SuggestionsResult = z.infer<typeof suggestionsResultSchema>

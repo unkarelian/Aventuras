@@ -2,7 +2,7 @@
    DARK THEME (Default)
    Modern slate/blue dark mode
    ============================================= */
-[data-theme="dark"] {
+[data-theme='dark'] {
   /* Shadcn Variables (Dark) */
   --radius: 0.5rem;
   --background: hsl(222 47% 11%);

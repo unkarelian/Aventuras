@@ -1,22 +1,13 @@
 <script lang="ts">
-  import {
-    FileJson,
-    Feather,
-    Loader2,
-    Check,
-    Sparkles,
-    PenTool,
-    Book,
-    X,
-  } from "lucide-svelte";
-  import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import { Label } from "$lib/components/ui/label";
-  import { Textarea } from "$lib/components/ui/textarea";
-  import * as Card from "$lib/components/ui/card";
-  import { Separator } from "$lib/components/ui/separator";
-  import * as ScrollArea from "$lib/components/ui/scroll-area";
-  import { Badge } from "$lib/components/ui/badge";
+  import { FileJson, Feather, Loader2, Check, Sparkles, PenTool, Book, X } from 'lucide-svelte'
+  import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
+  import { Label } from '$lib/components/ui/label'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import * as Card from '$lib/components/ui/card'
+  import { Separator } from '$lib/components/ui/separator'
+  import * as ScrollArea from '$lib/components/ui/scroll-area'
+  import { Badge } from '$lib/components/ui/badge'
 
   import type {
     StoryMode,
@@ -29,50 +20,50 @@
     ImportedEntry,
     POVOption,
     TenseOption,
-  } from "../wizardTypes";
-  import { styleUserPlaceholders, tenseOptions } from "../wizardTypes";
+  } from '../wizardTypes'
+  import { styleUserPlaceholders, tenseOptions } from '../wizardTypes'
 
   interface Props {
     // State
-    storyTitle: string;
-    openingGuidance: string;
-    generatedOpening: GeneratedOpening | null;
-    isGeneratingOpening: boolean;
-    isRefiningOpening: boolean;
-    isEditingOpening: boolean;
-    openingDraft: string;
-    openingError: string | null;
-    manualOpeningText: string;
+    storyTitle: string
+    openingGuidance: string
+    generatedOpening: GeneratedOpening | null
+    isGeneratingOpening: boolean
+    isRefiningOpening: boolean
+    isEditingOpening: boolean
+    openingDraft: string
+    openingError: string | null
+    manualOpeningText: string
 
     // Card import
-    cardImportedFirstMessage: string | null;
-    cardImportedAlternateGreetings: string[];
-    selectedGreetingIndex: number;
+    cardImportedFirstMessage: string | null
+    cardImportedAlternateGreetings: string[]
+    selectedGreetingIndex: number
 
     // Story context for summary
-    selectedMode: StoryMode;
-    selectedGenre: Genre;
-    customGenre: string;
-    selectedPOV: POV;
-    selectedTense: Tense;
-    expandedSetting: ExpandedSetting | null;
-    protagonist: GeneratedProtagonist | null;
-    importedEntriesCount: number;
+    selectedMode: StoryMode
+    selectedGenre: Genre
+    customGenre: string
+    selectedPOV: POV
+    selectedTense: Tense
+    expandedSetting: ExpandedSetting | null
+    protagonist: GeneratedProtagonist | null
+    importedEntriesCount: number
 
     // Handlers
-    onTitleChange: (value: string) => void;
-    onGuidanceChange: (value: string) => void;
-    onSelectedGreetingChange: (index: number) => void;
-    onGenerateOpening: () => void;
-    onRefineOpening: () => void;
-    onStartEdit: () => void;
-    onCancelEdit: () => void;
-    onSaveEdit: () => void;
-    onDraftChange: (value: string) => void;
-    onUseCardOpening: () => void;
-    onClearCardOpening: () => void;
-    onManualOpeningChange: (value: string) => void;
-    onClearGenerated: () => void;
+    onTitleChange: (value: string) => void
+    onGuidanceChange: (value: string) => void
+    onSelectedGreetingChange: (index: number) => void
+    onGenerateOpening: () => void
+    onRefineOpening: () => void
+    onStartEdit: () => void
+    onCancelEdit: () => void
+    onSaveEdit: () => void
+    onDraftChange: (value: string) => void
+    onUseCardOpening: () => void
+    onClearCardOpening: () => void
+    onManualOpeningChange: (value: string) => void
+    onClearGenerated: () => void
   }
 
   let {
@@ -109,20 +100,19 @@
     onClearCardOpening,
     onClearGenerated,
     onManualOpeningChange,
-  }: Props = $props();
+  }: Props = $props()
 
   // POV options for summary
   const povOptions: POVOption[] = [
-    { id: "first", label: "1st Person", example: "" },
-    { id: "second", label: "2nd Person", example: "" },
-    { id: "third", label: "3rd Person", example: "" },
-  ];
+    { id: 'first', label: '1st Person', example: '' },
+    { id: 'second', label: '2nd Person', example: '' },
+    { id: 'third', label: '3rd Person', example: '' },
+  ]
 </script>
 
 <div class="space-y-4 p-1">
   <p class="text-muted-foreground">
-    Give your story a title and either write your own opening scene or generate
-    one with AI.
+    Give your story a title and either write your own opening scene or generate one with AI.
   </p>
 
   <div class="space-y-2">
@@ -138,16 +128,16 @@
   <!-- Imported Opening Scene from Character Card -->
   {#if cardImportedFirstMessage}
     <Card.Root class="bg-surface-800/50 border-surface-700">
-      <Card.Content class="p-4 space-y-3">
+      <Card.Content class="space-y-3 p-4">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
-            <FileJson class="h-4 w-4 text-accent-400" />
-            <h4 class="font-medium text-foreground">Imported Opening Scene</h4>
+            <FileJson class="text-accent-400 h-4 w-4" />
+            <h4 class="text-foreground font-medium">Imported Opening Scene</h4>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            class="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
+            class="text-muted-foreground hover:text-foreground h-auto p-0 text-xs"
             onclick={onClearCardOpening}
           >
             Clear
@@ -157,13 +147,13 @@
         <!-- Greeting Selection (if alternate greetings exist) -->
         {#if cardImportedAlternateGreetings.length > 0}
           <div>
-            <Label class="mb-2 block text-xs font-medium text-muted-foreground"
+            <Label class="text-muted-foreground mb-2 block text-xs font-medium"
               >Select Opening</Label
             >
             <div class="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                variant={selectedGreetingIndex === 0 ? "default" : "secondary"}
+                variant={selectedGreetingIndex === 0 ? 'default' : 'secondary'}
                 class="h-7 text-xs"
                 onclick={() => onSelectedGreetingChange(0)}
               >
@@ -172,9 +162,7 @@
               {#each cardImportedAlternateGreetings as _, i}
                 <Button
                   size="sm"
-                  variant={selectedGreetingIndex === i + 1
-                    ? "default"
-                    : "secondary"}
+                  variant={selectedGreetingIndex === i + 1 ? 'default' : 'secondary'}
                   class="h-7 text-xs"
                   onclick={() => onSelectedGreetingChange(i + 1)}
                 >
@@ -189,26 +177,24 @@
         <Card.Root class="bg-surface-900 border-none">
           <Card.Content class="p-3">
             <ScrollArea.Root class="h-48">
-              <div class="text-sm text-muted-foreground whitespace-pre-wrap">
+              <div class="text-muted-foreground text-sm whitespace-pre-wrap">
                 {@html styleUserPlaceholders(
                   selectedGreetingIndex === 0
-                    ? cardImportedFirstMessage || ""
-                    : cardImportedAlternateGreetings[
-                        selectedGreetingIndex - 1
-                      ] || "",
+                    ? cardImportedFirstMessage || ''
+                    : cardImportedAlternateGreetings[selectedGreetingIndex - 1] || '',
                 )}
               </div>
             </ScrollArea.Root>
           </Card.Content>
         </Card.Root>
 
-        {#if (selectedGreetingIndex === 0 ? cardImportedFirstMessage : cardImportedAlternateGreetings[selectedGreetingIndex - 1])?.includes("{{user}}")}
-          <p class="text-xs text-muted-foreground flex items-center gap-1">
+        {#if (selectedGreetingIndex === 0 ? cardImportedFirstMessage : cardImportedAlternateGreetings[selectedGreetingIndex - 1])?.includes('{{user}}')}
+          <p class="text-muted-foreground flex items-center gap-1 text-xs">
             <Badge
               variant="outline"
-              class="px-1 py-0.5 text-[10px] bg-primary/20 text-primary font-mono border-primary/30 rounded"
+              class="bg-primary/20 text-primary border-primary/30 rounded px-1 py-0.5 font-mono text-[10px]"
             >
-              {"{{user}}"}
+              {'{{user}}'}
             </Badge>
             will be replaced with your character's name
           </p>
@@ -223,18 +209,17 @@
   {/if}
 
   <!-- Opening Scene Guidance (Creative Writing Mode Only) -->
-  {#if selectedMode === "creative-writing"}
+  {#if selectedMode === 'creative-writing'}
     <Card.Root class="bg-surface-900 border-surface-700">
-      <Card.Content class="p-4 space-y-3">
+      <Card.Content class="space-y-3 p-4">
         <div class="flex items-center gap-2">
-          <Feather class="h-4 w-4 text-secondary-400" />
-          <h4 class="font-medium text-foreground">Opening Scene Guidance</h4>
-          <span class="text-xs text-muted-foreground">(Optional)</span>
+          <Feather class="text-secondary-400 h-4 w-4" />
+          <h4 class="text-foreground font-medium">Opening Scene Guidance</h4>
+          <span class="text-muted-foreground text-xs">(Optional)</span>
         </div>
-        <p class="text-sm text-muted-foreground">
-          As the author, describe what you want to happen in the opening scene.
-          Include setting details, character positions, mood, or specific
-          events.
+        <p class="text-muted-foreground text-sm">
+          As the author, describe what you want to happen in the opening scene. Include setting
+          details, character positions, mood, or specific events.
         </p>
         <Textarea
           value={openingGuidance}
@@ -250,9 +235,9 @@
   <!-- Manual Opening Entry or AI Generation -->
   {#if storyTitle.trim()}
     <Card.Root class="bg-surface-900 border-surface-700">
-      <Card.Content class="p-4 space-y-3">
-        <h4 class="font-medium text-foreground">Opening Scene</h4>
-        <p class="text-sm text-muted-foreground">
+      <Card.Content class="space-y-3 p-4">
+        <h4 class="text-foreground font-medium">Opening Scene</h4>
+        <p class="text-muted-foreground text-sm">
           Write your own opening scene or generate one with AI
         </p>
 
@@ -265,9 +250,7 @@
             placeholder="Write the opening scene of your story here... Describe the setting, introduce your character, set the mood. This will be the first entry in your adventure."
             class="min-h-[140px] resize-y text-sm"
             rows={6}
-            disabled={isGeneratingOpening ||
-              isRefiningOpening ||
-              generatedOpening !== null}
+            disabled={isGeneratingOpening || isRefiningOpening || generatedOpening !== null}
           />
           {#if generatedOpening}
             <p class="text-xs text-amber-400">
@@ -281,7 +264,7 @@
         <!-- Divider -->
         <div class="flex items-center gap-3">
           <Separator class="flex-1" />
-          <span class="text-xs text-muted-foreground">OR</span>
+          <span class="text-muted-foreground text-xs">OR</span>
           <Separator class="flex-1" />
         </div>
 
@@ -299,9 +282,7 @@
                 Generating Opening...
               {:else}
                 <PenTool class="h-4 w-4" />
-                {generatedOpening
-                  ? "Regenerate with AI"
-                  : "Generate Opening with AI"}
+                {generatedOpening ? 'Regenerate with AI' : 'Generate Opening with AI'}
               {/if}
             </Button>
             {#if generatedOpening}
@@ -316,7 +297,7 @@
             {/if}
           </div>
           {#if !generatedOpening && !isGeneratingOpening && !manualOpeningText.trim() && !cardImportedFirstMessage}
-            <span class="text-sm text-amber-400 text-center">
+            <span class="text-center text-sm text-amber-400">
               Either write your own opening or generate one with AI
             </span>
           {/if}
@@ -324,9 +305,7 @@
       </Card.Content>
     </Card.Root>
   {:else}
-    <p class="text-sm text-muted-foreground -mt-3">
-      Enter a title to continue*
-    </p>
+    <p class="text-muted-foreground -mt-3 text-sm">Enter a title to continue*</p>
   {/if}
 
   {#if openingError}
@@ -335,9 +314,9 @@
 
   {#if generatedOpening}
     <Card.Root class="bg-surface-900 border-surface-700">
-      <Card.Content class="p-4 space-y-3">
+      <Card.Content class="space-y-3 p-4">
         <div class="flex items-start justify-between gap-3">
-          <h3 class="font-semibold text-foreground">
+          <h3 class="text-foreground font-semibold">
             {generatedOpening?.title || storyTitle}
           </h3>
           {#if !isEditingOpening}
@@ -345,7 +324,7 @@
               <Button
                 variant="ghost"
                 size="sm"
-                class="h-auto px-2 py-1 text-xs text-muted-foreground hover:text-foreground gap-1"
+                class="text-muted-foreground hover:text-foreground h-auto gap-1 px-2 py-1 text-xs"
                 onclick={onStartEdit}
                 title="Edit the opening text"
               >
@@ -355,7 +334,7 @@
               <Button
                 variant="ghost"
                 size="sm"
-                class="h-auto px-2 py-1 text-xs text-accent-400 hover:text-accent-300 hover:bg-accent-950/20 gap-1"
+                class="text-accent-400 hover:text-accent-300 hover:bg-accent-950/20 h-auto gap-1 px-2 py-1 text-xs"
                 onclick={onRefineOpening}
                 disabled={isRefiningOpening || isGeneratingOpening}
                 title="Refine using the current opening text"
@@ -373,20 +352,14 @@
         </div>
         {#if isEditingOpening}
           <Textarea
-            value={openingDraft ?? ""}
+            value={openingDraft ?? ''}
             oninput={(e) => onDraftChange(e.currentTarget.value)}
             class="min-h-[140px] resize-y text-sm"
             rows={6}
           />
           <div class="flex justify-end gap-2">
-            <Button variant="secondary" size="sm" onclick={onCancelEdit}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onclick={onSaveEdit}
-              disabled={!openingDraft?.trim()}
-            >
+            <Button variant="secondary" size="sm" onclick={onCancelEdit}>Cancel</Button>
+            <Button size="sm" onclick={onSaveEdit} disabled={!openingDraft?.trim()}>
               Save Changes
             </Button>
           </div>
@@ -394,7 +367,7 @@
           <ScrollArea.Root class="h-64">
             <div class="prose prose-invert prose-sm max-w-none">
               <p class="text-muted-foreground whitespace-pre-wrap">
-                {generatedOpening?.scene || ""}
+                {generatedOpening?.scene || ''}
               </p>
             </div>
           </ScrollArea.Root>
@@ -405,16 +378,16 @@
 
   <!-- Summary -->
   <Card.Root class="bg-surface-800 border-surface-700">
-    <Card.Content class="p-4 space-y-2 text-sm">
-      <h4 class="font-medium text-foreground">Story Summary</h4>
-      <div class="grid grid-cols-2 gap-2 text-muted-foreground">
+    <Card.Content class="space-y-2 p-4 text-sm">
+      <h4 class="text-foreground font-medium">Story Summary</h4>
+      <div class="text-muted-foreground grid grid-cols-2 gap-2">
         <div>
           <strong class="text-foreground">Mode:</strong>
-          {selectedMode === "adventure" ? "Adventure" : "Creative Writing"}
+          {selectedMode === 'adventure' ? 'Adventure' : 'Creative Writing'}
         </div>
         <div>
           <strong class="text-foreground">Genre:</strong>
-          {selectedGenre === "custom" ? customGenre : selectedGenre}
+          {selectedGenre === 'custom' ? customGenre : selectedGenre}
         </div>
         <div>
           <strong class="text-foreground">POV:</strong>
@@ -438,7 +411,7 @@
         {/if}
         {#if importedEntriesCount > 0}
           <div class="col-span-2 flex items-center gap-2">
-            <Book class="h-4 w-4 text-accent-400" />
+            <Book class="text-accent-400 h-4 w-4" />
             <strong class="text-foreground">Lorebook:</strong>
             {importedEntriesCount} entries to import
           </div>
