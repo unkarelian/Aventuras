@@ -2440,6 +2440,7 @@ const newConfig = { ...this.memoryConfig, ...updates };
 
       // Restore to database
       await database.restoreRetryBackup(
+        this.entries[this.entries.length - 1].id,
         this.currentStory.id,
         backup.entries,
         backup.characters,

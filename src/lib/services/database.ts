@@ -1018,6 +1018,7 @@ class DatabaseService {
    * Does NOT touch chapters or lorebook entries (those are more permanent).
    */
   async restoreRetryBackup(
+    lastEntryId: string,
     storyId: string,
     entries: StoryEntry[],
     characters: Character[],
@@ -1030,16 +1031,18 @@ class DatabaseService {
 
     // Delete current state (except chapters and lorebook entries which are more permanent)
     // Note: embedded_images will be cascade-deleted when story_entries are deleted
-    await db.execute('DELETE FROM story_entries WHERE story_id = ?', [storyId]);
+    // Only delete the last entry, not the entire story
+    await db.execute('DELETE FROM story_entries WHERE id = ?', [lastEntryId]);
     await db.execute('DELETE FROM characters WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM locations WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM items WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM story_beats WHERE story_id = ?', [storyId]);
 
     // Restore entries
-    for (const entry of entries) {
+    // Not necessary as we are only deleting the last entry
+    /* for (const entry of entries) {
       await this.addStoryEntry(entry);
-    }
+    } */
 
     // Restore characters
     for (const character of characters) {
