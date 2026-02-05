@@ -81,7 +81,7 @@
             <Button
               variant="ghost"
               size="icon"
-              class="h-8 w-8 text-muted-foreground hover:text-foreground"
+              class="h-8 w-8 text-muted-foreground hover:text-foreground hidden md:inline-flex"
               onclick={handlePopOut}
               title="Pop out to separate window"
             >
