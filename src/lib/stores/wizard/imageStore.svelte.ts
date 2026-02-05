@@ -5,12 +5,9 @@ import {
   generatePortrait as sdkGeneratePortrait,
 } from '$lib/services/ai/image'
 import { promptService } from '$lib/services/prompts'
-import type {
-  GeneratedProtagonist,
-  GeneratedCharacter,
-} from '$lib/services/ai/wizard/ScenarioService'
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from '$lib/services/ai/image/constants'
 import { createLogger } from '$lib/services/ai/core/config'
+import type { GeneratedCharacter, GeneratedProtagonist } from '$lib/services/ai/sdk'
 
 const log = createLogger('WizardPortrait')
 

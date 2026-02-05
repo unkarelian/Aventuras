@@ -26,6 +26,10 @@ class ScenarioVaultStore {
     return this.scenarios.filter((s) => s.favorite)
   }
 
+  get items(): VaultScenario[] {
+    return this.scenarios
+  }
+
   async load(): Promise<void> {
     try {
       this.scenarios = await database.getVaultScenarios()

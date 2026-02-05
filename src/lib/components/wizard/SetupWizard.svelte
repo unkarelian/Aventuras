@@ -26,7 +26,7 @@
   let { onClose }: Props = $props()
 
   // Initialize Wizard Store
-  const wizard = new WizardStore(onClose)
+  const wizard = new WizardStore(() => onClose())
 
   // Check if API key is configured
   const needsApiKey = $derived(settings.needsApiKey)
@@ -156,12 +156,6 @@
           onEditSetting={() => wizard.setting.editSetting()}
           onCancelEdit={() => wizard.setting.cancelSettingEdit()}
           onSelectScenario={(id) => wizard.selectScenario(id)}
-          onCardImport={(e) =>
-            wizard.character.handleCardImport(
-              e.target.files?.[0],
-              wizard.narrative.selectedMode,
-              wizard.narrative.selectedGenre,
-            )}
           onClearCardImport={() => wizard.character.clearCardImport()}
           onSaveToVault={() =>
             wizard.setting.saveScenarioToVault(

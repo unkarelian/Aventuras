@@ -6,6 +6,7 @@
   let {
     ref = $bindable(null),
     class: className,
+    children,
     ...restProps
   }: CollapsiblePrimitive.ContentProps & { class?: ClassValue } = $props()
 </script>
@@ -18,5 +19,5 @@
   )}
   {...restProps}
 >
-  <slot />
+  {@render children?.()}
 </CollapsiblePrimitive.Content>

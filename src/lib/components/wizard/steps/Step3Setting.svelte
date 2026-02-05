@@ -54,7 +54,6 @@
     onEditSetting: () => void
     onCancelEdit: () => void
     onSelectScenario: (id: string) => void
-    onCardImport: (event: Event) => void
     onClearCardImport: () => void
     onSaveToVault: () => void
     onShowVaultPickerChange: (show: boolean) => void

@@ -3,16 +3,15 @@
  */
 
 import type { Wand2 } from 'lucide-svelte'
+import type { Genre, Tense } from '$lib/services/ai/wizard/ScenarioService'
+import type { LorebookImportResult, ImportedEntry } from '$lib/services/lorebookImporter'
+import type { StoryMode, POV, EntryType } from '$lib/types'
 import type {
-  Genre,
   ExpandedSetting,
   GeneratedProtagonist,
   GeneratedCharacter,
   GeneratedOpening,
-  Tense,
-} from '$lib/services/ai/wizard/ScenarioService'
-import type { LorebookImportResult, ImportedEntry } from '$lib/services/lorebookImporter'
-import type { StoryMode, POV, EntryType } from '$lib/types'
+} from '$lib/services/ai/sdk'
 
 // Re-export types from scenario service for convenience
 export type {

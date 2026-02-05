@@ -48,7 +48,7 @@ export function patchResponseMiddleware(): LanguageModelV3Middleware {
 
       if (!result.finishReason) {
         log('Patching missing finishReason')
-        result.finishReason = 'stop'
+        result.finishReason = { unified: 'stop', raw: 'stop' }
       }
 
       return result

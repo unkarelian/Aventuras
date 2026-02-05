@@ -24,7 +24,7 @@ import { LLM_TIMEOUT_DEFAULT, LLM_TIMEOUT_MIN, LLM_TIMEOUT_MAX } from '$lib/cons
 import { SvelteSet } from 'svelte/reactivity'
 
 // Provider preset type (used by WelcomeScreen)
-export type ProviderPreset = 'openrouter' | 'nanogpt' | 'custom'
+export type ProviderPreset = 'openrouter' | 'nanogpt' | 'openai-compatible'
 
 // Default profile IDs for each provider
 export const DEFAULT_OPENROUTER_PROFILE_ID = 'default-openrouter-profile'

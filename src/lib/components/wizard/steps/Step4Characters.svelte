@@ -172,7 +172,7 @@
 
 <div class="space-y-4">
   {#if !expandedSetting}
-    <Alert.Root variant="warning">
+    <Alert.Root>
       <AlertCircle class="h-4 w-4" />
       <Alert.Title>Missing World Setting</Alert.Title>
       <Alert.Description>

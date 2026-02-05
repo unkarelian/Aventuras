@@ -1,6 +1,5 @@
 import {
   type Genre,
-  type GeneratedOpening,
   type Tense,
   type WizardData,
   scenarioService,
@@ -10,6 +9,7 @@ import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 import { settings } from '$lib/stores/settings.svelte'
 import type { StoryMode, POV, VaultLorebook } from '$lib/types'
 import type { ImportedLorebookItem } from '$lib/components/wizard/wizardTypes'
+import type { GeneratedOpening } from '$lib/services/ai/sdk'
 
 export class NarrativeStore {
   // Step 1: Mode
@@ -275,6 +275,11 @@ export class NarrativeStore {
       title: this.storyTitle.trim() || this.generatedOpening.title,
       scene: this.openingDraft,
     }
+    this.clearOpeningEditState()
+  }
+
+  cancelOpeningEdit() {
+    if (!this.generatedOpening) return
     this.clearOpeningEditState()
   }
 

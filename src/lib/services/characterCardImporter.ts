@@ -408,11 +408,7 @@ export async function sanitizeCharacterCard(
 
   log('Character sanitization successful', { name: result.name })
 
-  // Convert array of visual descriptors to VisualDescriptors object
-  const visualDescriptors: VisualDescriptors = {}
-  result.visualDescriptors.forEach((desc, i) => {
-    visualDescriptors[`descriptor_${i}`] = desc
-  })
+  const visualDescriptors: VisualDescriptors = result.visualDescriptors
 
   return {
     name: result.name,

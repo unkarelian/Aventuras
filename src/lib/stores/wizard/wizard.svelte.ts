@@ -299,7 +299,7 @@ export class WizardStore {
       relationship: char.relationship
         ? replaceUserPlaceholders(char.relationship, protagonistName)
         : '',
-      traits: char.trats.map((t) => replaceUserPlaceholders(t, protagonistName)),
+      traits: char.traits.map((t) => replaceUserPlaceholders(t, protagonistName)),
     }))
 
     const processedEntries = this.narrative.importedEntries.map((e) => ({

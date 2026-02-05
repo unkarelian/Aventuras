@@ -350,8 +350,7 @@
             <section.icon class="h-4 w-4" />
             <span class="hidden sm:inline">{section.label}</span>
             <Badge variant="secondary" class="ml-1 h-5 px-1 py-0 text-[10px]">
-              {// @ts-expect-error dynamic access
-              section.store[section.id].length}
+              {section.store.items.length}
             </Badge>
           </TabsTrigger>
         {/each}
@@ -421,10 +420,7 @@
               {/each}
             </div>
           {:else}
-            {@const filteredItems = getFilteredItems(
-              // @ts-expect-error - dynamic access
-              section.store[section.id],
-            )}
+            {@const filteredItems = getFilteredItems(section.store.items as AnyVaultItem[])}
 
             {#if filteredItems.length === 0}
               <div in:fade class="flex flex-1 flex-col items-center justify-center">
@@ -457,7 +453,7 @@
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" in:fade>
                 {#each filteredItems as item, i (i)}
                   <UniversalVaultCard
-                    {item}
+                    item={item as AnyVaultItem}
                     type={section.type}
                     onEdit={() => handleEdit(item, section.type)}
                     onDelete={() => handleDelete(item.id, section.store)}

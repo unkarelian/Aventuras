@@ -67,6 +67,7 @@
       </div>
       <div class="flex items-center gap-1">
         {#if !collapsed}
+          <!-- svelte-ignore node_invalid_placement_ssr -->
           <button
             class="btn-ghost text-surface-400 hover:text-surface-200 rounded p-1.5"
             onclick={(e) => {
@@ -103,7 +104,7 @@
           </div>
         {:else}
           <div class="space-y-1.5 pt-0.5">
-            {#each suggestions as suggestion (suggestion.id)}
+            {#each suggestions as suggestion (suggestion.text)}
               <button
                 class="card hover:bg-surface-700/50 group w-full p-2.5 text-left transition-colors"
                 onclick={() => {

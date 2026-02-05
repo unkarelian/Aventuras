@@ -75,12 +75,13 @@
   }
 
   async function exportAventuras() {
-    if (!story.currentStory) return
-    const data = await gatherStoryData(story.currentStory.id)
+    const currentStory = story.currentStory
+    if (!currentStory) return
+    const data = await gatherStoryData(currentStory.id)
     await handleExport(
       () =>
         exportService.exportToAventura(
-          story.currentStory,
+          currentStory,
           data.entries,
           data.characters,
           data.locations,
@@ -97,11 +98,12 @@
   }
 
   async function exportMarkdown() {
-    if (!story.currentStory) return
+    const currentStory = story.currentStory
+    if (!currentStory) return
     await handleExport(
       () =>
         exportService.exportToMarkdown(
-          story.currentStory,
+          currentStory,
           story.entries,
           story.characters,
           story.locations,
@@ -112,9 +114,10 @@
   }
 
   async function exportText() {
-    if (!story.currentStory) return
+    const currentStory = story.currentStory
+    if (!currentStory) return
     await handleExport(
-      () => exportService.exportToText(story.currentStory, story.entries),
+      () => exportService.exportToText(currentStory, story.entries),
       'Plain Text (.txt)',
     )
   }

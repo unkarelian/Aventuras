@@ -25,6 +25,10 @@ class LorebookVaultStore {
     return this.lorebooks.filter((lb) => lb.favorite)
   }
 
+  get items(): VaultLorebook[] {
+    return this.lorebooks
+  }
+
   async load(): Promise<void> {
     try {
       this.lorebooks = await database.getVaultLorebooks()

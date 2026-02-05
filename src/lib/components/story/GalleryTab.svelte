@@ -511,6 +511,7 @@
 
     <!-- Edit area -->
     <div class="bg-surface-900 border-surface-800 border-t px-4 py-3">
+      <!-- svelte-ignore a11y_label_has_associated_control -->
       <label class="text-surface-400 mb-1.5 block text-xs">Image Prompt</label>
       <Textarea
         bind:value={editingImagePrompt}

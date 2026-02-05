@@ -28,7 +28,8 @@
   let shouldBlur = $derived(nsfwMode === 'blur' && card.nsfw)
   let imageError = $state(false)
   let isRawDataOpen = $state(false)
-  let detailedCard = $state<DiscoveryCard>(card)
+  let extraDetails = $state<DiscoveryCard | null>(null)
+  let detailedCard = $derived(extraDetails ?? card)
   let isLoadingDetails = $state(false)
 
   function handleImageError() {
@@ -37,14 +38,14 @@
 
   $effect(() => {
     // Reset detailed card when prop changes
-    detailedCard = card
+    extraDetails = null
 
     // Fetch details if available
     const loadDetails = async () => {
       isLoadingDetails = true
       try {
         const fullCard = await discoveryService.getCardDetails(card)
-        detailedCard = fullCard
+        extraDetails = fullCard
       } catch (e) {
         console.error('Failed to load card details', e)
       } finally {
@@ -210,7 +211,7 @@
 
           {#if isRawDataOpen}
             <div transition:slide={{ duration: 200, axis: 'y' }} class="space-y-4 px-3 pt-1 pb-3">
-              <Alert.Root variant="warning">
+              <Alert.Root>
                 <AlertTriangle class="h-4 w-4" />
                 <Alert.Title>Import Context Warning</Alert.Title>
                 <Alert.Description>

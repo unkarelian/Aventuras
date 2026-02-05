@@ -34,6 +34,8 @@ export const cardImportResultSchema = z.object({
   npcs: z.array(cardImportNpcSchema).describe('All significant characters from the card'),
 })
 
+import { visualDescriptorsSchema } from './classifier'
+
 /**
  * Result from vault-character-import template.
  * Extracts clean character data for the vault.
@@ -42,9 +44,9 @@ export const vaultCharacterImportSchema = z.object({
   name: z.string().describe("The character's actual name"),
   description: z.string().describe('1-2 paragraphs describing who this character is'),
   traits: z.array(z.string()).describe('3-8 personality traits'),
-  visualDescriptors: z
-    .array(z.string())
-    .describe('Physical appearance details for image generation'),
+  visualDescriptors: visualDescriptorsSchema.describe(
+    'Physical appearance details for image generation',
+  ),
 })
 
 export type CardImportNpc = z.infer<typeof cardImportNpcSchema>

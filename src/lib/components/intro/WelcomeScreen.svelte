@@ -65,7 +65,7 @@
       iconColor: 'text-yellow-500',
     },
     {
-      id: 'custom' as ProviderPreset,
+      id: 'openai-compatible' as ProviderPreset,
       name: 'Custom / Self-Hosted',
       description: 'Configure your own OpenAI-compatible endpoint.',
       icon: Server,

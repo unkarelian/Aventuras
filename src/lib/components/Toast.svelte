@@ -34,6 +34,8 @@
 </script>
 
 {#if ui.toastVisible}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <div
     class="fixed top-16 left-1/2 z-[9999] flex -translate-x-1/2 items-start gap-3 rounded-lg px-4 py-3 shadow-2xl {getBackgroundColor()} animate-fade-in animate-slide-in w-[calc(100vw-2rem)] max-w-2xl cursor-pointer sm:top-4 sm:right-4 sm:left-auto sm:max-w-lg sm:translate-x-0 sm:cursor-default sm:rounded-xl sm:px-5 sm:py-4"
     role="alert"

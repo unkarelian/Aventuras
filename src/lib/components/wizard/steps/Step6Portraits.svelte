@@ -78,7 +78,7 @@
   </div>
 
   {#if !imageGenerationEnabled}
-    <Alert.Root variant="warning" class="py-2">
+    <Alert.Root class="py-2">
       <AlertCircle class="h-4 w-4" />
       <Alert.Title class="text-xs font-semibold">Generation Disabled</Alert.Title>
       <Alert.Description class="text-xs">

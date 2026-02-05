@@ -32,6 +32,11 @@ class CharacterVaultStore {
     return this.characters.filter((c) => c.favorite)
   }
 
+  // Standardized interface for generic access
+  get items(): VaultCharacter[] {
+    return this.characters
+  }
+
   /**
    * Load all vault characters from database.
    */

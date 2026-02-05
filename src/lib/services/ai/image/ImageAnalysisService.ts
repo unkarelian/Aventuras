@@ -172,7 +172,7 @@ ${context.translatedNarrative}`
         const vd = char.visualDescriptors!
         const parts: string[] = [`**${char.name}**:`]
 
-        if (vd.gender) parts.push(`Gender: ${vd.gender}`)
+        /* if (vd.gender) parts.push(`Gender: ${vd.gender}`)
         if (vd.age) parts.push(`Age: ${vd.age}`)
         if (vd.height) parts.push(`Height: ${vd.height}`)
         if (vd.build) parts.push(`Build: ${vd.build}`)
@@ -183,7 +183,14 @@ ${context.translatedNarrative}`
         if (vd.facialFeatures) parts.push(`Face: ${vd.facialFeatures}`)
         if (vd.distinguishingMarks) parts.push(`Marks: ${vd.distinguishingMarks}`)
         if (vd.clothingStyle) parts.push(`Clothing: ${vd.clothingStyle}`)
+        if (vd.accessories) parts.push(`Accessories: ${vd.accessories}`) */
+        if (vd.face) parts.push(`Face: ${vd.face}`)
+        if (vd.hair) parts.push(`Hair: ${vd.hair}`)
+        if (vd.eyes) parts.push(`Eyes: ${vd.eyes}`)
+        if (vd.build) parts.push(`Build: ${vd.build}`)
+        if (vd.clothing) parts.push(`Clothing: ${vd.clothing}`)
         if (vd.accessories) parts.push(`Accessories: ${vd.accessories}`)
+        if (vd.distinguishing) parts.push(`Distinguishing features: ${vd.distinguishing}`)
 
         return parts.join('\n  ')
       })
