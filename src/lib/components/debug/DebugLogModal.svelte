@@ -1,11 +1,18 @@
 <script lang="ts">
   import { ui, type DebugLogEntry } from '$lib/stores/ui.svelte';
-  import { ArrowUpCircle, ArrowDownCircle, Trash2, Copy, Check, WrapText } from 'lucide-svelte';
+  import { ArrowUpCircle, ArrowDownCircle, Trash2, Copy, Check, WrapText, Filter, ChevronDown, X, CirclePlus } from 'lucide-svelte';
   import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
   import { Button } from "$lib/components/ui/button";
+  import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates';
+  import * as Popover from "$lib/components/ui/popover";
+  import * as Command from "$lib/components/ui/command";
+  import { Badge } from "$lib/components/ui/badge";
+  import { Separator } from "$lib/components/ui/separator";
+  import { cn } from "$lib/utils/cn.js";
   
   let copiedId = $state<string | null>(null);
   let renderNewlines = $state(false);
+  let selectedCategories = $state<string[]>([]);
   let scrollContainer: HTMLDivElement | null = $state(null);
   let savedScrollTop = 0;
   let savedScrollHeight = 0;
@@ -116,11 +123,25 @@
     jsonCache.clear();
   }
 
+  // Get unique service names from templates and actual logs
+  let categories = $derived.by(() => {
+    const templateIds = new Set(PROMPT_TEMPLATES.map(t => t.id));
+    const logServiceNames = new Set(throttledLogs.map(l => l.serviceName));
+    const all = new Set([...templateIds, ...logServiceNames]);
+    return Array.from(all).sort();
+  });
+
   // Group logs by request/response pairs - only compute when modal is open
   let groupedLogs = $derived.by(() => {
     if (!ui.debugModalOpen) return [];
 
-    const logs = throttledLogs;
+    let logs = throttledLogs;
+    
+    // Apply category filter
+    if (selectedCategories.length > 0) {
+      logs = logs.filter(l => selectedCategories.includes(l.serviceName));
+    }
+
     const groups: { request?: DebugLogEntry; response?: DebugLogEntry }[] = [];
     const requestMap = new Map<string, number>();
 
@@ -167,11 +188,106 @@
   <ResponsiveModal.Content class="sm:max-w-4xl max-h-[85vh] flex flex-col p-0 gap-0">
     <ResponsiveModal.Header class="px-6 py-4 border-b border-border">
       <div class="flex items-center justify-between w-full">
-        <div class="flex items-center gap-2">
-          <ResponsiveModal.Title>API Debug Logs</ResponsiveModal.Title>
-          <span class="text-xs px-2 py-0.5 rounded bg-secondary text-secondary-foreground font-mono">
-            {ui.debugLogs.length} entries
-          </span>
+        <div class="flex items-center gap-4 flex-1">
+          <div class="flex items-center gap-2">
+            <ResponsiveModal.Title>API Debug Logs</ResponsiveModal.Title>
+            <span class="text-xs px-2 py-0.5 rounded bg-secondary text-secondary-foreground font-mono">
+              {ui.debugLogs.length}
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2 ml-4">
+            <Filter class="h-3.5 w-3.5 text-muted-foreground" />
+            <Popover.Root>
+              <Popover.Trigger asChild>
+                {#snippet children({ builder })}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    class="h-8 border-dashed bg-muted/50 gap-2"
+                    builders={[builder]}
+                  >
+                    <CirclePlus class="h-4 w-4 opacity-50" />
+                    <span class="text-xs">Services</span>
+                    {#if selectedCategories.length > 0}
+                      <Separator orientation="vertical" class="mx-1 h-4" />
+                      <Badge
+                        variant="secondary"
+                        class="rounded-sm px-1 font-normal lg:hidden"
+                      >
+                        {selectedCategories.length}
+                      </Badge>
+                      <div class="hidden space-x-1 lg:flex">
+                        {#if selectedCategories.length > 2}
+                          <Badge
+                            variant="secondary"
+                            class="rounded-sm px-1 font-normal"
+                          >
+                            {selectedCategories.length} selected
+                          </Badge>
+                        {:else}
+                          {#each selectedCategories as cat}
+                            <Badge
+                              variant="secondary"
+                              class="rounded-sm px-1 font-normal"
+                            >
+                              {cat}
+                            </Badge>
+                          {/each}
+                        {/if}
+                      </div>
+                    {/if}
+                  </Button>
+                {/snippet}
+              </Popover.Trigger>
+              <Popover.Content class="w-[240px] p-0" align="start">
+                <Command.Root>
+                  <Command.Input placeholder="Filter services..." />
+                  <Command.List>
+                    <Command.Empty>No service found.</Command.Empty>
+                    <Command.Group>
+                      {#each categories as cat}
+                        {@const isSelected = selectedCategories.includes(cat)}
+                        <Command.Item
+                          value={cat}
+                          onSelect={() => {
+                            if (isSelected) {
+                              selectedCategories = selectedCategories.filter(c => c !== cat);
+                            } else {
+                              selectedCategories = [...selectedCategories, cat];
+                            }
+                          }}
+                        >
+                          <div
+                            class={cn(
+                              "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary transition-colors",
+                              isSelected
+                                ? "bg-primary text-primary-foreground"
+                                : "opacity-50 [&_svg]:invisible"
+                            )}
+                          >
+                            <Check class="h-4 w-4" />
+                          </div>
+                          <span class="text-xs">{cat}</span>
+                        </Command.Item>
+                      {/each}
+                    </Command.Group>
+                    {#if selectedCategories.length > 0}
+                      <Command.Separator />
+                      <Command.Group>
+                        <Command.Item
+                          onSelect={() => (selectedCategories = [])}
+                          class="justify-center text-center text-xs text-red-400 hover:text-red-300"
+                        >
+                          Clear filters
+                        </Command.Item>
+                      </Command.Group>
+                    {/if}
+                  </Command.List>
+                </Command.Root>
+              </Popover.Content>
+            </Popover.Root>
+          </div>
         </div>
         <!-- Close button is automatically rendered by Dialog.Content/Drawer.Content -->
       </div>
