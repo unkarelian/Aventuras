@@ -117,34 +117,15 @@
           logs={throttledLogs} 
           onClear={handleClearLogs}
           renderNewlines={ui.debugRenderNewlines}
+          onToggleRenderNewlines={() => ui.toggleDebugRenderNewlines()}
         />
       {/if}
     </div>
 
-    <ResponsiveModal.Footer class="px-6 py-3 border-t border-border bg-muted/10 mt-auto flex flex-row items-center sm:justify-between justify-between">
-      <p class="text-xs text-muted-foreground text-left">
+    <ResponsiveModal.Footer class="px-6 py-3 border-t border-border bg-muted/10 mt-auto">
+      <p class="text-xs text-muted-foreground text-center md:text-left w-full">
         Logs are stored in memory only.
       </p>
-      <div class="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          class={ui.debugRenderNewlines ? 'text-blue-400 hover:text-blue-500' : 'text-muted-foreground hover:text-foreground'}
-          onclick={() => ui.toggleDebugRenderNewlines()}
-          title={ui.debugRenderNewlines ? 'Show escaped newlines (\\n)' : 'Render newlines as line breaks'}
-        >
-          <WrapText class="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          class="text-muted-foreground hover:text-red-400 hover:bg-red-900/10"
-          onclick={handleClearLogs}
-          title="Clear all logs"
-        >
-          <Trash2 class="h-4 w-4" />
-        </Button>
-      </div>
     </ResponsiveModal.Footer>
   </ResponsiveModal.Content>
 </ResponsiveModal.Root>

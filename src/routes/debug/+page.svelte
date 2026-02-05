@@ -92,28 +92,6 @@
 
     <div class="flex items-center gap-2">
       <Button
-        variant="ghost"
-        size="icon"
-        class={renderNewlines ? 'text-blue-400 hover:text-blue-500' : 'text-muted-foreground hover:text-foreground'}
-        onclick={handleToggleRenderNewlines}
-        title={renderNewlines ? 'Show escaped newlines (\\n)' : 'Render newlines as line breaks'}
-      >
-        <WrapText class="h-4 w-4" />
-      </Button>
-      
-      <Button
-        variant="ghost"
-        size="icon"
-        class="text-muted-foreground hover:text-red-400 hover:bg-red-900/10"
-        onclick={handleClear}
-        title="Clear all logs"
-      >
-        <Trash2 class="h-4 w-4" />
-      </Button>
-
-      <div class="w-px h-4 bg-border mx-1"></div>
-
-      <Button
         variant="outline"
         size="sm"
         class="gap-2"
@@ -131,6 +109,7 @@
       {logs} 
       onClear={handleClear}
       {renderNewlines}
+      onToggleRenderNewlines={handleToggleRenderNewlines}
     />
   </div>
 </div>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { type DebugLogEntry } from '$lib/stores/ui.svelte';
-  import { ArrowUpCircle, ArrowDownCircle, Copy, Check, Filter, CirclePlus, Trash2 } from 'lucide-svelte';
+  import { ArrowUpCircle, ArrowDownCircle, Copy, Check, Filter, CirclePlus, Trash2, WrapText } from 'lucide-svelte';
   import { Button } from "$lib/components/ui/button";
   import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates';
   import * as Popover from "$lib/components/ui/popover";
@@ -13,9 +13,10 @@
     logs: DebugLogEntry[];
     onClear?: () => void;
     renderNewlines: boolean;
+    onToggleRenderNewlines?: () => void;
   }
 
-  let { logs, onClear, renderNewlines }: Props = $props();
+  let { logs, onClear, renderNewlines, onToggleRenderNewlines }: Props = $props();
 
   let copiedId = $state<string | null>(null);
   let selectedCategories = $state<string[]>([]);
@@ -224,17 +225,31 @@
       </Popover.Root>
     </div>
 
-    {#if onClear}
-      <Button
-        variant="ghost"
-        size="icon"
-        class="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-900/10"
-        onclick={onClear}
-        title="Clear all logs"
-      >
-        <Trash2 class="h-4 w-4" />
-      </Button>
-    {/if}
+    <div class="flex items-center gap-2">
+      {#if onToggleRenderNewlines}
+        <Button
+          variant="ghost"
+          size="icon"
+          class={renderNewlines ? 'text-blue-400 hover:text-blue-500' : 'text-muted-foreground hover:text-foreground'}
+          onclick={onToggleRenderNewlines}
+          title={renderNewlines ? 'Show escaped newlines (\\n)' : 'Render newlines as line breaks'}
+        >
+          <WrapText class="h-4 w-4" />
+        </Button>
+      {/if}
+
+      {#if onClear}
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-8 w-8 text-muted-foreground hover:text-red-400 hover:bg-red-900/10"
+          onclick={onClear}
+          title="Clear all logs"
+        >
+          <Trash2 class="h-4 w-4" />
+        </Button>
+      {/if}
+    </div>
   </div>
 
   <!-- Logs Area -->
