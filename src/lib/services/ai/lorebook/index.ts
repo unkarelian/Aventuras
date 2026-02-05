@@ -10,6 +10,8 @@ export {
   LoreManagementService,
   getDefaultLoreManagementSettings,
   type LoreManagementSettings,
+  type LoreManagementResult,
+  type LoreManagementContext,
 } from './LoreManagementService';
 
 export {

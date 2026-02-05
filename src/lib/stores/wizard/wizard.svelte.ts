@@ -13,6 +13,7 @@ import { TranslationService } from "$lib/services/ai/utils/TranslationService";
 import { QUICK_START_SEEDS } from "$lib/services/templates";
 import { replaceUserPlaceholders } from "$lib/components/wizard/wizardTypes";
 import type { VaultScenario } from "$lib/types";
+import { stringToDescriptors } from "$lib/utils/visualDescriptors";
 
 // Import Modular Stores
 import { NarrativeStore } from "./narrativeStore.svelte";
@@ -342,11 +343,8 @@ export class WizardStore {
     if (storyData.protagonist) {
       storyData.protagonist.portrait = this.image.protagonistPortrait ?? undefined;
       storyData.protagonist.visualDescriptors = this.image.protagonistVisualDescriptors
-        ? this.image.protagonistVisualDescriptors
-            .split(",")
-            .map((d) => d.trim())
-            .filter(Boolean)
-        : [];
+        ? stringToDescriptors(this.image.protagonistVisualDescriptors)
+        : {};
     }
 
     storyData.characters = storyData.characters.map((char) => ({
@@ -356,11 +354,8 @@ export class WizardStore {
         : undefined,
       visualDescriptors:
         char.name && this.image.supportingCharacterVisualDescriptors[char.name]
-          ? this.image.supportingCharacterVisualDescriptors[char.name]
-              .split(",")
-              .map((d) => d.trim())
-              .filter(Boolean)
-          : [],
+          ? stringToDescriptors(this.image.supportingCharacterVisualDescriptors[char.name])
+          : {},
     }));
 
     // Build translations object if we have translations

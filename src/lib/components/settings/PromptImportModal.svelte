@@ -152,7 +152,6 @@
         temperature: preset.temperature,
         maxTokens: preset.maxTokens,
         reasoningEffort: preset.reasoningEffort,
-        providerOnly: [...preset.providerOnly],
         manualBody: preset.manualBody,
       });
     }

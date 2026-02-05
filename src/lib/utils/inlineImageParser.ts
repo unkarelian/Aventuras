@@ -103,7 +103,7 @@ function escapeHtml(str: string): string {
 /**
  * Replace <pic> tags with loading placeholders during streaming.
  * Shows a visual placeholder while images are being generated.
- * 
+ *
  * @param content - The content with <pic> tags
  * @returns Content with placeholders instead of <pic> tags
  */
@@ -114,11 +114,25 @@ export function replacePicTagsWithPlaceholders(content: string): string {
       const promptMatch = attrs.match(/prompt=["']([^"']+)["']/i);
       const prompt = promptMatch ? promptMatch[1] : 'Image';
       const shortPrompt = prompt.length > 60 ? prompt.slice(0, 60) + '...' : prompt;
-      
+
       return `<div class="inline-image-placeholder generating" data-prompt="${escapeHtml(prompt)}">
-        <div class="placeholder-spinner"></div>
-        <span class="placeholder-text">${escapeHtml(shortPrompt)}</span>
-        <span class="placeholder-status">Generating...</span>
+        <div class="placeholder-shimmer"></div>
+        <div class="placeholder-content">
+          <div class="placeholder-loader">
+            <svg class="placeholder-spinner-svg" viewBox="0 0 50 50">
+              <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="80, 200" stroke-dashoffset="0"></circle>
+            </svg>
+            <svg class="placeholder-image-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+              <circle cx="9" cy="9" r="2"/>
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+            </svg>
+          </div>
+          <div class="placeholder-info">
+            <span class="placeholder-status">Generating image...</span>
+            <span class="placeholder-prompt">${escapeHtml(shortPrompt)}</span>
+          </div>
+        </div>
       </div>`;
     }
   );
@@ -159,26 +173,9 @@ export function replacePicTagsWithImages(
       const imageInfo = imageMap.get(match);
 
       if (!imageInfo) {
-        // No image record yet - show nice loading state
-        return `<div class="inline-image-placeholder generating" data-prompt="${escapeHtml(prompt)}">
-          <div class="placeholder-shimmer"></div>
-          <div class="placeholder-content">
-            <div class="placeholder-loader">
-              <svg class="placeholder-spinner-svg" viewBox="0 0 50 50">
-                <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="80, 200" stroke-dashoffset="0"></circle>
-              </svg>
-              <svg class="placeholder-image-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-                <circle cx="9" cy="9" r="2"/>
-                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
-              </svg>
-            </div>
-            <div class="placeholder-info">
-              <span class="placeholder-status">Preparing image...</span>
-              <span class="placeholder-prompt">${escapeHtml(shortPrompt)}</span>
-            </div>
-          </div>
-        </div>`;
+        // No image record - this shouldn't happen after streaming completes
+        // Just hide the tag (image may have failed to queue)
+        return '';
       }
 
       if (imageInfo.status === 'complete' && imageInfo.imageData) {

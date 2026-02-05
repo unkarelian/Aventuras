@@ -147,29 +147,36 @@
   background-color: var(--color-surface-950);
 }
 
-/* Text color overrides */
+/* Text color overrides - maintain proper contrast hierarchy */
+/* Lower numbers = brighter (for active text), Higher numbers = dimmer (for placeholder) */
 [data-theme="catppuccin-macchiato"] .text-surface-50 {
-  color: var(--color-surface-50);
+  color: var(--color-surface-500); /* Text - brightest */
 }
 
 [data-theme="catppuccin-macchiato"] .text-surface-100 {
-  color: var(--color-surface-100);
+  color: var(--color-surface-500); /* Text */
 }
 
 [data-theme="catppuccin-macchiato"] .text-surface-200 {
-  color: var(--color-surface-200);
+  color: var(--color-surface-500); /* Text - for input text */
 }
 
 [data-theme="catppuccin-macchiato"] .text-surface-300 {
-  color: var(--color-surface-300);
+  color: var(--color-surface-400); /* Subtext 1 */
 }
 
 [data-theme="catppuccin-macchiato"] .text-surface-400 {
-  color: var(--color-surface-400);
+  color: var(--color-surface-300); /* Subtext 0 */
 }
 
 [data-theme="catppuccin-macchiato"] .text-surface-500 {
-  color: var(--color-surface-500);
+  color: var(--color-surface-100); /* Overlay 1 - for placeholder */
+}
+
+/* Placeholder color override for inputs */
+[data-theme="catppuccin-macchiato"] textarea::placeholder,
+[data-theme="catppuccin-macchiato"] input::placeholder {
+  color: #8087a2 !important; /* Overlay 1 */
 }
 
 /* Border color overrides */

@@ -16,6 +16,16 @@
   },
   "license": "AGPL-3.0",
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.35",
+    "@ai-sdk/deepseek": "^2.0.17",
+    "@ai-sdk/google": "^3.0.20",
+    "@ai-sdk/groq": "^3.0.21",
+    "@ai-sdk/mistral": "^3.0.18",
+    "@ai-sdk/openai": "^3.0.25",
+    "@ai-sdk/openai-compatible": "^2.0.26",
+    "@ai-sdk/xai": "^3.0.46",
+    "@chutes-ai/ai-sdk-provider": "^0.1.2",
+    "@openrouter/ai-sdk-provider": "^2.1.1",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2",
     "@tauri-apps/plugin-fs": "^2",
@@ -25,6 +35,8 @@
     "@tauri-apps/plugin-sql": "^2",
     "@tauri-apps/plugin-updater": "^2.9.0",
     "@tutorlatin/svelte-tiny-virtual-list": "^3.0.18",
+    "ai": "^6.0.67",
+    "ai-sdk-pollinations": "^0.0.1",
     "clsx": "^2.1.1",
     "gpt-tokenizer": "^3.4.0",
     "harper.js": "^1.2.0",
@@ -33,7 +45,9 @@
     "jszip": "^3.10.1",
     "lucide-svelte": "^0.468.0",
     "marked": "^17.0.1",
-    "tailwind-merge": "^3.4.0"
+    "ollama-ai-provider": "^1.2.0",
+    "tailwind-merge": "^3.4.0",
+    "zhipu-ai-provider": "^0.2.2"
   },
   "devDependencies": {
     "@lucide/svelte": "^0.482.0",

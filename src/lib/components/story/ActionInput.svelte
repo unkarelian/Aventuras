@@ -6,8 +6,11 @@
   import { aiService } from "$lib/services/ai";
   import { database } from "$lib/services/database";
   import { SimpleActivationTracker } from "$lib/services/ai/retrieval/EntryRetrievalService";
-  import { ImageGenerationService, type ImageGenerationContext } from "$lib/services/ai/image/ImageGenerationService";
-  import type { TimelineFillResult } from "$lib/services/ai/retrieval/TimelineFillService";
+  import { type ImageGenerationContext } from "$lib/services/ai";
+  import {
+    hasRequiredCredentials,
+    getProviderDisplayName,
+  } from "$lib/services/ai/image";
   import { TranslationService } from "$lib/services/ai/utils/TranslationService";
   import {
     Send,
@@ -15,7 +18,6 @@
     MessageSquare,
     Brain,
     Sparkles,
-    Feather,
     RefreshCw,
     X,
     PenLine,
@@ -23,7 +25,6 @@
     ImageIcon,
     Loader2,
   } from "lucide-svelte";
-  import type { Chapter } from "$lib/types";
   import Suggestions from "./Suggestions.svelte";
   import GrammarCheck from "./GrammarCheck.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -37,18 +38,73 @@
     type ClassificationCompleteEvent,
   } from "$lib/services/events";
   import { isTouchDevice } from "$lib/utils/swipe";
+  import {
+    GenerationPipeline,
+    retryService,
+    BackgroundTaskCoordinator,
+    WorldStateTranslationService,
+    handleEvent,
+    SuggestionsRefreshService,
+    type PipelineDependencies,
+    type PipelineConfig,
+    type GenerationContext,
+    type BackgroundTaskDependencies,
+    type BackgroundTaskInput,
+    type PipelineUICallbacks,
+    type PipelineEventState,
+  } from "$lib/services/generation";
+  import { InlineImageTracker } from "$lib/services/ai/image";
 
   function log(...args: any[]) {
     console.log("[ActionInput]", ...args);
   }
 
+  // ============================================================================
+  // Translation Helper
+  // ============================================================================
+
+  async function translateUserInput(
+    content: string,
+    translationSettings: typeof settings.translationSettings,
+  ): Promise<{ promptContent: string; originalInput: string | undefined }> {
+    if (!TranslationService.shouldTranslateInput(translationSettings)) {
+      return { promptContent: content, originalInput: undefined };
+    }
+
+    try {
+      log("Translating user input", {
+        sourceLanguage: translationSettings.sourceLanguage,
+      });
+      const result = await aiService.translateInput(
+        content,
+        translationSettings.sourceLanguage,
+      );
+      log("Input translated", {
+        originalLength: content.length,
+        translatedLength: result.translatedContent.length,
+      });
+      return { promptContent: result.translatedContent, originalInput: content };
+    } catch (error) {
+      log("Input translation failed (non-fatal), using original", error);
+      return { promptContent: content, originalInput: undefined };
+    }
+  }
+
+  // ============================================================================
+  // UI State
+  // ============================================================================
+
   let inputValue = $state("");
   let actionType = $state<"do" | "say" | "think" | "story" | "free">("do");
-  let isRawActionChoice = $state(false); // True when submitting an AI-generated choice (no prefix/suffix)
+  let isRawActionChoice = $state(false);
   let stopRequested = false;
   let activeAbortController: AbortController | null = null;
   let lastImageGenContext = $state<ImageGenerationContext | null>(null);
   let isManualImageGenRunning = $state(false);
+
+  // ============================================================================
+  // Derived State
+  // ============================================================================
 
   const canShowManualImageGen = $derived(
     settings.systemServicesSettings.imageGeneration.enabled &&
@@ -58,31 +114,21 @@
 
   const manualImageGenDisabled = $derived.by(() => {
     if (ui.isGenerating || isManualImageGenRunning) return true;
-
-    const imgSettings = settings.systemServicesSettings.imageGeneration;
-    switch (imgSettings.imageProvider) {
-      case 'nanogpt':
-        return !imgSettings.nanoGptApiKey;
-      case 'chutes':
-        return !imgSettings.chutesApiKey;
-      case 'pollinations':
-        return false; // Pollinations works without API key
-      default:
-        return true;
-    }
+    return !hasRequiredCredentials();
   });
 
-  // In creative writing mode, show different input style
   const isCreativeMode = $derived(story.storyMode === "creative-writing");
 
-  // Keyboard shortcut hint
   const sendKeyHint = $derived(
     isTouchDevice()
       ? "Shift+Enter to send"
       : "Enter to send, Shift+Enter for new line",
   );
 
-  // Action type configuration for the redesigned input
+  // ============================================================================
+  // Action Type Configuration
+  // ============================================================================
+
   type ActionType = "do" | "say" | "think" | "story" | "free";
 
   const actionIcons = {
@@ -92,7 +138,6 @@
     story: Sparkles,
     free: PenLine,
   };
-
   const actionLabels: Record<ActionType, string> = {
     do: "Do",
     say: "Say",
@@ -100,8 +145,6 @@
     story: "Story",
     free: "Free",
   };
-
-  // Border colors (matching StoryEntry pattern)
   const actionBorderColors: Record<ActionType, string> = {
     do: "border-l-emerald-500",
     say: "border-l-blue-500",
@@ -109,8 +152,6 @@
     story: "border-l-amber-500",
     free: "border-l-surface-600",
   };
-
-  // Active button styles
   const actionActiveStyles: Record<ActionType, string> = {
     do: "bg-emerald-500/15 text-emerald-400",
     say: "bg-blue-500/15 text-blue-400",
@@ -118,8 +159,6 @@
     story: "bg-amber-500/15 text-amber-400",
     free: "bg-surface-600/30 text-surface-300",
   };
-
-  // Submit button styles (minimal - icon only)
   const actionButtonStyles: Record<ActionType, string> = {
     do: "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10",
     say: "text-blue-400 hover:text-blue-300 hover:bg-blue-500/10",
@@ -127,494 +166,9 @@
     story: "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10",
     free: "text-surface-400 hover:text-surface-200 hover:bg-surface-500/10",
   };
-
   const actionTypes: ActionType[] = ["do", "say", "think", "story", "free"];
 
-  $effect(() => {
-    const storyId = story.currentStory?.id ?? null;
-    if (
-      !storyId ||
-      (lastImageGenContext && lastImageGenContext.storyId !== storyId)
-    ) {
-      lastImageGenContext = null;
-    }
-  });
-
-  // Register retry callback with UI store so StoryEntry can trigger it
-  $effect(() => {
-    log("Registering retry callback");
-    ui.setRetryCallback(handleRetry);
-    return () => {
-      log("Unregistering retry callback");
-      ui.setRetryCallback(null);
-    };
-  });
-
-  // Register retry last message callback for edit-and-retry feature
-  $effect(() => {
-    log("Registering retry last message callback");
-    ui.setRetryLastMessageCallback(handleRetryLastMessage);
-    return () => {
-      log("Unregistering retry last message callback");
-      ui.setRetryLastMessageCallback(null);
-    };
-  });
-
-  // Watch for pending action choice from ActionChoices component
-  $effect(() => {
-    const pendingAction = ui.pendingActionChoice;
-    if (pendingAction && !ui.isGenerating) {
-      log("Processing pending action choice:", pendingAction);
-      // Set input value and flag as raw (no prefix/suffix needed)
-      // User can edit the text before manually submitting
-      inputValue = pendingAction;
-      isRawActionChoice = true;
-      ui.clearPendingActionChoice();
-    }
-  });
-
-  /**
-   * Generate story direction suggestions for creative writing mode.
-   */
-  async function refreshSuggestions() {
-    if (!isCreativeMode || story.entries.length === 0) {
-      ui.clearSuggestions(story.currentStory?.id);
-      return;
-    }
-
-    ui.setSuggestionsLoading(true);
-    try {
-      // Use only the lorebook entries that were activated for the previous response
-      // Extract the Entry objects from RetrievedEntry wrappers
-      const activeLorebookEntries = (ui.lastLorebookRetrieval?.all ?? []).map(
-        (r) => r.entry,
-      );
-
-      // Build complete context for macro expansion
-      const protagonist = story.characters.find((c) => c.relationship === "self");
-      const promptContext = {
-        mode: story.storyMode,
-        pov: story.pov,
-        tense: story.tense,
-        protagonistName: protagonist?.name || "the protagonist",
-        genre: story.currentStory?.genre ?? undefined,
-        settingDescription: story.currentStory?.description ?? undefined,
-        tone: story.currentStory?.settings?.tone ?? undefined,
-        themes: story.currentStory?.settings?.themes ?? undefined,
-      };
-
-      const result = await aiService.generateSuggestions(
-        story.entries,
-        story.pendingQuests,
-        activeLorebookEntries,
-        promptContext,
-        story.pov,
-        story.tense,
-      );
-
-      // Translate suggestions if enabled
-      let finalSuggestions = result.suggestions;
-      const translationSettings = settings.translationSettings;
-      if (TranslationService.shouldTranslate(translationSettings)) {
-        try {
-          finalSuggestions = await aiService.translateSuggestions(
-            result.suggestions,
-            translationSettings.targetLanguage,
-          );
-          log("Suggestions translated");
-        } catch (error) {
-          log("Suggestion translation failed (non-fatal):", error);
-        }
-      }
-
-      ui.setSuggestions(finalSuggestions, story.currentStory?.id);
-      log(
-        "Suggestions refreshed:",
-        finalSuggestions.length,
-        "with",
-        activeLorebookEntries.length,
-        "active lorebook entries",
-      );
-
-      // Emit SuggestionsReady event
-      emitSuggestionsReady(
-        finalSuggestions.map((s) => ({ text: s.text, type: s.type })),
-      );
-    } catch (error) {
-      log("Failed to generate suggestions:", error);
-      ui.clearSuggestions(story.currentStory?.id);
-    } finally {
-      ui.setSuggestionsLoading(false);
-    }
-  }
-
-  /**
-   * Handle selecting a suggestion - populate the input with the suggestion text.
-   */
-  function handleSuggestionSelect(text: string) {
-    inputValue = text;
-    // Focus the input
-    const input = document.querySelector("textarea");
-    input?.focus();
-  }
-
-  async function handleManualImageGeneration() {
-    if (!lastImageGenContext || manualImageGenDisabled) return;
-    if (!settings.systemServicesSettings.imageGeneration.enabled) return;
-
-    isManualImageGenRunning = true;
-    try {
-      await aiService.generateImagesForNarrative(lastImageGenContext);
-    } catch (error) {
-      log("Manual image generation failed (non-fatal)", error);
-    } finally {
-      isManualImageGenRunning = false;
-    }
-  }
-
-  /**
-   * Check if style review should run (every N messages).
-   * Runs in background, non-blocking.
-   */
-  async function checkStyleReview(
-    shouldIncrement: boolean = true,
-    source: string = "new",
-  ) {
-    // Check if style reviewer is enabled
-    if (!settings.systemServicesSettings.styleReviewer.enabled) {
-      return;
-    }
-
-    const storyId = story.currentStory?.id;
-    if (!storyId) {
-      return;
-    }
-
-    // Increment counter for new messages only
-    if (shouldIncrement) {
-      ui.incrementStyleReviewCounter();
-    }
-
-    const triggerInterval =
-      settings.systemServicesSettings.styleReviewer.triggerInterval;
-
-    log("Style review counter", {
-      source,
-      storyId,
-      messagesSinceLastReview: ui.messagesSinceLastStyleReview,
-      triggerInterval,
-      incremented: shouldIncrement,
-    });
-
-    // Check if we've hit the interval threshold
-    if (ui.messagesSinceLastStyleReview >= triggerInterval) {
-      log("Triggering style review...");
-      ui.setStyleReviewLoading(true, storyId);
-
-      try {
-        const result = await aiService.analyzeStyle(
-          story.entries,
-          story.currentStory?.mode ?? "adventure",
-          story.pov,
-          story.tense,
-        );
-        ui.setStyleReview(result, storyId);
-        log("Style review complete", { phrasesFound: result.phrases.length });
-      } catch (error) {
-        log("Style review failed (non-fatal)", error);
-      } finally {
-        ui.setStyleReviewLoading(false, storyId);
-      }
-    }
-  }
-
-  /**
-   * Generate RPG-style action choices for adventure mode.
-   */
-  async function generateActionChoices(
-    narrativeResponse: string,
-    worldState: any,
-  ) {
-    if (isCreativeMode || story.entries.length === 0) {
-      return;
-    }
-
-    ui.setActionChoicesLoading(true);
-    try {
-      // Use only the lorebook entries that were activated for the previous response
-      // Extract the Entry objects from RetrievedEntry wrappers
-      const activeLorebookEntries = (ui.lastLorebookRetrieval?.all ?? []).map(
-        (r) => r.entry,
-      );
-
-      // Build complete context for macro expansion
-      const protagonist = story.characters.find((c) => c.relationship === "self");
-      const promptContext = {
-        mode: story.storyMode,
-        pov: story.pov,
-        tense: story.tense,
-        protagonistName: protagonist?.name || "the protagonist",
-        genre: story.currentStory?.genre ?? undefined,
-        settingDescription: story.currentStory?.description ?? undefined,
-        tone: story.currentStory?.settings?.tone ?? undefined,
-        themes: story.currentStory?.settings?.themes ?? undefined,
-      };
-
-      const result = await aiService.generateActionChoices(
-        story.entries,
-        worldState,
-        narrativeResponse,
-        activeLorebookEntries,
-        promptContext,
-        story.pov,
-      );
-
-      // Translate action choices if enabled
-      let finalChoices = result.choices;
-      const translationSettings = settings.translationSettings;
-      if (TranslationService.shouldTranslate(translationSettings)) {
-        try {
-          finalChoices = await aiService.translateActionChoices(
-            result.choices,
-            translationSettings.targetLanguage,
-          );
-          log("Action choices translated");
-        } catch (error) {
-          log("Action choices translation failed (non-fatal):", error);
-        }
-      }
-
-      ui.setActionChoices(finalChoices, story.currentStory?.id);
-      log(
-        "Action choices generated:",
-        finalChoices.length,
-        "with",
-        activeLorebookEntries.length,
-        "active lorebook entries",
-      );
-    } catch (error) {
-      log("Failed to generate action choices:", error);
-      ui.clearActionChoices(story.currentStory?.id);
-    } finally {
-      ui.setActionChoicesLoading(false);
-    }
-  }
-
-  /**
-   * Check if auto-summarization should create a new chapter.
-   * Runs in background after each response, per design doc section 3.1.2.
-   */
-  async function checkAutoSummarize() {
-    if (!story.currentStory) return;
-
-    const config = story.memoryConfig;
-    const tokensOutsideBuffer = story.tokensOutsideBuffer;
-
-    log("checkAutoSummarize", {
-      tokensSinceLastChapter: story.tokensSinceLastChapter,
-      tokensOutsideBuffer,
-      tokenThreshold: config.tokenThreshold,
-      messagesOutsideBuffer:
-        story.messagesSinceLastChapter - config.chapterBuffer,
-    });
-
-    // Skip if no tokens outside buffer (all messages are protected)
-    if (tokensOutsideBuffer === 0) {
-      log("No messages outside buffer, skipping");
-      return;
-    }
-
-    // Analyze if we should create a chapter (token-based)
-    const analysis = await aiService.analyzeForChapter(
-      story.entries,
-      story.lastChapterEndIndex,
-      config,
-      tokensOutsideBuffer,
-      story.currentStory?.mode ?? "adventure",
-      story.pov,
-      story.tense,
-    );
-
-    if (!analysis.shouldCreateChapter) {
-      log("No chapter needed yet");
-      return;
-    }
-
-    log("Creating new chapter", { optimalEndIndex: analysis.optimalEndIndex });
-
-    // Get entries for this chapter
-    const startIndex = story.lastChapterEndIndex;
-    const chapterEntries = story.entries.slice(
-      startIndex,
-      analysis.optimalEndIndex,
-    );
-
-    if (chapterEntries.length === 0) {
-      log("No entries for chapter");
-      return;
-    }
-
-    // Get previous chapters for context (branch-filtered)
-    const previousChapters = [...story.currentBranchChapters].sort(
-      (a, b) => a.number - b.number,
-    );
-
-    // Generate chapter summary with previous chapters as context
-    const summary = await aiService.summarizeChapter(
-      chapterEntries,
-      previousChapters,
-      story.currentStory?.mode ?? "adventure",
-      story.pov,
-      story.tense,
-    );
-
-    // Create the chapter - use database method to handle deletions correctly
-    const chapterNumber = await story.getNextChapterNumber();
-
-    // Extract time range from entries' metadata
-    const firstEntry = chapterEntries[0];
-    const lastEntry = chapterEntries[chapterEntries.length - 1];
-    const startTime = firstEntry.metadata?.timeStart ?? null;
-    const endTime = lastEntry.metadata?.timeEnd ?? null;
-
-    const chapter: Chapter = {
-      id: crypto.randomUUID(),
-      storyId: story.currentStory.id,
-      number: chapterNumber,
-      title: analysis.suggestedTitle || summary.title,
-      startEntryId: chapterEntries[0].id,
-      endEntryId: chapterEntries[chapterEntries.length - 1].id,
-      entryCount: chapterEntries.length,
-      summary: summary.summary,
-      startTime,
-      endTime,
-      keywords: summary.keywords,
-      characters: summary.characters,
-      locations: summary.locations,
-      plotThreads: summary.plotThreads,
-      emotionalTone: summary.emotionalTone,
-      branchId: story.currentStory.currentBranchId,
-      createdAt: Date.now(),
-    };
-
-    await story.addChapter(chapter);
-    log("Chapter created", { number: chapterNumber, title: chapter.title });
-
-    // Trigger lore management after chapter creation
-    runLoreManagement().catch((err) => {
-      console.error("[ActionInput] Lore management failed:", err);
-      ui.finishLoreManagement();
-    });
-  }
-
-  /**
-   * Run lore management to review and update lorebook entries.
-   * Triggered after chapter creation per design doc section 3.4.
-   */
-  async function runLoreManagement() {
-    if (!story.currentStory) return;
-
-    log("Starting lore management...");
-    ui.startLoreManagement();
-
-    let changeCount = 0;
-    const bumpChanges = (delta = 1) => {
-      changeCount += delta;
-      return changeCount;
-    };
-
-    try {
-      const result = await aiService.runLoreManagement(
-        story.currentStory.id,
-        story.currentStory.currentBranchId,
-        [...story.lorebookEntries], // Clone to avoid mutation issues
-        [], // Lore management runs without current chat history
-        story.currentBranchChapters, // Use branch-filtered chapters
-        {
-          onCreateEntry: async (entry) => {
-            await story.addLorebookEntry({
-              name: entry.name,
-              type: entry.type,
-              description: entry.description,
-              hiddenInfo: entry.hiddenInfo,
-              aliases: entry.aliases,
-              state: entry.state,
-              adventureState: entry.adventureState,
-              creativeState: entry.creativeState,
-              injection: entry.injection,
-              firstMentioned: entry.firstMentioned,
-              lastMentioned: entry.lastMentioned,
-              mentionCount: entry.mentionCount,
-              createdBy: entry.createdBy,
-              loreManagementBlacklisted: entry.loreManagementBlacklisted,
-            });
-            ui.updateLoreManagementProgress(
-              "Creating entries...",
-              bumpChanges(),
-            );
-          },
-          onUpdateEntry: async (id, updates) => {
-            await story.updateLorebookEntry(id, updates);
-            ui.updateLoreManagementProgress(
-              "Updating entries...",
-              bumpChanges(),
-            );
-          },
-          onDeleteEntry: async (id) => {
-            await story.deleteLorebookEntry(id);
-            ui.updateLoreManagementProgress(
-              "Cleaning up entries...",
-              bumpChanges(),
-            );
-          },
-          onMergeEntries: async (entryIds, mergedEntry) => {
-            // Delete old entries and create merged one
-            await story.deleteLorebookEntries(entryIds);
-            await story.addLorebookEntry({
-              name: mergedEntry.name,
-              type: mergedEntry.type,
-              description: mergedEntry.description,
-              hiddenInfo: mergedEntry.hiddenInfo,
-              aliases: mergedEntry.aliases,
-              state: mergedEntry.state,
-              adventureState: mergedEntry.adventureState,
-              creativeState: mergedEntry.creativeState,
-              injection: mergedEntry.injection,
-              firstMentioned: mergedEntry.firstMentioned,
-              lastMentioned: mergedEntry.lastMentioned,
-              mentionCount: mergedEntry.mentionCount,
-              createdBy: mergedEntry.createdBy,
-              loreManagementBlacklisted: mergedEntry.loreManagementBlacklisted,
-            });
-            ui.updateLoreManagementProgress(
-              "Merging entries...",
-              bumpChanges(),
-            );
-          },
-        },
-        story.currentStory?.mode ?? "adventure",
-        story.pov,
-        story.tense,
-      );
-
-      log("Lore management complete", {
-        changesCount: result.changes.length,
-        summary: result.summary,
-      });
-
-      ui.updateLoreManagementProgress(
-        `Complete: ${result.summary}`,
-        result.changes.length,
-      );
-    } finally {
-      // Give user a moment to see the completion message
-      setTimeout(() => {
-        ui.finishLoreManagement();
-      }, 2000);
-    }
-  }
-
-  // Get protagonist name for third person POV
+  // POV-based prefixes/suffixes
   const protagonistName = $derived.by(
     () =>
       story.characters.find((c) => c.relationship === "self")?.name ??
@@ -622,7 +176,6 @@
   );
   const pov = $derived(story.pov);
 
-  // Generate action prefixes based on POV
   const actionPrefixes = $derived.by(() => {
     switch (pov) {
       case "third":
@@ -633,8 +186,6 @@
           story: "",
           free: "",
         };
-      case "first":
-      case "second":
       default:
         return {
           do: "I ",
@@ -645,18 +196,161 @@
         };
     }
   });
+  const actionSuffixes = { do: "", say: '"', think: '"', story: "", free: "" };
 
-  const actionSuffixes = {
-    do: "",
-    say: '"',
-    think: '"',
-    story: "",
-    free: "",
-  };
+  // ============================================================================
+  // Effects
+  // ============================================================================
 
-  /**
-   * Core generation logic - used by both handleSubmit and retry
-   */
+  $effect(() => {
+    const storyId = story.currentStory?.id ?? null;
+    if (
+      !storyId ||
+      (lastImageGenContext && lastImageGenContext.storyId !== storyId)
+    )
+      lastImageGenContext = null;
+  });
+
+  $effect(() => {
+    ui.setRetryCallback(handleRetry);
+    return () => ui.setRetryCallback(null);
+  });
+
+  $effect(() => {
+    ui.setRetryLastMessageCallback(handleRetryLastMessage);
+    return () => ui.setRetryLastMessageCallback(null);
+  });
+
+  $effect(() => {
+    const pendingAction = ui.pendingActionChoice;
+    if (pendingAction && !ui.isGenerating) {
+      inputValue = pendingAction;
+      isRawActionChoice = true;
+      ui.clearPendingActionChoice();
+    }
+  });
+
+  // ============================================================================
+  // Builder Functions
+  // ============================================================================
+
+  function buildPipelineDependencies(): PipelineDependencies {
+    return {
+      shouldUseAgenticRetrieval: (chaptersLength: number) =>
+        aiService.shouldUseAgenticRetrieval({ length: chaptersLength } as any),
+      runAgenticRetrieval: aiService.runAgenticRetrieval.bind(aiService),
+      formatAgenticRetrievalForPrompt:
+        aiService.formatAgenticRetrievalForPrompt.bind(aiService),
+      runTimelineFill: aiService.runTimelineFill.bind(aiService),
+      answerChapterQuestion: aiService.answerChapterQuestion.bind(aiService),
+      answerChapterRangeQuestion:
+        aiService.answerChapterRangeQuestion.bind(aiService),
+      getRelevantLorebookEntries:
+        aiService.getRelevantLorebookEntries.bind(aiService),
+      streamNarrative: aiService.streamNarrative.bind(aiService),
+      classifyResponse: aiService.classifyResponse.bind(aiService),
+      translateNarration: aiService.translateNarration.bind(aiService),
+      generateImagesForNarrative:
+        aiService.generateImagesForNarrative.bind(aiService),
+      isImageGenerationEnabled:
+        aiService.isImageGenerationEnabled.bind(aiService),
+      generateSuggestions: aiService.generateSuggestions.bind(aiService),
+      translateSuggestions: aiService.translateSuggestions.bind(aiService),
+      generateActionChoices: aiService.generateActionChoices.bind(aiService),
+      translateActionChoices: aiService.translateActionChoices.bind(aiService),
+    };
+  }
+
+  function buildBackgroundTaskDependencies(): BackgroundTaskDependencies {
+    return {
+      chapterService: {
+        analyzeForChapter: aiService.analyzeForChapter.bind(aiService),
+        summarizeChapter: aiService.summarizeChapter.bind(aiService),
+        getNextChapterNumber: story.getNextChapterNumber.bind(story),
+        addChapter: story.addChapter.bind(story),
+      },
+      loreManagement: {
+        runLoreManagement: aiService.runLoreManagement.bind(aiService),
+      },
+      styleReview: { analyzeStyle: aiService.analyzeStyle.bind(aiService) },
+    };
+  }
+
+  function buildBackgroundTaskInput(
+    countStyleReview: boolean,
+    styleReviewSource: string,
+  ): BackgroundTaskInput {
+    const storyId = story.currentStory?.id ?? "";
+    const mode = story.currentStory?.mode ?? "adventure";
+
+    return {
+      styleReview: {
+        storyId,
+        entries: story.entries,
+        mode,
+        pov: story.pov,
+        tense: story.tense,
+        enabled: settings.systemServicesSettings.styleReviewer.enabled,
+        triggerInterval:
+          settings.systemServicesSettings.styleReviewer.triggerInterval,
+        currentCounter: ui.messagesSinceLastStyleReview,
+        shouldIncrement: countStyleReview,
+        source: styleReviewSource,
+      },
+      styleReviewCallbacks: {
+        incrementCounter: ui.incrementStyleReviewCounter.bind(ui),
+        setLoading: ui.setStyleReviewLoading.bind(ui),
+        setResult: ui.setStyleReview.bind(ui),
+      },
+      chapterCheck: {
+        storyId,
+        currentBranchId: story.currentStory?.currentBranchId ?? null,
+        entries: story.entries,
+        lastChapterEndIndex: story.lastChapterEndIndex,
+        tokensSinceLastChapter: story.tokensSinceLastChapter,
+        tokensOutsideBuffer: story.tokensOutsideBuffer,
+        messagesSinceLastChapter: story.messagesSinceLastChapter,
+        memoryConfig: story.memoryConfig,
+        currentBranchChapters: story.currentBranchChapters,
+        mode,
+        pov: story.pov,
+        tense: story.tense,
+      },
+      loreSession: {
+        storyId,
+        currentBranchId: story.currentStory?.currentBranchId ?? null,
+        lorebookEntries: story.lorebookEntries,
+        chapters: story.currentBranchChapters,
+        mode,
+        pov: story.pov,
+        tense: story.tense,
+      },
+      loreCallbacks: {
+        onCreateEntry: async (entry) => {
+          await story.addLorebookEntry(entry);
+        },
+        onUpdateEntry: story.updateLorebookEntry.bind(story),
+        onDeleteEntry: story.deleteLorebookEntry.bind(story),
+        onMergeEntries: async (entryIds, mergedEntry) => {
+          await story.deleteLorebookEntries(entryIds);
+          await story.addLorebookEntry(mergedEntry);
+        },
+        onQueryChapter: async (chapterNumber, question) => {
+          return aiService.answerChapterQuestion(chapterNumber, question, story.currentBranchChapters);
+        },
+      },
+      loreUICallbacks: {
+        onStart: ui.startLoreManagement.bind(ui),
+        onProgress: ui.updateLoreManagementProgress.bind(ui),
+        onComplete: ui.finishLoreManagement.bind(ui),
+      },
+    };
+  }
+
+  // ============================================================================
+  // Core Generation
+  // ============================================================================
+
   async function generateResponse(
     userActionEntryId: string,
     userActionContent: string,
@@ -665,34 +359,39 @@
     const countStyleReview = options?.countStyleReview ?? true;
     const styleReviewSource =
       options?.styleReviewSource ?? (countStyleReview ? "new" : "regenerate");
-    log("Starting AI generation...", {
-      userActionEntryId,
-      hasCurrentStory: !!story.currentStory,
-    });
 
-    // Ensure we have a current story
-    if (!story.currentStory) {
-      log("No current story loaded, cannot generate");
-      return;
-    }
+    if (!story.currentStory) return;
 
     stopRequested = false;
     activeAbortController = new AbortController();
 
-    // Check if Visual Prose mode is enabled for this story
     const visualProseMode =
-      story.currentStory?.settings?.visualProseMode ?? false;
-    // Generate a temp entry ID for Visual Prose CSS scoping during streaming
+      story.currentStory.settings?.visualProseMode ?? false;
+    const inlineImageMode =
+      story.currentStory.settings?.inlineImageMode ?? false;
     const streamingEntryId = crypto.randomUUID();
+    const narrationEntryId = crypto.randomUUID();
 
     ui.setGenerating(true);
-    ui.clearGenerationError(); // Clear any previous error
-    ui.clearActionChoices(story.currentStory?.id); // Clear previous action choices
-    ui.startStreaming(visualProseMode, streamingEntryId); // Show loading state immediately
+    ui.clearGenerationError();
+    ui.clearActionChoices(story.currentStory.id);
+    ui.startStreaming(visualProseMode, streamingEntryId);
+
+    const currentStoryRef = story.currentStory;
+
+    let inlineImageTracker: InlineImageTracker | null = null;
+    if (
+      inlineImageMode &&
+      settings.systemServicesSettings.imageGeneration.enabled
+    ) {
+      inlineImageTracker = new InlineImageTracker(
+        currentStoryRef.id,
+        narrationEntryId,
+        () => story.characters,
+      );
+    }
 
     try {
-      // Build world state for AI context (including chapters for summarization)
-      // Use branch-filtered chapters for correct branch awareness
       const worldState = {
         characters: story.characters,
         locations: story.locations,
@@ -704,697 +403,145 @@
         lorebookEntries: story.lorebookEntries,
       };
 
-      log("World state built", {
-        characters: worldState.characters.length,
-        locations: worldState.locations.length,
-        items: worldState.items.length,
-        storyBeats: worldState.storyBeats.length,
-        chapters: worldState.chapters.length,
-        lorebookEntries: worldState.lorebookEntries.length,
-      });
+      const storyPosition = story.entries.length;
+      const activationTracker = ui.getActivationTracker(
+        storyPosition,
+      ) as SimpleActivationTracker;
+      const embeddedImages = await database.getEmbeddedImagesForStory(
+        currentStoryRef.id,
+      );
+      const protagonist = story.characters.find(
+        (c) => c.relationship === "self",
+      );
 
-      // Phase 0.5: Pre-generation retrieval (parallel)
-      // Per design doc: Memory retrieval and Entry retrieval run in parallel
-      let retrievedChapterContext: string | null = null;
-      let lorebookContext: string | null = null;
-      let timelineFillResult: TimelineFillResult | null = null;
-      const storyMode = story.currentStory?.mode ?? "adventure";
+      const ctx: GenerationContext = {
+        story: currentStoryRef,
+        visibleEntries: story.visibleEntries,
+        allEntries: story.entries,
+        worldState,
+        userAction: {
+          entryId: userActionEntryId,
+          content: userActionContent,
+          rawInput: userActionContent,
+        },
+        abortSignal: activeAbortController.signal,
+      };
 
-      // Build parallel retrieval tasks
-      const retrievalTasks: Promise<void>[] = [];
+      const cfg: PipelineConfig = {
+        embeddedImages,
+        rawInput: userActionContent,
+        actionType,
+        wasRawActionChoice: false,
+        timelineFillEnabled:
+          settings.systemServicesSettings.timelineFill?.enabled ?? true,
+        storyMode: currentStoryRef.mode ?? "adventure",
+        pov: story.pov,
+        tense: story.tense,
+        styleReview: ui.lastStyleReview,
+        activationTracker,
+        translationSettings: settings.translationSettings,
+        imageSettings: {
+          enabled: settings.systemServicesSettings.imageGeneration.enabled,
+          autoGenerate:
+            settings.systemServicesSettings.imageGeneration.autoGenerate,
+          inlineMode: inlineImageMode,
+        },
+        promptContext: {
+          mode: story.storyMode,
+          pov: story.pov,
+          tense: story.tense,
+          protagonistName: protagonist?.name || "the protagonist",
+          genre: currentStoryRef.genre ?? undefined,
+          settingDescription: currentStoryRef.description ?? undefined,
+          tone: currentStoryRef.settings?.tone ?? undefined,
+          themes: currentStoryRef.settings?.themes ?? undefined,
+        },
+        disableSuggestions: settings.uiSettings.disableSuggestions,
+        activeThreads: story.pendingQuests,
+      };
 
-      // Task 1: Memory retrieval - get relevant chapter context
-      // Use timeline fill (default) or basic retrieval depending on settings
-      // Use branch-filtered chapters for correct branch awareness
-      const branchChapters = story.currentBranchChapters;
-      if (branchChapters.length > 0 && story.memoryConfig.enableRetrieval) {
-        retrievalTasks.push(
-          (async () => {
-            try {
-              const timelineFillEnabled =
-                settings.systemServicesSettings.timelineFill?.enabled ?? true;
-              if (!timelineFillEnabled) {
-                log("Timeline fill disabled, skipping memory retrieval");
-                return;
-              }
-
-              const useAgenticTimelineFill =
-                aiService.shouldUseAgenticRetrieval(branchChapters);
-
-              if (useAgenticTimelineFill) {
-                log("Starting agentic timeline fill...", {
-                  chaptersCount: branchChapters.length,
-                });
-
-                const agenticResult = await aiService.runAgenticRetrieval(
-                  userActionContent,
-                  story.visibleEntries,
-                  branchChapters,
-                  story.lorebookEntries,
-                  (chapterNumber, question) =>
-                    aiService.answerChapterQuestion(
-                      chapterNumber,
-                      question,
-                      branchChapters,
-                      story.entries,
-                      activeAbortController?.signal,
-                      storyMode,
-                    ),
-                  (startChapter, endChapter, question) =>
-                    aiService.answerChapterRangeQuestion(
-                      startChapter,
-                      endChapter,
-                      question,
-                      branchChapters,
-                      story.entries,
-                      activeAbortController?.signal,
-                      storyMode,
-                    ),
-                  activeAbortController?.signal,
-                  storyMode,
-                  story.pov,
-                  story.tense,
-                );
-
-                if (agenticResult.context) {
-                  retrievedChapterContext =
-                    aiService.formatAgenticRetrievalForPrompt(agenticResult);
-                  log("Agentic timeline fill complete", {
-                    iterations: agenticResult.iterations,
-                    queriedChapters: agenticResult.queriedChapters.length,
-                    contextLength: retrievedChapterContext?.length ?? 0,
-                  });
-                } else {
-                  log("Agentic timeline fill returned no context");
-                }
-              } else {
-                log("Starting timeline fill...", {
-                  chaptersCount: branchChapters.length,
-                });
-
-                // Timeline fill: generates queries and executes them in one go
-                const timelineResult = await aiService.runTimelineFill(
-                  userActionContent,
-                  story.visibleEntries,
-                  branchChapters,
-                  story.entries, // All entries for querying chapter content
-                  activeAbortController?.signal,
-                  storyMode,
-                  story.pov,
-                  story.tense,
-                );
-
-                // Store raw result - formatting is now done in buildChapterSummariesBlock
-                timelineFillResult = timelineResult;
-                log("Timeline fill complete", {
-                  queriesGenerated: timelineResult.queries.length,
-                  responsesCount: timelineResult.responses.length,
-                });
-              }
-            } catch (retrievalError) {
-              if (
-                retrievalError instanceof Error &&
-                retrievalError.name === "AbortError"
-              ) {
-                log("Memory retrieval aborted");
-                return;
-              }
-              log("Memory retrieval failed (non-fatal)", retrievalError);
-              console.warn("Memory retrieval failed:", retrievalError);
-            }
-          })(),
-        );
-      }
-
-      // Task 2: Lorebook entry retrieval (Tier 3 LLM selection runs here)
-      // Pass live-tracked entities for Tier 1 injection
-      // Also pass activation tracker for stickiness calculations
-      if (
-        story.lorebookEntries.length > 0 ||
-        story.characters.length > 0 ||
-        story.locations.length > 0 ||
-        story.items.length > 0
-      ) {
-        retrievalTasks.push(
-          (async () => {
-            try {
-              // Create activation tracker for stickiness
-              // Current position is the number of story entries (next entry will be at this index)
-              const storyPosition = story.entries.length;
-              const activationTracker = ui.getActivationTracker(
-                storyPosition,
-              ) as SimpleActivationTracker;
-
-              log("Starting lorebook retrieval...", {
-                lorebookEntries: story.lorebookEntries.length,
-                liveCharacters: story.characters.length,
-                liveLocations: story.locations.length,
-                liveItems: story.items.length,
-                storyPosition,
-              });
-              const entryResult = await aiService.getRelevantLorebookEntries(
-                story.lorebookEntries,
-                userActionContent,
-                story.visibleEntries.slice(-10),
-                {
-                  characters: story.characters,
-                  locations: story.locations,
-                  items: story.items,
-                },
-                activationTracker,
-                activeAbortController?.signal,
-              );
-              lorebookContext = entryResult.contextBlock;
-              // Store retrieval result for debug panel
-              ui.setLastLorebookRetrieval(entryResult);
-              // Update activation data with recorded activations (and persist to database)
-              ui.updateActivationData(
-                activationTracker,
-                story.currentStory?.id,
-              );
-              log("Lorebook retrieval complete", {
-                tier1: entryResult.tier1.length,
-                tier2: entryResult.tier2.length,
-                tier3: entryResult.tier3.length,
-                contextLength: lorebookContext?.length ?? 0,
-              });
-            } catch (entryError) {
-              if (
-                entryError instanceof Error &&
-                entryError.name === "AbortError"
-              ) {
-                log("Lorebook retrieval aborted");
-                return;
-              }
-              log("Lorebook retrieval failed (non-fatal)", entryError);
-              console.warn("Lorebook retrieval failed:", entryError);
-            }
-          })(),
-        );
-      }
-
-      // Wait for all retrieval tasks to complete (parallel execution)
-      if (retrievalTasks.length > 0) {
-        log("Waiting for parallel retrieval tasks...", {
-          taskCount: retrievalTasks.length,
-        });
-        await Promise.all(retrievalTasks);
-        log("All retrieval tasks complete");
-      }
-
-      if (stopRequested) {
-        log("Generation stopped before streaming started");
-        return;
-      }
-
-      // Combine retrieved contexts
-      const combinedRetrievedContext =
-        [retrievedChapterContext, lorebookContext].filter(Boolean).join("\n") ||
-        null;
+      const deps = buildPipelineDependencies();
+      const pipeline = new GenerationPipeline(deps);
 
       let fullResponse = "";
       let fullReasoning = "";
-      let chunkCount = 0;
+      let narrationEntry: Awaited<ReturnType<typeof story.addEntry>> | null =
+        null;
 
-      // Capture current story reference for use after streaming
-      const currentStoryRef = story.currentStory;
+      for await (const event of pipeline.execute(ctx, cfg)) {
+        if (stopRequested) break;
 
-      // Retry logic for empty responses
-      const MAX_EMPTY_RESPONSE_RETRIES = 3;
-      let retryCount = 0;
+        const eventState: PipelineEventState = {
+          fullResponse: () => fullResponse,
+          fullReasoning: () => fullReasoning,
+          streamingEntryId,
+          visualProseMode,
+          isCreativeMode,
+          storyId: currentStoryRef.id,
+        };
 
-      // Start streaming indicator now that retrieval is complete
-      ui.startStreaming(visualProseMode, streamingEntryId);
-
-      while (retryCount < MAX_EMPTY_RESPONSE_RETRIES) {
-        // Reset for each attempt
-        fullResponse = "";
-        fullReasoning = "";
-        chunkCount = 0;
-
-        if (retryCount > 0) {
-          log(
-            `Retrying generation (attempt ${retryCount + 1}/${MAX_EMPTY_RESPONSE_RETRIES}) due to empty response...`,
-          );
-          // startStreaming() clears previous content and restarts
-          ui.startStreaming(visualProseMode, streamingEntryId);
-        }
-
-        // Use streaming response with visible entries only (non-summarized)
-        // Per design doc section 3.1.2: summarized entries are excluded from context
-        log("Starting stream iteration...", {
-          hasStyleReview: !!ui.lastStyleReview,
-          visibleEntries: story.visibleEntries.length,
-          totalEntries: story.entries.length,
-          hasRetrievedContext: !!combinedRetrievedContext,
-          hasLorebookContext: !!lorebookContext,
-          hasTimelineFill: !!timelineFillResult,
-          timelineFillResponses:
-            (timelineFillResult as any)?.responses?.length ?? 0,
-          attempt: retryCount + 1,
-        });
-
-        for await (const chunk of aiService.streamResponse(
-          story.visibleEntries,
-          worldState,
-          currentStoryRef,
-          true,
-          ui.lastStyleReview,
-          combinedRetrievedContext,
-          activeAbortController?.signal,
-          timelineFillResult,
-        )) {
-          if (stopRequested) {
-            log("Stop requested during streaming");
-            break;
-          }
-          chunkCount++;
-          if (chunk.content) {
-            fullResponse += chunk.content;
-            ui.appendStreamContent(chunk.content);
-
-            // Emit streaming event
+        const eventCallbacks: PipelineUICallbacks = {
+          startStreaming: ui.startStreaming.bind(ui),
+          appendStreamContent: ui.appendStreamContent.bind(ui),
+          appendReasoningContent: ui.appendReasoningContent.bind(ui),
+          setGenerationStatus: ui.setGenerationStatus.bind(ui),
+          setSuggestionsLoading: ui.setSuggestionsLoading.bind(ui),
+          setActionChoicesLoading: ui.setActionChoicesLoading.bind(ui),
+          setSuggestions: ui.setSuggestions.bind(ui),
+          setActionChoices: ui.setActionChoices.bind(ui),
+          emitResponseStreaming: (chunk, accumulated) => {
             eventBus.emit<ResponseStreamingEvent>({
               type: "ResponseStreaming",
-              chunk: chunk.content,
-              accumulated: fullResponse,
+              chunk,
+              accumulated,
             });
-          }
+          },
+          emitSuggestionsReady: (suggestions) => {
+            emitSuggestionsReady(suggestions);
+          },
+        };
 
-          // Handle reasoning chunk
-          if (chunk.reasoning) {
-            ui.appendReasoningContent(chunk.reasoning);
-            fullReasoning += chunk.reasoning;
-          }
+        handleEvent(event, eventState, eventCallbacks);
 
-          if (chunk.done) {
-            log("Stream done signal received");
-            break;
-          }
+        if (event.type === "narrative_chunk") {
+          fullResponse += event.content;
+          if (event.reasoning) fullReasoning += event.reasoning;
+          if (inlineImageTracker) inlineImageTracker.processChunk(fullResponse);
         }
-
-        log("Stream complete", {
-          chunkCount,
-          responseLength: fullResponse.length,
-          attempt: retryCount + 1,
-        });
-
-        // Check if we got a valid response
-        if (fullResponse.trim()) {
-          break; // Success, exit retry loop
-        }
-
-        // Empty response, increment retry counter
-        retryCount++;
-        if (retryCount < MAX_EMPTY_RESPONSE_RETRIES) {
-          log(
-            `Empty response received, will retry (${retryCount}/${MAX_EMPTY_RESPONSE_RETRIES})...`,
-          );
-        }
-      }
-
-      // End streaming immediately to prevent duplicate display
-      // (StreamingEntry would show alongside the saved entry otherwise)
-      ui.endStreaming();
-
-      if (stopRequested) {
-        log("Generation stopped after streaming, skipping save");
-        return;
-      }
-
-      // Save the complete response as a story entry
-      if (fullResponse.trim()) {
-        log("Saving narration entry...", {
-          contentLength: fullResponse.length,
-          hasReasoning: !!fullReasoning,
-        });
-        const narrationEntry = await story.addEntry(
-          "narration",
-          fullResponse,
-          undefined,
-          fullReasoning || undefined,
-        );
-        log("Narration entry saved", {
-          entryId: narrationEntry.id,
-          entriesCount: story.entries.length,
-        });
-
-        // Emit NarrativeResponse event
-        emitNarrativeResponse(narrationEntry.id, fullResponse);
-
-        // Phase 2.4: Translate narration if enabled (background, non-blocking)
-        // Store promise so image generation can wait for it
-        const translationSettingsRef = settings.translationSettings;
-        let translationPromise: Promise<{
-          translatedContent: string;
-          targetLanguage: string;
-        } | null> | null = null;
 
         if (
-          TranslationService.shouldTranslateNarration(translationSettingsRef)
+          event.type === "phase_complete" &&
+          event.phase === "narrative" &&
+          fullResponse.trim()
         ) {
-          const isVisualProse =
-            story.currentStory?.settings?.visualProseMode ?? false;
-          const targetLang = translationSettingsRef.targetLanguage;
-          const entryIdForTranslation = narrationEntry.id;
-
-          // Run translation async - store promise so image gen can wait for it
-          translationPromise = (async () => {
-            try {
-              log("Translating narration", {
-                entryId: entryIdForTranslation,
-                isVisualProse,
-                targetLang,
-              });
-              const result = await aiService.translateNarration(
-                fullResponse,
-                targetLang,
-                isVisualProse,
-              );
-              await database.updateStoryEntry(entryIdForTranslation, {
-                translatedContent: result.translatedContent,
-                translationLanguage: targetLang,
-              });
-              // Refresh the entry in the store to show translated content
-              await story.refreshEntry(entryIdForTranslation);
-              log("Narration translated", { entryId: entryIdForTranslation });
-              return {
-                translatedContent: result.translatedContent,
-                targetLanguage: targetLang,
-              };
-            } catch (error) {
-              log("Narration translation failed (non-fatal)", error);
-              return null;
-            }
-          })();
-        }
-
-        // Phase 2.5: Trigger TTS for auto-play if enabled
-        // If translation is enabled, wait for it first so TTS uses translated content
-        const ttsSettings = settings.systemServicesSettings.tts;
-        if (ttsSettings.enabled && ttsSettings.autoPlay) {
-          if (translationPromise) {
-            // Wait for translation to complete before TTS so entry.translatedContent is available
-            translationPromise
-              .then(() => {
-                emitTTSQueued(narrationEntry.id, fullResponse);
-                log("TTS queued for auto-play (after translation)", {
-                  entryId: narrationEntry.id,
-                });
-              })
-              .catch(() => {
-                // Translation failed, still trigger TTS with original content
-                emitTTSQueued(narrationEntry.id, fullResponse);
-                log("TTS queued for auto-play (translation failed)", {
-                  entryId: narrationEntry.id,
-                });
-              });
-          } else {
-            // No translation enabled, trigger TTS immediately
-            emitTTSQueued(narrationEntry.id, fullResponse);
-            log("TTS queued for auto-play", { entryId: narrationEntry.id });
-          }
-        }
-
-        // Phase 3: Classify the response to extract world state changes
-        // Pass visible entries so classifier can see full chat history with time data
-        // Filter out the current narration entry to avoid sending it twice (once in chatHistory, once as narrativeResponse)
-        log("Starting classification phase...");
-        ui.setGenerationStatus("Updating world...");
-        try {
-          const chatHistoryEntries = story.visibleEntries.filter(
-            (e) => e.id !== narrationEntry.id,
-          );
-          const classificationResult = await aiService.classifyResponse(
+          ui.endStreaming();
+          narrationEntry = await story.addEntry(
+            "narration",
             fullResponse,
-            userActionContent,
-            worldState,
-            currentStoryRef,
-            chatHistoryEntries,
-            currentStoryRef?.timeTracker,
+            undefined,
+            fullReasoning || undefined,
+            narrationEntryId,
           );
+          emitNarrativeResponse(narrationEntry.id, fullResponse);
+          if (inlineImageTracker?.hasPendingImages)
+            await inlineImageTracker.flushToDatabase();
+        }
 
-          log("Classification complete", {
-            newCharacters:
-              classificationResult.entryUpdates.newCharacters.length,
-            newLocations: classificationResult.entryUpdates.newLocations.length,
-            newItems: classificationResult.entryUpdates.newItems.length,
-            newStoryBeats:
-              classificationResult.entryUpdates.newStoryBeats.length,
-          });
-
-          // Emit ClassificationComplete event
+        if (event.type === "classification_complete" && narrationEntry) {
           eventBus.emit<ClassificationCompleteEvent>({
             type: "ClassificationComplete",
             messageId: narrationEntry.id,
-            result: classificationResult,
+            result: event.result,
           });
+          await story.applyClassificationResult(event.result);
+          await story.updateEntryTimeEnd(narrationEntry.id);
 
-          // Phase 4: Apply classification results to world state
-          await story.applyClassificationResult(classificationResult);
-          log("World state updated from classification");
-          ui.setGenerationStatus("Saving...");
-
-          // Phase 4.5: Translate world state elements if enabled (background, non-blocking)
-          const translationSettingsForUI = settings.translationSettings;
-          if (
-            TranslationService.shouldTranslateWorldState(
-              translationSettingsForUI,
-            )
-          ) {
-            const targetLangForUI = translationSettingsForUI.targetLanguage;
-
-            // Run translation async (non-blocking) - don't await
-            (async () => {
-              try {
-                // Collect items to translate from classification result
-                const itemsToTranslate: {
-                  id: string;
-                  text: string;
-                  type: "name" | "description" | "title";
-                  entityType: string;
-                  field: string;
-                  isArray?: boolean;
-                }[] = [];
-
-                // New characters
-                for (const char of classificationResult.entryUpdates
-                  .newCharacters) {
-                  const dbChar = story.characters.find(
-                    (c) => c.name === char.name,
-                  );
-                  if (dbChar) {
-                    itemsToTranslate.push({
-                      id: `${dbChar.id}:name`,
-                      text: char.name,
-                      type: "name",
-                      entityType: "character",
-                      field: "translatedName",
-                    });
-                    if (char.description) {
-                      itemsToTranslate.push({
-                        id: `${dbChar.id}:desc`,
-                        text: char.description,
-                        type: "description",
-                        entityType: "character",
-                        field: "translatedDescription",
-                      });
-                    }
-                    if (char.relationship) {
-                      itemsToTranslate.push({
-                        id: `${dbChar.id}:rel`,
-                        text: char.relationship,
-                        type: "description",
-                        entityType: "character",
-                        field: "translatedRelationship",
-                      });
-                    }
-                    if (char.traits && char.traits.length > 0) {
-                      itemsToTranslate.push({
-                        id: `${dbChar.id}:traits`,
-                        text: char.traits.join(", "),
-                        type: "description",
-                        entityType: "character",
-                        field: "translatedTraits",
-                        isArray: true,
-                      });
-                    }
-                    if (
-                      char.visualDescriptors &&
-                      char.visualDescriptors.length > 0
-                    ) {
-                      itemsToTranslate.push({
-                        id: `${dbChar.id}:visual`,
-                        text: char.visualDescriptors.join(", "),
-                        type: "description",
-                        entityType: "character",
-                        field: "translatedVisualDescriptors",
-                        isArray: true,
-                      });
-                    }
-                  }
-                }
-
-                // New locations
-                for (const loc of classificationResult.entryUpdates
-                  .newLocations) {
-                  const dbLoc = story.locations.find(
-                    (l) => l.name === loc.name,
-                  );
-                  if (dbLoc) {
-                    itemsToTranslate.push({
-                      id: `${dbLoc.id}:name`,
-                      text: loc.name,
-                      type: "name",
-                      entityType: "location",
-                      field: "translatedName",
-                    });
-                    if (loc.description) {
-                      itemsToTranslate.push({
-                        id: `${dbLoc.id}:desc`,
-                        text: loc.description,
-                        type: "description",
-                        entityType: "location",
-                        field: "translatedDescription",
-                      });
-                    }
-                  }
-                }
-
-                // New items
-                for (const item of classificationResult.entryUpdates.newItems) {
-                  const dbItem = story.items.find((i) => i.name === item.name);
-                  if (dbItem) {
-                    itemsToTranslate.push({
-                      id: `${dbItem.id}:name`,
-                      text: item.name,
-                      type: "name",
-                      entityType: "item",
-                      field: "translatedName",
-                    });
-                    if (item.description) {
-                      itemsToTranslate.push({
-                        id: `${dbItem.id}:desc`,
-                        text: item.description,
-                        type: "description",
-                        entityType: "item",
-                        field: "translatedDescription",
-                      });
-                    }
-                  }
-                }
-
-                // New story beats
-                for (const beat of classificationResult.entryUpdates
-                  .newStoryBeats) {
-                  const dbBeat = story.storyBeats.find(
-                    (b) => b.title === beat.title,
-                  );
-                  if (dbBeat) {
-                    itemsToTranslate.push({
-                      id: `${dbBeat.id}:title`,
-                      text: beat.title,
-                      type: "title",
-                      entityType: "storyBeat",
-                      field: "translatedTitle",
-                    });
-                    if (beat.description) {
-                      itemsToTranslate.push({
-                        id: `${dbBeat.id}:desc`,
-                        text: beat.description,
-                        type: "description",
-                        entityType: "storyBeat",
-                        field: "translatedDescription",
-                      });
-                    }
-                  }
-                }
-
-                if (itemsToTranslate.length > 0) {
-                  log("Translating world state elements", {
-                    count: itemsToTranslate.length,
-                    targetLang: targetLangForUI,
-                  });
-                  const uiItems = itemsToTranslate.map((item) => ({
-                    id: item.id,
-                    text: item.text,
-                    type: item.type,
-                  }));
-                  const translated = await aiService.translateUIElements(
-                    uiItems,
-                    targetLangForUI,
-                  );
-
-                  // Apply translations to database
-                  for (const translatedItem of translated) {
-                    const [entityId, fieldType] = translatedItem.id.split(":");
-                    const originalItem = itemsToTranslate.find(
-                      (i) => i.id === translatedItem.id,
-                    );
-                    if (!originalItem) continue;
-
-                    // Handle array fields (traits, visualDescriptors) by splitting the translated comma-separated string
-                    const translatedValue = originalItem.isArray
-                      ? translatedItem.text
-                          .split(",")
-                          .map((s) => s.trim())
-                          .filter(Boolean)
-                      : translatedItem.text;
-
-                    const updateData: Record<string, string | string[] | null> =
-                      {
-                        [originalItem.field]: translatedValue,
-                        translationLanguage: targetLangForUI,
-                      };
-
-                    if (originalItem.entityType === "character") {
-                      await database.updateCharacter(
-                        entityId,
-                        updateData as any,
-                      );
-                    } else if (originalItem.entityType === "location") {
-                      await database.updateLocation(
-                        entityId,
-                        updateData as any,
-                      );
-                    } else if (originalItem.entityType === "item") {
-                      await database.updateItem(entityId, updateData as any);
-                    } else if (originalItem.entityType === "storyBeat") {
-                      await database.updateStoryBeat(
-                        entityId,
-                        updateData as any,
-                      );
-                    }
-                  }
-
-                  // Refresh story state to show translations in sidebar
-                  await story.refreshWorldState();
-                  log("World state elements translated", {
-                    count: translated.length,
-                  });
-                }
-              } catch (error) {
-                log("World state translation failed (non-fatal)", error);
-              }
-            })();
-          }
-
-          // Phase 9: Generate images for imageable scenes (background, non-blocking)
-          // This runs inside the classification try block because we need the presentCharacterNames
-          // If translation is enabled, wait for it so we can embed images in translated text
-          if (
-            currentStoryRef &&
-            settings.systemServicesSettings.imageGeneration.enabled
-          ) {
-            // Get updated characters from story (includes visual descriptors updates)
+          if (settings.systemServicesSettings.imageGeneration.enabled) {
             const presentCharacters = story.characters.filter(
               (c) =>
-                classificationResult.scene.presentCharacterNames.includes(
-                  c.name,
-                ) || c.relationship === "self",
+                event.result.scene.presentCharacterNames.includes(c.name) ||
+                c.relationship === "self",
             );
-
-            // Build full chat history for image generation context
             const imageGenChatHistory = story.visibleEntries
               .filter((e) => e.type === "user_action" || e.type === "narration")
               .map(
@@ -1403,117 +550,132 @@
               )
               .join("\n\n");
 
-            // Wait for translation if enabled, so image analyzer can embed in translated text
-            let translatedNarrative: string | undefined;
-            let translationLanguage: string | undefined;
-
-            if (translationPromise) {
-              log(
-                "Waiting for translation to complete for image generation...",
-              );
-              const translationResult = await translationPromise;
-              if (translationResult) {
-                translatedNarrative = translationResult.translatedContent;
-                translationLanguage = translationResult.targetLanguage;
-                log(
-                  "Translation complete, will embed images in translated text",
-                  {
-                    targetLanguage: translationLanguage,
-                  },
-                );
-              }
-            }
-
-            const imageGenContext: ImageGenerationContext = {
+            lastImageGenContext = {
               storyId: currentStoryRef.id,
               entryId: narrationEntry.id,
               narrativeResponse: fullResponse,
               userAction: userActionContent,
               presentCharacters,
               currentLocation:
-                classificationResult.scene.currentLocationName ??
+                event.result.scene.currentLocationName ??
                 worldState.currentLocation?.name,
               chatHistory: imageGenChatHistory,
-              lorebookContext: lorebookContext ?? undefined,
-              translatedNarrative,
-              translationLanguage,
+              lorebookContext: undefined,
             };
-
-            // Store for manual generation if auto-generate is disabled
-            lastImageGenContext = imageGenContext;
-
-            if (
-              settings.systemServicesSettings.imageGeneration.autoGenerate &&
-              aiService.isImageGenerationEnabled()
-            ) {
-              aiService
-                .generateImagesForNarrative(imageGenContext)
-                .catch((err) => {
-                  log("Image generation failed (non-fatal)", err);
-                });
-            }
           }
-        } catch (classifyError) {
-          // Classification failure shouldn't break the main flow
-          log("Classification failed (non-fatal)", classifyError);
-          console.warn("World state classification failed:", classifyError);
+
+          const translationSettings = settings.translationSettings;
+          if (
+            TranslationService.shouldTranslateWorldState(translationSettings)
+          ) {
+            const translationService = new WorldStateTranslationService({
+              translateUIElements:
+                aiService.translateUIElements.bind(aiService),
+            });
+            translationService
+              .translateEntities(
+                {
+                  classificationResult: {
+                    newCharacters: event.result.entryUpdates.newCharacters,
+                    newLocations: event.result.entryUpdates.newLocations,
+                    newItems: event.result.entryUpdates.newItems,
+                    newStoryBeats: event.result.entryUpdates.newStoryBeats,
+                  },
+                  worldState: {
+                    characters: story.characters,
+                    locations: story.locations,
+                    items: story.items,
+                    storyBeats: story.storyBeats,
+                  },
+                  targetLanguage: translationSettings.targetLanguage,
+                },
+                {
+                  updateCharacter: (id, data) =>
+                    database.updateCharacter(id, data as any),
+                  updateLocation: (id, data) =>
+                    database.updateLocation(id, data as any),
+                  updateItem: (id, data) =>
+                    database.updateItem(id, data as any),
+                  updateStoryBeat: (id, data) =>
+                    database.updateStoryBeat(id, data as any),
+                  refreshWorldState: story.refreshWorldState.bind(story),
+                },
+              )
+              .catch((err) =>
+                log("World state translation failed (non-fatal)", err),
+              );
+          }
         }
 
-        // Phase 4.1: Update narration entry with timeEnd after classification phase
-        // This runs regardless of classification success - timeEnd reflects current story time
-        await story.updateEntryTimeEnd(narrationEntry.id);
-
-        // Phase 5: Check if auto-summarization is needed (background, non-blocking)
-        if (story.memoryConfig.autoSummarize) {
-          checkAutoSummarize().catch((err) => {
-            log("Auto-summarize check failed (non-fatal)", err);
-          });
+        if (
+          event.type === "phase_complete" &&
+          event.phase === "translation" &&
+          narrationEntry
+        ) {
+          const translationResult = event.result as
+            | {
+                translated: boolean;
+                translatedContent: string | null;
+                targetLanguage: string | null;
+              }
+            | undefined;
+          if (
+            translationResult?.translated &&
+            translationResult.translatedContent
+          ) {
+            await database.updateStoryEntry(narrationEntry.id, {
+              translatedContent: translationResult.translatedContent,
+              translationLanguage: translationResult.targetLanguage,
+            });
+            await story.refreshEntry(narrationEntry.id);
+          }
         }
 
-        // Phase 6: Generate suggestions for creative writing mode (background, non-blocking)
-        if (isCreativeMode && !settings.uiSettings.disableSuggestions) {
-          refreshSuggestions().catch((err) => {
-            log("Suggestions generation failed (non-fatal)", err);
-          });
-        }
+        if (event.type === "error" && event.fatal) break;
+      }
 
-        // Phase 7: Generate RPG action choices for adventure mode (background, non-blocking)
-        if (!isCreativeMode && !settings.uiSettings.disableSuggestions) {
-          generateActionChoices(fullResponse, worldState).catch((err) => {
-            log("Action choices generation failed (non-fatal)", err);
-          });
-        }
+      ui.updateActivationData(activationTracker, currentStoryRef.id);
+      if (stopRequested) return;
 
-        // Phase 8: Check if style review should run (background, non-blocking)
-        checkStyleReview(countStyleReview, styleReviewSource).catch((err) => {
-          log("Style review check failed (non-fatal)", err);
-        });
-      } else {
-        log(
-          `No response content after ${MAX_EMPTY_RESPONSE_RETRIES} attempts (fullResponse was empty or whitespace)`,
-        );
-        // Add a system message to inform the user
-        const errorMessage = `The AI returned an empty response after ${MAX_EMPTY_RESPONSE_RETRIES} attempts. Please try again.`;
+      if (!fullResponse.trim()) {
+        const errorMessage =
+          "The AI returned an empty response after 3 attempts. Please try again.";
         const errorEntry = await story.addEntry("system", errorMessage);
-
-        // Store error state for retry button to work
         ui.setGenerationError({
           message: errorMessage,
           errorEntryId: errorEntry.id,
-          userActionEntryId: userActionEntryId,
+          userActionEntryId,
           timestamp: Date.now(),
         });
+        return;
       }
+
+      if (
+        narrationEntry &&
+        settings.systemServicesSettings.tts.enabled &&
+        settings.systemServicesSettings.tts.autoPlay
+      ) {
+        emitTTSQueued(narrationEntry.id, fullResponse);
+      }
+
+      const coordinator = new BackgroundTaskCoordinator(
+        buildBackgroundTaskDependencies(),
+      );
+      const input = buildBackgroundTaskInput(
+        countStyleReview,
+        styleReviewSource,
+      );
+      if (!story.memoryConfig.autoSummarize)
+        input.chapterCheck.tokensOutsideBuffer = 0;
+      coordinator
+        .runBackgroundTasks(input)
+        .catch((err) => log("Background tasks failed (non-fatal)", err));
     } catch (error) {
       if (
         stopRequested ||
         (error instanceof Error && error.name === "AbortError")
-      ) {
-        log("Generation aborted by user");
+      )
         return;
-      }
-      log("Generation failed", error);
-      console.error("Generation failed:", error);
       const errorMessage =
         error instanceof Error
           ? error.message
@@ -1522,12 +684,10 @@
         "system",
         `Generation failed: ${errorMessage}`,
       );
-
-      // Store error state for retry
       ui.setGenerationError({
         message: errorMessage,
         errorEntryId: errorEntry.id,
-        userActionEntryId: userActionEntryId,
+        userActionEntryId,
         timestamp: Date.now(),
       });
     } finally {
@@ -1536,284 +696,212 @@
       ui.setGenerationStatus("");
       activeAbortController = null;
       stopRequested = false;
-      log("Generation complete, UI reset");
+    }
+  }
+
+  // ============================================================================
+  // Event Handlers
+  // ============================================================================
+
+  async function refreshSuggestions() {
+    if (!story.currentStory) return;
+
+    if (story.storyMode !== "creative-writing" || story.entries.length === 0) {
+      ui.clearSuggestions(story.currentStory.id);
+      return;
+    }
+
+    ui.setSuggestionsLoading(true);
+    try {
+      const service = new SuggestionsRefreshService({
+        generateSuggestions: aiService.generateSuggestions.bind(aiService),
+        translateSuggestions: aiService.translateSuggestions.bind(aiService),
+      });
+      const result = await service.refresh({
+        storyId: story.currentStory.id,
+        entries: story.entries,
+        pendingQuests: story.pendingQuests,
+        storyMode: story.storyMode,
+        pov: story.pov,
+        tense: story.tense,
+        protagonistName,
+        genre: story.currentStory.genre ?? undefined,
+        settingDescription: story.currentStory.description ?? undefined,
+        tone: story.currentStory.settings?.tone ?? undefined,
+        themes: story.currentStory.settings?.themes ?? undefined,
+        lastLorebookRetrieval: ui.lastLorebookRetrieval?.all ?? null,
+        translationSettings: settings.translationSettings,
+      });
+      ui.setSuggestions(result.suggestions, story.currentStory.id);
+      emitSuggestionsReady(
+        result.suggestions.map((s) => ({ text: s.text, type: s.type })),
+      );
+    } catch (error) {
+      log("Failed to generate suggestions:", error);
+      ui.clearSuggestions(story.currentStory.id);
+    } finally {
+      ui.setSuggestionsLoading(false);
+    }
+  }
+
+  function handleSuggestionSelect(text: string) {
+    inputValue = text;
+    document.querySelector("textarea")?.focus();
+  }
+
+  async function handleManualImageGeneration() {
+    if (!lastImageGenContext || manualImageGenDisabled) return;
+    if (!settings.systemServicesSettings.imageGeneration.enabled) return;
+    isManualImageGenRunning = true;
+    try {
+      await aiService.generateImagesForNarrative(lastImageGenContext);
+    } catch (error) {
+      log("Manual image generation failed (non-fatal)", error);
+    } finally {
+      isManualImageGenRunning = false;
     }
   }
 
   async function handleSubmit() {
-    log("handleSubmit called", {
-      inputValue: inputValue.trim(),
-      actionType,
-      isCreativeMode,
-      isGenerating: ui.isGenerating,
-    });
+    if (!inputValue.trim() || ui.isGenerating || !story.currentStory) return;
 
-    if (!inputValue.trim() || ui.isGenerating) {
-      log("Submit blocked", {
-        emptyInput: !inputValue.trim(),
-        isGenerating: ui.isGenerating,
-      });
-      return;
-    }
-
-    // Clear any previous error
     ui.clearGenerationError();
-
-    // Reset scroll break - user sending a message means they want to see the response
     ui.resetScrollBreak();
+    ui.clearSuggestions(story.currentStory.id);
 
-    // Clear suggestions immediately when user sends a message
-    ui.clearSuggestions(story.currentStory?.id);
-
-    // Build action content:
-    // - Creative writing mode: use raw input as direction
-    // - Raw action choice (from ActionChoices): use as-is (already formatted by AI)
-    // - Disable action prefixes: use raw input
-    // - Adventure mode: apply action prefixes/suffixes
     const rawInput = inputValue.trim();
     const wasRawActionChoice = isRawActionChoice;
     const forceFreeMode = settings.uiSettings.disableActionPrefixes;
 
     let content: string;
-    if (isCreativeMode || wasRawActionChoice || forceFreeMode) {
+    if (isCreativeMode || wasRawActionChoice || forceFreeMode)
       content = rawInput;
-    } else {
+    else
       content =
         actionPrefixes[actionType] + rawInput + actionSuffixes[actionType];
-    }
 
-    // Reset the raw action choice flag
     isRawActionChoice = false;
+    inputValue = "";
 
-    log("Action content built", {
+    const embeddedImages = await database.getEmbeddedImagesForStory(
+      story.currentStory.id,
+    );
+    ui.createRetryBackup(
+      story.currentStory.id,
+      story.entries,
+      story.characters,
+      story.locations,
+      story.items,
+      story.storyBeats,
+      embeddedImages,
       content,
-      mode: isCreativeMode ? "creative" : "adventure",
-      wasRawChoice: wasRawActionChoice,
-    });
+      rawInput,
+      actionType,
+      wasRawActionChoice,
+      story.currentStory.timeTracker,
+    );
 
-    // Create a backup of the current state BEFORE adding the user action
-    // This allows "retry last message" to restore to this exact point
-    if (story.currentStory) {
-      // Fetch embedded images for backup (they're not in the story store)
-      const embeddedImages = await database.getEmbeddedImagesForStory(
-        story.currentStory.id,
-      );
-      ui.createRetryBackup(
-        story.currentStory.id,
-        story.entries,
-        story.characters,
-        story.locations,
-        story.items,
-        story.storyBeats,
-        embeddedImages,
-        content,
-        rawInput,
-        actionType,
-        wasRawActionChoice,
-        story.currentStory.timeTracker,
-      );
-    }
+    const { promptContent, originalInput } = await translateUserInput(
+      content,
+      settings.translationSettings,
+    );
 
-    // Translate user input if enabled (keeps original for display, uses English for AI)
-    let promptContent = content;
-    let originalInput: string | undefined;
-
-    const translationSettings = settings.translationSettings;
-    if (TranslationService.shouldTranslateInput(translationSettings)) {
-      try {
-        log("Translating user input", {
-          sourceLanguage: translationSettings.sourceLanguage,
-        });
-        const result = await aiService.translateInput(
-          content,
-          translationSettings.sourceLanguage,
-        );
-        originalInput = content; // Save original for display
-        promptContent = result.translatedContent; // Use English for prompt
-        log("Input translated", {
-          originalLength: content.length,
-          translatedLength: promptContent.length,
-        });
-      } catch (error) {
-        log("Input translation failed (non-fatal), using original", error);
-        // Continue with original content if translation fails
-      }
-    }
-
-    // Add user action to story
     const userActionEntry = await story.addEntry("user_action", promptContent);
-    log("User action added to story", { entryId: userActionEntry.id });
 
-    // If translated, store original input for display
     if (originalInput) {
       await database.updateStoryEntry(userActionEntry.id, { originalInput });
       await story.refreshEntry(userActionEntry.id);
     }
 
-    // Emit UserInput event
     emitUserInput(
       content,
       isCreativeMode ? "direction" : forceFreeMode ? "free" : actionType,
     );
-
-    // Clear input
-    inputValue = "";
-
-    // Wait for reactive state to synchronize before generation
-    // This ensures lorebook entries, characters, etc. are fully loaded
     await tick();
 
-    // Generate AI response with streaming
-    if (!settings.needsApiKey) {
+    if (!settings.needsApiKey)
       await generateResponse(userActionEntry.id, content);
-    } else {
-      log("No API key configured");
+    else
       await story.addEntry(
         "system",
         "Please configure your API key in settings to enable AI generation.",
       );
-    }
   }
 
-  /**
-   * Stop the active generation and restore input state.
-   */
   async function handleStopGeneration() {
-    log("handleStopGeneration called", {
-      hasBackup: !!ui.retryBackup,
-      isGenerating: ui.isGenerating,
-    });
-
-    if (!ui.isGenerating) {
-      log("Stop ignored (not generating)");
-      return;
-    }
-    if (ui.isRetryingLastMessage) {
-      log("Stop ignored (retrying completed message)");
-      return;
-    }
+    if (!ui.isGenerating || ui.isRetryingLastMessage) return;
 
     stopRequested = true;
     activeAbortController?.abort();
-
     ui.endStreaming();
     ui.setGenerating(false);
 
     const backup = ui.retryBackup;
-    if (!backup || !story.currentStory) {
-      log("No valid backup for stop restore");
+    if (
+      !backup ||
+      !story.currentStory ||
+      backup.storyId !== story.currentStory.id
+    ) {
+      if (backup) ui.clearRetryBackup();
       return;
     }
 
-    if (backup.storyId !== story.currentStory.id) {
-      log("Stop backup is for different story, clearing");
-      ui.clearRetryBackup();
-      return;
-    }
-
-    // Clear any error state and stale UI data
     ui.clearGenerationError();
-    ui.clearSuggestions(story.currentStory?.id);
-    ui.clearActionChoices(story.currentStory?.id);
+    ui.clearSuggestions(story.currentStory.id);
+    ui.clearActionChoices(story.currentStory.id);
+
     if (backup.hasFullState) {
       ui.restoreActivationData(backup.activationData, backup.storyPosition);
     }
     ui.setLastLorebookRetrieval(null);
 
-    try {
-      if (backup.hasFullState) {
-        await story.restoreFromRetryBackup({
-          entries: backup.entries,
-          characters: backup.characters,
-          locations: backup.locations,
-          items: backup.items,
-          storyBeats: backup.storyBeats,
-          embeddedImages: backup.embeddedImages,
-          timeTracker: backup.timeTracker,
-        });
-      } else {
-        // Persistent restore - delete entries and entities created after backup
-        // Clear activation data but don't save yet - let the next action rebuild it
-        ui.clearActivationData();
+    const result = await retryService.handleStopGeneration(
+      backup,
+      {
+        restoreFromRetryBackup: story.restoreFromRetryBackup.bind(story),
+        deleteEntriesFromPosition: story.deleteEntriesFromPosition.bind(story),
+        deleteEntitiesCreatedAfterBackup:
+          story.deleteEntitiesCreatedAfterBackup.bind(story),
+        restoreCharacterSnapshots: story.restoreCharacterSnapshots.bind(story),
+        restoreTimeTrackerSnapshot:
+          story.restoreTimeTrackerSnapshot.bind(story),
+        lockRetryInProgress: story.lockRetryInProgress.bind(story),
+        unlockRetryInProgress: story.unlockRetryInProgress.bind(story),
+        restoreActivationData: ui.restoreActivationData.bind(ui),
+        clearActivationData: () => ui.clearActivationData(),
+        setLastLorebookRetrieval: ui.setLastLorebookRetrieval.bind(ui),
+      },
+      {
+        clearGenerationError: () => ui.clearGenerationError(),
+        clearSuggestions: () => ui.clearSuggestions(story.currentStory!.id),
+        clearActionChoices: () => ui.clearActionChoices(story.currentStory!.id),
+      },
+    );
 
-        log(
-          "Persistent stop restore: deleting entries from position",
-          backup.entryCountBeforeAction,
-        );
-        await story.deleteEntriesFromPosition(backup.entryCountBeforeAction);
-
-        if (backup.hasEntityIds) {
-          log(
-            "Persistent stop restore: deleting entities created after backup",
-          );
-          await story.deleteEntitiesCreatedAfterBackup({
-            characterIds: backup.characterIds,
-            locationIds: backup.locationIds,
-            itemIds: backup.itemIds,
-            storyBeatIds: backup.storyBeatIds,
-            embeddedImageIds: backup.embeddedImageIds,
-          });
-        } else {
-          log(
-            "Persistent stop restore: skipping entity cleanup (no ID snapshot)",
-          );
-        }
-        await story.restoreCharacterSnapshots(backup.characterSnapshots);
-
-        // Restore time tracker snapshot after persistent cleanup
-        await story.restoreTimeTrackerSnapshot(backup.timeTracker);
-      }
-
+    if (result.success) {
       await tick();
-      actionType = backup.actionType;
-      isRawActionChoice = backup.wasRawActionChoice;
-      inputValue = backup.rawInput;
-    } catch (error) {
-      log("Stop restore failed", error);
-      console.error("Stop restore failed:", error);
-    } finally {
-      ui.clearRetryBackup(true); // Clear from DB since user explicitly stopped
+      actionType = (result.restoredActionType as ActionType) ?? actionType;
+      isRawActionChoice = result.restoredWasRawActionChoice ?? false;
+      inputValue = result.restoredRawInput ?? "";
     }
+    ui.clearRetryBackup(true);
   }
 
-  /**
-   * Retry the last failed generation
-   */
   async function handleRetry() {
-    log("handleRetry called", {
-      hasError: !!ui.lastGenerationError,
-      isGenerating: ui.isGenerating,
-    });
-
     const error = ui.lastGenerationError;
-    if (!error || ui.isGenerating) {
-      log("handleRetry early return", {
-        hasError: !!error,
-        isGenerating: ui.isGenerating,
-      });
-      return;
-    }
+    if (!error || ui.isGenerating) return;
 
-    log("Retrying generation", {
-      errorEntryId: error.errorEntryId,
-      userActionEntryId: error.userActionEntryId,
-    });
-
-    // Find the user action content before deleting the error
     const userActionEntry = story.entries.find(
       (e) => e.id === error.userActionEntryId,
     );
     if (!userActionEntry) {
-      log("User action entry not found for retry");
       ui.clearGenerationError();
       return;
     }
 
-    // Delete the error entry
     await story.deleteEntry(error.errorEntryId);
     ui.clearGenerationError();
 
-    // Retry generation with the same user action
     if (!settings.needsApiKey) {
       await generateResponse(userActionEntry.id, userActionEntry.content, {
         countStyleReview: false,
@@ -1822,230 +910,91 @@
     }
   }
 
-  /**
-   * Dismiss the error without retrying
-   */
   function dismissError() {
     ui.clearGenerationError();
   }
 
-  /**
-   * Retry the last user message by restoring to the backup state
-   * and regenerating with the same user action.
-   * Supports both full state restore (in-memory backup) and entry-only restore (persistent backup).
-   */
   async function handleRetryLastMessage() {
-    log("handleRetryLastMessage called", {
-      hasBackup: !!ui.retryBackup,
-      isGenerating: ui.isGenerating,
-      storyId: story.currentStory?.id,
-    });
-
     const backup = ui.retryBackup;
-    if (!backup || ui.isGenerating || !story.currentStory) {
-      log("handleRetryLastMessage early return");
-      return;
-    }
-
-    // Verify backup is for current story
+    if (!backup || ui.isGenerating || !story.currentStory) return;
     if (backup.storyId !== story.currentStory.id) {
-      log("Backup is for different story, clearing");
-      ui.clearRetryBackup(false); // Just clear in-memory, don't touch DB
+      ui.clearRetryBackup(false);
       return;
     }
 
-    // Debug: Log character state before restore
-    const currentCharDescriptors = story.characters.map((c) => ({
-      name: c.name,
-      visualDescriptors: [...c.visualDescriptors],
-    }));
-    const backupCharDescriptors = backup.characters.map((c) => ({
-      name: c.name,
-      visualDescriptors: [...c.visualDescriptors],
-    }));
-    log("RETRY DEBUG - Before restore:", {
-      hasFullState: backup.hasFullState,
-      currentCharDescriptors,
-      backupCharDescriptors,
-      characterSnapshots: backup.characterSnapshots?.map((s) => ({
-        id: s.id,
-        visualDescriptors: s.visualDescriptors,
-      })),
-    });
+    const storyId = story.currentStory.id;
 
-    log("Restoring from backup and regenerating", {
-      hasFullState: backup.hasFullState,
-      backupEntriesCount: backup.entries.length,
-      entryCountBeforeAction: backup.entryCountBeforeAction,
-      currentEntriesCount: story.entries.length,
-      userAction: backup.userActionContent.substring(0, 50),
-    });
-
-    // Clear any error state
     ui.clearGenerationError();
-
-    // Clear suggestions and action choices
-    ui.clearSuggestions(story.currentStory?.id);
-    ui.clearActionChoices(story.currentStory?.id);
-
-    // Clear lorebook retrieval debug state since it's now stale
+    ui.clearSuggestions(storyId);
+    ui.clearActionChoices(storyId);
+    lastImageGenContext = null;
     ui.setLastLorebookRetrieval(null);
 
-    // Clear stale image generation context (contains old portrait state)
-    lastImageGenContext = null;
+    const result = await retryService.handleRetryLastMessage(
+      backup,
+      {
+        restoreFromRetryBackup: story.restoreFromRetryBackup.bind(story),
+        deleteEntriesFromPosition: story.deleteEntriesFromPosition.bind(story),
+        deleteEntitiesCreatedAfterBackup:
+          story.deleteEntitiesCreatedAfterBackup.bind(story),
+        restoreCharacterSnapshots: story.restoreCharacterSnapshots.bind(story),
+        restoreTimeTrackerSnapshot:
+          story.restoreTimeTrackerSnapshot.bind(story),
+        lockRetryInProgress: story.lockRetryInProgress.bind(story),
+        unlockRetryInProgress: story.unlockRetryInProgress.bind(story),
+        restoreActivationData: ui.restoreActivationData.bind(ui),
+        clearActivationData: () => ui.clearActivationData(),
+        setLastLorebookRetrieval: ui.setLastLorebookRetrieval.bind(ui),
+      },
+      {
+        clearGenerationError: () => ui.clearGenerationError(),
+        clearSuggestions: () => ui.clearSuggestions(storyId),
+        clearActionChoices: () => ui.clearActionChoices(storyId),
+        clearImageContext: () => {
+          lastImageGenContext = null;
+        },
+      },
+    );
 
-    try {
-      if (backup.hasFullState) {
-        // Full state restore (in-memory backup with snapshots)
-        // Restore activation data from backup to preserve lorebook stickiness state
-        ui.restoreActivationData(backup.activationData, backup.storyPosition);
+    if (!result.success) return;
 
-        // Restore story state from backup (this locks editing internally)
-        await story.restoreFromRetryBackup({
-          entries: backup.entries,
-          characters: backup.characters,
-          locations: backup.locations,
-          items: backup.items,
-          storyBeats: backup.storyBeats,
-          embeddedImages: backup.embeddedImages,
-          timeTracker: backup.timeTracker,
+    await tick();
+
+    const { promptContent, originalInput } = await translateUserInput(
+      backup.userActionContent,
+      settings.translationSettings,
+    );
+    const userActionEntry = await story.addEntry("user_action", promptContent);
+
+    if (originalInput) {
+      await database.updateStoryEntry(userActionEntry.id, { originalInput });
+      await story.refreshEntry(userActionEntry.id);
+    }
+
+    emitUserInput(
+      backup.userActionContent,
+      isCreativeMode ? "direction" : backup.actionType,
+    );
+    await tick();
+
+    if (!settings.needsApiKey) {
+      ui.setRetryingLastMessage(true);
+      try {
+        await generateResponse(userActionEntry.id, promptContent, {
+          countStyleReview: false,
+          styleReviewSource: "retry-last-message",
         });
-      } else {
-        // Persistent restore (backup without full snapshots, but with entity IDs)
-        // Lock editing for persistent restore path
-        story.lockRetryInProgress();
-
-        // Clear activation data but don't save yet - generation will rebuild it
-        ui.clearActivationData();
-
-        log(
-          "Persistent restore: deleting entries from position",
-          backup.entryCountBeforeAction,
-        );
-        await story.deleteEntriesFromPosition(backup.entryCountBeforeAction);
-
-        if (backup.hasEntityIds) {
-          // Delete entities that were created after the backup (AI extractions)
-          log("Persistent restore: deleting entities created after backup");
-          await story.deleteEntitiesCreatedAfterBackup({
-            characterIds: backup.characterIds,
-            locationIds: backup.locationIds,
-            itemIds: backup.itemIds,
-            storyBeatIds: backup.storyBeatIds,
-            embeddedImageIds: backup.embeddedImageIds,
-          });
-        } else {
-          log("Persistent restore: skipping entity cleanup (no ID snapshot)");
-        }
-        await story.restoreCharacterSnapshots(backup.characterSnapshots);
-
-        // Restore time tracker snapshot after persistent cleanup
-        await story.restoreTimeTrackerSnapshot(backup.timeTracker);
-      }
-
-      // Wait for state to sync
-      await tick();
-
-      // Debug: Log character state after restore
-      const postRestoreCharDescriptors = story.characters.map((c) => ({
-        name: c.name,
-        visualDescriptors: [...c.visualDescriptors],
-      }));
-      log("RETRY DEBUG - After restore:", {
-        postRestoreCharDescriptors,
-      });
-
-      // Translate user input if enabled (same logic as handleSubmit)
-      let promptContent = backup.userActionContent;
-      let originalInput: string | undefined;
-
-      const translationSettings = settings.translationSettings;
-      if (TranslationService.shouldTranslateInput(translationSettings)) {
-        try {
-          log("Retry: Translating user input", {
-            sourceLanguage: translationSettings.sourceLanguage,
-          });
-          const result = await aiService.translateInput(
-            backup.userActionContent,
-            translationSettings.sourceLanguage,
-          );
-          originalInput = backup.userActionContent; // Save original for display
-          promptContent = result.translatedContent; // Use English for prompt
-          log("Retry: Input translated", {
-            originalLength: backup.userActionContent.length,
-            translatedLength: promptContent.length,
-          });
-        } catch (error) {
-          log(
-            "Retry: Input translation failed (non-fatal), using original",
-            error,
-          );
-          // Continue with original content if translation fails
-        }
-      }
-
-      // Re-add the user action with translated content
-      const userActionEntry = await story.addEntry(
-        "user_action",
-        promptContent,
-      );
-      log("User action re-added", { entryId: userActionEntry.id });
-
-      // If translated, store original input for display
-      if (originalInput) {
-        await database.updateStoryEntry(userActionEntry.id, { originalInput });
-        await story.refreshEntry(userActionEntry.id);
-      }
-
-      // Emit UserInput event (use original content for event)
-      emitUserInput(
-        backup.userActionContent,
-        isCreativeMode ? "direction" : backup.actionType,
-      );
-
-      // Wait for state to sync again
-      await tick();
-
-      // Regenerate
-      if (!settings.needsApiKey) {
-        ui.setRetryingLastMessage(true);
-        try {
-          await generateResponse(userActionEntry.id, promptContent, {
-            countStyleReview: false,
-            styleReviewSource: "retry-last-message",
-          });
-        } finally {
-          ui.setRetryingLastMessage(false);
-        }
-      }
-    } catch (error) {
-      log("Retry last message failed", error);
-      console.error("Retry last message failed:", error);
-    } finally {
-      // Unlock editing if it was locked by persistent restore path
-      // (Full state restore unlocks internally in restoreFromRetryBackup)
-      if (backup && !backup.hasFullState) {
-        story.unlockRetryInProgress();
+      } finally {
+        ui.setRetryingLastMessage(false);
       }
     }
-  }
-
-  /**
-   * Dismiss the retry backup (user doesn't want to retry)
-   */
-  function dismissRetryBackup() {
-    ui.clearRetryBackup(true); // Clear from DB since user explicitly dismissed
   }
 
   function handleKeydown(event: KeyboardEvent) {
     const isMobile = isTouchDevice();
-
-    // On mobile: Enter = new line, Shift+Enter = send
-    // On desktop: Enter = send, Shift+Enter = new line
     const shouldSubmit = isMobile
       ? event.key === "Enter" && event.shiftKey
       : event.key === "Enter" && !event.shiftKey;
-
     if (shouldSubmit) {
       event.preventDefault();
       handleSubmit();
@@ -2057,16 +1006,10 @@
       node.style.height = "auto";
       node.style.height = `${node.scrollHeight}px`;
     }
-
-    // Resize initially
     resize();
-
-    // Resize on input (user typing)
     node.addEventListener("input", resize);
-
     return {
       update(_newValue?: string) {
-        // Resize when value changes programmatically (e.g. suggestions)
         resize();
       },
       destroy() {
@@ -2077,7 +1020,6 @@
 </script>
 
 <div class="space-y-3 ml-1">
-  <!-- Error retry banner -->
   {#if ui.lastGenerationError && !ui.isGenerating}
     <div
       class="flex items-center justify-between gap-3 rounded-lg bg-red-500/10 border border-red-500/30 p-3"
@@ -2089,57 +1031,47 @@
         <button
           onclick={handleRetry}
           class="btn flex items-center gap-1.5 text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30"
+          ><RefreshCw class="h-4 w-4" />Retry</button
         >
-          <RefreshCw class="h-4 w-4" />
-          Retry
-        </button>
         <button
           onclick={dismissError}
           class="p-1.5 rounded text-surface-400 hover:bg-surface-700 hover:text-surface-200"
-          title="Dismiss"
+          title="Dismiss"><X class="h-4 w-4" /></button
         >
-          <X class="h-4 w-4" />
-        </button>
       </div>
     </div>
   {/if}
 
-  <!-- Grammar Check (shown in both modes) -->
   <GrammarCheck
     text={inputValue}
     onApplySuggestion={(newText) => (inputValue = newText)}
   />
 
   {#if isCreativeMode}
-    <!-- Creative Writing Mode: Direction Input -->
     <div
       class="rounded-lg sm:border sm:border-border border-l-0 sm:border-l-4 sm:shadow-sm {ui.isGenerating
         ? 'sm:border-l-surface-600 bg-surface-400/5'
         : 'border-l-accent-500 bg-card'} transition-colors duration-200 relative"
     >
-      <!-- Mobile Word Count Pill -->
-      {#if settings.uiSettings.showWordCount}
-        <div class="absolute -top-[2.05rem] -right-3 sm:hidden">
+      {#if settings.uiSettings.showWordCount}<div
+          class="absolute -top-[2.05rem] -right-3 sm:hidden"
+        >
           <div
             class="bg-surface-800 px-2 py-0.5 border border-surface-500/30 border-b-0 rounded-tl-md text-sm text-surface-400"
           >
             {story.wordCount} words
           </div>
-        </div>
-      {/if}
-
-      <!-- Creative Writing Mode: Suggestions (Header) -->
-      {#if !settings.uiSettings.disableSuggestions}
-        <div class="sm:border-b border-surface-700/30">
+        </div>{/if}
+      {#if !settings.uiSettings.disableSuggestions}<div
+          class="sm:border-b border-surface-700/30"
+        >
           <Suggestions
             suggestions={ui.suggestions}
             loading={ui.suggestionsLoading}
             onSelect={handleSuggestionSelect}
             onRefresh={refreshSuggestions}
           />
-        </div>
-      {/if}
-
+        </div>{/if}
       <div class="flex items-center sm:items-end gap-1 mb-3 sm:mb-0 sm:p-1">
         <div class="relative flex-1 min-w-0">
           <textarea
@@ -2152,80 +1084,59 @@
             rows="1"
           ></textarea>
         </div>
-
         {#if ui.isGenerating}
-          {#if !ui.isRetryingLastMessage}
-            <button
+          {#if !ui.isRetryingLastMessage}<button
               onclick={handleStopGeneration}
               class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 flex-shrink-0 animate-pulse -translate-y-0.5 sm:translate-y-0"
-              title="Stop generation"
+              title="Stop generation"><Square class="h-6 w-6" /></button
             >
-              <Square class="h-6 w-6" />
-            </button>
-          {:else}
-            <button
+          {:else}<button
               disabled
               class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed flex-shrink-0"
               title="Stop disabled during retry"
-            >
-              <Square class="h-6 w-6" />
-            </button>
-          {/if}
-        {:else}
-          <button
+              ><Square class="h-6 w-6" /></button
+            >{/if}
+        {:else}<button
             onclick={handleSubmit}
             disabled={!inputValue.trim()}
             class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 flex-shrink-0 text-accent-400 hover:text-accent-300 hover:bg-accent-500/10 -translate-y-0.5 sm:translate-y-0"
             title="Send direction ({sendKeyHint})"
-          >
-            <Send class="h-6 w-6" />
-          </button>
-        {/if}
+            ><Send class="h-6 w-6" /></button
+          >{/if}
       </div>
     </div>
   {:else}
-    <!-- Adventure Mode: Redesigned Input -->
     <div
       class="rounded-lg sm:border sm:border-border border-l-0 sm:border-l-4 sm:shadow-sm {ui.isGenerating
         ? 'sm:border-l-surface-60'
         : `${actionBorderColors[actionType]}`} bg-card transition-colors duration-200 relative"
     >
-      <!-- Mobile Word Count Pill -->
-      {#if settings.uiSettings.showWordCount}
-        <div class="absolute -top-[2.05rem] -right-3 sm:hidden">
+      {#if settings.uiSettings.showWordCount}<div
+          class="absolute -top-[2.05rem] -right-3 sm:hidden"
+        >
           <div
             class="bg-surface-800 px-2 py-0.5 border border-surface-500/30 border-b-0 rounded-tl-md text-sm text-surface-400"
           >
             {story.wordCount} words
           </div>
-        </div>
-      {/if}
-
-      <!-- Action type selector row (Top - both mobile and desktop) -->
+        </div>{/if}
       {#if !settings.uiSettings.disableActionPrefixes}
         <div
           class="flex items-center gap-1 sm:border-b border-surface-700/30 px-1 pt-0 pb-0 sm:px-2 sm:py-1"
         >
-          {#each actionTypes as type}
-            {@const Icon = actionIcons[type]}
-            <button
-              class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-1 sm:px-3 sm:py-1 rounded-md
-                     text-[10px] sm:text-xs font-medium transition-all duration-150
-                     {actionType === type
+          {#each actionTypes as type}{@const Icon = actionIcons[type]}<button
+              class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 py-1 sm:px-3 sm:py-1 rounded-md text-[10px] sm:text-xs font-medium transition-all duration-150 {actionType ===
+              type
                 ? actionActiveStyles[type]
                 : `text-surface-500 hover:${actionButtonStyles[type]}`}"
               onclick={() => (actionType = type)}
-            >
-              <Icon class="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              <span>{actionLabels[type]}</span>
-            </button>
-          {/each}
+              ><Icon class="h-3 w-3 sm:h-3.5 sm:w-3.5" /><span
+                >{actionLabels[type]}</span
+              ></button
+            >{/each}
         </div>
       {/if}
-
-      <!-- Main input row -->
       <div class="flex items-center sm:items-end gap-1 mb-3 sm:mb-0 sm:p-1">
-        <!-- Textarea -->
         <div class="relative flex-1 self-center min-w-0">
           <textarea
             bind:value={inputValue}
@@ -2245,38 +1156,26 @@
             disabled={ui.isGenerating}
           ></textarea>
         </div>
-
-        <!-- Submit/Stop button -->
         {#if ui.isGenerating}
-          {#if !ui.isRetryingLastMessage}
-            <button
+          {#if !ui.isRetryingLastMessage}<button
               onclick={handleStopGeneration}
               class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 hover:text-red-300 transition-all active:scale-95 shrink-0 animate-pulse -translate-y-0.5 sm:translate-y-0"
-              title="Stop generation"
+              title="Stop generation"><Square class="h-6 w-6" /></button
             >
-              <Square class="h-6 w-6" />
-            </button>
-          {:else}
-            <button
+          {:else}<button
               disabled
               class="h-11 w-11 p-0 flex items-center justify-center rounded-lg text-red-400 opacity-50 cursor-not-allowed shrink-0"
               title="Stop disabled during retry"
-            >
-              <Square class="h-6 w-6" />
-            </button>
-          {/if}
-        {:else}
-          <button
+              ><Square class="h-6 w-6" /></button
+            >{/if}
+        {:else}<button
             onclick={handleSubmit}
             disabled={!inputValue.trim()}
             class="h-11 w-11 p-0 flex items-center justify-center rounded-lg transition-all active:scale-95 disabled:opacity-50 shrink-0 {actionButtonStyles[
               actionType
             ]} -translate-y-0.5 sm:translate-y-0"
-            title="Send ({sendKeyHint})"
-          >
-            <Send class="h-6 w-6" />
-          </button>
-        {/if}
+            title="Send ({sendKeyHint})"><Send class="h-6 w-6" /></button
+          >{/if}
       </div>
     </div>
   {/if}
@@ -2288,17 +1187,14 @@
         size="sm"
         onclick={handleManualImageGeneration}
         disabled={manualImageGenDisabled}
-        title={manualImageGenDisabled &&
-        !ImageGenerationService.hasRequiredCredentials()
-          ? `Add a ${ImageGenerationService.getProviderDisplayName()} API key in Settings to generate images`
+        title={manualImageGenDisabled && !hasRequiredCredentials()
+          ? `Add a ${getProviderDisplayName()} API key in Settings to generate images`
           : "Generate images for the last narration"}
         class="text-xs gap-1.5"
       >
-        {#if isManualImageGenRunning}
-          <Loader2 class="h-4 w-4 animate-spin" />
-        {:else}
-          <ImageIcon class="h-4 w-4" />
-        {/if}
+        {#if isManualImageGenRunning}<Loader2
+            class="h-4 w-4 animate-spin"
+          />{:else}<ImageIcon class="h-4 w-4" />{/if}
         {isManualImageGenRunning ? "Generating..." : "Generate Images"}
       </Button>
     </div>

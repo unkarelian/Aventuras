@@ -106,6 +106,9 @@
               bumpChanges(),
             );
           },
+          onQueryChapter: async (chapterNumber, question) => {
+            return aiService.answerChapterQuestion(chapterNumber, question, story.currentBranchChapters);
+          },
         },
         story.currentStory?.mode ?? "adventure",
         story.pov,

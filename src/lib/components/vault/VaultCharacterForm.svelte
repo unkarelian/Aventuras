@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { VaultCharacter } from "$lib/types";
+  import { descriptorsToString, stringToDescriptors } from "$lib/utils/visualDescriptors";
   import { characterVault } from "$lib/stores/characterVault.svelte";
   import { X, User, Users, ImageUp, Loader2 } from "lucide-svelte";
   import { normalizeImageDataUrl } from "$lib/utils/image";
@@ -24,7 +25,7 @@
   let name = $state(character?.name ?? "");
   let description = $state(character?.description ?? "");
   let traits = $state(character?.traits.join(", ") ?? "");
-  let visualDescriptors = $state(character?.visualDescriptors.join(", ") ?? "");
+  let visualDescriptors = $state(character ? descriptorsToString(character.visualDescriptors) : "");
   let tags = $state<string[]>(character?.tags ?? []);
   let portrait = $state<string | null>(character?.portrait ?? null);
 
@@ -48,10 +49,7 @@
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
-      const visualDescriptorsArray = visualDescriptors
-        .split(",")
-        .map((d) => d.trim())
-        .filter(Boolean);
+      const visualDescriptorsObj = stringToDescriptors(visualDescriptors);
 
       if (isEditing && character) {
         // Update existing
@@ -59,7 +57,7 @@
           name: name.trim(),
           description: description.trim() || null,
           traits: traitsArray,
-          visualDescriptors: visualDescriptorsArray,
+          visualDescriptors: visualDescriptorsObj,
           tags,
           portrait,
         });
@@ -70,7 +68,7 @@
           name: name.trim(),
           description: description.trim() || null,
           traits: traitsArray,
-          visualDescriptors: visualDescriptorsArray,
+          visualDescriptors: visualDescriptorsObj,
           tags,
           portrait,
           favorite: false,

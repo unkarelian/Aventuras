@@ -2,21 +2,14 @@
   import { settings } from "$lib/stores/settings.svelte";
   import { Switch } from "$lib/components/ui/switch";
   import { Label } from "$lib/components/ui/label";
-  import { Input } from "$lib/components/ui/input";
   import { Button } from "$lib/components/ui/button";
   import * as Select from "$lib/components/ui/select";
   import { Slider } from "$lib/components/ui/slider";
   import { RotateCcw } from "lucide-svelte";
-  import { ImageGenerationService } from "$lib/services/ai/image/ImageGenerationService";
-  import type { ImageModelInfo } from "$lib/services/ai/image/providers/base";
+  import { listImageModels, clearModelsCache, type ImageModelInfo } from "$lib/services/ai/image/modelListing";
+  import { PROVIDERS } from "$lib/services/ai/sdk/providers/config";
   import ImageModelSelect from "$lib/components/settings/ImageModelSelect.svelte";
-  import { POLLINATIONS_DEFAULT_MODEL_ID, POLLINATIONS_REFERENCE_MODEL_ID } from "$lib/services/ai/image/constants";
-
-  const imageProviders = [
-    { value: "nanogpt", label: "NanoGPT" },
-    { value: "chutes", label: "Chutes" },
-    { value: "pollinations", label: "Pollinations.ai" },
-  ] as const;
+  import type { APIProfile } from "$lib/types";
 
   const imageStyles = [
     { value: "image-style-soft-anime", label: "Soft Anime" },
@@ -30,163 +23,167 @@
     { value: "2048x2048", label: "2048x2048 (Highest Quality)" },
   ] as const;
 
-  // NanoGPT models state
-  let nanoGptModels = $state<ImageModelInfo[]>([]);
-  let isLoadingNanoGptModels = $state(false);
-  let nanoGptModelsError = $state<string | null>(null);
+  // Get profiles that support image generation
+  function getImageCapableProfiles(): APIProfile[] {
+    return settings.apiSettings.profiles.filter(p =>
+      PROVIDERS[p.providerType]?.capabilities.imageGeneration
+    );
+  }
 
-  // Chutes models state
-  let chutesModels = $state<ImageModelInfo[]>([]);
-  let isLoadingChutesModels = $state(false);
-  let chutesModelsError = $state<string | null>(null);
+  // Models state for each profile type
+  let standardModels = $state<ImageModelInfo[]>([]);
+  let isLoadingStandardModels = $state(false);
+  let standardModelsError = $state<string | null>(null);
 
-  // Pollinations models state
-  let pollinationsModels = $state<ImageModelInfo[]>([]);
-  let isLoadingPollinationsModels = $state(false);
-  let pollinationsModelsError = $state<string | null>(null);
+  let portraitModels = $state<ImageModelInfo[]>([]);
+  let isLoadingPortraitModels = $state(false);
+  let portraitModelsError = $state<string | null>(null);
 
-  // Filtered models (only image models, exclude video)
-  const filteredPollinationsModels = $derived(
-    pollinationsModels.filter(
-      (m) => !m.outputModalities || m.outputModalities.includes("image"),
-    ),
+  let referenceModels = $state<ImageModelInfo[]>([]);
+  let isLoadingReferenceModels = $state(false);
+  let referenceModelsError = $state<string | null>(null);
+
+  // Filtered models for img2img (reference)
+  const referenceImg2ImgModels = $derived(
+    referenceModels.filter((m) => m.supportsImg2Img),
   );
 
-  // Img2img models for each provider
-  const pollinationsImg2ImgModels = $derived(
-    filteredPollinationsModels.filter((m) => m.supportsImg2Img),
-  );
-  const nanoGptImg2ImgModels = $derived(
-    nanoGptModels.filter((m) => m.supportsImg2Img),
-  );
-  const chutesImg2ImgModels = $derived(
-    chutesModels.filter((m) => m.supportsImg2Img),
-  );
-
-  // Load functions for each provider
-  async function loadNanoGptModels(forceRefresh = false) {
-    if (forceRefresh) {
-      ImageGenerationService.clearModelsCache("nanogpt");
+  // Load models for a profile
+  async function loadModelsForProfile(
+    profileId: string | null,
+    setModels: (models: ImageModelInfo[]) => void,
+    setLoading: (loading: boolean) => void,
+    setError: (error: string | null) => void,
+    forceRefresh = false
+  ) {
+    if (!profileId) {
+      setModels([]);
+      return;
     }
-    const apiKey = settings.systemServicesSettings.imageGeneration.nanoGptApiKey;
-    isLoadingNanoGptModels = true;
-    nanoGptModelsError = null;
+
+    const profile = settings.getProfile(profileId);
+    if (!profile) {
+      setModels([]);
+      return;
+    }
+
+    if (forceRefresh) {
+      clearModelsCache(profile.providerType);
+    }
+
+    setLoading(true);
+    setError(null);
 
     try {
-      nanoGptModels = await ImageGenerationService.listModels("nanogpt", apiKey);
+      const models = await listImageModels(profile.providerType, profile.apiKey);
+      setModels(models);
     } catch (error) {
-      nanoGptModelsError = error instanceof Error ? error.message : "Failed to load models";
+      setError(error instanceof Error ? error.message : "Failed to load models");
     } finally {
-      isLoadingNanoGptModels = false;
+      setLoading(false);
     }
   }
 
-  async function loadChutesModels(forceRefresh = false) {
-    if (forceRefresh) {
-      ImageGenerationService.clearModelsCache("chutes");
+  // Auto-select first image-capable profile if enabled but no profile selected
+  $effect(() => {
+    const imgSettings = settings.systemServicesSettings.imageGeneration;
+    if (imgSettings.enabled && !imgSettings.profileId) {
+      const profiles = getImageCapableProfiles();
+      if (profiles.length > 0) {
+        settings.systemServicesSettings.imageGeneration.profileId = profiles[0].id;
+        settings.saveSystemServicesSettings();
+      }
     }
-    const apiKey = settings.systemServicesSettings.imageGeneration.chutesApiKey;
-    isLoadingChutesModels = true;
-    chutesModelsError = null;
+  });
 
-    try {
-      chutesModels = await ImageGenerationService.listModels("chutes", apiKey);
-    } catch (error) {
-      chutesModelsError = error instanceof Error ? error.message : "Failed to load models";
-    } finally {
-      isLoadingChutesModels = false;
+  // Load standard models when profile changes
+  $effect(() => {
+    const profileId = settings.systemServicesSettings.imageGeneration.profileId;
+    if (profileId && standardModels.length === 0 && !isLoadingStandardModels) {
+      loadModelsForProfile(
+        profileId,
+        (m) => standardModels = m,
+        (l) => isLoadingStandardModels = l,
+        (e) => standardModelsError = e
+      );
     }
+  });
+
+  // Load portrait models when profile changes (only if portrait mode enabled)
+  $effect(() => {
+    const profileId = settings.systemServicesSettings.imageGeneration.portraitProfileId;
+    const portraitMode = settings.systemServicesSettings.imageGeneration.portraitMode;
+    if (portraitMode && profileId && portraitModels.length === 0 && !isLoadingPortraitModels) {
+      loadModelsForProfile(
+        profileId,
+        (m) => portraitModels = m,
+        (l) => isLoadingPortraitModels = l,
+        (e) => portraitModelsError = e
+      );
+    }
+  });
+
+  // Load reference models when profile changes (only if portrait mode enabled)
+  $effect(() => {
+    const profileId = settings.systemServicesSettings.imageGeneration.referenceProfileId;
+    const portraitMode = settings.systemServicesSettings.imageGeneration.portraitMode;
+    if (portraitMode && profileId && referenceModels.length === 0 && !isLoadingReferenceModels) {
+      loadModelsForProfile(
+        profileId,
+        (m) => referenceModels = m,
+        (l) => isLoadingReferenceModels = l,
+        (e) => referenceModelsError = e
+      );
+    }
+  });
+
+  // Handle profile change - reload models
+  function onProfileChange(profileId: string, type: 'standard' | 'portrait' | 'reference') {
+    const profile = settings.getProfile(profileId);
+    if (!profile) return;
+
+    if (type === 'standard') {
+      settings.systemServicesSettings.imageGeneration.profileId = profileId;
+      standardModels = [];
+      loadModelsForProfile(
+        profileId,
+        (m) => standardModels = m,
+        (l) => isLoadingStandardModels = l,
+        (e) => standardModelsError = e
+      );
+    } else if (type === 'portrait') {
+      settings.systemServicesSettings.imageGeneration.portraitProfileId = profileId;
+      portraitModels = [];
+      loadModelsForProfile(
+        profileId,
+        (m) => portraitModels = m,
+        (l) => isLoadingPortraitModels = l,
+        (e) => portraitModelsError = e
+      );
+    } else {
+      settings.systemServicesSettings.imageGeneration.referenceProfileId = profileId;
+      referenceModels = [];
+      loadModelsForProfile(
+        profileId,
+        (m) => referenceModels = m,
+        (l) => isLoadingReferenceModels = l,
+        (e) => referenceModelsError = e
+      );
+    }
+    settings.saveSystemServicesSettings();
   }
 
-  async function loadPollinationsModels(forceRefresh = false) {
-    if (forceRefresh) {
-      ImageGenerationService.clearModelsCache("pollinations");
-    }
-    const apiKey = settings.systemServicesSettings.imageGeneration.pollinationsApiKey;
-    isLoadingPollinationsModels = true;
-    pollinationsModelsError = null;
-
-    try {
-      pollinationsModels = await ImageGenerationService.listModels("pollinations", apiKey);
-    } catch (error) {
-      pollinationsModelsError = error instanceof Error ? error.message : "Failed to load models";
-    } finally {
-      isLoadingPollinationsModels = false;
-    }
+  // Get the currently selected profile for a type
+  function getSelectedProfile(type: 'standard' | 'portrait' | 'reference'): APIProfile | undefined {
+    const profileId = type === 'standard'
+      ? settings.systemServicesSettings.imageGeneration.profileId
+      : type === 'portrait'
+        ? settings.systemServicesSettings.imageGeneration.portraitProfileId
+        : settings.systemServicesSettings.imageGeneration.referenceProfileId;
+    return profileId ? settings.getProfile(profileId) : undefined;
   }
 
-  // Load models on first access (when provider selected and models not yet loaded)
-  $effect(() => {
-    const provider = settings.systemServicesSettings.imageGeneration.imageProvider ?? "nanogpt";
-
-    if (provider === "nanogpt" && nanoGptModels.length === 0 && !isLoadingNanoGptModels) {
-      loadNanoGptModels();
-    } else if (provider === "chutes" && chutesModels.length === 0 && !isLoadingChutesModels) {
-      loadChutesModels();
-    } else if (provider === "pollinations" && pollinationsModels.length === 0 && !isLoadingPollinationsModels) {
-      loadPollinationsModels();
-    }
-  });
-
-  // Validate selected model exists for Pollinations (only if models are loaded)
-  $effect(() => {
-    if (
-      settings.systemServicesSettings.imageGeneration.imageProvider !== "pollinations" ||
-      filteredPollinationsModels.length === 0
-    )
-      return;
-
-    const currentModel = settings.systemServicesSettings.imageGeneration.model;
-    const modelExists = filteredPollinationsModels.some((m) => m.id === currentModel);
-
-    if (!modelExists && !isLoadingPollinationsModels) {
-      const zimageModel = filteredPollinationsModels.find((m) => m.id === POLLINATIONS_DEFAULT_MODEL_ID);
-      settings.systemServicesSettings.imageGeneration.model = zimageModel
-        ? POLLINATIONS_DEFAULT_MODEL_ID
-        : filteredPollinationsModels[0].id;
-      settings.saveSystemServicesSettings();
-    }
-  });
-
-  // Validate selected model exists for NanoGPT (only if models are loaded)
-  $effect(() => {
-    if (
-      settings.systemServicesSettings.imageGeneration.imageProvider !== "nanogpt" ||
-      nanoGptModels.length === 0
-    )
-      return;
-
-    const currentModel = settings.systemServicesSettings.imageGeneration.model;
-    const modelExists = nanoGptModels.some((m) => m.id === currentModel);
-
-    if (!modelExists && !isLoadingNanoGptModels) {
-      const defaultModel = nanoGptModels.find((m) => m.id === "z-image-turbo");
-      settings.systemServicesSettings.imageGeneration.model = defaultModel
-        ? "z-image-turbo"
-        : nanoGptModels[0].id;
-      settings.saveSystemServicesSettings();
-    }
-  });
-
-  // Validate selected model exists for Chutes (only if models are loaded)
-  $effect(() => {
-    if (
-      settings.systemServicesSettings.imageGeneration.imageProvider !== "chutes" ||
-      chutesModels.length === 0
-    )
-      return;
-
-    const currentModel = settings.systemServicesSettings.imageGeneration.model;
-    const modelExists = chutesModels.some((m) => m.id === currentModel);
-
-    if (!modelExists && !isLoadingChutesModels) {
-      const defaultModel = chutesModels.find((m) => m.id === "z-image-turbo");
-      settings.systemServicesSettings.imageGeneration.model = defaultModel
-        ? "z-image-turbo"
-        : chutesModels[0].id;
-      settings.saveSystemServicesSettings();
-    }
-  });
+  const imageCapableProfiles = $derived(getImageCapableProfiles());
 </script>
 
 <div class="space-y-4">
@@ -202,424 +199,330 @@
       checked={settings.systemServicesSettings.imageGeneration.enabled}
       onCheckedChange={(v) => {
         settings.systemServicesSettings.imageGeneration.enabled = v;
+        // Auto-select first image-capable profile when enabling if none selected
+        if (v && !settings.systemServicesSettings.imageGeneration.profileId) {
+          const profiles = getImageCapableProfiles();
+          if (profiles.length > 0) {
+            settings.systemServicesSettings.imageGeneration.profileId = profiles[0].id;
+          }
+        }
         settings.saveSystemServicesSettings();
       }}
     />
   </div>
 
   {#if settings.systemServicesSettings.imageGeneration.enabled}
-  <!-- Image Provider Selection -->
-  <div>
-    <Label class="mb-2 block">Image Provider</Label>
-    <Select.Root
-      type="single"
-      value={settings.systemServicesSettings.imageGeneration.imageProvider ??
-        "nanogpt"}
-      onValueChange={(v) => {
-        const provider = v as "nanogpt" | "chutes" | "pollinations";
-        settings.systemServicesSettings.imageGeneration.imageProvider =
-          provider;
-        if (provider === "chutes") {
-          settings.systemServicesSettings.imageGeneration.referenceModel =
-            "qwen-image-edit-2511";
-        } else if (provider === "pollinations") {
-          settings.systemServicesSettings.imageGeneration.referenceModel =
-            POLLINATIONS_REFERENCE_MODEL_ID;
-          settings.systemServicesSettings.imageGeneration.model = POLLINATIONS_DEFAULT_MODEL_ID;
-        } else {
-          settings.systemServicesSettings.imageGeneration.referenceModel =
-            "qwen-image";
-        }
-        settings.saveSystemServicesSettings();
-      }}
-    >
-      <Select.Trigger class="h-10 w-full">
-        {imageProviders.find(
-          (p) =>
-            p.value ===
-            settings.systemServicesSettings.imageGeneration.imageProvider,
-        )?.label ?? "Select provider"}
-      </Select.Trigger>
-      <Select.Content>
-        {#each imageProviders as provider}
-          <Select.Item value={provider.value} label={provider.label}>
-            {provider.label}
-          </Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
-    <p class="mt-1 text-xs text-muted-foreground">
-      Configure your image generation service. Enable image generation for
-      specific stories in the Writing Style settings.
-    </p>
-  </div>
-
-  <!-- NanoGPT API Key -->
-  {#if (settings.systemServicesSettings.imageGeneration.imageProvider ?? "nanogpt") === "nanogpt"}
-    <div>
-      <Label class="mb-2 block">NanoGPT API Key</Label>
-      <div class="flex gap-2">
-        <Input
-          type="password"
-          class="flex-1"
-          value={settings.systemServicesSettings.imageGeneration.nanoGptApiKey}
-          oninput={(e) => {
-            settings.systemServicesSettings.imageGeneration.nanoGptApiKey =
-              e.currentTarget.value;
-            settings.saveSystemServicesSettings();
-          }}
-          placeholder="Enter your NanoGPT API key"
-        />
-        {#if settings.apiSettings.profiles.some((p) => p.baseUrl?.includes("nano-gpt.com") && p.apiKey)}
-          <Button
-            variant="outline"
-            onclick={() => {
-              const nanoProfile = settings.apiSettings.profiles.find(
-                (p) => p.baseUrl?.includes("nano-gpt.com") && p.apiKey,
-              );
-              if (nanoProfile?.apiKey) {
-                settings.systemServicesSettings.imageGeneration.nanoGptApiKey =
-                  nanoProfile.apiKey;
-                settings.saveSystemServicesSettings();
-              }
-            }}
-          >
-            Autofill
-          </Button>
-        {/if}
+    <!-- No profiles warning -->
+    {#if imageCapableProfiles.length === 0}
+      <div class="p-4 rounded-md bg-yellow-500/10 border border-yellow-500/20">
+        <p class="text-sm text-yellow-600 dark:text-yellow-400">
+          No API profiles with image generation support found.
+          Create a profile for OpenAI, NanoGPT, Chutes, Pollinations, or Google in the API Profiles tab.
+        </p>
       </div>
-    </div>
-  {/if}
-
-  <!-- Chutes API Key -->
-  {#if settings.systemServicesSettings.imageGeneration.imageProvider === "chutes"}
-    <div>
-      <Label class="mb-2 block">Chutes API Key</Label>
-      <Input
-        type="password"
-        class="w-full"
-        value={settings.systemServicesSettings.imageGeneration.chutesApiKey}
-        oninput={(e) => {
-          settings.systemServicesSettings.imageGeneration.chutesApiKey =
-            e.currentTarget.value;
-          settings.saveSystemServicesSettings();
-        }}
-        placeholder="Enter your Chutes API key"
-      />
-    </div>
-  {/if}
-
-  <!-- Pollinations API Key -->
-  {#if settings.systemServicesSettings.imageGeneration.imageProvider === "pollinations"}
-    <div>
-      <Label class="mb-2 block">Pollinations.ai API Key</Label>
-      <Input
-        type="password"
-        class="w-full"
-        value={settings.systemServicesSettings.imageGeneration
-          .pollinationsApiKey}
-        oninput={(e) => {
-          settings.systemServicesSettings.imageGeneration.pollinationsApiKey =
-            e.currentTarget.value;
-          settings.saveSystemServicesSettings();
-          loadPollinationsModels();
-        }}
-        placeholder="sk_..."
-      />
-      <p class="mt-1 text-xs text-muted-foreground">
-        Get your API key at <a
-          href="https://enter.pollinations.ai"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="text-primary hover:underline">enter.pollinations.ai</a
+    {:else}
+      <!-- Standard Image Profile -->
+      <div>
+        <Label class="mb-2 block">Image Generation Profile</Label>
+        <Select.Root
+          type="single"
+          value={settings.systemServicesSettings.imageGeneration.profileId ?? ""}
+          onValueChange={(v) => onProfileChange(v, 'standard')}
         >
-      </p>
-    </div>
-  {/if}
+          <Select.Trigger class="h-10 w-full">
+            {#if getSelectedProfile('standard')}
+              {getSelectedProfile('standard')?.name} ({getSelectedProfile('standard')?.providerType})
+            {:else}
+              Select a profile
+            {/if}
+          </Select.Trigger>
+          <Select.Content>
+            {#each imageCapableProfiles as profile}
+              <Select.Item value={profile.id} label={`${profile.name} (${profile.providerType})`}>
+                {profile.name} <span class="text-muted-foreground">({profile.providerType})</span>
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+        <p class="mt-1 text-xs text-muted-foreground">
+          Select the API profile to use for image generation.
+        </p>
+      </div>
 
-  <!-- Image Model -->
-  {#if !settings.systemServicesSettings.imageGeneration.portraitMode}
-    <div>
-      <Label class="mb-2 block">Image Model</Label>
-      {#if settings.systemServicesSettings.imageGeneration.imageProvider === "pollinations"}
-        <ImageModelSelect
-          models={filteredPollinationsModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.model}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.model = id;
-            settings.saveSystemServicesSettings();
-          }}
-          showCost={true}
-          showImg2ImgIndicator={true}
-          showDescription={false}
-          isLoading={isLoadingPollinationsModels}
-          errorMessage={pollinationsModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadPollinationsModels(true)}
-        />
-      {:else if settings.systemServicesSettings.imageGeneration.imageProvider === "nanogpt"}
-        <ImageModelSelect
-          models={nanoGptModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.model}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.model = id;
-            settings.saveSystemServicesSettings();
-          }}
-          showCost={true}
-          showImg2ImgIndicator={true}
-          showDescription={false}
-          isLoading={isLoadingNanoGptModels}
-          errorMessage={nanoGptModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadNanoGptModels(true)}
-        />
-      {:else if settings.systemServicesSettings.imageGeneration.imageProvider === "chutes"}
-        <ImageModelSelect
-          models={chutesModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.model}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.model = id;
-            settings.saveSystemServicesSettings();
-          }}
-          showCost={false}
-          showImg2ImgIndicator={true}
-          showDescription={false}
-          isLoading={isLoadingChutesModels}
-          errorMessage={chutesModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadChutesModels(true)}
-        />
+      <!-- Image Model (only show when not in portrait mode) -->
+      {#if settings.systemServicesSettings.imageGeneration.profileId && !settings.systemServicesSettings.imageGeneration.portraitMode}
+        <div>
+          <Label class="mb-2 block">Image Model</Label>
+          <ImageModelSelect
+            models={standardModels}
+            selectedModelId={settings.systemServicesSettings.imageGeneration.model}
+            onModelChange={(id) => {
+              settings.systemServicesSettings.imageGeneration.model = id;
+              settings.saveSystemServicesSettings();
+            }}
+            showCost={true}
+            showImg2ImgIndicator={true}
+            showDescription={false}
+            isLoading={isLoadingStandardModels}
+            errorMessage={standardModelsError}
+            showRefreshButton={true}
+            onRefresh={() => loadModelsForProfile(
+              settings.systemServicesSettings.imageGeneration.profileId,
+              (m) => standardModels = m,
+              (l) => isLoadingStandardModels = l,
+              (e) => standardModelsError = e,
+              true
+            )}
+          />
+          <p class="mt-1 text-xs text-muted-foreground">
+            The image model to use for generation.
+          </p>
+        </div>
       {/if}
-      <p class="mt-1 text-xs text-muted-foreground">
-        The image model to use for generation.
-      </p>
-    </div>
-  {/if}
 
-  <!-- Image Style -->
-  <div>
-    <Label class="mb-2 block">Image Style</Label>
-    <Select.Root
-      type="single"
-      value={settings.systemServicesSettings.imageGeneration.styleId}
-      onValueChange={(v) => {
-        settings.systemServicesSettings.imageGeneration.styleId = v;
-        settings.saveSystemServicesSettings();
-      }}
-    >
-      <Select.Trigger class="h-10 w-full">
-        {imageStyles.find(
-          (s) =>
-            s.value === settings.systemServicesSettings.imageGeneration.styleId,
-        )?.label ?? "Select style"}
-      </Select.Trigger>
-      <Select.Content>
-        {#each imageStyles as style}
-          <Select.Item value={style.value} label={style.label}>
-            {style.label}
-          </Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
-    <p class="mt-1 text-xs text-muted-foreground">
-      Visual style for generated images. Edit styles in the Prompts tab.
-    </p>
-  </div>
-
-  <!-- Image Size -->
-  <div>
-    <Label class="mb-2 block">Image Size</Label>
-    <Select.Root
-      type="single"
-      value={settings.systemServicesSettings.imageGeneration.size}
-      onValueChange={(v) => {
-        settings.systemServicesSettings.imageGeneration.size = v as
-          | "512x512"
-          | "1024x1024"
-          | "2048x2048";
-        settings.saveSystemServicesSettings();
-      }}
-    >
-      <Select.Trigger class="h-10 w-full">
-        {imageSizes.find(
-          (s) =>
-            s.value === settings.systemServicesSettings.imageGeneration.size,
-        )?.label ?? "Select size"}
-      </Select.Trigger>
-      <Select.Content>
-        {#each imageSizes as size}
-          <Select.Item value={size.value} label={size.label}>
-            {size.label}
-          </Select.Item>
-        {/each}
-      </Select.Content>
-    </Select.Root>
-  </div>
-
-  <!-- Max Images Per Message -->
-  <div>
-    <Label class="mb-2 block">
-      Max Images Per Message: {settings.systemServicesSettings.imageGeneration
-        .maxImagesPerMessage === 0
-        ? "Unlimited"
-        : settings.systemServicesSettings.imageGeneration.maxImagesPerMessage}
-    </Label>
-    <Slider
-      value={[
-        settings.systemServicesSettings.imageGeneration.maxImagesPerMessage,
-      ]}
-      onValueChange={(v) => {
-        settings.systemServicesSettings.imageGeneration.maxImagesPerMessage =
-          v[0];
-        settings.saveSystemServicesSettings();
-      }}
-      min={0}
-      max={5}
-      step={1}
-      class="w-full"
-    />
-    <p class="mt-1 text-xs text-muted-foreground">
-      Maximum images per narrative (0 = unlimited).
-    </p>
-  </div>
-
-  <!-- Portrait Reference Mode -->
-  <div class="flex items-center justify-between">
-    <div>
-      <Label>Portrait Reference Mode</Label>
-      <p class="text-xs text-muted-foreground">
-        Use character portraits as reference images when generating story
-        images.
-      </p>
-    </div>
-    <Switch
-      checked={settings.systemServicesSettings.imageGeneration.portraitMode}
-      onCheckedChange={(v) => {
-        settings.systemServicesSettings.imageGeneration.portraitMode = v;
-        settings.saveSystemServicesSettings();
-      }}
-    />
-  </div>
-
-  {#if settings.systemServicesSettings.imageGeneration.portraitMode}
-    <!-- Portrait Generation Model -->
-    <div>
-      <Label class="mb-2 block">Portrait Generation Model</Label>
-      {#if settings.systemServicesSettings.imageGeneration.imageProvider === "pollinations"}
-        <ImageModelSelect
-          models={filteredPollinationsModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.portraitModel}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.portraitModel = id;
+      <!-- Image Style -->
+      <div>
+        <Label class="mb-2 block">Image Style</Label>
+        <Select.Root
+          type="single"
+          value={settings.systemServicesSettings.imageGeneration.styleId}
+          onValueChange={(v) => {
+            settings.systemServicesSettings.imageGeneration.styleId = v;
             settings.saveSystemServicesSettings();
           }}
-          showCost={true}
-          showImg2ImgIndicator={true}
-          isLoading={isLoadingPollinationsModels}
-          errorMessage={pollinationsModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadPollinationsModels(true)}
-        />
-      {:else if settings.systemServicesSettings.imageGeneration.imageProvider === "nanogpt"}
-        <ImageModelSelect
-          models={nanoGptModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.portraitModel}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.portraitModel = id;
+        >
+          <Select.Trigger class="h-10 w-full">
+            {imageStyles.find(
+              (s) =>
+                s.value === settings.systemServicesSettings.imageGeneration.styleId,
+            )?.label ?? "Select style"}
+          </Select.Trigger>
+          <Select.Content>
+            {#each imageStyles as style}
+              <Select.Item value={style.value} label={style.label}>
+                {style.label}
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+        <p class="mt-1 text-xs text-muted-foreground">
+          Visual style for generated images. Edit styles in the Prompts tab.
+        </p>
+      </div>
+
+      <!-- Image Size -->
+      <div>
+        <Label class="mb-2 block">Image Size</Label>
+        <Select.Root
+          type="single"
+          value={settings.systemServicesSettings.imageGeneration.size}
+          onValueChange={(v) => {
+            settings.systemServicesSettings.imageGeneration.size = v as
+              | "512x512"
+              | "1024x1024"
+              | "2048x2048";
             settings.saveSystemServicesSettings();
           }}
-          showCost={true}
-          showImg2ImgIndicator={true}
-          isLoading={isLoadingNanoGptModels}
-          errorMessage={nanoGptModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadNanoGptModels(true)}
-        />
-      {:else if settings.systemServicesSettings.imageGeneration.imageProvider === "chutes"}
-        <ImageModelSelect
-          models={chutesModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.portraitModel}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.portraitModel = id;
+        >
+          <Select.Trigger class="h-10 w-full">
+            {imageSizes.find(
+              (s) =>
+                s.value === settings.systemServicesSettings.imageGeneration.size,
+            )?.label ?? "Select size"}
+          </Select.Trigger>
+          <Select.Content>
+            {#each imageSizes as size}
+              <Select.Item value={size.value} label={size.label}>
+                {size.label}
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+      </div>
+
+      <!-- Max Images Per Message -->
+      <div>
+        <Label class="mb-2 block">
+          Max Images Per Message: {settings.systemServicesSettings.imageGeneration
+            .maxImagesPerMessage === 0
+            ? "Unlimited"
+            : settings.systemServicesSettings.imageGeneration.maxImagesPerMessage}
+        </Label>
+        <Slider
+          type="multiple"
+          value={[
+            settings.systemServicesSettings.imageGeneration.maxImagesPerMessage,
+          ]}
+          onValueChange={(v: number[]) => {
+            settings.systemServicesSettings.imageGeneration.maxImagesPerMessage =
+              v[0];
             settings.saveSystemServicesSettings();
           }}
-          showCost={false}
-          showImg2ImgIndicator={true}
-          isLoading={isLoadingChutesModels}
-          errorMessage={chutesModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadChutesModels(true)}
+          min={0}
+          max={5}
+          step={1}
+          class="w-full"
         />
+        <p class="mt-1 text-xs text-muted-foreground">
+          Maximum images per narrative (0 = unlimited).
+        </p>
+      </div>
+
+      <!-- Portrait Reference Mode -->
+      <div class="flex items-center justify-between">
+        <div>
+          <Label>Portrait Reference Mode</Label>
+          <p class="text-xs text-muted-foreground">
+            Use character portraits as reference images when generating story
+            images.
+          </p>
+        </div>
+        <Switch
+          checked={settings.systemServicesSettings.imageGeneration.portraitMode}
+          onCheckedChange={(v) => {
+            settings.systemServicesSettings.imageGeneration.portraitMode = v;
+            settings.saveSystemServicesSettings();
+          }}
+        />
+      </div>
+
+      {#if settings.systemServicesSettings.imageGeneration.portraitMode}
+        <!-- Portrait Generation Profile -->
+        <div>
+          <Label class="mb-2 block">Portrait Generation Profile</Label>
+          <Select.Root
+            type="single"
+            value={settings.systemServicesSettings.imageGeneration.portraitProfileId ?? settings.systemServicesSettings.imageGeneration.profileId ?? ""}
+            onValueChange={(v) => onProfileChange(v, 'portrait')}
+          >
+            <Select.Trigger class="h-10 w-full">
+              {#if getSelectedProfile('portrait') || getSelectedProfile('standard')}
+                {(getSelectedProfile('portrait') || getSelectedProfile('standard'))?.name}
+                ({(getSelectedProfile('portrait') || getSelectedProfile('standard'))?.providerType})
+              {:else}
+                Select a profile
+              {/if}
+            </Select.Trigger>
+            <Select.Content>
+              {#each imageCapableProfiles as profile}
+                <Select.Item value={profile.id} label={`${profile.name} (${profile.providerType})`}>
+                  {profile.name} <span class="text-muted-foreground">({profile.providerType})</span>
+                </Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+          <p class="mt-1 text-xs text-muted-foreground">
+            Profile used for generating character portraits.
+          </p>
+        </div>
+
+        <!-- Portrait Model -->
+        {#if settings.systemServicesSettings.imageGeneration.portraitProfileId || settings.systemServicesSettings.imageGeneration.profileId}
+          <div>
+            <Label class="mb-2 block">Portrait Generation Model</Label>
+            <ImageModelSelect
+              models={portraitModels.length > 0 ? portraitModels : standardModels}
+              selectedModelId={settings.systemServicesSettings.imageGeneration.portraitModel}
+              onModelChange={(id) => {
+                settings.systemServicesSettings.imageGeneration.portraitModel = id;
+                settings.saveSystemServicesSettings();
+              }}
+              showCost={true}
+              showImg2ImgIndicator={true}
+              isLoading={isLoadingPortraitModels || isLoadingStandardModels}
+              errorMessage={portraitModelsError || standardModelsError}
+              showRefreshButton={true}
+              onRefresh={() => {
+                const profileId = settings.systemServicesSettings.imageGeneration.portraitProfileId
+                  || settings.systemServicesSettings.imageGeneration.profileId;
+                loadModelsForProfile(
+                  profileId,
+                  (m) => portraitModels = m,
+                  (l) => isLoadingPortraitModels = l,
+                  (e) => portraitModelsError = e,
+                  true
+                );
+              }}
+            />
+            <p class="mt-1 text-xs text-muted-foreground">
+              Model used when generating character portraits from visual descriptors.
+            </p>
+          </div>
+        {/if}
+
+        <!-- Reference Image Profile -->
+        <div>
+          <Label class="mb-2 block">Reference Image Profile</Label>
+          <Select.Root
+            type="single"
+            value={settings.systemServicesSettings.imageGeneration.referenceProfileId ?? settings.systemServicesSettings.imageGeneration.profileId ?? ""}
+            onValueChange={(v) => onProfileChange(v, 'reference')}
+          >
+            <Select.Trigger class="h-10 w-full">
+              {#if getSelectedProfile('reference') || getSelectedProfile('standard')}
+                {(getSelectedProfile('reference') || getSelectedProfile('standard'))?.name}
+                ({(getSelectedProfile('reference') || getSelectedProfile('standard'))?.providerType})
+              {:else}
+                Select a profile
+              {/if}
+            </Select.Trigger>
+            <Select.Content>
+              {#each imageCapableProfiles as profile}
+                <Select.Item value={profile.id} label={`${profile.name} (${profile.providerType})`}>
+                  {profile.name} <span class="text-muted-foreground">({profile.providerType})</span>
+                </Select.Item>
+              {/each}
+            </Select.Content>
+          </Select.Root>
+          <p class="mt-1 text-xs text-muted-foreground">
+            Profile used for image-to-image generation with portrait references.
+          </p>
+        </div>
+
+        <!-- Reference Model -->
+        {#if settings.systemServicesSettings.imageGeneration.referenceProfileId || settings.systemServicesSettings.imageGeneration.profileId}
+          <div>
+            <Label class="mb-2 block">Reference Image Model</Label>
+            <ImageModelSelect
+              models={referenceImg2ImgModels.length > 0 ? referenceImg2ImgModels : (referenceModels.length > 0 ? referenceModels : standardModels.filter(m => m.supportsImg2Img))}
+              selectedModelId={settings.systemServicesSettings.imageGeneration.referenceModel}
+              onModelChange={(id) => {
+                settings.systemServicesSettings.imageGeneration.referenceModel = id;
+                settings.saveSystemServicesSettings();
+              }}
+              showCost={true}
+              showImg2ImgIndicator={false}
+              isLoading={isLoadingReferenceModels || isLoadingStandardModels}
+              errorMessage={referenceModelsError || standardModelsError}
+              showRefreshButton={true}
+              onRefresh={() => {
+                const profileId = settings.systemServicesSettings.imageGeneration.referenceProfileId
+                  || settings.systemServicesSettings.imageGeneration.profileId;
+                loadModelsForProfile(
+                  profileId,
+                  (m) => referenceModels = m,
+                  (l) => isLoadingReferenceModels = l,
+                  (e) => referenceModelsError = e,
+                  true
+                );
+              }}
+            />
+            <p class="mt-1 text-xs text-muted-foreground">
+              Model used for story images when a character portrait is attached as reference.
+            </p>
+          </div>
+        {/if}
       {/if}
-      <p class="mt-1 text-xs text-muted-foreground">
-        Model used when generating character portraits from visual descriptors.
-      </p>
-    </div>
 
-    <!-- Reference Image Model -->
-    <div>
-      <Label class="mb-2 block">Reference Image Model</Label>
-      {#if settings.systemServicesSettings.imageGeneration.imageProvider === "pollinations"}
-        <ImageModelSelect
-          models={pollinationsImg2ImgModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.referenceModel}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.referenceModel = id;
-            settings.saveSystemServicesSettings();
-          }}
-          showCost={true}
-          showImg2ImgIndicator={false}
-          isLoading={isLoadingPollinationsModels}
-          errorMessage={pollinationsModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadPollinationsModels(true)}
-        />
-      {:else if settings.systemServicesSettings.imageGeneration.imageProvider === "nanogpt"}
-        <ImageModelSelect
-          models={nanoGptImg2ImgModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.referenceModel}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.referenceModel = id;
-            settings.saveSystemServicesSettings();
-          }}
-          showCost={true}
-          showImg2ImgIndicator={false}
-          isLoading={isLoadingNanoGptModels}
-          errorMessage={nanoGptModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadNanoGptModels(true)}
-        />
-      {:else if settings.systemServicesSettings.imageGeneration.imageProvider === "chutes"}
-        <ImageModelSelect
-          models={chutesImg2ImgModels}
-          selectedModelId={settings.systemServicesSettings.imageGeneration.referenceModel}
-          onModelChange={(id) => {
-            settings.systemServicesSettings.imageGeneration.referenceModel = id;
-            settings.saveSystemServicesSettings();
-          }}
-          showCost={false}
-          showImg2ImgIndicator={false}
-          isLoading={isLoadingChutesModels}
-          errorMessage={chutesModelsError}
-          showRefreshButton={true}
-          onRefresh={() => loadChutesModels(true)}
-        />
-      {/if}
-      <p class="mt-1 text-xs text-muted-foreground">
-        Model used for story images when a character portrait is attached as
-        reference.
-      </p>
-    </div>
-  {/if}
-
-  <!-- Reset Button -->
-  <Button
-    variant="outline"
-    size="sm"
-    onclick={() => settings.resetImageGenerationSettings()}
-  >
-    <RotateCcw class="h-3 w-3 mr-1" />
-    Reset to Defaults
-  </Button>
+      <!-- Reset Button -->
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={() => settings.resetImageGenerationSettings()}
+      >
+        <RotateCcw class="h-3 w-3 mr-1" />
+        Reset to Defaults
+      </Button>
+    {/if}
   {/if}
 </div>

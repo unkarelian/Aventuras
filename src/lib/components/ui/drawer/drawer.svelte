@@ -5,8 +5,10 @@
 		shouldScaleBackground = true,
 		open = $bindable(false),
 		activeSnapPoint = $bindable(null),
+		handleOnly = true,
+		closeThreshold = 0.75,
 		...restProps
 	}: DrawerPrimitive.RootProps = $props();
 </script>
 
-<DrawerPrimitive.Root {shouldScaleBackground} bind:open bind:activeSnapPoint {...restProps} />
+<DrawerPrimitive.Root {shouldScaleBackground} bind:open bind:activeSnapPoint {handleOnly} {closeThreshold} {...restProps} />

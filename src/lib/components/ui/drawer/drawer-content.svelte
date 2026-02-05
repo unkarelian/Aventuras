@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Drawer as DrawerPrimitive } from "vaul-svelte";
 	import DrawerOverlay from "./drawer-overlay.svelte";
+	import DrawerHandle from "./drawer-handle.svelte";
 	import { cn } from "$lib/utils/cn.js";
 
 	let {
@@ -24,7 +25,7 @@
 		)}
 		{...restProps}
 	>
-		<div class="bg-muted mx-auto mt-4 h-2 w-[100px] rounded-full"></div>
+		<DrawerHandle />
 		{@render children?.()}
 	</DrawerPrimitive.Content>
 </DrawerPrimitive.Portal>

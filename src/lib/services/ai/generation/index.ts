@@ -3,6 +3,7 @@
  *
  * Story narrative generation services:
  * - AIService: Main orchestrator for all AI operations
+ * - NarrativeService: Core narrative generation
  * - ClassifierService: Extract world state from narrative
  * - MemoryService: Chapter summarization and memory retrieval
  * - SuggestionsService: Story direction suggestions
@@ -14,44 +15,45 @@
 // Main orchestrator (exports singleton instance)
 export { aiService } from '../index';
 
-// Classification
+// Narrative generation
 export {
-  ClassifierService,
-  type ClassificationResult,
-  type ClassificationContext,
-  type ClassificationChatEntry,
-  type CharacterUpdate,
-  type LocationUpdate,
-  type ItemUpdate,
-  type StoryBeatUpdate,
-  type NewCharacter,
-  type NewLocation,
-  type NewItem,
-  type NewStoryBeat,
-} from './ClassifierService';
+  NarrativeService,
+  type NarrativeWorldState,
+  type NarrativeOptions,
+} from './NarrativeService';
+
+// Classification
+export { ClassifierService, type ClassificationContext } from './ClassifierService';
+// Classifier output types - import from schema
+export type {
+  ClassificationResult,
+  EntryUpdates,
+  Scene,
+  CharacterUpdate,
+  NewCharacter,
+  LocationUpdate,
+  NewLocation,
+  ItemUpdate,
+  NewItem,
+  StoryBeatUpdate,
+  NewStoryBeat,
+} from '../sdk/schemas/classifier';
 
 // Memory
-export {
-  MemoryService,
-  DEFAULT_MEMORY_CONFIG,
-  type ChapterAnalysis,
-  type ChapterSummary,
-  type RetrievalDecision,
-  type RetrievedContext,
-} from './MemoryService';
+export { MemoryService, DEFAULT_MEMORY_CONFIG, type RetrievedContext, type RetrievalContext } from './MemoryService';
+// Memory output types - import from schema
+export type {
+  ChapterAnalysis,
+  ChapterSummaryResult,
+  RetrievalDecision,
+} from '../sdk/schemas/memory';
 
-// Suggestions and choices
-export {
-  SuggestionsService,
-  type StorySuggestion,
-  type SuggestionsResult,
-} from './SuggestionsService';
+// Suggestions and choices - types exported from schemas
+export { SuggestionsService } from './SuggestionsService';
+export type { Suggestion, SuggestionsResult } from '../sdk/schemas/suggestions';
 
-export {
-  ActionChoicesService,
-  type ActionChoice,
-  type ActionChoicesResult,
-} from './ActionChoicesService';
+export { ActionChoicesService } from './ActionChoicesService';
+export type { ActionChoice, ActionChoicesResult } from '../sdk/schemas/actionchoices';
 
 // Style analysis
 export {

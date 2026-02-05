@@ -1,12 +1,9 @@
 <script lang="ts">
   import { story } from '$lib/stores/story.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import { settings } from '$lib/stores/settings.svelte';
   import { database } from '$lib/services/database';
   import { imageExportService } from '$lib/services/imageExport';
-  import { ImageGenerationService } from '$lib/services/ai/image/ImageGenerationService';
-  import { promptService } from '$lib/services/prompts';
-  import { DEFAULT_FALLBACK_STYLE_PROMPT } from '$lib/services/ai/image/constants';
+  import { retryImageGeneration } from '$lib/services/ai/image';
   import type { EmbeddedImage } from '$lib/types';
   import { Download, ImageIcon, AlertCircle, X, RefreshCw, ChevronLeft, ChevronRight, Pencil, RotateCcw } from 'lucide-svelte';
   import { Button } from '$lib/components/ui/button';
@@ -134,10 +131,10 @@
 
   function openLightbox(index: number) {
     lightboxImageIndex = index;
-    // Pre-fill the prompt (remove style suffix)
+    // Show the full stored prompt - user can edit as needed
     const image = images[index];
     if (image) {
-      editingImagePrompt = image.prompt.split('. ').slice(0, -1).join('. ') || image.prompt;
+      editingImagePrompt = image.prompt;
     }
     lightboxOpen = true;
   }
@@ -200,11 +197,21 @@
     lightboxOpen && images.length > 0 ? images[lightboxImageIndex] : null
   );
 
+  // Update prompt when navigating between images in lightbox
+  $effect(() => {
+    if (lightboxOpen && images.length > 0) {
+      const image = images[lightboxImageIndex];
+      if (image) {
+        editingImagePrompt = image.prompt;
+      }
+    }
+  });
+
   // Open edit modal for an image
   function openEditModal(image: EmbeddedImage) {
     editingImageId = image.id;
-    // Extract the original prompt from the stored prompt (remove style suffix)
-    editingImagePrompt = image.prompt.split('. ').slice(0, -1).join('. ') || image.prompt;
+    // Show the full stored prompt - user can edit as needed
+    editingImagePrompt = image.prompt;
     isEditingImage = true;
   }
 
@@ -222,30 +229,15 @@
     const image = images.find(img => img.id === editingImageId);
     if (!image) return;
 
-    // Get style prompt and append it
-    const imageSettings = settings.systemServicesSettings.imageGeneration;
-    const styleId = imageSettings.styleId;
-    let stylePrompt = '';
-    try {
-      const promptContext = {
-        mode: 'adventure' as const,
-        pov: 'second' as const,
-        tense: 'present' as const,
-        protagonistName: '',
-      };
-      stylePrompt = promptService.getPrompt(styleId, promptContext) || '';
-    } catch {
-      stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT;
-    }
-
-    const fullPrompt = `${editingImagePrompt.trim()}. ${stylePrompt}`;
+    // Use the prompt as-is - don't append style (user has full control)
+    const fullPrompt = editingImagePrompt.trim();
 
     // Close modal and regenerate
     isEditingImage = false;
     closeLightbox();
 
     // Use centralized retry logic from ImageGenerationService
-    await ImageGenerationService.retryImageGeneration(editingImageId, fullPrompt);
+    await retryImageGeneration(editingImageId, fullPrompt);
 
     editingImageId = null;
     editingImagePrompt = '';
@@ -256,37 +248,9 @@
 
   // Regenerate image with same prompt
   async function handleRegenerateImage(image: EmbeddedImage) {
-    let finalPrompt = image.prompt;
-
-    // Try to reconstruct prompt with CURRENT style for inline images
-    if (image.generationMode === 'inline' && image.sourceText?.startsWith('<pic')) {
-      const match = image.sourceText.match(/prompt=["']([^"']+)["']/i);
-      if (match && match[1]) {
-        const rawPrompt = match[1];
-        const imageSettings = settings.systemServicesSettings.imageGeneration;
-        const styleId = imageSettings.styleId;
-        let stylePrompt = '';
-        try {
-          const promptContext = {
-            mode: 'adventure' as const,
-            pov: 'second' as const,
-            tense: 'present' as const,
-            protagonistName: '',
-          };
-          stylePrompt = promptService.getPrompt(styleId, promptContext) || '';
-        } catch {
-          stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT;
-        }
-        finalPrompt = `${rawPrompt}. ${stylePrompt}`;
-      }
-    }
-
+    // Use the stored prompt as-is
     closeLightbox();
-
-    // Use centralized retry logic
-    await ImageGenerationService.retryImageGeneration(image.id, finalPrompt);
-
-    // Refresh gallery images
+    await retryImageGeneration(image.id, image.prompt);
     await refreshImages();
   }
 </script>

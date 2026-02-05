@@ -10,23 +10,13 @@ export interface ManualBodyDefaults {
   stopSequences?: string[];
   baseProvider?: Record<string, unknown>;
   reasoningEffort?: ReasoningEffort;
-  providerOnly?: string[];
 }
 
 export interface ExtraBodyOptions {
   manualMode: boolean;
   manualBody?: string | null;
   reasoningEffort?: ReasoningEffort;
-  providerOnly?: string[];
   baseProvider?: Record<string, unknown>;
-}
-
-export function normalizeProviderOnly(list?: string[] | null): string[] {
-  if (!list) return [];
-  const normalized = list
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-  return [...new Set(normalized)];
 }
 
 export function buildReasoningConfig(effort: ReasoningEffort | undefined): Record<string, unknown> {
@@ -37,16 +27,11 @@ export function buildReasoningConfig(effort: ReasoningEffort | undefined): Recor
 }
 
 export function buildProviderConfig(
-  baseProvider?: Record<string, unknown>,
-  providerOnly?: string[]
+  baseProvider?: Record<string, unknown>
 ): Record<string, unknown> | undefined {
-  const only = normalizeProviderOnly(providerOnly);
   const provider: Record<string, unknown> = {
     ...(baseProvider ?? {}),
   };
-  if (only.length > 0) {
-    provider.only = only;
-  }
   return Object.keys(provider).length > 0 ? provider : undefined;
 }
 
@@ -84,7 +69,7 @@ export function buildExtraBody(options: ExtraBodyOptions): Record<string, unknow
   }
 
   const reasoning = buildReasoningConfig(options.reasoningEffort ?? 'off');
-  const provider = buildProviderConfig(options.baseProvider, options.providerOnly);
+  const provider = buildProviderConfig(options.baseProvider);
   const extraBody: Record<string, unknown> = {};
 
   if (provider) {
@@ -98,7 +83,7 @@ export function buildExtraBody(options: ExtraBodyOptions): Record<string, unknow
 }
 
 export function buildManualBodyDefaults(options: ManualBodyDefaults): Record<string, unknown> {
-  const provider = buildProviderConfig(options.baseProvider, options.providerOnly);
+  const provider = buildProviderConfig(options.baseProvider);
   const reasoning = buildReasoningConfig(options.reasoningEffort ?? 'off');
   const body: Record<string, unknown> = {
     model: options.model,

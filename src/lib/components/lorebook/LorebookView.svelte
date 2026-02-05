@@ -173,7 +173,7 @@
               </div>
               <h2 class="font-semibold text-foreground">New Entry</h2>
             </div>
-            <div class="flex-1 overflow-y-auto p-4 pb-safe">
+            <div class="flex-1 overflow-y-auto p-4">
               <LorebookEntryForm
                 onSave={handleSaveNew}
                 onCancel={handleCancelNew}

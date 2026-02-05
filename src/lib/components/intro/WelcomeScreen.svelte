@@ -138,7 +138,7 @@
 </script>
 
 <div
-  class="fixed inset-0 z-50 flex h-full w-full flex-col items-center justify-center bg-background p-4 text-center overflow-y-auto overflow-x-hidden"
+  class="welcome-screen fixed inset-0 z-50 flex h-full w-full flex-col items-center justify-center bg-background p-4 text-center overflow-y-auto overflow-x-hidden"
   out:fade={{ duration: 300 }}
 >
   <div class="mb-8 space-y-2">
@@ -441,3 +441,10 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .welcome-screen {
+    padding-top: max(env(safe-area-inset-top, 0px), 1rem);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 1rem);
+  }
+</style>

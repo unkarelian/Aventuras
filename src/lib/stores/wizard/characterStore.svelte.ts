@@ -10,6 +10,7 @@ import { TranslationService } from "$lib/services/ai/utils/TranslationService";
 import { settings } from "$lib/stores/settings.svelte";
 import { characterVault } from "$lib/stores/characterVault.svelte";
 import type { StoryMode, POV, VaultCharacter } from "$lib/types";
+import { descriptorsToString, stringToDescriptors } from "$lib/utils/visualDescriptors";
 import {
   convertCardToScenario,
   readCharacterCardFile,
@@ -415,7 +416,7 @@ export class CharacterStore {
     this.manualCharacterBackground = (metadata.background as string) || "";
     this.manualCharacterMotivation = (metadata.motivation as string) || "";
     this.manualCharacterTraits = vaultCharacter.traits.join(", ");
-    visualDescriptorsSetter(vaultCharacter.visualDescriptors.join(", "));
+    visualDescriptorsSetter(descriptorsToString(vaultCharacter.visualDescriptors));
     portraitSetter(vaultCharacter.portrait);
 
     this.showProtagonistVaultPicker = false;
@@ -437,10 +438,7 @@ export class CharacterStore {
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean),
-      visualDescriptors: visualDescriptors
-        .split(",")
-        .map((d) => d.trim())
-        .filter(Boolean),
+      visualDescriptors: stringToDescriptors(visualDescriptors),
       portrait: portrait,
       tags: [],
       favorite: false,
@@ -469,7 +467,7 @@ export class CharacterStore {
     this.supportingCharacterRelationship = (metadata.relationshipTemplate as string) || "";
     this.supportingCharacterTraits = vaultCharacter.traits.join(", ");
     
-    visualDescriptorsSetter(vaultCharacter.name, vaultCharacter.visualDescriptors.join(", "));
+    visualDescriptorsSetter(vaultCharacter.name, descriptorsToString(vaultCharacter.visualDescriptors));
     portraitSetter(vaultCharacter.name, vaultCharacter.portrait);
     
     this.supportingCharacterVaultId = vaultCharacter.id;

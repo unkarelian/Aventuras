@@ -37,8 +37,8 @@ export {
   getDefaultTimelineFillSettings,
   type TimelineFillResult,
   type TimelineFillSettings,
-  type TimelineQuery,
   type ResolvedTimelineQuery,
   type TimelineQueryResult,
   type TimelineChapterInfo,
 } from './TimelineFillService';
+export type { TimelineQuery } from '../sdk/schemas/timeline';

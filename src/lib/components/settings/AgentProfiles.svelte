@@ -1,7 +1,6 @@
 <script lang="ts">
   import { settings } from "$lib/stores/settings.svelte";
   import type { GenerationPreset } from "$lib/types";
-  import type { ProviderInfo } from "$lib/services/ai/types";
   import { ask } from "@tauri-apps/plugin-dialog";
   import {
     X,
@@ -22,8 +21,12 @@
     Plus,
     Trash2,
     Check,
+    Copy,
+    AlertCircle,
+    AlertTriangle,
   } from "lucide-svelte";
   import ModelSelector from "./ModelSelector.svelte";
+  import { supportsReasoning, modelSupportsReasoning } from "$lib/services/ai/sdk/providers";
 
   // Shadcn Components
   import * as Card from "$lib/components/ui/card";
@@ -33,12 +36,6 @@
   import { Slider } from "$lib/components/ui/slider";
   import { Textarea } from "$lib/components/ui/textarea";
   import { cn } from "$lib/utils/cn";
-
-  interface Props {
-    providerOptions: ProviderInfo[];
-  }
-
-  let { providerOptions }: Props = $props();
 
   const reasoningLevels = ["off", "low", "medium", "high"] as const;
   const reasoningLabels: Record<string, string> = {
@@ -310,14 +307,13 @@
       temperature: 0.7,
       maxTokens: 4096,
       reasoningEffort: "off",
-      providerOnly: [],
       manualBody: "",
     };
     editingPresetId = newId;
   }
 
   function startEditingPreset(preset: GenerationPreset) {
-    tempPreset = { ...preset, providerOnly: [...preset.providerOnly] };
+    tempPreset = { ...preset };
     editingPresetId = preset.id;
   }
 
@@ -387,6 +383,24 @@
     );
   }
 
+  async function handleApplyMainToAll() {
+    const confirmed = await ask(
+      "Apply the Main Narrative profile and model to all agent profiles?",
+      { title: "Apply Main to All", kind: "warning" },
+    );
+    if (!confirmed) return;
+
+    const mainProfileId = settings.apiSettings.mainNarrativeProfileId;
+    const mainModel = settings.apiSettings.defaultModel;
+
+    settings.generationPresets = settings.generationPresets.map((preset) => ({
+      ...preset,
+      profileId: mainProfileId,
+      model: mainModel,
+    }));
+    await settings.saveGenerationPresets();
+  }
+
   async function handleResetProfiles() {
     await settings.resetGenerationPresets();
 
@@ -444,6 +458,23 @@
   function updateTempPresetReasoning(v: number[]) {
     if (tempPreset) tempPreset.reasoningEffort = getReasoningValue(v[0]) as any;
   }
+
+  // Check if reasoning is supported for the currently editing preset
+  let tempPresetReasoningSupported = $derived.by(() => {
+    if (!tempPreset) return false;
+    const profileId = tempPreset.profileId ?? settings.getDefaultProfileIdForProvider();
+    const profile = settings.getProfile(profileId);
+    if (!profile) return false;
+
+    // Check if provider supports reasoning
+    if (!supportsReasoning(profile.providerType)) return false;
+
+    // Check if the specific model supports reasoning
+    const model = tempPreset.model;
+    if (!model) return false;
+
+    return modelSupportsReasoning(model, profile.providerType);
+  });
 </script>
 
 <div class="pt-6 border-t">
@@ -490,6 +521,16 @@
         >
           <RotateCcw class="h-3 w-3 mr-1" />
           Reset
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onclick={handleApplyMainToAll}
+          title="Apply Main Narrative profile and model to all agent profiles"
+          class="text-xs"
+        >
+          <Copy class="h-3 w-3 mr-1" />
+          Apply Main
         </Button>
         <Button
           variant="secondary"
@@ -590,26 +631,28 @@
           </div>
         </div>
 
-        <div class="grid gap-4">
-          <div class="flex justify-between">
-            <Label
-              >Thinking: {reasoningLabels[tempPreset.reasoningEffort]}</Label
-            >
+        {#if tempPresetReasoningSupported}
+          <div class="grid gap-4">
+            <div class="flex justify-between">
+              <Label
+                >Thinking: {reasoningLabels[tempPreset.reasoningEffort]}</Label
+              >
+            </div>
+            <Slider
+              bind:value={tempPresetReasoning}
+              min={0}
+              max={3}
+              step={1}
+              onValueChange={updateTempPresetReasoning}
+            />
+            <div class="flex justify-between text-xs text-muted-foreground px-1">
+              <span>Off</span>
+              <span>Low</span>
+              <span>Medium</span>
+              <span>High</span>
+            </div>
           </div>
-          <Slider
-            bind:value={tempPresetReasoning}
-            min={0}
-            max={3}
-            step={1}
-            onValueChange={updateTempPresetReasoning}
-          />
-          <div class="flex justify-between text-xs text-muted-foreground px-1">
-            <span>Off</span>
-            <span>Low</span>
-            <span>Medium</span>
-            <span>High</span>
-          </div>
-        </div>
+        {/if}
 
         {#if settings.advancedRequestSettings.manualMode}
           <div class="pt-2 border-t">
@@ -651,11 +694,32 @@
                 {preset.name}
               </div>
               <div
-                class="text-xs text-muted-foreground truncate"
-                title={preset.model}
+                class="text-xs truncate"
+                class:text-muted-foreground={preset.model}
+                class:text-destructive={!preset.model}
+                title={preset.model || 'Model not configured'}
               >
-                {preset.model}
+                {preset.model || 'NEED TO SET MODEL'}
               </div>
+              {#if !preset.model}
+                <div class="flex items-center gap-1 text-xs text-destructive mt-0.5">
+                  <AlertCircle class="h-3 w-3" />
+                  Click to configure
+                </div>
+              {:else if preset.profileId && !settings.getProfile(preset.profileId)}
+                <div class="flex items-center gap-1 text-xs text-destructive mt-0.5">
+                  <AlertCircle class="h-3 w-3" />
+                  No API profile
+                </div>
+              {:else}
+                {@const _models = settings.getAvailableModels(preset.profileId || settings.getDefaultProfileIdForProvider())}
+                {#if _models.length > 0 && !_models.includes(preset.model)}
+                  <div class="flex items-center gap-1 text-xs text-yellow-500 mt-0.5">
+                    <AlertTriangle class="h-3 w-3" />
+                    Model not in profile
+                  </div>
+                {/if}
+              {/if}
             </div>
             <div class="flex gap-1 shrink-0 ml-2">
               <Button

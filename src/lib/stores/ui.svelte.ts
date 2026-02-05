@@ -1,6 +1,6 @@
 import type { ActivePanel, SidebarTab, UIState, EntryType, StoryEntry, Character, Location, Item, StoryBeat, Entry, ActionInputType, PersistentStyleReviewState, PersistentStyleReviewResult, TimeTracker, EmbeddedImage, PersistentCharacterSnapshot } from '$lib/types';
-import type { ActionChoice } from '$lib/services/ai/generation/ActionChoicesService';
-import type { StorySuggestion } from '$lib/services/ai/generation/SuggestionsService';
+import type { ActionChoice } from '$lib/services/ai/sdk/schemas/actionchoices';
+import type { Suggestion } from '$lib/services/ai/sdk/schemas/suggestions';
 import type { StyleReviewResult } from '$lib/services/ai/generation/StyleReviewerService';
 import type { EntryRetrievalResult, ActivationTracker } from '$lib/services/ai/retrieval/EntryRetrievalService';
 import type { SyncMode } from '$lib/types/sync';
@@ -9,6 +9,10 @@ import { database } from '$lib/services/database';
 import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 import { StreamingHtmlRenderer } from '$lib/utils/htmlStreaming';
 import { countTokens } from '$lib/services/tokenizer';
+import { emit, listen } from '@tauri-apps/api/event';
+import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { type UnlistenFn } from '@tauri-apps/api/event';
+import { settings } from './settings.svelte';
 
 export type VaultTab = 'characters' | 'lorebooks' | 'scenarios';
 
@@ -77,7 +81,7 @@ interface PersistedActionChoices {
 // Persisted suggestions structure
 interface PersistedSuggestions {
   storyId: string;
-  suggestions: StorySuggestion[];
+  suggestions: Suggestion[];
 }
 
 // Persisted activation data structure (for lorebook stickiness)
@@ -174,7 +178,7 @@ class UIStore {
   pendingActionChoice = $state<string | null>(null);
 
   // Creative writing suggestions (displayed after narration)
-  suggestions = $state<StorySuggestion[]>([]);
+  suggestions = $state<Suggestion[]>([]);
   suggestionsLoading = $state(false);
 
   // Style reviewer state
@@ -222,7 +226,13 @@ class UIStore {
   // Debug mode state - session-only request/response logging
   debugLogs = $state<DebugLogEntry[]>([]);
   debugModalOpen = $state(false);
+  debugWindowActive = $state(false);
+  debugRenderNewlines = $state(false);
   private debugLogIdCounter = 0;
+  private unlistenPopIn: UnlistenFn | null = null;
+  private unlistenRequestLogs: UnlistenFn | null = null;
+  private unlistenClearLogs: UnlistenFn | null = null;
+  private unlistenToggleRenderNewlines: UnlistenFn | null = null;
 
   // Lorebook activation tracking for stickiness
   // Maps entry ID -> last activation position (story entry index)
@@ -491,7 +501,7 @@ class UIStore {
       traits: [...(c.traits ?? [])],
       status: c.status,
       relationship: c.relationship ?? null,
-      visualDescriptors: [...(c.visualDescriptors ?? [])],
+      visualDescriptors: { ...(c.visualDescriptors ?? {}) },
       portrait: c.portrait,
     }));
 
@@ -512,12 +522,12 @@ class UIStore {
     const shallowCopyArray = <T extends object>(arr: T[]): T[] =>
       arr.map(item => ({ ...item }));
 
-    // For characters, also copy nested arrays (traits, visualDescriptors)
+    // For characters, also copy nested arrays/objects (traits, visualDescriptors)
     const copyCharacters = (chars: Character[]): Character[] =>
       chars.map(c => ({
         ...c,
         traits: [...(c.traits || [])],
-        visualDescriptors: [...(c.visualDescriptors || [])],
+        visualDescriptors: { ...(c.visualDescriptors || {}) },
       }));
 
     // For locations, copy connections array
@@ -563,11 +573,11 @@ class UIStore {
     // Debug: Log character visual descriptors at backup time (before storing)
     const charDescriptorsAtBackup = characters.map(c => ({
       name: c.name,
-      visualDescriptors: [...c.visualDescriptors],
+      visualDescriptors: c.visualDescriptors,
     }));
     const charDescriptorsInBackup = backup.characters.map(c => ({
       name: c.name,
-      visualDescriptors: [...c.visualDescriptors],
+      visualDescriptors: c.visualDescriptors,
     }));
     console.log('[UI] BACKUP DEBUG - Character descriptors at creation:', {
       charDescriptorsAtBackup,
@@ -583,7 +593,7 @@ class UIStore {
     if (storedBackup) {
       const storedCharDescriptors = storedBackup.characters.map(c => ({
         name: c.name,
-        visualDescriptors: [...c.visualDescriptors],
+        visualDescriptors: c.visualDescriptors,
       }));
       console.log('[UI] BACKUP DEBUG - Verification after store:', {
         storedCharDescriptors,
@@ -907,7 +917,7 @@ class UIStore {
     return `story_suggestions:${storyId}`;
   }
 
-  setSuggestions(suggestions: StorySuggestion[], storyId?: string) {
+  setSuggestions(suggestions: Suggestion[], storyId?: string) {
     this.suggestions = suggestions;
     // Persist to database if we have a story ID
     if (storyId && suggestions.length > 0) {
@@ -1402,8 +1412,8 @@ class UIStore {
   /**
    * Add a request log entry. Returns the entry ID for pairing with response.
    */
-  addDebugRequest(serviceName: string, data: Record<string, unknown>): string {
-    const id = `debug-${++this.debugLogIdCounter}-${Date.now()}`;
+  addDebugRequest(serviceName: string, data: Record<string, unknown>, debugId?:string ): string {
+    const id = debugId || `debug-${++this.debugLogIdCounter}-${Date.now()}`;
     const entry: DebugLogEntry = {
       id,
       timestamp: Date.now(),
@@ -1416,6 +1426,15 @@ class UIStore {
     if (this.debugLogs.length > 100) {
       this.debugLogs = this.debugLogs.slice(-100);
     }
+    
+    // Notify external window if active
+    if (this.debugWindowActive) {
+      console.log('[UI] Emitting debug-log-added', entry.id);
+      emit('debug-log-added', JSON.parse(JSON.stringify(entry))).catch(err => {
+        console.warn('[UI] Failed to emit debug-log-added:', err);
+      });
+    }
+    
     return id;
   }
 
@@ -1429,6 +1448,8 @@ class UIStore {
     startTime: number,
     error?: string
   ) {
+    if(!settings.uiSettings.debugMode) return
+
     const entry: DebugLogEntry = {
       id: `${requestId}-response`,
       timestamp: Date.now(),
@@ -1443,6 +1464,14 @@ class UIStore {
     if (this.debugLogs.length > 100) {
       this.debugLogs = this.debugLogs.slice(-100);
     }
+
+    // Notify external window if active
+    if (this.debugWindowActive) {
+      console.log('[UI] Emitting debug-log-added', entry.id);
+      emit('debug-log-added', JSON.parse(JSON.stringify(entry))).catch(err => {
+        console.warn('[UI] Failed to emit debug-log-added:', err);
+      });
+    }
   }
 
   /**
@@ -1450,6 +1479,11 @@ class UIStore {
    */
   clearDebugLogs() {
     this.debugLogs = [];
+    if (this.debugWindowActive) {
+      emit('debug-logs-cleared', {}).catch(err => {
+        console.warn('[UI] Failed to emit debug-logs-cleared:', err);
+      });
+    }
   }
 
   /**
@@ -1471,6 +1505,117 @@ class UIStore {
     */
   toggleDebugModal() {
     this.debugModalOpen = !this.debugModalOpen;
+  }
+
+  /**
+   * Toggle rendering of newlines in debug logs.
+   */
+  toggleDebugRenderNewlines() {
+    this.debugRenderNewlines = !this.debugRenderNewlines;
+    console.log('[UI] toggleDebugRenderNewlines', this.debugRenderNewlines);
+    if (this.debugWindowActive) {
+      emit('debug-render-newlines-changed', this.debugRenderNewlines).catch(err => {
+        console.warn('[UI] Failed to emit debug-render-newlines-changed:', err);
+      });
+    }
+  }
+
+  /**
+   * Pop out the debug logs into a separate window.
+   */
+  async popOutDebug() {
+    if (this.debugWindowActive) return;
+
+    try {
+      const win = new WebviewWindow('debug-logs', {
+        url: '/debug',
+        title: 'API Debug Logs',
+        width: 1000,
+        height: 800,
+        minWidth: 800,
+        minHeight: 600,
+      });
+
+      win.once('tauri://error', (e) => {
+        console.error('[UI] Failed to create debug window:', e);
+        this.debugWindowActive = false;
+      });
+
+      win.once('tauri://destroyed', () => {
+        console.log('[UI] Debug window destroyed');
+        this.debugWindowActive = false;
+        if (this.unlistenPopIn) {
+          this.unlistenPopIn();
+          this.unlistenPopIn = null;
+        }
+        if (this.unlistenRequestLogs) {
+          this.unlistenRequestLogs();
+          this.unlistenRequestLogs = null;
+        }
+        if (this.unlistenClearLogs) {
+          this.unlistenClearLogs();
+          this.unlistenClearLogs = null;
+        }
+        if (this.unlistenToggleRenderNewlines) {
+          this.unlistenToggleRenderNewlines();
+          this.unlistenToggleRenderNewlines = null;
+        }
+      });
+
+      // Listen for "pop in" request from the external window
+      this.unlistenPopIn = await listen('pop-in-debug', () => {
+        console.log('[UI] Received pop-in-debug request');
+        this.popInDebug();
+      });
+
+      // Listen for requests for initial logs from the external window
+      this.unlistenRequestLogs = await listen('request-initial-debug-logs', () => {
+        console.log('[UI] Received request-initial-debug-logs');
+        emit('initial-debug-logs', {
+          logs: JSON.parse(JSON.stringify(this.debugLogs)),
+          renderNewlines: this.debugRenderNewlines
+        }).catch(err => {
+          console.warn('[UI] Failed to emit initial-debug-logs:', err);
+        });
+      });
+
+      // Listen for clear requests from the external window
+      this.unlistenClearLogs = await listen('request-clear-debug-logs', () => {
+        this.clearDebugLogs();
+      });
+
+      // Listen for toggle render newlines requests
+      this.unlistenToggleRenderNewlines = await listen('request-toggle-debug-render-newlines', () => {
+        this.toggleDebugRenderNewlines();
+      });
+
+      this.debugWindowActive = true;
+    } catch (err) {
+      console.error('[UI] Error popping out debug window:', err);
+      ui.showToast('Failed to pop out debug window', 'error');
+    }
+  }
+
+  /**
+   * Pop back in - close the external window and focus the modal.
+   */
+  async popInDebug() {
+    console.log('[UI] popInDebug called', { debugWindowActive: this.debugWindowActive });
+    if (!this.debugWindowActive) return;
+
+    try {
+      const win = await WebviewWindow.getByLabel('debug-logs');
+      if (win) {
+        console.log('[UI] Closing debug-logs window');
+        await win.close();
+      } else {
+        console.warn('[UI] debug-logs window not found by label');
+      }
+      this.debugWindowActive = false;
+      this.debugModalOpen = true;
+    } catch (err) {
+      console.error('[UI] Error popping in debug window:', err);
+    }
   }
 
   // Toast notification state
@@ -1527,6 +1672,41 @@ class UIStore {
       clearTimeout(this.toastTimeout);
       this.toastTimeout = null;
     }
+  }
+
+  // Profile warning banner state
+  // This banner persists until the user fixes their profiles or dismisses it
+  profileWarningDismissed = $state(false);
+  private settingsActiveTab = $state<string>('api');
+
+  /**
+   * Get the active settings tab to navigate to.
+   */
+  get settingsTab(): string {
+    return this.settingsActiveTab;
+  }
+
+  /**
+   * Dismiss the profile warning banner for the current session.
+   * Users can still fix it later via Settings > API.
+   */
+  dismissProfileWarning() {
+    this.profileWarningDismissed = true;
+  }
+
+  /**
+   * Open settings modal and navigate to the API tab to fix profiles.
+   */
+  openSettingsToApiTab() {
+    this.settingsActiveTab = 'api';
+    this.settingsModalOpen = true;
+  }
+
+  /**
+   * Set the active settings tab.
+   */
+  setSettingsTab(tab: string) {
+    this.settingsActiveTab = tab;
   }
 }
 

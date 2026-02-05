@@ -1,7 +1,7 @@
-import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, Checkpoint, Branch, MemoryConfig, StoryMode, StorySettings, Entry, TimeTracker, EmbeddedImage, PersistentCharacterSnapshot } from '$lib/types';
+import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, Checkpoint, Branch, MemoryConfig, StoryMode, StorySettings, Entry, TimeTracker, EmbeddedImage, PersistentCharacterSnapshot, VisualDescriptors } from '$lib/types';
 import { database } from '$lib/services/database';
 import { ui } from './ui.svelte';
-import type { ClassificationResult } from '$lib/services/ai/generation/ClassifierService';
+import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier';
 import { DEFAULT_MEMORY_CONFIG } from '$lib/services/ai/generation/MemoryService';
 import { convertToEntries, type ImportedEntry } from '$lib/services/lorebookImporter';
 import { countTokens } from '$lib/services/tokenizer';
@@ -520,7 +520,9 @@ class StoryStore {
   }
 
   // Add a new story entry
-  async addEntry(type: StoryEntry['type'], content: string, metadata?: StoryEntry['metadata'], reasoning?: string): Promise<StoryEntry> {
+  // The optional id parameter allows pre-generating the entry ID before streaming starts,
+  // which is needed for inline image generation during streaming
+  async addEntry(type: StoryEntry['type'], content: string, metadata?: StoryEntry['metadata'], reasoning?: string, id?: string): Promise<StoryEntry> {
     if (!this.currentStory) {
       throw new Error('No story loaded');
     }
@@ -537,7 +539,7 @@ class StoryStore {
 
     const position = await database.getNextEntryPosition(this.currentStory.id, this.currentStory.currentBranchId);
     const entry = await database.addStoryEntry({
-      id: crypto.randomUUID(),
+      id: id ?? crypto.randomUUID(),
       storyId: this.currentStory.id,
       type,
       content,
@@ -873,7 +875,7 @@ class StoryStore {
       traits: [],
       status: 'active',
       metadata: null,
-      visualDescriptors: [],
+      visualDescriptors: {},
       portrait: null,
       branchId: this.currentStory.currentBranchId,
     };
@@ -1268,25 +1270,9 @@ class StoryStore {
           changes.traits = Array.from(traitMap.values());
         }
         // Handle visual descriptor updates for image generation
-        // replaceVisualDescriptors takes priority - it's a complete replacement
-        if (update.changes.replaceVisualDescriptors?.length) {
-          changes.visualDescriptors = update.changes.replaceVisualDescriptors;
-        } else if (update.changes.addVisualDescriptors?.length || update.changes.removeVisualDescriptors?.length) {
-          let visualDescriptors = [...(existing.visualDescriptors || [])];
-          if (update.changes.removeVisualDescriptors?.length) {
-            const toRemove = new Set(update.changes.removeVisualDescriptors.map(d => d.toLowerCase()));
-            visualDescriptors = visualDescriptors.filter(d => !toRemove.has(d.toLowerCase()));
-          }
-          if (update.changes.addVisualDescriptors?.length) {
-            // Add only descriptors that don't already exist (case-insensitive)
-            const existingLower = new Set(visualDescriptors.map(d => d.toLowerCase()));
-            for (const desc of update.changes.addVisualDescriptors) {
-              if (!existingLower.has(desc.toLowerCase())) {
-                visualDescriptors.push(desc);
-              }
-            }
-          }
-          changes.visualDescriptors = visualDescriptors;
+        // New format: visualDescriptors is a structured object that replaces entirely
+        if (update.changes.visualDescriptors && Object.keys(update.changes.visualDescriptors).length > 0) {
+          changes.visualDescriptors = update.changes.visualDescriptors;
         }
         await database.updateCharacter(existing.id, changes);
         this.characters = this.characters.map(c =>
@@ -1389,10 +1375,10 @@ class StoryStore {
           id: crypto.randomUUID(),
           storyId,
           name: newChar.name,
-          description: newChar.description,
-          relationship: newChar.relationship,
-          traits: newChar.traits,
-          visualDescriptors: newChar.visualDescriptors || [],
+          description: newChar.description ?? null,
+          relationship: newChar.relationship ?? null,
+          traits: newChar.traits ?? [],
+          visualDescriptors: newChar.visualDescriptors ?? {},
           status: 'active',
           metadata: { source: 'classifier' },
           portrait: null,
@@ -1421,9 +1407,9 @@ class StoryStore {
           id: crypto.randomUUID(),
           storyId,
           name: newLoc.name,
-          description: newLoc.description,
-          visited: newLoc.visited,
-          current: newLoc.current,
+          description: newLoc.description ?? null,
+          visited: newLoc.visited ?? false,
+          current: newLoc.current ?? false,
           connections: [],
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,
@@ -1461,10 +1447,10 @@ class StoryStore {
           id: crypto.randomUUID(),
           storyId,
           name: newItem.name,
-          description: newItem.description,
-          quantity: newItem.quantity,
+          description: newItem.description ?? null,
+          quantity: newItem.quantity ?? 1,
           equipped: false,
-          location: newItem.location || 'inventory',
+          location: newItem.location ?? 'inventory',
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,
         };
@@ -1484,9 +1470,9 @@ class StoryStore {
           id: crypto.randomUUID(),
           storyId,
           title: newBeat.title,
-          description: newBeat.description,
-          type: newBeat.type,
-          status: newBeat.status,
+          description: newBeat.description ?? null,
+          type: newBeat.type ?? 'event',
+          status: newBeat.status ?? 'active',
           triggeredAt: Date.now(),
           metadata: { source: 'classifier' },
           branchId: this.currentStory?.currentBranchId ?? null,
@@ -2407,7 +2393,7 @@ const newConfig = { ...this.memoryConfig, ...updates };
     locations: Location[];
     items: Item[];
     storyBeats: StoryBeat[];
-    lorebookEntries: Entry[];
+    lorebookEntries?: Entry[]; // Optional - lorebook entries persist across retry operations
     embeddedImages: EmbeddedImage[];
     timeTracker?: TimeTracker | null;
   }): Promise<void> {
@@ -2421,11 +2407,11 @@ const newConfig = { ...this.memoryConfig, ...updates };
       // Debug: Log character visual descriptors before restore
       const currentCharDescriptors = this.characters.map(c => ({
         name: c.name,
-        visualDescriptors: [...c.visualDescriptors],
+        visualDescriptors: c.visualDescriptors,
       }));
       const backupCharDescriptors = backup.characters.map(c => ({
         name: c.name,
-        visualDescriptors: [...c.visualDescriptors],
+        visualDescriptors: c.visualDescriptors,
       }));
       log('RESTORE DEBUG - Before restore:', {
         currentCharDescriptors,
@@ -2440,6 +2426,7 @@ const newConfig = { ...this.memoryConfig, ...updates };
 
       // Restore to database
       await database.restoreRetryBackup(
+        this.entries[this.entries.length - 1].id,
         this.currentStory.id,
         backup.entries,
         backup.characters,
@@ -2462,7 +2449,7 @@ const newConfig = { ...this.memoryConfig, ...updates };
       // Debug: Log what we got back from database
       const dbCharDescriptors = characters.map(c => ({
         name: c.name,
-        visualDescriptors: [...c.visualDescriptors],
+        visualDescriptors: c.visualDescriptors,
       }));
       log('RESTORE DEBUG - After DB reload:', {
         dbCharDescriptors,
@@ -2483,7 +2470,7 @@ const newConfig = { ...this.memoryConfig, ...updates };
       // Debug: Verify memory state matches
       const finalCharDescriptors = this.characters.map(c => ({
         name: c.name,
-        visualDescriptors: [...c.visualDescriptors],
+        visualDescriptors: c.visualDescriptors,
       }));
       log('RESTORE DEBUG - Final state:', {
         finalCharDescriptors,
@@ -2558,7 +2545,7 @@ const newConfig = { ...this.memoryConfig, ...updates };
           traits: snapshot.traits ?? [],
           status: snapshot.status ?? character.status,
           relationship,
-          visualDescriptors: snapshot.visualDescriptors ?? [],
+          visualDescriptors: snapshot.visualDescriptors ?? {},
           portrait: snapshot.portrait,
         },
       });
@@ -2667,6 +2654,8 @@ settings: {
     this.allStories = [storyData, ...this.allStories];
     const storyId = storyData.id;
 
+    this.currentStory = storyData;
+
     // Add protagonist
     if (data.protagonist.name) {
       const protagonistTranslation = data.translations?.protagonist;
@@ -2679,13 +2668,13 @@ settings: {
         traits: data.protagonist.traits ?? [],
         status: 'active',
         metadata: { source: 'wizard' },
-        visualDescriptors: data.protagonist.visualDescriptors ?? [],
+        visualDescriptors: data.protagonist.visualDescriptors ?? {},
         portrait: data.protagonist.portrait ?? null,
         branchId: null, // New stories start on main branch
         translatedName: protagonistTranslation?.name ?? null,
         translatedDescription: protagonistTranslation?.description ?? null,
         translatedTraits: protagonistTranslation?.traits ?? null,
-        translatedVisualDescriptors: protagonistTranslation?.visualDescriptors ?? null,
+        translatedVisualDescriptors: undefined, // Translations not supported for structured visual descriptors yet
         translationLanguage: protagonistTranslation ? data.translations?.language ?? null : null,
       };
       await database.addCharacter(protagonist);
@@ -2755,14 +2744,14 @@ settings: {
         traits: charData.traits ?? [],
         status: 'active',
         metadata: { source: 'wizard' },
-        visualDescriptors: charData.visualDescriptors ?? [],
+        visualDescriptors: charData.visualDescriptors ?? {},
         portrait: charData.portrait ?? null,
         branchId: null, // New stories start on main branch
         translatedName: charTranslation?.name ?? null,
         translatedDescription: charTranslation?.description ?? null,
         translatedRelationship: charTranslation?.relationship ?? null,
         translatedTraits: charTranslation?.traits ?? null,
-        translatedVisualDescriptors: charTranslation?.visualDescriptors ?? null,
+        translatedVisualDescriptors: undefined, // Translations not supported for structured visual descriptors yet
         translationLanguage: charTranslation ? data.translations?.language ?? null : null,
       };
       await database.addCharacter(character);

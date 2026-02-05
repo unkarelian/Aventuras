@@ -2,7 +2,7 @@
  * Inline Image Generation Service
  *
  * Processes narrative content for <pic> tags and generates images inline.
- * This is an alternative to the LLM-based scene analysis approach used by ImageGenerationService.
+ * Uses SDK-based image generation with API Profiles as the source of truth.
  *
  * When inline image mode is enabled:
  * 1. AI outputs <pic prompt="..." characters="..."></pic> tags in its narrative
@@ -12,26 +12,18 @@
  */
 
 import type { Character, EmbeddedImage } from '$lib/types';
-import type { ImageProvider } from './providers/base';
-import { NanoGPTImageProvider } from './providers/NanoGPTProvider';
-import { ChutesImageProvider } from './providers/ChutesProvider';
-import { PollinationsImageProvider } from './providers/PollinationsProvider';
+import { generateImage as sdkGenerateImage } from '$lib/services/ai/sdk/generate';
+import { PROVIDERS } from '$lib/services/ai/sdk/providers/config';
 import { database } from '$lib/services/database';
 import { promptService } from '$lib/services/prompts';
 import { settings } from '$lib/stores/settings.svelte';
-import { story } from '$lib/stores/story.svelte';
 import { emitImageQueued, emitImageReady } from '$lib/services/events';
 import { normalizeImageDataUrl } from '$lib/utils/image';
 import { extractPicTags, type ParsedPicTag } from '$lib/utils/inlineImageParser';
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants';
+import { createLogger } from '../core/config';
 
-const DEBUG = false;
-
-function log(...args: any[]) {
-  if (DEBUG) {
-    console.log('[InlineImageGen]', ...args);
-  }
-}
+const log = createLogger('InlineImageGen');
 
 export interface InlineImageContext {
   storyId: string;
@@ -43,54 +35,23 @@ export interface InlineImageContext {
 export class InlineImageGenerationService {
 
   /**
-   * Check if inline image generation is enabled and configured
+   * Check if inline image generation is enabled and configured.
+   * Uses profile-based configuration - checks if a valid image-capable profile is selected.
    */
   static isEnabled(): boolean {
     const imageSettings = settings.systemServicesSettings.imageGeneration;
     if (!imageSettings?.enabled) return false;
 
-    // Check if we have the appropriate API key for the selected provider
-    const provider = imageSettings.imageProvider ?? 'nanogpt';
-    if (provider === 'chutes') {
-      return !!imageSettings.chutesApiKey;
-    }
-    if (provider === 'pollinations') {
-      // Pollinations works without API key (key is optional for premium features)
-      return true;
-    }
-    return !!imageSettings.nanoGptApiKey;
-  }
+    // Check if we have a valid profile for image generation
+    const profileId = imageSettings.profileId;
+    if (!profileId) return false;
 
-  /**
-   * Get the API key for the currently selected provider
-   */
-  private static getApiKey(): string {
-    const imageSettings = settings.systemServicesSettings.imageGeneration;
-    const provider = imageSettings.imageProvider ?? 'nanogpt';
-    if (provider === 'chutes') {
-      return imageSettings.chutesApiKey;
-    }
-    if (provider === 'pollinations') {
-      return imageSettings.pollinationsApiKey;
-    }
-    return imageSettings.nanoGptApiKey;
-  }
+    const profile = settings.getProfile(profileId);
+    if (!profile) return false;
 
-  /**
-   * Create the appropriate image provider based on settings
-   */
-  private createImageProvider(): ImageProvider {
-    const imageSettings = settings.systemServicesSettings.imageGeneration;
-    const provider = imageSettings.imageProvider ?? 'nanogpt';
-    const apiKey = InlineImageGenerationService.getApiKey();
-
-    if (provider === 'chutes') {
-      return new ChutesImageProvider(apiKey, DEBUG);
-    }
-    if (provider === 'pollinations') {
-      return new PollinationsImageProvider(apiKey, DEBUG);
-    }
-    return new NanoGPTImageProvider(apiKey, DEBUG);
+    // Check if provider supports image generation
+    const capabilities = PROVIDERS[profile.providerType].capabilities;
+    return capabilities?.imageGeneration ?? false;
   }
 
   /**
@@ -143,7 +104,8 @@ export class InlineImageGenerationService {
   }
 
   /**
-   * Generate image for a single <pic> tag
+   * Generate image for a single <pic> tag.
+   * Selects appropriate profile and model based on portrait mode and character availability.
    */
   private async generateImageForTag(
     context: InlineImageContext,
@@ -152,9 +114,10 @@ export class InlineImageGenerationService {
   ): Promise<void> {
     const imageId = crypto.randomUUID();
 
-    // Determine if we should use reference images (portraits)
-    let referenceImageUrls: string[] | undefined;
+    // Determine which profile and model to use
+    let profileId = imageSettings.profileId;
     let modelToUse = imageSettings.model;
+    let referenceImageUrls: string[] | undefined;
 
     // If portrait mode is enabled and tag specifies characters, look for their portraits
     if (imageSettings.portraitMode && tag.characters.length > 0) {
@@ -177,18 +140,18 @@ export class InlineImageGenerationService {
       }
 
       if (portraitUrls.length > 0) {
-        // Use reference model and attach portraits
-        modelToUse = imageSettings.referenceModel || 'qwen-image';
+        // Use reference profile and model for img2img
+        profileId = imageSettings.referenceProfileId || imageSettings.profileId;
+        modelToUse = imageSettings.referenceModel || imageSettings.model;
         referenceImageUrls = portraitUrls;
         log('Using character portraits as reference', {
           characters: charactersWithPortraits,
           count: portraitUrls.length,
+          profileId,
           model: modelToUse,
         });
       }
 
-      // Note: Unlike the analyzed mode, we don't skip images if characters are missing portraits
-      // The user explicitly requested an image by having the AI generate a <pic> tag
       if (charactersWithoutPortraits.length > 0) {
         log('Some characters missing portraits', {
           missing: charactersWithoutPortraits,
@@ -197,23 +160,28 @@ export class InlineImageGenerationService {
       }
     }
 
+    // Validate we have a profile
+    if (!profileId) {
+      log('No image profile configured, skipping');
+      return;
+    }
+
     // Build full prompt with style
     const stylePrompt = this.getStylePrompt(imageSettings.styleId);
     const fullPrompt = `${tag.prompt}. ${stylePrompt}`;
 
     // Create pending record in database
-    // Store the original tag as sourceText so we can match it during rendering
     const embeddedImage: Omit<EmbeddedImage, 'createdAt'> = {
       id: imageId,
       storyId: context.storyId,
       entryId: context.entryId,
-      sourceText: tag.originalTag,  // Store original tag for matching
+      sourceText: tag.originalTag,
       prompt: fullPrompt,
       styleId: imageSettings.styleId,
       model: modelToUse,
       imageData: '',
-      width: imageSettings.size === '1024x1024' ? 1024 : 512,
-      height: imageSettings.size === '1024x1024' ? 1024 : 512,
+      width: imageSettings.size === '1024x1024' ? 1024 : (imageSettings.size === '2048x2048' ? 2048 : 512),
+      height: imageSettings.size === '1024x1024' ? 1024 : (imageSettings.size === '2048x2048' ? 2048 : 512),
       status: 'pending',
       generationMode: 'inline',
     };
@@ -222,6 +190,7 @@ export class InlineImageGenerationService {
     log('Created pending inline image record', {
       imageId,
       prompt: tag.prompt.slice(0, 50) + '...',
+      profileId,
       model: modelToUse,
     });
 
@@ -232,9 +201,10 @@ export class InlineImageGenerationService {
     this.generateImage(
       imageId,
       fullPrompt,
-      imageSettings,
-      context.entryId,
+      profileId,
       modelToUse,
+      imageSettings.size,
+      context.entryId,
       referenceImageUrls
     ).catch(error => {
       log('Async inline image generation failed', { imageId, error });
@@ -272,51 +242,44 @@ export class InlineImageGenerationService {
   }
 
   /**
-   * Generate a single image (runs asynchronously)
+   * Generate a single image using the SDK (runs asynchronously)
    */
   private async generateImage(
     imageId: string,
     prompt: string,
-    imageSettings: typeof settings.systemServicesSettings.imageGeneration,
+    profileId: string,
+    model: string,
+    size: string,
     entryId: string,
-    modelOverride?: string,
     referenceImageUrls?: string[]
   ): Promise<void> {
     try {
       // Update status to generating
       await database.updateEmbeddedImage(imageId, { status: 'generating' });
 
-      // Get API key from settings
-      const apiKey = InlineImageGenerationService.getApiKey();
-      if (!apiKey) {
-        throw new Error('No API key configured for image generation');
-      }
-
-      // Create provider (always create fresh to ensure latest settings/key)
-      const imageProvider = this.createImageProvider();
-
-      log('Generating inline image', {
+      log('Generating inline image via SDK', {
         imageId,
-        model: modelOverride || imageSettings.model,
-        hasReference: !!referenceImageUrls,
+        profileId,
+        model,
+        hasReference: !!referenceImageUrls?.length,
       });
 
-      // Generate image
-      const response = await imageProvider.generateImage({
+      // Generate image using SDK
+      const result = await sdkGenerateImage({
+        profileId,
+        model,
         prompt,
-        model: modelOverride || imageSettings.model,
-        size: imageSettings.size,
-        response_format: 'b64_json',
-        imageDataUrls: referenceImageUrls,
+        size,
+        referenceImages: referenceImageUrls,
       });
 
-      if (response.images.length === 0 || !response.images[0].b64_json) {
+      if (!result.base64) {
         throw new Error('No image data returned');
       }
 
       // Update record with image data
       await database.updateEmbeddedImage(imageId, {
-        imageData: response.images[0].b64_json,
+        imageData: result.base64,
         status: 'complete',
       });
 

@@ -1,7 +1,5 @@
-import {
-  settings
-} from "$lib/stores/settings.svelte";
-import { ImageGenerationService } from "$lib/services/ai/image/ImageGenerationService";
+import { settings } from "$lib/stores/settings.svelte";
+import { hasRequiredCredentials, getProviderDisplayName, generatePortrait as sdkGeneratePortrait } from "$lib/services/ai/image";
 import { promptService } from "$lib/services/prompts";
 import type { GeneratedProtagonist, GeneratedCharacter } from "$lib/services/ai/wizard/ScenarioService";
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from "$lib/services/ai/image/constants";
@@ -15,7 +13,7 @@ export class ImageStore {
   isGeneratingProtagonistPortrait = $state(false);
   isUploadingProtagonistPortrait = $state(false);
   portraitError = $state<string | null>(null);
-  
+
   supportingCharacterVisualDescriptors = $state<Record<string, string>>({});
   supportingCharacterPortraits = $state<Record<string, string | null>>({});
   generatingPortraitName = $state<string | null>(null);
@@ -29,14 +27,13 @@ export class ImageStore {
 
     log("Starting protagonist portrait generation", {
       protagonistName: protagonist.name,
-      provider: imageSettings.imageProvider,
       portraitMode: imageSettings.portraitMode,
       model: imageSettings.portraitMode ? imageSettings.portraitModel : imageSettings.model,
       styleId: imageSettings.styleId,
     });
 
-    if (!ImageGenerationService.hasRequiredCredentials()) {
-      const providerName = ImageGenerationService.getProviderDisplayName();
+    if (!hasRequiredCredentials()) {
+      const providerName = getProviderDisplayName();
       log("Missing credentials for provider", { provider: providerName });
       this.portraitError = `${providerName} API key required for portrait generation`;
       return;
@@ -84,52 +81,18 @@ export class ImageStore {
         },
       );
 
-      // Determine which model to use based on portraitMode
-      const modelToUse = imageSettings.portraitMode
-        ? imageSettings.portraitModel
-        : imageSettings.model;
-
-      if (!modelToUse) {
-        log("No model configured for portrait generation");
-        this.portraitError = "No image model configured. Please select a model in Settings > Images.";
-        return;
-      }
-
-      if (!imageSettings.imageProvider) {
-        log("No image provider configured");
-        this.portraitError = "No image provider configured. Please select a provider in Settings > Images.";
-        return;
-      }
-
-      const provider = ImageGenerationService.createProviderInstance();
-
-      const requestParams = {
-        prompt: portraitPrompt,
-        model: modelToUse,
-        size: "1024x1024",
-        response_format: "b64_json" as const,
-      };
-
       log("Sending protagonist portrait request", {
-        provider: imageSettings.imageProvider,
-        model: requestParams.model,
         portraitMode: imageSettings.portraitMode,
-        size: requestParams.size,
-        promptLength: requestParams.prompt.length,
+        promptLength: portraitPrompt.length,
       });
 
-      const response = await provider.generateImage(requestParams);
-
-      if (response.images.length === 0 || !response.images[0].b64_json) {
-        throw new Error("No image data returned");
-      }
+      const base64 = await sdkGeneratePortrait(portraitPrompt);
 
       log("Protagonist portrait generated successfully", {
         protagonistName: protagonist.name,
-        model: response.model,
       });
 
-      this.protagonistPortrait = `data:image/png;base64,${response.images[0].b64_json}`;
+      this.protagonistPortrait = `data:image/png;base64,${base64}`;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to generate portrait";
       log("Protagonist portrait generation failed", {
@@ -150,14 +113,13 @@ export class ImageStore {
 
     log("Starting supporting character portrait generation", {
       characterName: charName,
-      provider: imageSettings.imageProvider,
       portraitMode: imageSettings.portraitMode,
       model: imageSettings.portraitMode ? imageSettings.portraitModel : imageSettings.model,
       styleId: imageSettings.styleId,
     });
 
-    if (!ImageGenerationService.hasRequiredCredentials()) {
-      const providerName = ImageGenerationService.getProviderDisplayName();
+    if (!hasRequiredCredentials()) {
+      const providerName = getProviderDisplayName();
       log("Missing credentials for provider", { provider: providerName });
       this.portraitError = `${providerName} API key required for portrait generation`;
       return;
@@ -207,54 +169,19 @@ export class ImageStore {
         },
       );
 
-      // Determine which model to use based on portraitMode
-      const modelToUse = imageSettings.portraitMode
-        ? imageSettings.portraitModel
-        : imageSettings.model;
-
-      if (!modelToUse) {
-        log("No model configured for portrait generation");
-        this.portraitError = "No image model configured. Please select a model in Settings > Images.";
-        return;
-      }
-
-      if (!imageSettings.imageProvider) {
-        log("No image provider configured");
-        this.portraitError = "No image provider configured. Please select a provider in Settings > Images.";
-        return;
-      }
-
-      const provider = ImageGenerationService.createProviderInstance();
-
-      const requestParams = {
-        prompt: portraitPrompt,
-        model: modelToUse,
-        size: "1024x1024",
-        response_format: "b64_json" as const,
-      };
-
       log("Sending supporting character portrait request", {
         characterName: charName,
-        provider: imageSettings.imageProvider,
-        model: requestParams.model,
         portraitMode: imageSettings.portraitMode,
-        size: requestParams.size,
-        promptLength: requestParams.prompt.length,
+        promptLength: portraitPrompt.length,
       });
 
-      const response = await provider.generateImage(requestParams);
-
-      if (response.images.length === 0 || !response.images[0].b64_json) {
-        throw new Error("No image data returned");
-      }
+      const base64 = await sdkGeneratePortrait(portraitPrompt);
 
       log("Supporting character portrait generated successfully", {
         characterName: charName,
-        model: response.model,
       });
 
-      this.supportingCharacterPortraits[charName] =
-        `data:image/png;base64,${response.images[0].b64_json}`;
+      this.supportingCharacterPortraits[charName] = `data:image/png;base64,${base64}`;
       // Force update for reactive map
       this.supportingCharacterPortraits = { ...this.supportingCharacterPortraits };
     } catch (error) {

@@ -1,8 +1,20 @@
-import { BaseAIService, type OpenAIProvider } from '../core/BaseAIService';
-import type { GenerationPreset, TranslationSettings } from '$lib/types';
-import { promptService, type PromptContext } from '$lib/services/prompts';
-import { tryParseJsonWithHealing } from './jsonHealing';
+/**
+ * Translation Service
+ *
+ * Handles translation of narrative content, user input, and UI elements
+ * using the Vercel AI SDK.
+ */
+
+import type { TranslationSettings } from '$lib/types';
 import { createLogger } from '../core/config';
+import { generatePlainText, generateStructured } from '../sdk/generate';
+import { promptService, type PromptContext } from '$lib/services/prompts';
+import {
+  translatedUIResultSchema,
+  translatedSuggestionsResultSchema,
+  translatedActionChoicesResultSchema,
+  translatedWizardBatchResultSchema,
+} from '../sdk/schemas/translation';
 
 const log = createLogger('Translation');
 
@@ -28,9 +40,22 @@ export interface UITranslationItem {
   type: 'name' | 'description' | 'title';
 }
 
-export class TranslationService extends BaseAIService {
-  constructor(provider: OpenAIProvider, presetId: string = 'translation', settingsOverride?: Partial<GenerationPreset>) {
-    super(provider, presetId, settingsOverride);
+// Minimal prompt context for translation (not story-dependent)
+const TRANSLATION_CONTEXT: PromptContext = {
+  mode: 'creative-writing',
+  pov: 'third',
+  tense: 'past',
+  protagonistName: '',
+};
+
+/**
+ * Service that handles translation of narrative and UI content.
+ */
+export class TranslationService {
+  private presetId: string;
+
+  constructor(presetId: string = 'translation') {
+    this.presetId = presetId;
   }
 
   /**
@@ -46,239 +71,153 @@ export class TranslationService extends BaseAIService {
   }
 
   /**
-   * Module 1: Translate narration (post-generation)
-   * Handles both plain text and visual prose HTML
+   * Translate narration (post-generation).
+   * Preserves HTML tags and <pic> tags in the content.
    */
   async translateNarration(
     content: string,
     targetLanguage: string,
-    isVisualProse: boolean = false
+    _isVisualProse: boolean = false
   ): Promise<TranslationResult> {
-    // Skip if target is English and content appears to be English
-    if (targetLanguage === 'en') {
+    // Skip if target is English or content is empty
+    if (targetLanguage === 'en' || !content.trim()) {
       return { translatedContent: content };
     }
 
-    log('translateNarration called', {
-      contentLength: content.length,
-      targetLanguage,
-      isVisualProse,
-    });
-
-    const promptContext: PromptContext = {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: 'the protagonist',
-    };
-
-    const systemPrompt = promptService.renderPrompt('translate-narration', promptContext, {
-      targetLanguage: this.getLanguageName(targetLanguage),
-    });
-
-    const userPrompt = promptService.renderUserPrompt('translate-narration', promptContext, {
-      content,
-    });
-
     try {
-      const response = await this.provider.generateResponse({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        extraBody: this.extraBody,
+      const system = promptService.renderPrompt('translate-narration', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const prompt = promptService.renderUserPrompt('translate-narration', TRANSLATION_CONTEXT, {
+        content,
       });
 
-      log('Narration translated', {
-        originalLength: content.length,
-        translatedLength: response.content.length,
-      });
+      const translatedContent = await generatePlainText({
+        presetId: this.presetId,
+        system,
+        prompt,
+      }, 'translate-narration');
 
-      return { translatedContent: response.content.trim() };
+      log('Translated narration to', targetLanguage);
+      return { translatedContent: translatedContent.trim() };
     } catch (error) {
-      log('Narration translation failed:', error);
-      throw error;
+      log('Translation failed:', error);
+      return { translatedContent: content }; // Return original on failure
     }
   }
 
   /**
-   * Module 2: Translate user input to English
-   * Used before sending to AI for narrative generation
+   * Translate user input to English.
    */
   async translateInput(
     content: string,
     sourceLanguage: string
   ): Promise<TranslationResult> {
-    log('translateInput called', {
-      contentLength: content.length,
-      sourceLanguage,
-    });
-
-    const promptContext: PromptContext = {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: 'the protagonist',
-    };
-
-    const systemPrompt = promptService.renderPrompt('translate-input', promptContext, {
-      sourceLanguage: sourceLanguage === 'auto' ? 'the detected language' : this.getLanguageName(sourceLanguage),
-    });
-
-    const userPrompt = promptService.renderUserPrompt('translate-input', promptContext, {
-      content,
-    });
+    // Skip if source is English or content is empty
+    if (sourceLanguage === 'en' || !content.trim()) {
+      return { translatedContent: content };
+    }
 
     try {
-      const response = await this.provider.generateResponse({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        extraBody: this.extraBody,
+      const system = promptService.renderPrompt('translate-input', TRANSLATION_CONTEXT, {
+        sourceLanguage: this.getLanguageName(sourceLanguage),
+      });
+      const prompt = promptService.renderUserPrompt('translate-input', TRANSLATION_CONTEXT, {
+        content,
       });
 
-      log('Input translated', {
-        originalLength: content.length,
-        translatedLength: response.content.length,
-      });
+      const translatedContent = await generatePlainText({
+        presetId: this.presetId,
+        system,
+        prompt,
+      }, 'translate-input');
 
-      return { translatedContent: response.content.trim() };
+      log('Translated input from', sourceLanguage, 'to English');
+      return { translatedContent: translatedContent.trim(), detectedLanguage: sourceLanguage };
     } catch (error) {
       log('Input translation failed:', error);
-      throw error;
+      return { translatedContent: content };
     }
   }
 
   /**
-   * Module 3: Batch translate UI elements
-   * Used for world state (characters, locations, items, story beats)
+   * Batch translate UI elements.
    */
   async translateUIElements(
     items: UITranslationItem[],
     targetLanguage: string
   ): Promise<UITranslationItem[]> {
     if (items.length === 0) return [];
-
-    // Skip if target is English
-    if (targetLanguage === 'en') {
-      return items;
-    }
-
-    log('translateUIElements called', {
-      itemCount: items.length,
-      targetLanguage,
-    });
-
-    const promptContext: PromptContext = {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: 'the protagonist',
-    };
-
-    const systemPrompt = promptService.renderPrompt('translate-ui', promptContext, {
-      targetLanguage: this.getLanguageName(targetLanguage),
-    });
-
-    const userPrompt = promptService.renderUserPrompt('translate-ui', promptContext, {
-      elementsJson: JSON.stringify(items, null, 2),
-    });
+    if (targetLanguage === 'en') return items;
 
     try {
-      const response = await this.provider.generateResponse({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        extraBody: this.extraBody,
+      const system = promptService.renderPrompt('translate-ui', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const elementsJson = JSON.stringify(items.map(item => ({
+        id: item.id,
+        text: item.text,
+        type: item.type,
+      })));
+      const prompt = promptService.renderUserPrompt('translate-ui', TRANSLATION_CONTEXT, {
+        elementsJson,
       });
 
-      const parsed = tryParseJsonWithHealing<UITranslationItem[]>(response.content);
-      if (!parsed || !Array.isArray(parsed)) {
-        log('Failed to parse UI translation response');
-        return items;
-      }
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: translatedUIResultSchema,
+        system,
+        prompt,
+      }, 'translate-ui');
 
-      log('UI elements translated', {
-        inputCount: items.length,
-        outputCount: parsed.length,
-      });
-
-      return parsed;
+      // Merge translated text back into original items
+      log('Translated', result.items.length, 'UI elements to', targetLanguage);
+      return items.map((original, index) => ({
+        ...original,
+        text: result.items[index]?.text ?? original.text,
+      }));
     } catch (error) {
       log('UI translation failed:', error);
-      return items;
+      return items; // Return original on failure
     }
   }
 
   /**
-   * Module 4: Translate suggestions (creative writing plot suggestions)
+   * Translate suggestions.
+   * Preserves the original object structure, only replacing the text field.
    */
   async translateSuggestions<T extends { text: string; type?: string }>(
     suggestions: T[],
     targetLanguage: string
   ): Promise<T[]> {
     if (suggestions.length === 0) return [];
-
-    // Skip if target is English
-    if (targetLanguage === 'en') {
-      return suggestions;
-    }
-
-    log('translateSuggestions called', {
-      count: suggestions.length,
-      targetLanguage,
-    });
-
-    const promptContext: PromptContext = {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: 'the protagonist',
-    };
-
-    const systemPrompt = promptService.renderPrompt('translate-suggestions', promptContext, {
-      targetLanguage: this.getLanguageName(targetLanguage),
-    });
-
-    const userPrompt = promptService.renderUserPrompt('translate-suggestions', promptContext, {
-      suggestionsJson: JSON.stringify(suggestions, null, 2),
-    });
+    if (targetLanguage === 'en') return suggestions;
 
     try {
-      const response = await this.provider.generateResponse({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        extraBody: this.extraBody,
+      const system = promptService.renderPrompt('translate-suggestions', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const suggestionsJson = JSON.stringify(suggestions.map(s => ({
+        text: s.text,
+        type: s.type,
+      })));
+      const prompt = promptService.renderUserPrompt('translate-suggestions', TRANSLATION_CONTEXT, {
+        suggestionsJson,
       });
 
-      const parsed = tryParseJsonWithHealing<T[]>(response.content);
-      if (!parsed || !Array.isArray(parsed)) {
-        log('Failed to parse suggestions translation response');
-        return suggestions;
-      }
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: translatedSuggestionsResultSchema,
+        system,
+        prompt,
+      }, 'translate-suggestions');
 
-      log('Suggestions translated', {
-        inputCount: suggestions.length,
-        outputCount: parsed.length,
-      });
-
-      return parsed;
+      // Merge translated text back into original objects (preserves extra fields)
+      log('Translated', result.suggestions.length, 'suggestions to', targetLanguage);
+      return suggestions.map((original, index) => ({
+        ...original,
+        text: result.suggestions[index]?.text ?? original.text,
+      }));
     } catch (error) {
       log('Suggestions translation failed:', error);
       return suggestions;
@@ -286,63 +225,41 @@ export class TranslationService extends BaseAIService {
   }
 
   /**
-   * Module 5: Translate action choices (adventure mode)
+   * Translate action choices.
+   * Preserves the original object structure, only replacing the text field.
    */
   async translateActionChoices<T extends { text: string; type?: string }>(
     choices: T[],
     targetLanguage: string
   ): Promise<T[]> {
     if (choices.length === 0) return [];
-
-    // Skip if target is English
-    if (targetLanguage === 'en') {
-      return choices;
-    }
-
-    log('translateActionChoices called', {
-      count: choices.length,
-      targetLanguage,
-    });
-
-    const promptContext: PromptContext = {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: 'the protagonist',
-    };
-
-    const systemPrompt = promptService.renderPrompt('translate-action-choices', promptContext, {
-      targetLanguage: this.getLanguageName(targetLanguage),
-    });
-
-    const userPrompt = promptService.renderUserPrompt('translate-action-choices', promptContext, {
-      choicesJson: JSON.stringify(choices, null, 2),
-    });
+    if (targetLanguage === 'en') return choices;
 
     try {
-      const response = await this.provider.generateResponse({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        extraBody: this.extraBody,
+      const system = promptService.renderPrompt('translate-action-choices', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const choicesJson = JSON.stringify(choices.map(c => ({
+        text: c.text,
+        type: c.type,
+      })));
+      const prompt = promptService.renderUserPrompt('translate-action-choices', TRANSLATION_CONTEXT, {
+        choicesJson,
       });
 
-      const parsed = tryParseJsonWithHealing<T[]>(response.content);
-      if (!parsed || !Array.isArray(parsed)) {
-        log('Failed to parse action choices translation response');
-        return choices;
-      }
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: translatedActionChoicesResultSchema,
+        system,
+        prompt,
+      }, 'translate-action-choices');
 
-      log('Action choices translated', {
-        inputCount: choices.length,
-        outputCount: parsed.length,
-      });
-
-      return parsed;
+      // Merge translated text back into original objects (preserves extra fields)
+      log('Translated', result.choices.length, 'action choices to', targetLanguage);
+      return choices.map((original, index) => ({
+        ...original,
+        text: result.choices[index]?.text ?? original.text,
+      }));
     } catch (error) {
       log('Action choices translation failed:', error);
       return choices;
@@ -350,163 +267,83 @@ export class TranslationService extends BaseAIService {
   }
 
   /**
-   * Module 6: Translate wizard content (settings, characters, openings)
+   * Translate wizard content.
    */
   async translateWizardContent(
     content: string,
     targetLanguage: string
   ): Promise<TranslationResult> {
-    // Skip if target is English
-    if (targetLanguage === 'en') {
+    if (targetLanguage === 'en' || !content.trim()) {
       return { translatedContent: content };
     }
 
-    log('translateWizardContent called', {
-      contentLength: content.length,
-      targetLanguage,
-    });
-
-    const promptContext: PromptContext = {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: 'the protagonist',
-    };
-
-    const systemPrompt = promptService.renderPrompt('translate-wizard-content', promptContext, {
-      targetLanguage: this.getLanguageName(targetLanguage),
-    });
-
-    const userPrompt = promptService.renderUserPrompt('translate-wizard-content', promptContext, {
-      content,
-    });
-
     try {
-      const response = await this.provider.generateResponse({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        extraBody: this.extraBody,
+      const system = promptService.renderPrompt('translate-wizard-content', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
+      });
+      const prompt = promptService.renderUserPrompt('translate-wizard-content', TRANSLATION_CONTEXT, {
+        content,
       });
 
-      log('Wizard content translated', {
-        originalLength: content.length,
-        translatedLength: response.content.length,
-      });
+      const translatedContent = await generatePlainText({
+        presetId: this.presetId,
+        system,
+        prompt,
+      }, 'translate-wizard-content');
 
-      return { translatedContent: response.content.trim() };
+      log('Translated wizard content to', targetLanguage);
+      return { translatedContent: translatedContent.trim() };
     } catch (error) {
       log('Wizard content translation failed:', error);
-      throw error;
+      return { translatedContent: content };
     }
   }
 
   /**
-   * Module 7: Batch translate wizard content (all fields in one API call)
-   * Takes a flat object of labeled strings and returns translations for all.
+   * Batch translate wizard content fields.
    */
   async translateWizardBatch(
     fields: Record<string, string>,
     targetLanguage: string
   ): Promise<Record<string, string>> {
-    // Skip if target is English
     if (targetLanguage === 'en') {
       return fields;
     }
 
-    // Filter out empty fields
-    const nonEmptyFields: Record<string, string> = {};
-    for (const [key, value] of Object.entries(fields)) {
-      if (value && value.trim()) {
-        nonEmptyFields[key] = value;
-      }
-    }
-
-    // If no fields to translate, return original
-    if (Object.keys(nonEmptyFields).length === 0) {
+    const entries = Object.entries(fields);
+    if (entries.length === 0) {
       return fields;
     }
 
-    log('translateWizardBatch called', {
-      fieldCount: Object.keys(nonEmptyFields).length,
-      targetLanguage,
-    });
-
-    const languageName = this.getLanguageName(targetLanguage);
-
-    // Build numbered format for more reliable parsing
-    const fieldKeys = Object.keys(nonEmptyFields);
-    const inputLines = fieldKeys.map((key, i) => `[${i + 1}] ${nonEmptyFields[key]}`);
-    const inputText = inputLines.join('\n\n');
-
-    const systemPrompt = `You are a translator. Translate each numbered item to ${languageName}.
-
-RULES:
-- Output ALL ${fieldKeys.length} items with their numbers
-- Keep the exact format: [number] translated text
-- For names/proper nouns: translate phonetically or keep as-is, but ALWAYS include the item
-- Do not skip any items, do not add explanations
-
-Example input:
-[1] Hello world
-[2] John Smith
-
-Example output:
-[1] Hola mundo
-[2] John Smith`;
-
-    const userPrompt = `Translate these ${fieldKeys.length} items to ${languageName}:\n\n${inputText}`;
-
     try {
-      const response = await this.provider.generateResponse({
-        model: this.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: this.temperature,
-        maxTokens: this.maxTokens,
-        extraBody: this.extraBody,
+      // Build a prompt that instructs the model to translate each field value
+      const system = promptService.renderPrompt('translate-wizard-content', TRANSLATION_CONTEXT, {
+        targetLanguage: this.getLanguageName(targetLanguage),
       });
 
-      // Parse the response back into a record
-      const result: Record<string, string> = { ...fields }; // Start with original (fallback)
-      const responseText = response.content.trim();
+      // Format as JSON object with field keys
+      const fieldsJson = JSON.stringify(fields);
+      const prompt = `Translate each value in this JSON object to ${this.getLanguageName(targetLanguage)}. Keep the keys unchanged. Return a JSON object with the same keys and translated values.
 
-      // Parse [number] content format - more flexible regex
-      const itemRegex = /\[(\d+)\]\s*([\s\S]*?)(?=\n*\[\d+\]|$)/g;
-      let match;
-      while ((match = itemRegex.exec(responseText)) !== null) {
-        const index = parseInt(match[1], 10) - 1; // Convert to 0-based
-        const value = match[2].trim();
-        if (index >= 0 && index < fieldKeys.length && value) {
-          result[fieldKeys[index]] = value;
-        }
+${fieldsJson}`;
+
+      const result = await generateStructured({
+        presetId: this.presetId,
+        schema: translatedWizardBatchResultSchema,
+        system,
+        prompt,
+      }, 'translate-wizard-content');
+
+      // Merge results with fallback to original values
+      log('Translated', Object.keys(result.translations).length, 'wizard fields to', targetLanguage);
+      const translated: Record<string, string> = {};
+      for (const [key, value] of entries) {
+        translated[key] = result.translations[key] ?? value;
       }
-
-      // Debug: log if we didn't parse all expected fields
-      const parsedCount = fieldKeys.filter(k => result[k] !== fields[k]).length;
-      if (parsedCount < fieldKeys.length) {
-        log('Batch translation parsing may have missed fields', {
-          expected: fieldKeys,
-          parsedCount,
-          responsePreview: responseText.substring(0, 500),
-        });
-      }
-
-      log('Wizard batch translated', {
-        inputFields: Object.keys(nonEmptyFields).length,
-        outputFields: Object.keys(result).length,
-      });
-
-      return result;
+      return translated;
     } catch (error) {
       log('Wizard batch translation failed:', error);
-      throw error;
+      return fields;
     }
   }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { VaultLorebook, VaultLorebookEntry } from '$lib/types';
+  import type { VaultLorebookEntry } from '$lib/types';
   import {
     InteractiveLorebookService,
     type PendingChange,
@@ -7,7 +7,6 @@
     type ToolCallDisplay,
     type StreamEvent
   } from '$lib/services/ai/lorebook/InteractiveLorebookService';
-  import { OpenAIProvider } from '$lib/services/ai/core/OpenAIProvider';
   import { settings } from '$lib/stores/settings.svelte';
   import DiffView from './DiffView.svelte';
   import {
@@ -71,23 +70,16 @@
   function initializeService() {
     try {
       const presetId = settings.getServicePresetId('interactiveLorebook');
-      const preset = settings.getPresetConfig(presetId, 'Interactive Lorebook');
-      const apiSettings = settings.getApiSettingsForProfile(preset.profileId);
 
-      if (!apiSettings.openaiApiKey) {
-        error = 'No API key configured. Please set up an API key in settings.';
-        return;
-      }
-
-      const provider = new OpenAIProvider(apiSettings);
-      service = new InteractiveLorebookService(provider, presetId);
+      service = new InteractiveLorebookService(presetId);
       service.initialize(lorebookName || 'New Lorebook', entries.length);
 
       // Add initial greeting message (display-only, not sent to API)
+      // Note: The actual AI functionality is stubbed during SDK migration
       messages = [{
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Hello! I'm here to help you create and organize entries for "${lorebookName || 'your new lorebook'}". You can describe characters, locations, items, or any other lore elements you'd like to add, and I'll help you structure them as lorebook entries.\n\nWhat would you like to create?`,
+        content: `Hello! I'm here to help you create and organize entries for "${lorebookName || 'your new lorebook'}".\n\n**Note:** Interactive lorebook chat is currently unavailable during SDK migration. Please use manual entry creation for now.`,
         timestamp: Date.now(),
         isGreeting: true,
       }];
@@ -157,15 +149,19 @@
             break;
 
           case 'message':
-            // Intermediate message from an iteration with tool calls
+            // Message from a completed step (each AI turn with text/tool calls)
             messages = [...messages, event.message];
 
-            // Add pending changes to the tracking list
+            // Add pending changes to the tracking list (avoid duplicates by ID)
             if (event.message.pendingChanges && event.message.pendingChanges.length > 0) {
-              pendingChanges = [...pendingChanges, ...event.message.pendingChanges];
+              const existingIds = new Set(pendingChanges.map(c => c.id));
+              const newChanges = event.message.pendingChanges.filter(c => !existingIds.has(c.id));
+              if (newChanges.length > 0) {
+                pendingChanges = [...pendingChanges, ...newChanges];
+              }
             }
 
-            // Reset state for next iteration
+            // Reset state for next step
             activeToolCalls = [];
             isThinking = true;
 
@@ -174,23 +170,9 @@
             break;
 
           case 'done':
-            // Create final assistant message
-            const assistantMsg: ChatMessage = {
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              content: event.result.response,
-              timestamp: Date.now(),
-              pendingChanges: event.result.pendingChanges,
-              toolCalls: event.result.toolCalls,
-              reasoning: event.result.reasoning,
-            };
-
-            messages = [...messages, assistantMsg];
-
-            // Add new pending changes to the list
-            if (event.result.pendingChanges.length > 0) {
-              pendingChanges = [...pendingChanges, ...event.result.pendingChanges];
-            }
+            // Messages are already emitted per step via 'message' events
+            // Just ensure pending changes are tracked (may have been added via step messages)
+            // No need to create another message here to avoid duplication
             break;
 
           case 'error':
@@ -341,13 +323,13 @@
 
   function handleKeyDown(e: KeyboardEvent) {
     const isMobile = isTouchDevice();
-    
+
     // On mobile: Enter = new line, Shift+Enter = send
     // On desktop: Enter = send, Shift+Enter = new line
-    const shouldSubmit = isMobile 
+    const shouldSubmit = isMobile
       ? (e.key === 'Enter' && e.shiftKey)
       : (e.key === 'Enter' && !e.shiftKey);
-    
+
     if (shouldSubmit) {
       e.preventDefault();
       handleSend();
@@ -593,7 +575,7 @@
   {/if}
 
   <!-- Input area -->
-  <div class="p-4 border-t bg-muted/10 pb-safe">
+  <div class="p-4 border-t bg-muted/10">
     <div class="flex items-end gap-2">
       <Textarea
         bind:value={inputValue}

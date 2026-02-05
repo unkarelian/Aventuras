@@ -7,7 +7,7 @@
 
 import { story } from '$lib/stores/story.svelte';
 import { promptService, type PromptContext } from '$lib/services/prompts';
-import { ImageGenerationService } from '../image/ImageGenerationService';
+import { isImageGenerationEnabled } from '../image';
 import { StyleReviewerService, type StyleReviewResult } from '../generation/StyleReviewerService';
 import { createLogger } from '../core/config';
 import type { Character, Location, Item, StoryBeat, Chapter, TimeTracker } from '$lib/types';
@@ -179,8 +179,8 @@ export function buildSystemPrompt(
   const protagonistName = protagonist?.name || 'the protagonist';
 
   // Determine inline image mode (requires both setting enabled and image gen service available)
-  const inlineImageMode = (story.currentStory?.settings?.inlineImageMode ?? false) && ImageGenerationService.isEnabled();
-  log('Inline image mode check:', { inlineImageMode, imageGenEnabled: ImageGenerationService.isEnabled() });
+  const inlineImageMode = (story.currentStory?.settings?.inlineImageMode ?? false) && isImageGenerationEnabled();
+  log('Inline image mode check:', { inlineImageMode, imageGenEnabled: isImageGenerationEnabled() });
 
   // Build prompt context for macro expansion - blocks auto-resolve based on mode flags
   const promptContext: PromptContext = {

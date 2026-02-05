@@ -1,24 +1,35 @@
 /**
- * Prompt Definitions - Domain Split Index
+ * Centralized Prompt System - Definitions Index
  *
- * This module re-exports all prompt definitions from the parent definitions.ts.
- * The structure is set up for incremental migration where individual template
- * categories can be moved to separate files:
- *
- * Future split (when migrated):
- * - macros.ts       - BUILTIN_MACROS, simple + complex macro definitions
- * - narrative.ts    - Adventure & creative-writing prompts
- * - analysis.ts     - Classifier, memory, style review prompts
- * - retrieval.ts    - Agentic retrieval, timeline fill prompts
- * - generation.ts   - Suggestions, action choices prompts
- * - lore.ts         - Lore management, lorebook prompts
- * - wizard.ts       - Story wizard prompts (setting, character, opening)
- * - image.ts        - Image generation & style prompts
- * - translation.ts  - Translation service prompts
- *
- * Current state: All definitions remain in ../definitions.ts
- * This file provides the directory structure for future migration.
+ * This module aggregates all macro and template definitions.
+ * Import from here to get the combined registries.
  */
 
-// Re-export everything from the main definitions file
-export * from '../definitions';
+// Macros
+export {
+  BUILTIN_MACROS,
+  coreMacros,
+  contextMacros,
+  narrativeMacros,
+  featureMacros,
+  CONTEXT_PLACEHOLDERS,
+  getPlaceholderByToken,
+} from './macros';
+
+// Re-export individual macros for direct access
+export * from './macros/core';
+export * from './macros/context';
+export * from './macros/narrative';
+export * from './macros/features';
+
+// Templates will be added in Plan 02
+// For now, re-export from the original definitions.ts
+export {
+  PROMPT_TEMPLATES,
+  getTemplateById,
+  getMacroByToken,
+  getMacrosByType,
+  getTemplatesByCategory,
+  getImageStyleTemplates,
+  hasUserContent,
+} from '../definitions';

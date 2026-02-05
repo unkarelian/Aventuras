@@ -58,7 +58,6 @@ class PromptExportService {
       temperature: preset.temperature,
       maxTokens: preset.maxTokens,
       reasoningEffort: preset.reasoningEffort,
-      providerOnly: [...preset.providerOnly],
       manualBody: preset.manualBody,
     }));
 
@@ -154,7 +153,6 @@ class PromptExportService {
         temperature: config?.temperature ?? exported.temperature,
         maxTokens: config?.maxTokens ?? exported.maxTokens,
         reasoningEffort: config?.reasoningEffort ?? exported.reasoningEffort,
-        providerOnly: config?.providerOnly ?? exported.providerOnly,
         manualBody: config?.manualBody ?? exported.manualBody,
       };
     });

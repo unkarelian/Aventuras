@@ -2,18 +2,13 @@
  * AI Core Module
  *
  * Core infrastructure for AI services including:
- * - OpenAIProvider: API client for OpenRouter/OpenAI-compatible APIs
- * - BaseAIService: Abstract base class for all AI services
  * - Configuration: Centralized config constants and logging
  * - Types: All API types and interfaces
  * - Request utilities: Extra body building, provider config
+ *
+ * Note: OpenAIProvider and BaseAIService have been removed.
+ * Services are being migrated to use Vercel AI SDK directly.
  */
-
-// API Client
-export { OpenAIProvider, OPENROUTER_API_URL } from './OpenAIProvider';
-
-// Base service class
-export { BaseAIService, type CallLLMOptions } from './BaseAIService';
 
 // Configuration and logging
 export { AI_CONFIG, DEBUG, createLogger, type Logger } from './config';
@@ -52,12 +47,8 @@ export {
   buildProviderConfig,
   parseManualBody,
   sanitizeManualBody,
-  normalizeProviderOnly,
   buildManualBodyDefaults,
   serializeManualBody,
   type ExtraBodyOptions,
   type ManualBodyDefaults,
 } from './requestOverrides';
-
-// Provider data
-export { DEFAULT_PROVIDERS } from './providers';

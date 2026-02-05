@@ -1,34 +1,68 @@
+/**
+ * AI Service - Main Orchestrator
+ *
+ * Coordinates AI services for narrative generation, classification, memory, and more.
+ *
+ * STATUS: Tier 0, 1, 3 Complete
+ * WORKING (SDK-migrated):
+ * - streamNarrative(), generateNarrative() - NarrativeService
+ * - classifyResponse() - ClassifierService
+ * - analyzeForChapter(), summarizeChapter(), decideRetrieval() - MemoryService
+ * - generateSuggestions() - SuggestionsService
+ * - generateActionChoices() - ActionChoicesService
+ * - runTimelineFill(), answerChapterQuestion(), answerChapterRangeQuestion() - TimelineFillService
+ * - buildTieredContext(), getRelevantLorebookEntries() - ContextBuilder/EntryRetrievalService
+ * - analyzeStyle() - StyleReviewerService
+ * - runLoreManagement() - LoreManagementService
+ * - generateImagesForNarrative() (both inline and analyzed modes) - ImageAnalysisService
+ * - runAgenticRetrieval() - AgenticRetrievalService
+ *
+ * STUBBED (awaiting migration):
+ * - translate*() - TranslationService
+ */
+
 import { settings } from '$lib/stores/settings.svelte';
 import { story } from '$lib/stores/story.svelte';
 import { promptService, type PromptContext, type StoryMode, type POV, type Tense } from '$lib/services/prompts';
-import { ClassifierService, type ClassificationResult, type ClassificationContext, type ClassificationChatEntry } from './generation/ClassifierService';
-import { MemoryService, type ChapterAnalysis, type ChapterSummary, type RetrievalDecision, DEFAULT_MEMORY_CONFIG } from './generation/MemoryService';
-import type { StorySuggestion, SuggestionsResult } from './generation/SuggestionsService';
-import type { ActionChoice, ActionChoicesResult } from './generation/ActionChoicesService';
-import { StyleReviewerService, type StyleReviewResult } from './generation/StyleReviewerService';
-import { LoreManagementService, type LoreManagementSettings } from './lorebook/LoreManagementService';
-import { AgenticRetrievalService, type AgenticRetrievalSettings, type AgenticRetrievalResult } from './retrieval/AgenticRetrievalService';
-import { TimelineFillService, type TimelineFillSettings, type TimelineFillResult } from './retrieval/TimelineFillService';
-import { ContextBuilder, type ContextResult, type ContextConfig, DEFAULT_CONTEXT_CONFIG } from './generation/ContextBuilder';
+import { ClassifierService, type ClassificationContext } from './generation/ClassifierService';
+import type { ClassificationResult } from './sdk/schemas/classifier';
+import { MemoryService, type RetrievalContext } from './generation/MemoryService';
+import type { ChapterAnalysis, ChapterSummaryResult, RetrievalDecision } from './sdk/schemas/memory';
+import type { SuggestionsResult } from './sdk/schemas/suggestions';
+import type { ActionChoicesResult } from './sdk/schemas/actionchoices';
+import type { StyleReviewResult } from './generation/StyleReviewerService';
+import { AgenticRetrievalService, type AgenticRetrievalResult, type RetrievalContext as AgenticRetrievalContext } from './retrieval/AgenticRetrievalService';
+import type { TimelineFillResult } from './retrieval/TimelineFillService';
+import { ContextBuilder, type ContextResult, type ContextConfig } from './generation/ContextBuilder';
 import { EntryRetrievalService, type EntryRetrievalResult, type ActivationTracker, getEntryRetrievalConfigFromSettings } from './retrieval/EntryRetrievalService';
-import { ImageGenerationService, type ImageGenerationContext } from './image/ImageGenerationService';
-import { inlineImageService, type InlineImageContext } from './image/InlineImageService';
-import { TranslationService, type TranslationResult, type UITranslationItem } from './utils/TranslationService';
-import { buildExtraBody } from './core/requestOverrides';
-import type { Message, StreamChunk } from './core/types';
-import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, MemoryConfig, Entry, LoreManagementResult, TimeTracker } from '$lib/types';
-import { createLogger, getContextConfig } from './core/config';
-import { OpenAIProvider } from './core/OpenAIProvider';
+import { inlineImageService, type InlineImageContext, isImageGenerationEnabled, ImageAnalysisService, type ImageAnalysisContext } from './image';
+import { emitImageAnalysisStarted, emitImageAnalysisComplete, emitImageAnalysisFailed, emitImageQueued, emitImageReady } from '$lib/services/events';
+import { database } from '$lib/services/database';
+import { generateImage as sdkGenerateImage } from './sdk/generate';
+import { normalizeImageDataUrl } from '$lib/utils/image';
+import type { ImageableScene } from './sdk/schemas/imageanalysis';
+import type { EmbeddedImage } from '$lib/types';
 
-// Import from new modules
+// Re-export ImageGenerationContext type for backwards compatibility
+export interface ImageGenerationContext {
+  storyId: string;
+  entryId: string;
+  narrativeResponse: string;
+  userAction: string;
+  presentCharacters: Character[];
+  currentLocation?: string;
+  chatHistory?: string;
+  lorebookContext?: string;
+  translatedNarrative?: string;
+  translationLanguage?: string;
+}
+import type { TranslationResult, UITranslationItem } from './utils/TranslationService';
+import type { StreamChunk } from './core/types';
+import type { Story, StoryEntry, Character, Location, Item, StoryBeat, Chapter, MemoryConfig, Entry, LoreManagementResult, LoreChange, TimeTracker } from '$lib/types';
+import { createLogger } from './core/config';
 import { serviceFactory } from './core/factory';
-import {
-  formatStoryTime,
-  buildPrimingMessage,
-  buildChapterSummariesBlock,
-  buildSystemPrompt,
-  type WorldStateContext
-} from './prompts/systemBuilder';
+import { NarrativeService } from './generation/NarrativeService';
+import type { WorldStateContext } from './prompts/systemBuilder';
 
 const log = createLogger('AIService');
 
@@ -38,270 +72,71 @@ interface WorldState extends WorldStateContext {
 }
 
 class AIService {
-  /**
-   * Get a provider configured for the main narrative generation.
-   * Delegates to ServiceFactory.
-   */
-  private getProvider() {
-    return serviceFactory.getMainProvider();
+  private narrativeService: NarrativeService;
+
+  constructor() {
+    this.narrativeService = serviceFactory.createNarrativeService();
   }
 
   /**
-   * Get a provider configured for a specific profile.
-   * Delegates to ServiceFactory.
+   * Generate a complete narrative response (non-streaming).
    */
-  getProviderForProfile(profileId: string | null) {
-    return serviceFactory.getProviderForProfile(profileId);
-  }
-
-  async generateResponse(
+  async generateNarrative(
     entries: StoryEntry[],
     worldState: WorldState,
     story?: Story | null
   ): Promise<string> {
-    log('generateResponse called', {
-      entriesCount: entries.length,
-      storyId: story?.id,
-      templateId: story?.templateId,
-    });
-
-    const provider = this.getProvider();
-    const mode = story?.mode || 'adventure';
-
-    // Build the system prompt with world state context
-    const pov = story?.settings?.pov ?? (mode === 'creative-writing' ? 'third' : 'first');
-    // For creative-writing mode, respect the user's POV selection directly
-    // For adventure mode, remap first->second (player as "you"), keep third as third
-    const promptPov = mode === 'creative-writing'
-      ? pov
-      : (pov === 'third' ? 'third' : 'second');
-    const tense = story?.settings?.tense ?? (mode === 'creative-writing' ? 'past' : 'present');
-    const protagonist = worldState.characters.find(c => c.relationship === 'self');
-    const protagonistName = protagonist?.name || 'the protagonist';
-    const visualProseMode = story?.settings?.visualProseMode ?? false;
-    const systemPrompt = buildSystemPrompt(worldState, {
-      templateId: story?.templateId,
-      mode,
-      pov: promptPov,
-      tense,
-      timeTracker: story?.timeTracker,
-      genre: story?.genre,
-      settingDescription: story?.description,
-      tone: story?.settings?.tone,
-      themes: story?.settings?.themes,
-      visualProseMode,
-    });
-    log('System prompt built, length:', systemPrompt.length, 'mode:', mode, 'pov:', promptPov, 'tense:', tense, 'genre:', story?.genre, 'tone:', story?.settings?.tone, 'visualProseMode:', visualProseMode);
-
-    // Build conversation history
-    const messages: Message[] = [
-      { role: 'system', content: systemPrompt },
-    ];
-
-    // Add priming user message to establish narrator role
-    const primingMessage = buildPrimingMessage(mode, promptPov, tense, protagonistName);
-    messages.push({ role: 'user', content: primingMessage });
-
-    // Add recent entries as conversation history
-    const contextConfig = getContextConfig();
-    const recentEntries = entries.slice(-contextConfig.recentEntriesForNarrative);
-    for (const entry of recentEntries) {
-      if (entry.type === 'user_action') {
-        messages.push({ role: 'user', content: entry.content });
-      } else if (entry.type === 'narration') {
-        messages.push({ role: 'assistant', content: entry.content });
-      }
-    }
-
-    const extraBody = buildExtraBody({
-      manualMode: settings.advancedRequestSettings.manualMode,
-      manualBody: settings.apiSettings.manualBody,
-      reasoningEffort: settings.apiSettings.reasoningEffort,
-      providerOnly: settings.apiSettings.providerOnly,
-      baseProvider: { order: ['z-ai'], require_parameters: false },
-    });
-
-    log('Messages built:', {
-      totalMessages: messages.length,
-      model: settings.apiSettings.defaultModel,
-      temperature: settings.apiSettings.temperature,
-      maxTokens: settings.apiSettings.maxTokens,
-      reasoningEffort: settings.apiSettings.reasoningEffort,
-    });
-
-    const response = await provider.generateResponse({
-      messages,
-      model: settings.apiSettings.defaultModel,
-      temperature: settings.apiSettings.temperature,
-      maxTokens: settings.apiSettings.maxTokens,
-      extraBody,
-    });
-
-    log('Response received, length:', response.content.length);
-    return response.content;
+    return this.narrativeService.generate(entries, worldState, story);
   }
 
-  async *streamResponse(
+  /**
+   * Stream a narrative response.
+   * This is the primary method for real-time story generation.
+   */
+  async *streamNarrative(
     entries: StoryEntry[],
     worldState: WorldState,
-    story?: Story | null,
+    currentStory?: Story | null,
     useTieredContext = true,
     styleReview?: StyleReviewResult | null,
     retrievedChapterContext?: string | null,
     signal?: AbortSignal,
     timelineFillResult?: TimelineFillResult | null
   ): AsyncIterable<StreamChunk> {
-    log('streamResponse called', {
+    log('streamNarrative called', {
       entriesCount: entries.length,
-      storyId: story?.id,
-      templateId: story?.templateId,
-      mode: story?.mode,
       useTieredContext,
-      hasChapters: (worldState.chapters?.length ?? 0) > 0,
+      hasStyleReview: !!styleReview,
       hasRetrievedContext: !!retrievedChapterContext,
       hasTimelineFill: !!timelineFillResult,
-      worldState: {
-        characters: worldState.characters.length,
-        locations: worldState.locations.length,
-        items: worldState.items.length,
-        storyBeats: worldState.storyBeats.length,
-        currentLocation: worldState.currentLocation?.name,
-      },
     });
 
-    const provider = this.getProvider();
-    const mode = story?.mode || 'adventure';
-
-    // Extract user's last input for tiered context building
-    const lastUserEntry = entries.findLast(e => e.type === 'user_action');
-    const userInput = lastUserEntry?.content || '';
-
-    // Build tiered context if enabled
-    // Note: Lorebook entry retrieval is done in ActionInput (parallel with memory retrieval)
-    // and passed via retrievedChapterContext parameter
+    // Build tiered context if requested
     let tieredContextBlock: string | undefined;
-
-    if (useTieredContext && userInput) {
-      try {
-        // Build world state context (characters, locations, items, story beats)
-        // Lorebook context is already included in retrievedChapterContext from ActionInput
-        const tieredContextConfig = getContextConfig();
-        const contextResult = await this.buildTieredContext(
-          worldState,
-          userInput,
-          entries.slice(-tieredContextConfig.recentEntriesForTiered),
-          retrievedChapterContext ?? undefined
-        );
-        tieredContextBlock = contextResult.contextBlock;
-        log('Tiered context built', {
-          tier1: contextResult.tier1.length,
-          tier2: contextResult.tier2.length,
-          tier3: contextResult.tier3.length,
-          blockLength: tieredContextBlock.length,
-        });
-      } catch (error) {
-        log('Tiered context building failed, falling back to legacy', error);
-        // Fall back to legacy context building
-      }
+    if (useTieredContext) {
+      const lastEntry = entries[entries.length - 1];
+      const userInput = lastEntry?.content ?? '';
+      const contextResult = await this.buildTieredContext(
+        worldState,
+        userInput,
+        entries,
+        retrievedChapterContext ?? undefined
+      );
+      tieredContextBlock = contextResult.contextBlock;
     }
 
-    // Build the system prompt with world state context
-    const pov = story?.settings?.pov ?? (mode === 'creative-writing' ? 'third' : 'first');
-    // For creative-writing mode, respect the user's POV selection directly
-    // For adventure mode, remap first->second (player as "you"), keep third as third
-    const promptPov = mode === 'creative-writing'
-      ? pov
-      : (pov === 'third' ? 'third' : 'second');
-    const tense = story?.settings?.tense ?? (mode === 'creative-writing' ? 'past' : 'present');
-    const protagonist = worldState.characters.find(c => c.relationship === 'self');
-    const protagonistName = protagonist?.name || 'the protagonist';
-    const visualProseMode = story?.settings?.visualProseMode ?? false;
-
-    // Build system prompt with all context (chapters, style review, tiered context)
-    const systemPrompt = buildSystemPrompt(worldState, {
-      templateId: story?.templateId,
-      mode,
+    // Delegate to NarrativeService
+    yield* this.narrativeService.stream(entries, worldState, currentStory, {
       tieredContextBlock,
-      pov: promptPov,
-      tense,
-      timeTracker: story?.timeTracker,
-      genre: story?.genre,
-      settingDescription: story?.description,
-      tone: story?.settings?.tone,
-      themes: story?.settings?.themes,
-      visualProseMode,
       styleReview,
-      chapters: worldState.chapters,
+      retrievedChapterContext,
+      signal,
       timelineFillResult,
     });
-
-    log('System prompt built, length:', systemPrompt.length, 'mode:', mode, 'pov:', promptPov, 'tense:', tense);
-
-    // Build conversation history
-    const messages: Message[] = [
-      { role: 'system', content: systemPrompt },
-    ];
-
-    // Add priming user message to establish narrator role
-    const primingMessage = buildPrimingMessage(mode, promptPov, tense, protagonistName);
-    messages.push({ role: 'user', content: primingMessage });
-
-    // Add ALL visible entries as conversation history
-    // These are entries that have NOT been summarized into chapters
-    // Per design doc section 3.1.2: only non-summarized entries are in direct context
-    for (const entry of entries) {
-      if (entry.type === 'user_action') {
-        messages.push({ role: 'user', content: entry.content });
-      } else if (entry.type === 'narration') {
-        messages.push({ role: 'assistant', content: entry.content });
-      }
-    }
-    log('Conversation history built', { visibleEntries: entries.length });
-
-    const extraBody = buildExtraBody({
-      manualMode: settings.advancedRequestSettings.manualMode,
-      manualBody: settings.apiSettings.manualBody,
-      reasoningEffort: settings.apiSettings.reasoningEffort,
-      providerOnly: settings.apiSettings.providerOnly,
-      baseProvider: { order: ['z-ai'], require_parameters: false },
-    });
-
-    log('Starting stream with', {
-      totalMessages: messages.length,
-      model: settings.apiSettings.defaultModel,
-      temperature: settings.apiSettings.temperature,
-      maxTokens: settings.apiSettings.maxTokens,
-      reasoningEffort: settings.apiSettings.reasoningEffort,
-    });
-
-    // Debug: Log message roles to verify correct format
-    log('Message roles:', messages.map(m => ({ role: m.role, contentPreview: m.content.substring(0, 100) + '...' })));
-
-    let chunkCount = 0;
-    let totalContent = 0;
-
-    for await (const chunk of provider.streamResponse({
-      messages,
-      model: settings.apiSettings.defaultModel,
-      temperature: settings.apiSettings.temperature,
-      maxTokens: settings.apiSettings.maxTokens,
-      extraBody,
-      signal,
-    })) {
-      chunkCount++;
-      totalContent += chunk.content.length;
-      if (chunkCount <= 3 || chunk.done) {
-        log('Stream chunk', { chunkCount, contentLength: chunk.content.length, done: chunk.done });
-      }
-      yield chunk;
-    }
-
-    log('Stream complete', { totalChunks: chunkCount, totalContentLength: totalContent });
   }
 
   /**
    * Classify a narrative response to extract world state changes.
-   * This is Phase 3 of the processing pipeline per design doc.
    */
   async classifyResponse(
     narrativeResponse: string,
@@ -312,68 +147,56 @@ class AIService {
     currentStoryTime?: TimeTracker | null
   ): Promise<ClassificationResult> {
     log('classifyResponse called', {
-      responseLength: narrativeResponse.length,
+      narrativeLength: narrativeResponse.length,
       userActionLength: userAction.length,
-      genre: story?.genre,
-      visibleEntriesCount: visibleEntries?.length ?? 0,
-      currentStoryTime,
+      hasStory: !!story,
+      hasVisibleEntries: !!visibleEntries,
     });
 
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('classifier'), 'Classifier').profileId);
-    const classifier = new ClassifierService(
-      provider,
-      settings.getServicePresetId('classifier'),
-      settings.systemServicesSettings.classifier.chatHistoryTruncation ?? 100
-    );
+    if (!story) {
+      log('classifyResponse: No story provided, returning empty result');
+      return {
+        entryUpdates: {
+          characterUpdates: [],
+          locationUpdates: [],
+          itemUpdates: [],
+          storyBeatUpdates: [],
+          newCharacters: [],
+          newLocations: [],
+          newItems: [],
+          newStoryBeats: [],
+        },
+        scene: {
+          currentLocationName: null,
+          presentCharacterNames: [],
+          timeProgression: 'none',
+        },
+      };
+    }
 
-    // Build chat history from visible entries with time metadata
-    const chatHistory: ClassificationChatEntry[] = (visibleEntries ?? [])
-      .filter(e => e.type === 'user_action' || e.type === 'narration')
-      .map(e => ({
-        role: e.type === 'user_action' ? 'user' as const : 'assistant' as const,
-        content: e.content,
-        timeStart: e.metadata?.timeStart ?? null,
-        timeEnd: e.metadata?.timeEnd ?? null,
-      }));
-
+    const classifierService = serviceFactory.createClassifierService();
     const context: ClassificationContext = {
+      storyId: story.id,
+      story,
       narrativeResponse,
       userAction,
       existingCharacters: worldState.characters,
       existingLocations: worldState.locations,
       existingItems: worldState.items,
-      existingStoryBeats: worldState.storyBeats,
-      genre: story?.genre ?? null,
-      storyMode: story?.mode ?? 'adventure',
-      chatHistory,
-      currentStoryTime,
+      existingStoryBeats: worldState.storyBeats ?? [],
     };
 
-    const result = await classifier.classify(context);
-    log('classifyResponse complete', {
-      newCharacters: result.entryUpdates.newCharacters.length,
-      newLocations: result.entryUpdates.newLocations.length,
-      newItems: result.entryUpdates.newItems.length,
-      newStoryBeats: result.entryUpdates.newStoryBeats.length,
-    });
-
-    return result;
+    return classifierService.classify(context, visibleEntries, currentStoryTime);
   }
 
   /**
    * Generate story direction suggestions for creative writing mode.
-   * Per design doc section 4.2: Suggestions System
-   * @param promptContext - Complete story context for macro expansion (preferred)
-   * @param pov - Point of view (deprecated, use promptContext)
-   * @param tense - Tense (deprecated, use promptContext)
    */
   async generateSuggestions(
     entries: StoryEntry[],
     activeThreads: StoryBeat[],
     lorebookEntries?: Entry[],
-    promptContext?: PromptContext,
-    pov?: POV,
-    tense?: Tense
+    promptContext?: PromptContext
   ): Promise<SuggestionsResult> {
     log('generateSuggestions called', {
       entriesCount: entries.length,
@@ -383,18 +206,11 @@ class AIService {
     });
 
     const suggestionsService = serviceFactory.createSuggestionsService();
-    return await suggestionsService.generateSuggestions(entries, activeThreads, lorebookEntries, promptContext, pov, tense);
+    return await suggestionsService.generateSuggestions(entries, activeThreads, lorebookEntries, promptContext);
   }
 
   /**
    * Generate RPG-style action choices for adventure mode.
-   * Displayed after narration to give the player clear options.
-   * @param entries - Recent story entries
-   * @param worldState - Current world state (characters, locations, items, story beats)
-   * @param narrativeResponse - The latest narrative response
-   * @param lorebookEntries - Active lorebook entries
-   * @param promptContext - Complete story context for macro expansion
-   * @param pov - Point of view (deprecated, use promptContext)
    */
   async generateActionChoices(
     entries: StoryEntry[],
@@ -412,34 +228,52 @@ class AIService {
     });
 
     const actionChoicesService = serviceFactory.createActionChoicesService();
-    return await actionChoicesService.generateChoices(entries, worldState, narrativeResponse, lorebookEntries, promptContext, pov);
+
+    // Find protagonist
+    const protagonist = worldState.characters?.find(c => c.relationship === 'self');
+
+    // Find last user action
+    const lastUserAction = entries.filter(e => e.type === 'user_action').pop();
+
+    // Get present characters (NPCs, excluding the protagonist)
+    const presentCharacters = worldState.characters?.filter(c =>
+      c.relationship !== 'self' && c.status === 'active'
+    );
+
+    // Get inventory items (those that are equipped)
+    const inventory = worldState.items?.filter(i => i.equipped);
+
+    // Build context for the service
+    const context = {
+      narrativeResponse,
+      userAction: lastUserAction?.content ?? '',
+      recentEntries: entries.slice(-10),
+      protagonistName: protagonist?.name ?? promptContext?.protagonistName ?? 'the protagonist',
+      protagonistDescription: protagonist?.description,
+      mode: promptContext?.mode ?? 'adventure',
+      pov: pov ?? promptContext?.pov ?? 'second',
+      tense: promptContext?.tense ?? 'present',
+      currentLocation: worldState.currentLocation,
+      presentCharacters,
+      inventory,
+      activeQuests: worldState.storyBeats?.filter(b => b.status === 'pending' || b.status === 'active'),
+      lorebookEntries,
+    };
+
+    const choices = await actionChoicesService.generateChoices(context);
+    return { choices };
   }
 
   /**
-   * Analyze narration entries for style issues (overused phrases, etc.).
-   * Runs in background every N messages to provide writing guidance.
-   * @param entries - Story entries to analyze
-   * @param mode - Story mode (affects prompt context defaults)
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
+   * Analyze narration entries for style issues.
    */
   async analyzeStyle(entries: StoryEntry[], mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): Promise<StyleReviewResult> {
-    log('analyzeStyle called', { entriesCount: entries.length, mode });
-
-    const styleReviewerService = serviceFactory.createStyleReviewerService();
-    return await styleReviewerService.analyzeStyle(entries, mode, pov, tense);
+    const service = serviceFactory.createStyleReviewerService();
+    return service.analyzeStyle(entries, mode, pov, tense);
   }
 
   /**
-   * Analyze if a new chapter should be created based on token count.
-   * Per design doc section 3.1.2: Auto-Summarization
-   * @param entries - Story entries to analyze
-   * @param lastChapterEndIndex - Index of the last chapter end
-   * @param config - Memory configuration
-   * @param tokensOutsideBuffer - Token count outside the buffer
-   * @param mode - Story mode (affects prompt context defaults)
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
+   * Analyze if a new chapter should be created.
    */
   async analyzeForChapter(
     entries: StoryEntry[],
@@ -450,42 +284,20 @@ class AIService {
     pov?: POV,
     tense?: Tense
   ): Promise<ChapterAnalysis> {
-    log('analyzeForChapter called', {
-      entriesCount: entries.length,
-      lastChapterEndIndex,
-      tokensOutsideBuffer,
-      mode,
-    });
-
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('memory'), 'Memory').profileId);
-    const memory = new MemoryService(provider, settings.getServicePresetId('memory'));
-    return await memory.analyzeForChapter(entries, lastChapterEndIndex, config, tokensOutsideBuffer, mode, pov, tense);
+    const memoryService = serviceFactory.createMemoryService();
+    return memoryService.analyzeForChapter(entries, lastChapterEndIndex, tokensOutsideBuffer, mode, pov, tense);
   }
 
   /**
    * Generate a summary and metadata for a chapter.
-   * @param entries - The entries to summarize
-   * @param previousChapters - Previous chapter summaries for context (optional)
-   * @param mode - Story mode (affects prompt context defaults)
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
    */
-  async summarizeChapter(entries: StoryEntry[], previousChapters?: Chapter[], mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): Promise<ChapterSummary> {
-    log('summarizeChapter called', { entriesCount: entries.length, previousChaptersCount: previousChapters?.length ?? 0, mode });
-
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('memory'), 'Memory').profileId);
-    const memory = new MemoryService(provider, settings.getServicePresetId('memory'));
-    return await memory.summarizeChapter(entries, previousChapters, mode, pov, tense);
+  async summarizeChapter(entries: StoryEntry[], previousChapters?: Chapter[], mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): Promise<ChapterSummaryResult> {
+    const memoryService = serviceFactory.createMemoryService();
+    return memoryService.summarizeChapter(entries, previousChapters, mode, pov, tense);
   }
 
   /**
-   * Resummarize an existing chapter (excludes its own old summary and later chapters)
-   * @param chapter - The chapter to resummarize
-   * @param entries - The entries in this chapter
-   * @param allChapters - All chapters in the story
-   * @param mode - Story mode (affects prompt context defaults)
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
+   * Resummarize an existing chapter.
    */
   async resummarizeChapter(
     chapter: Chapter,
@@ -494,24 +306,13 @@ class AIService {
     mode: StoryMode = 'adventure',
     pov?: POV,
     tense?: Tense
-  ): Promise<ChapterSummary> {
-    log('resummarizeChapter called', { chapterId: chapter.id, chapterNumber: chapter.number, mode });
-
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('memory'), 'Memory').profileId);
-    const memory = new MemoryService(provider, settings.getServicePresetId('memory'));
-    return await memory.resummarizeChapter(chapter, entries, allChapters, mode, pov, tense);
+  ): Promise<ChapterSummaryResult> {
+    const memoryService = serviceFactory.createMemoryService();
+    return memoryService.summarizeChapter(entries, allChapters, mode, pov, tense);
   }
 
   /**
    * Decide which chapters are relevant for the current context.
-   * Per design doc section 3.1.3: Retrieval Flow
-   * @param userInput - User's current input/action
-   * @param recentEntries - Recent story entries for context
-   * @param chapters - All chapters in the story
-   * @param config - Memory configuration
-   * @param mode - Story mode (affects prompt context defaults)
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
    */
   async decideRetrieval(
     userInput: string,
@@ -522,32 +323,32 @@ class AIService {
     pov?: POV,
     tense?: Tense
   ): Promise<RetrievalDecision> {
-    log('decideRetrieval called', {
-      userInputLength: userInput.length,
-      recentEntriesCount: recentEntries.length,
-      chaptersCount: chapters.length,
-      mode,
-    });
-
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('memory'), 'Memory').profileId);
-    const memory = new MemoryService(provider, settings.getServicePresetId('memory'));
-    return await memory.decideRetrieval(userInput, recentEntries, chapters, config, mode, pov, tense);
+    const memoryService = serviceFactory.createMemoryService();
+    const context: RetrievalContext = {
+      userInput,
+      recentNarrative: recentEntries.map(e => e.content).join(' '),
+      availableChapters: chapters,
+    };
+    return memoryService.decideRetrieval(context, mode, pov, tense);
   }
 
   /**
-   * Build context block from retrieved chapters for injection into narrator prompt.
+   * Build context block from retrieved chapters.
+   * NOTE: This method works - it's just string building.
    */
   buildRetrievedContextBlock(
     chapters: Chapter[],
     decision: RetrievalDecision
   ): string {
-    const memory = new MemoryService(null as any); // Only using static method
-    return memory.buildRetrievedContextBlock(chapters, decision);
+    const memory = new MemoryService('memory');
+    // Pass callback to fetch full chapter entries for richer context
+    const getChapterEntries = (chapter: Chapter) => story.getChapterEntries(chapter);
+    return memory.buildRetrievedContextBlock(chapters, decision, getChapterEntries);
   }
 
   /**
    * Build tiered context using the ContextBuilder.
-   * Per design doc section 3.2.3: Tiered Injection
+   * NOTE: Tier 1 & 2 work. Tier 3 (LLM selection) is stubbed.
    */
   async buildTieredContext(
     worldState: WorldState,
@@ -562,15 +363,7 @@ class AIService {
       hasRetrievedContext: !!retrievedChapterContext,
     });
 
-    let provider: OpenAIProvider | null = null;
-    try {
-      provider = this.getProvider();
-    } catch {
-      // Provider not available (no API key), will skip Tier 3
-      log('No provider available, skipping Tier 3 LLM selection');
-    }
-
-    const contextBuilder = new ContextBuilder(provider, config);
+    const contextBuilder = new ContextBuilder(config);
     const result = await contextBuilder.buildContext(
       worldState,
       userInput,
@@ -590,13 +383,7 @@ class AIService {
 
   /**
    * Get relevant lorebook entries using tiered injection.
-   * Per design doc section 3.2.3: Tiered Injection for Entries
-   *
-   * @param entries - Lorebook entries to consider
-   * @param userInput - The user's action/input
-   * @param recentStoryEntries - Recent story entries for context
-   * @param liveState - Live-tracked characters, locations, items (become Tier 1)
-   * @param activationTracker - Optional tracker for entry stickiness
+   * NOTE: Tier 1 & 2 work. Tier 3 (LLM selection) is stubbed.
    */
   async getRelevantLorebookEntries(
     entries: Entry[],
@@ -616,16 +403,7 @@ class AIService {
     });
 
     const config = getEntryRetrievalConfigFromSettings();
-    let provider: OpenAIProvider | null = null;
-    if (config.enableLLMSelection) {
-      try {
-        provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('entryRetrieval'), 'Entry Retrieval').profileId);
-      } catch {
-        log('No provider available, skipping Tier 3 LLM selection for entries');
-      }
-    }
-
-    const entryService = new EntryRetrievalService(provider, config, settings.getServicePresetId('entryRetrieval'));
+    const entryService = new EntryRetrievalService(config, settings.getServicePresetId('entryRetrieval'));
     const result = await entryService.getRelevantEntries(
       entries,
       userInput,
@@ -647,10 +425,7 @@ class AIService {
 
   /**
    * Run a lore management session.
-   * Per design doc section 3.4: Lore Management Mode
-   * This is an on-demand agentic system that reviews and updates lorebook entries.
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
+   * Analyzes recent narrative and updates lorebook entries accordingly.
    */
   async runLoreManagement(
     storyId: string,
@@ -669,38 +444,73 @@ class AIService {
     pov?: POV,
     tense?: Tense
   ): Promise<LoreManagementResult> {
-    log('runLoreManagement called', {
+    // Extract recent user action and narrative
+    const recentNarration = recentMessages.filter(m => m.type === 'narration');
+    const recentActions = recentMessages.filter(m => m.type === 'user_action');
+
+    const narrativeResponse = recentNarration.length > 0
+      ? recentNarration[recentNarration.length - 1].content
+      : '';
+    const userAction = recentActions.length > 0
+      ? recentActions[recentActions.length - 1].content
+      : '';
+
+    // Build chapters info for lore management
+    // Deep clone to avoid Svelte proxy issues with AI SDK structured cloning
+    const chapterInfos = JSON.parse(JSON.stringify(chapters.map(c => ({
+      number: c.number,
+      title: c.title,
+      summary: c.summary,
+      keywords: c.keywords,
+      characters: c.characters,
+    }))));
+
+    // Create service and run session
+    const service = serviceFactory.createLoreManagementService();
+    const sessionResult = await service.runSession({
       storyId,
-      branchId,
-      entriesCount: entries.length,
-      recentMessagesCount: recentMessages.length,
-      chaptersCount: chapters.length,
+      narrativeResponse,
+      userAction,
+      existingEntries: entries,
+      chapters: chapterInfos,
+      queryChapter: callbacks.onQueryChapter,
     });
 
-    const loreManagementSettings = settings.systemServicesSettings.loreManagement;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('loreManagement'), 'Lore Manager').profileId);
-    const loreManager = new LoreManagementService(
-      provider,
-      settings.getServicePresetId('loreManagement'),
-      loreManagementSettings.maxIterations
-    );
+    // Build changes array for the result
+    const changes: LoreChange[] = [];
 
-    return await loreManager.runSession({
-      storyId,
-      branchId,
-      entries,
-      recentMessages,
-      chapters,
-      ...callbacks,
-    }, mode, pov, tense);
+    // Apply changes via callbacks and build changes array
+    for (const entry of sessionResult.createdEntries) {
+      // Assign proper ID before creating
+      const newEntry: Entry = {
+        ...entry,
+        id: crypto.randomUUID(),
+        branchId,
+      };
+      await callbacks.onCreateEntry(newEntry);
+      changes.push({ type: 'create', entry: newEntry });
+    }
+
+    for (const entry of sessionResult.updatedEntries) {
+      await callbacks.onUpdateEntry(entry.id, entry);
+      changes.push({ type: 'update', entry });
+    }
+
+    log('runLoreManagement complete', {
+      created: sessionResult.createdEntries.length,
+      updated: sessionResult.updatedEntries.length,
+    });
+
+    return {
+      changes,
+      summary: sessionResult.reasoning ?? 'Lore management session completed.',
+      sessionId: crypto.randomUUID(),
+    };
   }
 
   /**
-   * Run agentic retrieval to gather context for the current situation.
-   * Per design doc section 3.1.4: Agentic Retrieval (Optional)
-   * Used for long stories or complex queries where static retrieval is insufficient.
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
+   * Run agentic retrieval to find relevant lorebook entries and chapter context.
+   * Uses an LLM agent with tools to intelligently search and select entries.
    */
   async runAgenticRetrieval(
     userInput: string,
@@ -721,38 +531,41 @@ class AIService {
       entriesCount: entries.length,
     });
 
-    const agenticRetrievalSettings = settings.systemServicesSettings.agenticRetrieval;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('agenticRetrieval'), 'Agentic Retrieval').profileId);
-    const retrieval = new AgenticRetrievalService(
-      provider,
-      settings.getServicePresetId('agenticRetrieval'),
-      agenticRetrievalSettings.maxIterations
-    );
+    const service = serviceFactory.createAgenticRetrievalService();
 
-    return await retrieval.runRetrieval(
-      { userInput, recentEntries, chapters, entries },
-      onQueryChapter,
-      onQueryChapters,
-      signal,
-      mode,
-      pov,
-      tense
-    );
+    // Build recent narrative from entries
+    const recentNarrative = recentEntries
+      .map(e => e.content)
+      .join('\n\n');
+
+    // Build context for the service
+    const context: AgenticRetrievalContext = {
+      userInput,
+      recentNarrative,
+      availableEntries: entries,
+      chapters,
+      // Pass through the chapter query callback directly
+      queryChapter: onQueryChapter,
+    };
+
+    const result = await service.runRetrieval(context, signal);
+
+    log('runAgenticRetrieval complete', {
+      entriesFound: result.entries.length,
+      hasReasoning: !!result.reasoning,
+    });
+
+    return result;
   }
 
   /**
-   * Determine if agentic retrieval should be used based on timeline fill mode.
-   * Returns true if timeline fill is enabled and mode is set to 'agentic'.
+   * Determine if agentic retrieval should be used.
    */
   shouldUseAgenticRetrieval(chapters: Chapter[]): boolean {
     const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-
-    // If timeline fill is disabled, no retrieval
     if (!timelineFillSettings?.enabled) {
       return false;
     }
-
-    // Check the mode setting (default to 'static' for backwards compatibility)
     const mode = timelineFillSettings.mode ?? 'static';
     return mode === 'agentic';
   }
@@ -761,146 +574,86 @@ class AIService {
    * Format agentic retrieval result for prompt injection.
    */
   formatAgenticRetrievalForPrompt(result: AgenticRetrievalResult): string {
-    return AgenticRetrievalService.formatForPromptInjection(result);
+    // The service now builds the context string internally
+    return result.context || '';
   }
 
   /**
    * Run timeline fill to gather context from past chapters.
-   * Per design doc section 3.1.4: Static Retrieval (Default)
-   *
-   * This is a "one-time" AI call that:
-   * 1. Analyzes the current scene and generates targeted queries
-   * 2. Executes those queries against chapter content in parallel
-   * 3. Returns results for injection into the narrator's prompt
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
    */
   async runTimelineFill(
-    userInput: string,
     visibleEntries: StoryEntry[],
-    chapters: Chapter[],
-    allEntries: StoryEntry[],
-    signal?: AbortSignal,
-    mode: StoryMode = 'adventure',
-    pov?: POV,
-    tense?: Tense
+    chapters: Chapter[]
   ): Promise<TimelineFillResult> {
     log('runTimelineFill called', {
-      userInputLength: userInput.length,
       visibleEntriesCount: visibleEntries.length,
       chaptersCount: chapters.length,
-      allEntriesCount: allEntries.length,
     });
 
-    const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('timelineFill'), 'Timeline Fill').profileId);
-    const timelineFill = new TimelineFillService(
-      provider,
-      settings.getServicePresetId('timelineFill'),
-      timelineFillSettings.maxQueries
-    );
-
-    return await timelineFill.fillTimeline(
-      userInput,
-      visibleEntries,
-      chapters,
-      allEntries,
-      signal,
-      mode,
-      pov,
-      tense
-    );
+    const timelineFillService = serviceFactory.createTimelineFillService();
+    // Pass callback to fetch full chapter entries for richer context
+    const getChapterEntries = (chapter: Chapter) => story.getChapterEntries(chapter);
+    return timelineFillService.runTimelineFill(visibleEntries, chapters, getChapterEntries);
   }
 
   /**
-   * Answer a specific chapter question using full chapter content (max 3 chapters).
-   * Uses dedicated chapterQuery settings (shared by both static and agentic modes).
+   * Answer a specific chapter question.
    */
   async answerChapterQuestion(
     chapterNumber: number,
     question: string,
-    chapters: Chapter[],
-    allEntries: StoryEntry[],
-    signal?: AbortSignal,
-    mode: StoryMode = 'adventure'
+    chapters: Chapter[]
   ): Promise<string> {
-    const chapterQuerySettings = settings.systemServicesSettings.chapterQuery;
-    const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('chapterQuery'), 'Chapter Query').profileId);
-    const timelineFill = new TimelineFillService(
-      provider,
-      settings.getServicePresetId('chapterQuery'),
-      timelineFillSettings.maxQueries,
-      {
-        model: chapterQuerySettings.model,
-        temperature: chapterQuerySettings.temperature,
-        reasoningEffort: chapterQuerySettings.reasoningEffort,
-        providerOnly: chapterQuerySettings.providerOnly,
-        manualBody: chapterQuerySettings.manualBody,
-      }
-    );
-    return await timelineFill.answerQuestionForChapters(
+    log('answerChapterQuestion called', {
+      chapterNumber,
       question,
-      [chapterNumber],
-      chapters,
-      allEntries,
-      signal,
-      mode
-    );
+      chaptersCount: chapters.length,
+    });
+
+    const chapterQueryService = serviceFactory.createChapterQueryService();
+    // Pass callback to fetch full chapter entries for richer context
+    const getChapterEntries = (chapter: Chapter) => story.getChapterEntries(chapter);
+    const answer = await chapterQueryService.answerQuestion(question, chapters, [chapterNumber], getChapterEntries);
+    return answer.answer;
   }
 
   /**
-   * Answer a range question across chapters (max 3 chapters).
-   * Uses dedicated chapterQuery settings (shared by both static and agentic modes).
+   * Answer a range question across chapters.
    */
   async answerChapterRangeQuestion(
     startChapter: number,
     endChapter: number,
     question: string,
-    chapters: Chapter[],
-    allEntries: StoryEntry[],
-    signal?: AbortSignal,
-    mode: StoryMode = 'adventure'
+    chapters: Chapter[]
   ): Promise<string> {
-    const chapterQuerySettings = settings.systemServicesSettings.chapterQuery;
-    const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(settings.getServicePresetId('chapterQuery'), 'Chapter Query').profileId);
-    const timelineFill = new TimelineFillService(
-      provider,
-      settings.getServicePresetId('chapterQuery'),
-      timelineFillSettings.maxQueries,
-      {
-        model: chapterQuerySettings.model,
-        temperature: chapterQuerySettings.temperature,
-        reasoningEffort: chapterQuerySettings.reasoningEffort,
-        providerOnly: chapterQuerySettings.providerOnly,
-        manualBody: chapterQuerySettings.manualBody,
-      }
-    );
-    return await timelineFill.answerQuestionForChapterRange(
-      question,
+    log('answerChapterRangeQuestion called', {
       startChapter,
       endChapter,
-      chapters,
-      allEntries,
-      signal,
-      mode
-    );
+      question,
+      chaptersCount: chapters.length,
+    });
+
+    // Build chapter numbers array for the range
+    const chapterNumbers: number[] = [];
+    for (let i = startChapter; i <= endChapter; i++) {
+      chapterNumbers.push(i);
+    }
+
+    const chapterQueryService = serviceFactory.createChapterQueryService();
+    // Pass callback to fetch full chapter entries for richer context
+    const getChapterEntries = (chapter: Chapter) => story.getChapterEntries(chapter);
+    const answer = await chapterQueryService.answerQuestion(question, chapters, chapterNumbers, getChapterEntries);
+    return answer.answer;
   }
 
   /**
-   * Determine if timeline fill should be used for memory retrieval.
-   * Uses the mode setting: 'static' (default) or 'agentic'.
+   * Determine if timeline fill should be used.
    */
   shouldUseTimelineFill(chapters: Chapter[]): boolean {
     const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-
-    // If timeline fill is disabled, don't use it
     if (!timelineFillSettings?.enabled) {
       return false;
     }
-
-    // Check the mode setting (default to 'static' for backwards compatibility)
     const mode = timelineFillSettings.mode ?? 'static';
     return mode === 'static';
   }
@@ -915,32 +668,37 @@ class AIService {
     firstVisibleEntryPosition: number,
     locations?: Location[]
   ): string {
-    return TimelineFillService.formatForPromptInjection(
-      chapters,
-      result,
-      currentEntryPosition,
-      firstVisibleEntryPosition,
-      locations
-    );
+    if (!result.responses || result.responses.length === 0) {
+      return '';
+    }
+
+    const lines: string[] = ['## Retrieved Context from Past Chapters'];
+
+    for (const response of result.responses) {
+      if (response.answer && response.answer !== 'Not mentioned in these chapters.') {
+        lines.push(`\n**Q: ${response.query}**`);
+        lines.push(response.answer);
+        if (response.chapterNumbers.length > 0) {
+          lines.push(`(From chapter${response.chapterNumbers.length > 1 ? 's' : ''} ${response.chapterNumbers.join(', ')})`);
+        }
+      }
+    }
+
+    return lines.length > 1 ? lines.join('\n') : '';
   }
 
   /**
    * Check if image generation is enabled and configured.
    */
   isImageGenerationEnabled(): boolean {
-    return ImageGenerationService.isEnabled();
+    return isImageGenerationEnabled();
   }
 
-/**
+  /**
    * Generate images for a narrative response.
-   * Uses either inline image mode (AI-placed <pic> tags) or analyzed mode (LLM scene analysis).
-   * This runs in background and doesn't block the main flow.
-   *
-   * When translation is enabled:
-   * - Inline mode: processes the translated narrative (which should preserve <pic> tags)
-   * - Analyzed mode: uses translated narrative for sourceText, but prompts are always in English
-   *
-   * @param context - The narrative context for image generation
+   * Supports two modes:
+   * - Inline mode: Process <pic> tags from AI response
+   * - Analyzed mode: Use LLM to identify imageable scenes
    */
   async generateImagesForNarrative(context: ImageGenerationContext): Promise<void> {
     log('generateImagesForNarrative called', {
@@ -962,7 +720,6 @@ class AIService {
     try {
       if (inlineImageMode) {
         // Use inline image generation (process <pic> tags from AI response)
-        // If translation is enabled, process the translated narrative which should preserve <pic> tags
         const narrativeToProcess = context.translatedNarrative || context.narrativeResponse;
         log('Using inline image mode', {
           usingTranslated: !!context.translatedNarrative,
@@ -975,152 +732,376 @@ class AIService {
         };
         await inlineImageService.processNarrativeForInlineImages(inlineContext);
       } else {
-        // Use analyzed image generation (LLM scene analysis)
-        // The context already includes translatedNarrative for sourceText extraction
-        log('Using analyzed image mode', {
-          hasTranslation: !!context.translatedNarrative,
-        });
-        const preset = settings.getPresetConfig(settings.getServicePresetId('imageGeneration'), 'Image Generation');
-        const provider = this.getProviderForProfile(preset.profileId);
-        const imageService = new ImageGenerationService(provider, settings.getServicePresetId('imageGeneration'));
-        await imageService.generateForNarrative(context);
+        // Analyzed mode: Use LLM to identify imageable scenes
+        log('Using analyzed image mode');
+        await this.runAnalyzedImageGeneration(context);
       }
     } catch (error) {
       log('Image generation failed (non-fatal)', error);
       // Don't throw - image generation failure shouldn't break the main flow
     }
   }
+
+  /**
+   * Run analyzed image generation mode.
+   * Uses LLM to identify visually striking moments in narrative text.
+   */
+  private async runAnalyzedImageGeneration(context: ImageGenerationContext): Promise<void> {
+    const imageSettings = settings.systemServicesSettings.imageGeneration;
+    const portraitMode = imageSettings.portraitMode ?? false;
+
+    // Get characters with/without portraits
+    const presentCharacterNames = context.presentCharacters.map(c => c.name.toLowerCase());
+    const charactersWithPortraits = story.characters
+      .filter(c => presentCharacterNames.includes(c.name.toLowerCase()) && c.portrait)
+      .map(c => c.name);
+    const charactersWithoutPortraits = story.characters
+      .filter(c => presentCharacterNames.includes(c.name.toLowerCase()) && !c.portrait)
+      .map(c => c.name);
+
+    // Build style prompt
+    const stylePrompt = this.getStylePrompt(imageSettings.styleId);
+
+    // Build analysis context
+    const analysisContext: ImageAnalysisContext = {
+      narrativeResponse: context.narrativeResponse,
+      userAction: context.userAction,
+      presentCharacters: context.presentCharacters.map(c => ({
+        name: c.name,
+        visualDescriptors: c.visualDescriptors,
+      })),
+      currentLocation: context.currentLocation,
+      stylePrompt,
+      maxImages: imageSettings.maxImagesPerMessage ?? 3,
+      chatHistory: context.chatHistory,
+      lorebookContext: context.lorebookContext,
+      charactersWithPortraits,
+      charactersWithoutPortraits,
+      portraitMode,
+      translatedNarrative: context.translatedNarrative,
+      translationLanguage: context.translationLanguage,
+    };
+
+    // Emit analysis started
+    emitImageAnalysisStarted(context.entryId);
+
+    try {
+      // Create service and identify scenes
+      const analysisService = serviceFactory.createImageAnalysisService();
+      const scenes = await analysisService.identifyScenes(analysisContext);
+
+      if (scenes.length === 0) {
+        log('No imageable scenes identified');
+        emitImageAnalysisComplete(context.entryId, 0, 0);
+        return;
+      }
+
+      // Count portrait generations
+      const portraitCount = scenes.filter(s => s.generatePortrait).length;
+      const sceneCount = scenes.length - portraitCount;
+
+      log('Scenes identified', { total: scenes.length, scenes: sceneCount, portraits: portraitCount });
+      emitImageAnalysisComplete(context.entryId, sceneCount, portraitCount);
+
+      // Queue image generation for each scene
+      for (const scene of scenes) {
+        await this.queueAnalyzedImageGeneration(
+          context.storyId,
+          context.entryId,
+          scene,
+          imageSettings,
+          context.presentCharacters
+        );
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log('Scene analysis failed', error);
+      emitImageAnalysisFailed(context.entryId, errorMessage);
+    }
+  }
+
+  /**
+   * Queue image generation for an analyzed scene.
+   */
+  private async queueAnalyzedImageGeneration(
+    storyId: string,
+    entryId: string,
+    scene: ImageableScene,
+    imageSettings: typeof settings.systemServicesSettings.imageGeneration,
+    presentCharacters: Character[]
+  ): Promise<void> {
+    const imageId = crypto.randomUUID();
+    const portraitMode = imageSettings.portraitMode ?? false;
+
+    // Determine profile and model
+    let profileId = imageSettings.profileId;
+    let modelToUse = imageSettings.model;
+    let referenceImageUrls: string[] | undefined;
+
+    // If portrait mode and scene has characters, look for reference images
+    if (portraitMode && scene.characters.length > 0 && !scene.generatePortrait) {
+      const portraitUrls: string[] = [];
+
+      for (const charName of scene.characters.slice(0, 3)) {
+        const character = presentCharacters.find(
+          c => c.name.toLowerCase() === charName.toLowerCase()
+        );
+        const portraitUrl = normalizeImageDataUrl(character?.portrait);
+        if (portraitUrl) {
+          portraitUrls.push(portraitUrl);
+        }
+      }
+
+      if (portraitUrls.length > 0) {
+        // Use reference profile and model for img2img
+        profileId = imageSettings.referenceProfileId || imageSettings.profileId;
+        modelToUse = imageSettings.referenceModel || imageSettings.model;
+        referenceImageUrls = portraitUrls;
+        log('Using character portraits as reference', {
+          characters: scene.characters,
+          count: portraitUrls.length,
+        });
+      }
+    }
+
+    // For portrait generation, use portrait-specific settings
+    if (scene.generatePortrait) {
+      profileId = imageSettings.portraitProfileId || imageSettings.profileId;
+      modelToUse = imageSettings.portraitModel || imageSettings.model;
+    }
+
+    if (!profileId) {
+      log('No image profile configured, skipping scene');
+      return;
+    }
+
+    // Build full prompt with style
+    const stylePrompt = this.getStylePrompt(imageSettings.styleId);
+    const fullPrompt = `${scene.prompt}. ${stylePrompt}`;
+
+    // Create pending record in database
+    const embeddedImage: Omit<EmbeddedImage, 'createdAt'> = {
+      id: imageId,
+      storyId,
+      entryId,
+      sourceText: scene.sourceText,
+      prompt: fullPrompt,
+      styleId: imageSettings.styleId,
+      model: modelToUse,
+      imageData: '',
+      width: imageSettings.size === '1024x1024' ? 1024 : (imageSettings.size === '2048x2048' ? 2048 : 512),
+      height: imageSettings.size === '1024x1024' ? 1024 : (imageSettings.size === '2048x2048' ? 2048 : 512),
+      status: 'pending',
+      generationMode: 'analyzed',
+    };
+
+    await database.createEmbeddedImage(embeddedImage);
+    log('Created pending analyzed image record', {
+      imageId,
+      sceneType: scene.sceneType,
+      priority: scene.priority,
+      isPortrait: scene.generatePortrait,
+    });
+
+    // Emit queued event
+    emitImageQueued(imageId, entryId);
+
+    // Start async generation (fire-and-forget)
+    this.generateAnalyzedImage(
+      imageId,
+      fullPrompt,
+      profileId!,
+      modelToUse!,
+      imageSettings.size,
+      entryId,
+      scene,
+      presentCharacters,
+      referenceImageUrls
+    ).catch(error => {
+      log('Async analyzed image generation failed', { imageId, error });
+    });
+  }
+
+  /**
+   * Generate a single analyzed image using the SDK (runs asynchronously).
+   */
+  private async generateAnalyzedImage(
+    imageId: string,
+    prompt: string,
+    profileId: string,
+    model: string,
+    size: string,
+    entryId: string,
+    scene: ImageableScene,
+    presentCharacters: Character[],
+    referenceImageUrls?: string[]
+  ): Promise<void> {
+    try {
+      // Update status to generating
+      await database.updateEmbeddedImage(imageId, { status: 'generating' });
+
+      log('Generating analyzed image via SDK', {
+        imageId,
+        profileId,
+        model,
+        sceneType: scene.sceneType,
+        hasReference: !!referenceImageUrls?.length,
+      });
+
+      // Generate image using SDK
+      const result = await sdkGenerateImage({
+        profileId,
+        model,
+        prompt,
+        size,
+        referenceImages: referenceImageUrls,
+      });
+
+      if (!result.base64) {
+        throw new Error('No image data returned');
+      }
+
+      // Update record with image data
+      await database.updateEmbeddedImage(imageId, {
+        imageData: result.base64,
+        status: 'complete',
+      });
+
+      // If this was a portrait generation, save to character
+      if (scene.generatePortrait && scene.characters.length > 0) {
+        const charName = scene.characters[0];
+        const character = presentCharacters.find(
+          c => c.name.toLowerCase() === charName.toLowerCase()
+        );
+        if (character) {
+          await database.updateCharacter(character.id, {
+            portrait: result.base64,
+          });
+          log('Saved portrait to character', { characterId: character.id, name: charName });
+        }
+      }
+
+      log('Analyzed image generated successfully', { imageId });
+      emitImageReady(imageId, entryId, true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log('Analyzed image generation failed', { imageId, error: errorMessage });
+
+      await database.updateEmbeddedImage(imageId, {
+        status: 'failed',
+        errorMessage,
+      });
+
+      emitImageReady(imageId, entryId, false);
+    }
+  }
+
+  /**
+   * Get the style prompt for the selected style ID.
+   */
+  private getStylePrompt(styleId: string): string {
+    try {
+      const promptContext: PromptContext = {
+        mode: 'adventure',
+        pov: 'second',
+        tense: 'present',
+        protagonistName: '',
+      };
+      const customized = promptService.getPrompt(styleId, promptContext);
+      if (customized) {
+        return customized;
+      }
+    } catch {
+      // Template not found, use fallback
+    }
+
+    const defaultStyles: Record<string, string> = {
+      'image-style-soft-anime': 'Soft cel-shading with gentle gradients. Muted pastel palette with warm highlights. Dreamy, ethereal atmosphere. Delicate linework with minimal harsh shadows. Subtle lighting effects, soft bokeh. Clean composition with breathing room. Anime-inspired but refined, elegant aesthetic.',
+      'image-style-semi-realistic': 'Semi-realistic anime art with refined, detailed rendering. Realistic proportions with anime influence. Detailed hair strands, subtle skin tones, fabric folds. Naturalistic lighting with clear direction and soft falloff. Cinematic composition with depth of field. Rich, slightly desaturated colors with intentional color grading. Painterly quality with polished edges. Atmospheric and grounded mood.',
+      'image-style-photorealistic': 'Photorealistic digital art. True-to-life rendering with natural lighting. Detailed textures, accurate proportions. Professional photography aesthetic. Cinematic depth of field. High dynamic range. Realistic materials and surfaces.',
+    };
+
+    return defaultStyles[styleId] || defaultStyles['image-style-soft-anime'];
+  }
+
   // ===== Translation Methods =====
 
   /**
-   * Translate narrative content to the target language.
-   * Used for post-generation translation of AI responses.
+   * Translate narrative content.
    */
   async translateNarration(
     content: string,
     targetLanguage: string,
     isVisualProse: boolean = false
   ): Promise<TranslationResult> {
-    log('translateNarration called', {
-      contentLength: content.length,
-      targetLanguage,
-      isVisualProse,
-    });
-
-    const presetId = settings.getServicePresetId('translation:narration');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Translation').profileId);
-    const translationService = new TranslationService(provider, presetId);
-    return await translationService.translateNarration(content, targetLanguage, isVisualProse);
+    const service = serviceFactory.createTranslationService('narration');
+    return service.translateNarration(content, targetLanguage, isVisualProse);
   }
 
   /**
-   * Translate user input to English for AI processing.
-   * The original input is preserved for display.
+   * Translate user input to English.
    */
   async translateInput(
     content: string,
     sourceLanguage: string
   ): Promise<TranslationResult> {
-    log('translateInput called', {
-      contentLength: content.length,
-      sourceLanguage,
-    });
-
-    const presetId = settings.getServicePresetId('translation:input');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Translation').profileId);
-    const translationService = new TranslationService(provider, presetId);
-    return await translationService.translateInput(content, sourceLanguage);
+    const service = serviceFactory.createTranslationService('input');
+    return service.translateInput(content, sourceLanguage);
   }
 
   /**
-   * Batch translate UI elements (world state names/descriptions).
+   * Batch translate UI elements.
    */
   async translateUIElements(
     items: UITranslationItem[],
     targetLanguage: string
   ): Promise<UITranslationItem[]> {
-    log('translateUIElements called', {
-      itemCount: items.length,
-      targetLanguage,
-    });
-
-    const presetId = settings.getServicePresetId('translation:ui');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Translation').profileId);
-    const translationService = new TranslationService(provider, presetId);
-    return await translationService.translateUIElements(items, targetLanguage);
+    const service = serviceFactory.createTranslationService('ui');
+    return service.translateUIElements(items, targetLanguage);
   }
 
   /**
-   * Translate suggestions (creative writing plot suggestions).
+   * Translate suggestions.
    */
   async translateSuggestions<T extends { text: string; type?: string }>(
     suggestions: T[],
     targetLanguage: string
   ): Promise<T[]> {
-    log('translateSuggestions called', {
-      count: suggestions.length,
-      targetLanguage,
-    });
-
-    const presetId = settings.getServicePresetId('translation:suggestions');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Translation').profileId);
-    const translationService = new TranslationService(provider, presetId);
-    return await translationService.translateSuggestions(suggestions, targetLanguage);
+    const service = serviceFactory.createTranslationService('suggestions');
+    return service.translateSuggestions(suggestions, targetLanguage);
   }
 
   /**
-   * Translate action choices (adventure mode).
+   * Translate action choices.
    */
   async translateActionChoices<T extends { text: string; type?: string }>(
     choices: T[],
     targetLanguage: string
   ): Promise<T[]> {
-    log('translateActionChoices called', {
-      count: choices.length,
-      targetLanguage,
-    });
-
-    const presetId = settings.getServicePresetId('translation:actionChoices');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Translation').profileId);
-    const translationService = new TranslationService(provider, presetId);
-    return await translationService.translateActionChoices(choices, targetLanguage);
+    const service = serviceFactory.createTranslationService('actionChoices');
+    return service.translateActionChoices(choices, targetLanguage);
   }
 
   /**
-   * Translate wizard content (settings, characters, openings).
+   * Translate wizard content.
    */
   async translateWizardContent(
     content: string,
     targetLanguage: string
   ): Promise<TranslationResult> {
-    log('translateWizardContent called', {
-      contentLength: content.length,
-      targetLanguage,
-    });
-
-    const presetId = settings.getServicePresetId('translation:wizard');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Translation').profileId);
-    const translationService = new TranslationService(provider, presetId);
-    return await translationService.translateWizardContent(content, targetLanguage);
+    const service = serviceFactory.createTranslationService('wizard');
+    return service.translateWizardContent(content, targetLanguage);
   }
 
   /**
-   * Batch translate wizard content - all fields in one API call.
-   * Much more efficient than calling translateWizardContent for each field.
+   * Batch translate wizard content.
    */
   async translateWizardBatch(
     fields: Record<string, string>,
     targetLanguage: string
   ): Promise<Record<string, string>> {
-    log('translateWizardBatch called', {
-      fieldCount: Object.keys(fields).length,
-      targetLanguage,
-    });
-
-    const presetId = settings.getServicePresetId('translation:wizard');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Translation').profileId);
-    const translationService = new TranslationService(provider, presetId);
-    return await translationService.translateWizardBatch(fields, targetLanguage);
+    const service = serviceFactory.createTranslationService('wizard');
+    return service.translateWizardBatch(fields, targetLanguage);
   }
 }
 

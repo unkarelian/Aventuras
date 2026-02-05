@@ -6,6 +6,8 @@
     ChevronsUpDown,
     Plus,
     RefreshCw,
+    Star,
+    AlertTriangle,
   } from "lucide-svelte";
   import VirtualList from "@tutorlatin/svelte-tiny-virtual-list";
   import * as Select from "$lib/components/ui/select";
@@ -55,13 +57,24 @@
     profileId || settings.getDefaultProfileIdForProvider(),
   );
 
-  // Get available models for the selected profile
-  let availableModels = $derived.by(() => {
-    if (!effectiveProfileId) return [];
+  // Get available models for the selected profile (excluding hidden, favorites first)
+  let availableModels = $derived(settings.getAvailableModels(effectiveProfileId));
+
+  // Number of favorite models (for separator)
+  let favoriteCount = $derived.by(() => {
+    if (!effectiveProfileId) return 0;
     const profile = settings.getProfile(effectiveProfileId);
-    if (!profile) return [];
-    return [...new Set([...profile.fetchedModels, ...profile.customModels])];
+    if (!profile) return 0;
+    const favSet = new Set(profile.favoriteModels ?? []);
+    const hidden = new Set(profile.hiddenModels ?? []);
+    return [...new Set([...profile.fetchedModels, ...profile.customModels])]
+      .filter((m) => !hidden.has(m) && favSet.has(m)).length;
   });
+
+  // Check if currently selected model is missing from the profile
+  let isModelMissing = $derived(
+    model.length > 0 && availableModels.length > 0 && !availableModels.includes(model),
+  );
 
   // Filter models based on search input
   let filteredModels = $derived.by(() => {
@@ -177,10 +190,15 @@
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            class="w-full justify-between"
+            class="w-full justify-between {isModelMissing ? 'border-yellow-500/50' : ''}"
             {...props}
           >
-            {model || placeholder}
+            <span class="flex items-center gap-1.5 truncate">
+              {#if isModelMissing}
+                <AlertTriangle class="h-3.5 w-3.5 shrink-0 text-yellow-500" />
+              {/if}
+              <span class="truncate">{model || placeholder}</span>
+            </span>
             <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         {/snippet}
@@ -221,14 +239,18 @@
                             value={modelOption}
                             onSelect={() => handleSelectModel(modelOption)}
                           >
-                            <Check
-                              class={cn(
-                                "mr-2 h-4 w-4",
-                                model === modelOption
-                                  ? "opacity-100"
-                                  : "opacity-0",
-                              )}
-                            />
+                            {#if modelIndex < favoriteCount}
+                              <Star class="mr-2 h-3 w-3 text-yellow-500" />
+                            {:else}
+                              <Check
+                                class={cn(
+                                  "mr-2 h-4 w-4",
+                                  model === modelOption
+                                    ? "opacity-100"
+                                    : "opacity-0",
+                                )}
+                              />
+                            {/if}
                             {modelOption}
                           </Command.Item>
                         </div>
@@ -242,7 +264,11 @@
         </Command.Root>
       </Popover.Content>
     </Popover.Root>
-    {#if availableModels.length === 0}
+    {#if isModelMissing}
+      <p class="text-[0.8rem] text-yellow-500">
+        Model not found in this profile's model list.
+      </p>
+    {:else if availableModels.length === 0}
       <p class="text-[0.8rem] text-muted-foreground">
         No models available. Add models to the profile.
       </p>

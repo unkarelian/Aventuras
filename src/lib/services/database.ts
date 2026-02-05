@@ -24,7 +24,61 @@ import type {
   VaultScenario,
   VaultTag,
   VaultType,
+  VisualDescriptors,
 } from '$lib/types';
+
+/**
+ * Migrate visual descriptors from old string array format to new structured object format.
+ * Handles both old format (string[]) and new format (VisualDescriptors object).
+ */
+function migrateVisualDescriptors(data: unknown): VisualDescriptors {
+  // Already new format (object with known keys)
+  if (data && typeof data === 'object' && !Array.isArray(data)) {
+    const obj = data as Record<string, unknown>;
+    // Check if it has any of our expected keys
+    if ('face' in obj || 'hair' in obj || 'eyes' in obj || 'build' in obj ||
+        'clothing' in obj || 'accessories' in obj || 'distinguishing' in obj) {
+      return data as VisualDescriptors;
+    }
+  }
+
+  // Old format: string array like ["Face: pale skin", "Hair: long brown"]
+  if (Array.isArray(data)) {
+    const result: VisualDescriptors = {};
+    const categoryMap: Record<string, keyof VisualDescriptors> = {
+      'face': 'face', 'skin': 'face',
+      'hair': 'hair',
+      'eyes': 'eyes', 'eye': 'eyes',
+      'build': 'build', 'height': 'build', 'body': 'build', 'physique': 'build',
+      'clothing': 'clothing', 'clothes': 'clothing', 'outfit': 'clothing', 'attire': 'clothing',
+      'accessories': 'accessories', 'accessory': 'accessories',
+      'distinguishing': 'distinguishing', 'scar': 'distinguishing', 'scars': 'distinguishing',
+      'marks': 'distinguishing', 'mark': 'distinguishing', 'tattoo': 'distinguishing',
+    };
+
+    for (const desc of data) {
+      if (typeof desc !== 'string') continue;
+
+      // Try to match "Category: value" pattern
+      const match = desc.match(/^([A-Za-z\s]+):\s*(.+)$/);
+      if (match) {
+        const [, category, value] = match;
+        const key = categoryMap[category.toLowerCase().trim()] || 'distinguishing';
+        // Append to existing value if key already exists
+        if (result[key]) {
+          result[key] = `${result[key]}, ${value.trim()}`;
+        } else {
+          result[key] = value.trim();
+        }
+      }
+    }
+
+    return result;
+  }
+
+  // Empty or unknown format
+  return {};
+}
 
 class DatabaseService {
   private db: Database | null = null;
@@ -507,7 +561,7 @@ class DatabaseService {
         character.description,
         character.relationship,
         JSON.stringify(character.traits),
-        JSON.stringify(character.visualDescriptors || []),
+        JSON.stringify(character.visualDescriptors || {}),
         character.portrait || null,
         character.status,
         character.metadata ? JSON.stringify(character.metadata) : null,
@@ -1018,6 +1072,7 @@ class DatabaseService {
    * Does NOT touch chapters or lorebook entries (those are more permanent).
    */
   async restoreRetryBackup(
+    lastEntryId: string,
     storyId: string,
     entries: StoryEntry[],
     characters: Character[],
@@ -1030,16 +1085,14 @@ class DatabaseService {
 
     // Delete current state (except chapters and lorebook entries which are more permanent)
     // Note: embedded_images will be cascade-deleted when story_entries are deleted
-    await db.execute('DELETE FROM story_entries WHERE story_id = ?', [storyId]);
+    // Only delete the last entry, not the entire story
+    await db.execute('DELETE FROM story_entries WHERE id = ?', [lastEntryId]);
     await db.execute('DELETE FROM characters WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM locations WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM items WHERE story_id = ?', [storyId]);
     await db.execute('DELETE FROM story_beats WHERE story_id = ?', [storyId]);
 
-    // Restore entries
-    for (const entry of entries) {
-      await this.addStoryEntry(entry);
-    }
+    // Restore entries not necessary as we are only deleting the last entry
 
     // Restore characters
     for (const character of characters) {
@@ -1424,6 +1477,9 @@ async createEmbeddedImage(image: Omit<EmbeddedImage, 'createdAt'>): Promise<Embe
     if (updates.height !== undefined) { setClauses.push('height = ?'); values.push(updates.height); }
     if (updates.status !== undefined) { setClauses.push('status = ?'); values.push(updates.status); }
     if (updates.errorMessage !== undefined) { setClauses.push('error_message = ?'); values.push(updates.errorMessage); }
+    if (updates.prompt !== undefined) { setClauses.push('prompt = ?'); values.push(updates.prompt); }
+    if (updates.model !== undefined) { setClauses.push('model = ?'); values.push(updates.model); }
+    if (updates.styleId !== undefined) { setClauses.push('style_id = ?'); values.push(updates.styleId); }
 
     if (setClauses.length === 0) return;
     values.push(id);
@@ -1535,6 +1591,9 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
   }
 
   private mapCharacter(row: any): Character {
+    const rawDescriptors = row.visual_descriptors ? JSON.parse(row.visual_descriptors) : null;
+    const rawTranslatedDescriptors = row.translated_visual_descriptors ? JSON.parse(row.translated_visual_descriptors) : null;
+
     return {
       id: row.id,
       storyId: row.story_id,
@@ -1542,7 +1601,7 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
       description: row.description,
       relationship: row.relationship,
       traits: row.traits ? JSON.parse(row.traits) : [],
-      visualDescriptors: row.visual_descriptors ? JSON.parse(row.visual_descriptors) : [],
+      visualDescriptors: migrateVisualDescriptors(rawDescriptors),
       portrait: row.portrait || null,
       status: row.status,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
@@ -1552,7 +1611,7 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
       translatedDescription: row.translated_description || null,
       translatedRelationship: row.translated_relationship || null,
       translatedTraits: row.translated_traits ? JSON.parse(row.translated_traits) : null,
-      translatedVisualDescriptors: row.translated_visual_descriptors ? JSON.parse(row.translated_visual_descriptors) : null,
+      translatedVisualDescriptors: rawTranslatedDescriptors ? migrateVisualDescriptors(rawTranslatedDescriptors) : null,
       translationLanguage: row.translation_language || null,
     };
   }
@@ -1762,12 +1821,14 @@ private mapEmbeddedImage(row: any): EmbeddedImage {
   }
 
   private mapVaultCharacter(row: any): VaultCharacter {
+    const rawDescriptors = row.visual_descriptors ? JSON.parse(row.visual_descriptors) : null;
+
     return {
       id: row.id,
       name: row.name,
       description: row.description,
       traits: row.traits ? JSON.parse(row.traits) : [],
-      visualDescriptors: row.visual_descriptors ? JSON.parse(row.visual_descriptors) : [],
+      visualDescriptors: migrateVisualDescriptors(rawDescriptors),
       portrait: row.portrait,
       tags: row.tags ? JSON.parse(row.tags) : [],
       favorite: row.favorite === 1,

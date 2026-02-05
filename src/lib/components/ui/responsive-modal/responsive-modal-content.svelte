@@ -10,7 +10,7 @@
 
  {#if isMobile.current}
 	<Drawer.Content
-        class={cn("max-h-[85vh] h-auto p-0 mb-[env(safe-area-inset-bottom)]", className)}
+        class={cn("max-h-[85vh] h-auto p-0 safe-area-bottom", className)}
         {...props}
     >
 		{@render children?.()}
@@ -20,3 +20,9 @@
 		{@render children?.()}
 	</Dialog.Content>
  {/if}
+
+<style>
+	:global(.safe-area-bottom) {
+		margin-bottom: env(safe-area-inset-bottom, 0px);
+	}
+</style>

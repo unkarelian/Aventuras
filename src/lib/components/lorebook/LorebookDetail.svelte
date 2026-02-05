@@ -157,7 +157,7 @@
   </div>
 
   <!-- Content -->
-  <div class="flex-1 overflow-y-auto p-4 pb-safe">
+  <div class="flex-1 overflow-y-auto p-4">
     {#if ui.lorebookEditMode}
       <LorebookEntryForm
         {entry}

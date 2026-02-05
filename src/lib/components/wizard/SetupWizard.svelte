@@ -5,6 +5,7 @@
   import { Button } from "$lib/components/ui/button";
   import { ChevronLeft, ChevronRight, Sparkles, Play } from "lucide-svelte";
   import { ui } from "$lib/stores/ui.svelte";
+  import { hasRequiredCredentials } from "$lib/services/ai/image";
 
   // Step components
   import {
@@ -34,19 +35,7 @@
   const imageGenerationEnabled = $derived.by(() => {
     const imgSettings = settings.systemServicesSettings.imageGeneration;
     if (!imgSettings.enabled) return false;
-
-    // Check if the selected provider has an API key configured
-    switch (imgSettings.imageProvider) {
-      case 'nanogpt':
-        return !!imgSettings.nanoGptApiKey;
-      case 'chutes':
-        return !!imgSettings.chutesApiKey;
-      case 'pollinations':
-        // Pollinations works without API key (key is optional for premium features)
-        return true;
-      default:
-        return false;
-    }
+    return hasRequiredCredentials();
   });
   
   // Step Titles

@@ -1,23 +1,28 @@
 <script lang="ts">
-  import { ui } from '$lib/stores/ui.svelte';
-  import { story } from '$lib/stores/story.svelte';
-  import { settings } from '$lib/stores/settings.svelte';
-  import Sidebar from './Sidebar.svelte';
-  import Header from './Header.svelte';
-  import StoryView from '$lib/components/story/StoryView.svelte';
-  import LibraryView from '$lib/components/story/LibraryView.svelte';
-  import GalleryTab from '$lib/components/story/GalleryTab.svelte';
-  import LorebookView from '$lib/components/lorebook/LorebookView.svelte';
-  import MemoryView from '$lib/components/memory/MemoryView.svelte';
-  import VaultPanel from '$lib/components/vault/VaultPanel.svelte';
-  import SettingsModal from '$lib/components/settings/SettingsModal.svelte';
-  import LorebookDebugPanel from '$lib/components/debug/LorebookDebugPanel.svelte';
-  import DebugLogModal from '$lib/components/debug/DebugLogModal.svelte';
-  import SyncModal from '$lib/components/sync/SyncModal.svelte';
-  import { swipe } from '$lib/utils/swipe';
-  import { Bug } from 'lucide-svelte';
-  import { MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH, MAX_SIDEBAR_RATIO } from '$lib/constants/layout';
-  import type { Snippet } from 'svelte';
+  import { ui } from "$lib/stores/ui.svelte";
+  import { story } from "$lib/stores/story.svelte";
+  import { settings } from "$lib/stores/settings.svelte";
+  import Sidebar from "./Sidebar.svelte";
+  import Header from "./Header.svelte";
+  import ProfileWarningBanner from "./ProfileWarningBanner.svelte";
+  import StoryView from "$lib/components/story/StoryView.svelte";
+  import LibraryView from "$lib/components/story/LibraryView.svelte";
+  import GalleryTab from "$lib/components/story/GalleryTab.svelte";
+  import LorebookView from "$lib/components/lorebook/LorebookView.svelte";
+  import MemoryView from "$lib/components/memory/MemoryView.svelte";
+  import VaultPanel from "$lib/components/vault/VaultPanel.svelte";
+  import SettingsModal from "$lib/components/settings/SettingsModal.svelte";
+  import LorebookDebugPanel from "$lib/components/debug/LorebookDebugPanel.svelte";
+  import DebugLogModal from "$lib/components/debug/DebugLogModal.svelte";
+  import SyncModal from "$lib/components/sync/SyncModal.svelte";
+  import { swipe } from "$lib/utils/swipe";
+  import { Bug } from "lucide-svelte";
+  import {
+    MIN_SIDEBAR_WIDTH,
+    MAX_SIDEBAR_WIDTH,
+    MAX_SIDEBAR_RATIO,
+  } from "$lib/constants/layout";
+  import type { Snippet } from "svelte";
 
   let { children }: { children?: Snippet } = $props();
 
@@ -51,12 +56,16 @@
 
   function handleMouseMove(e: MouseEvent) {
     if (!isResizing) return;
-    
+
     // Sidebar is on the right, so width is window.innerWidth - mouseX
     const newWidth = window.innerWidth - e.clientX;
-    
+
     // Constraints
-    if (newWidth >= MIN_SIDEBAR_WIDTH && newWidth <= Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * MAX_SIDEBAR_RATIO)) {
+    if (
+      newWidth >= MIN_SIDEBAR_WIDTH &&
+      newWidth <=
+        Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth * MAX_SIDEBAR_RATIO)
+    ) {
       // For performance, update the reactive state directly without saving to the database on every mouse movement.
       settings.uiSettings.sidebarWidth = newWidth;
     }
@@ -64,29 +73,38 @@
 
   // Global cursor and selection handling while resizing
   $effect(() => {
-    if (typeof document === 'undefined') return;
+    if (typeof document === "undefined") return;
     if (isResizing) {
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
     } else {
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
     }
   });
 </script>
 
-<svelte:window 
-  onmousemove={handleMouseMove} 
-  onmouseup={stopResizing} 
+<svelte:window
+  onmousemove={handleMouseMove}
+  onmouseup={stopResizing}
   onmouseleave={stopResizing}
 />
 
 <div
-  class="app-shell relative flex h-screen w-screen bg-surface-900"
-  use:swipe={{ onSwipeRight: handleSwipeRight, onSwipeLeft: handleSwipeLeft, threshold: 50 }}
+  class="app-shell relative flex flex-col h-screen w-screen bg-surface-900"
+  use:swipe={{
+    onSwipeRight: handleSwipeRight,
+    onSwipeLeft: handleSwipeLeft,
+    threshold: 50,
+  }}
 >
-  <!-- Mobile sidebar overlay (tap to close) -->
-  {#if ui.sidebarOpen && story.currentStory}
+  <!-- Profile Warning Banner (shown when API profiles need updating) -->
+  <ProfileWarningBanner />
+
+  <!-- Main app container -->
+  <div class="flex flex-1 min-h-0">
+    <!-- Mobile sidebar overlay (tap to close) -->
+    {#if ui.sidebarOpen && story.currentStory}
     <button
       class="mobile-sidebar-overlay"
       onclick={() => ui.toggleSidebar()}
@@ -107,17 +125,17 @@
     <Header />
 
     <main class="flex-1 overflow-hidden">
-      {#if ui.activePanel === 'story' && story.currentStory}
+      {#if ui.activePanel === "story" && story.currentStory}
         <StoryView />
-      {:else if ui.activePanel === 'gallery' && story.currentStory}
+      {:else if ui.activePanel === "gallery" && story.currentStory}
         <GalleryTab />
-      {:else if ui.activePanel === 'lorebook' && story.currentStory}
+      {:else if ui.activePanel === "lorebook" && story.currentStory}
         <LorebookView />
-      {:else if ui.activePanel === 'memory' && story.currentStory}
+      {:else if ui.activePanel === "memory" && story.currentStory}
         <MemoryView />
-      {:else if ui.activePanel === 'vault'}
+      {:else if ui.activePanel === "vault"}
         <VaultPanel />
-      {:else if ui.activePanel === 'library' || !story.currentStory}
+      {:else if ui.activePanel === "library" || !story.currentStory}
         <LibraryView />
       {:else if children}
         {@render children()}
@@ -129,15 +147,16 @@
   {#if ui.sidebarOpen && story.currentStory}
     <div class="sidebar-container relative flex h-full">
       <!-- Resizer Handle (Desktop only) -->
-      <button 
+      <button
         type="button"
-        class="resizer-handle hidden h-full sm:block" 
+        class="resizer-handle hidden h-full sm:block"
         onmousedown={startResizing}
         aria-label="Sidebar Resizer"
       ></button>
       <Sidebar />
     </div>
   {/if}
+  </div>
 
   <!-- Settings Modal -->
   {#if ui.settingsModalOpen}
@@ -156,14 +175,16 @@
   <!-- Floating Debug Button (when debug mode enabled) -->
   {#if settings.uiSettings.debugMode}
     <button
-      class="fixed bottom-safe-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg hover:bg-amber-500 transition-colors sm:bottom-4"
+      class="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg hover:bg-amber-500 transition-colors sm:bottom-4"
       onclick={() => ui.toggleDebugModal()}
       title="View API Debug Logs"
     >
       <Bug class="h-5 w-5" />
       {#if ui.debugLogs.length > 0}
-        <span class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium">
-          {ui.debugLogs.length > 99 ? '99+' : ui.debugLogs.length}
+        <span
+          class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium"
+        >
+          {ui.debugLogs.length > 99 ? "99+" : ui.debugLogs.length}
         </span>
       {/if}
     </button>
@@ -171,9 +192,17 @@
 </div>
 
 <style>
-  /* App shell - add top padding for mobile status bar */
+  /*
+   * Safe Area Handling
+   *
+   * Uses native CSS env() for safe area insets.
+   * Requires viewport-fit=cover in app.html meta tag.
+   */
+
+  /* App shell - add safe area padding for mobile status bar and navigation */
   .app-shell {
-    padding-top: env(safe-area-inset-top, 0);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* Safe area background filler - matches header color (bg-surface-800) */
@@ -183,26 +212,33 @@
     top: 0;
     left: 0;
     right: 0;
-    height: env(safe-area-inset-top, 0);
+    height: env(safe-area-inset-top, 0px);
     background-color: var(--color-surface-800);
     z-index: 0;
   }
 
-  /* Mobile: add fallback padding for Android status bar */
-  @media (max-width: 768px) {
-    .app-shell {
-      padding-top: max(env(safe-area-inset-top, 0px), 28px);
-    }
-
-    .app-shell::before {
-      height: max(env(safe-area-inset-top, 0px), 28px);
-    }
+  /* Bottom safe area background filler - matches main view background */
+  .app-shell::after {
+    content: "";
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-bottom, 0px);
+    background-color: var(--color-surface-900);
+    z-index: 9999;
+    pointer-events: none;
   }
 
-  /* Desktop: no top padding needed */
+  /* Desktop: no safe area padding needed */
   @media (min-width: 769px) {
     .app-shell {
       padding-top: 0;
+      padding-bottom: 0;
+    }
+    .app-shell::before,
+    .app-shell::after {
+      display: none;
     }
   }
 
@@ -238,7 +274,8 @@
     outline: none;
   }
 
-  .resizer-handle:hover, .resizer-handle:focus-visible {
+  .resizer-handle:hover,
+  .resizer-handle:focus-visible {
     background-color: var(--color-primary-500, #3b82f6);
     opacity: 0.5;
   }

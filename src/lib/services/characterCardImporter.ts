@@ -3,78 +3,57 @@
  *
  * Imports SillyTavern character cards (V1/V2 JSON format) into Aventura's wizard.
  * Supports both JSON files and PNG files with embedded character data.
- * Converts character cards into scenario settings with the card character as an NPC.
  */
 
-import type { StoryMode } from '$lib/types';
+import type { StoryMode, VisualDescriptors } from '$lib/types';
 import type { Genre, GeneratedCharacter } from '$lib/services/ai/wizard/ScenarioService';
-import { OpenAIProvider } from './ai/core/OpenAIProvider';
-import { settings } from '$lib/stores/settings.svelte';
-import { buildExtraBody } from '$lib/services/ai/core/requestOverrides';
-import { promptService, type PromptContext } from './prompts';
-import { tryParseJsonWithHealing } from './ai/utils/jsonHealing';
+import { promptService, type PromptContext } from '$lib/services/prompts';
+import { generateStructured } from './ai/sdk/generate';
+import {
+  cardImportResultSchema,
+  vaultCharacterImportSchema,
+} from './ai/sdk/schemas/cardimport';
 import { createLogger } from './ai/core/config';
 
 const log = createLogger('CharacterCardImporter');
 
 // ===== PNG Metadata Extraction =====
 
-/**
- * PNG signature bytes
- */
 const PNG_SIGNATURE = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
-/**
- * Check if the data is a PNG file by examining the signature
- */
 export function isPngFile(data: ArrayBuffer | Uint8Array): boolean {
   const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
   if (bytes.length < 8) return false;
-  
+
   for (let i = 0; i < 8; i++) {
     if (bytes[i] !== PNG_SIGNATURE[i]) return false;
   }
   return true;
 }
 
-/**
- * Extract character card JSON from PNG metadata.
- * SillyTavern embeds character data in a tEXt chunk with keyword "chara",
- * containing base64-encoded JSON.
- * 
- * @param data - PNG file data as ArrayBuffer or Uint8Array
- * @returns The decoded JSON string, or null if not found
- */
 export function extractCharacterCardFromPng(data: ArrayBuffer | Uint8Array): string | null {
   const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
-  
+
   if (!isPngFile(bytes)) {
     log('Not a valid PNG file');
     return null;
   }
-  
-  // Skip PNG signature (8 bytes)
+
   let offset = 8;
-  
+
   while (offset < bytes.length) {
-    // Read chunk length (4 bytes, big-endian)
     if (offset + 4 > bytes.length) break;
     const length = (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
     offset += 4;
-    
-    // Read chunk type (4 bytes)
+
     if (offset + 4 > bytes.length) break;
     const type = String.fromCharCode(bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3]);
     offset += 4;
-    
-    // Check if this is a tEXt chunk
+
     if (type === 'tEXt') {
-      // Read chunk data
       if (offset + length > bytes.length) break;
       const chunkData = bytes.slice(offset, offset + length);
-      
-      // tEXt format: keyword (null-terminated) + text
-      // Find the null separator
+
       let nullIndex = -1;
       for (let i = 0; i < chunkData.length; i++) {
         if (chunkData[i] === 0) {
@@ -82,17 +61,15 @@ export function extractCharacterCardFromPng(data: ArrayBuffer | Uint8Array): str
           break;
         }
       }
-      
+
       if (nullIndex > 0) {
         const keyword = new TextDecoder('latin1').decode(chunkData.slice(0, nullIndex));
-        
-        // Check if this is the "chara" chunk
+
         if (keyword.toLowerCase() === 'chara') {
           const textData = chunkData.slice(nullIndex + 1);
           const base64String = new TextDecoder('latin1').decode(textData);
-          
+
           try {
-            // Decode base64 to get JSON
             const jsonString = atob(base64String);
             log('Found character data in PNG tEXt chunk');
             return jsonString;
@@ -103,50 +80,37 @@ export function extractCharacterCardFromPng(data: ArrayBuffer | Uint8Array): str
         }
       }
     }
-    
-    // Skip chunk data and CRC (4 bytes)
+
     offset += length + 4;
-    
-    // Stop at IEND chunk
+
     if (type === 'IEND') break;
   }
-  
+
   log('No character data found in PNG');
   return null;
 }
 
-/**
- * Read a file and extract character card JSON.
- * Handles both JSON files (direct text) and PNG files (embedded metadata).
- * 
- * @param file - The file to read
- * @returns The JSON string containing character card data
- */
 export async function readCharacterCardFile(file: File): Promise<string> {
   const fileName = file.name.toLowerCase();
-  
+
   if (fileName.endsWith('.png')) {
     log('Reading PNG file:', file.name);
     const arrayBuffer = await file.arrayBuffer();
     const jsonString = extractCharacterCardFromPng(arrayBuffer);
-    
+
     if (!jsonString) {
       throw new Error('No character data found in PNG file. The image may not be a valid SillyTavern character card.');
     }
-    
+
     return jsonString;
   }
-  
-  // Assume JSON for other files
+
   log('Reading JSON file:', file.name);
   return await file.text();
 }
 
 // ===== SillyTavern Card Types =====
 
-/**
- * SillyTavern V1 card format (also the core data for V2)
- */
 export interface SillyTavernCardV1 {
   name: string;
   description: string;
@@ -156,9 +120,6 @@ export interface SillyTavernCardV1 {
   mes_example: string;
 }
 
-/**
- * SillyTavern V2/V3 card format (V3 has same structure as V2)
- */
 export interface SillyTavernCardV2 {
   spec: 'chara_card_v2' | 'chara_card_v3';
   spec_version: string;
@@ -167,13 +128,12 @@ export interface SillyTavernCardV2 {
     system_prompt?: string;
     post_history_instructions?: string;
     alternate_greetings?: string[];
-    character_book?: unknown; // Lorebook - ignored for this import
+    character_book?: unknown;
     tags?: string[];
     creator?: string;
     character_version?: string;
     extensions?: Record<string, unknown>;
   };
-  // V3 cards also duplicate fields at root level
   name?: string;
   description?: string;
   personality?: string;
@@ -184,9 +144,6 @@ export interface SillyTavernCardV2 {
   tags?: string[];
 }
 
-/**
- * Parsed card data (normalized from V1, V2, or V3)
- */
 export interface ParsedCard {
   name: string;
   description: string;
@@ -200,30 +157,19 @@ export interface ParsedCard {
   version: 'v1' | 'v2' | 'v3';
 }
 
-/**
- * Result of card import/conversion
- */
 export interface CardImportResult {
   success: boolean;
   settingSeed: string;
-  /** NPCs identified from the card content */
   npcs: GeneratedCharacter[];
-  /** The primary character name (for replacing {{char}} in first_mes) */
   primaryCharacterName: string;
-  /** Card name to use as story title */
   storyTitle: string;
-  /** First message to use as opening scene (with {{char}} replaced) */
   firstMessage: string;
-  /** Alternate greetings the user can choose from (with {{char}} replaced) */
   alternateGreetings: string[];
   errors: string[];
 }
 
 // ===== Card Parsing =====
 
-/**
- * Check if the data is a V2 or V3 card
- */
 function isV2OrV3Card(data: unknown): data is SillyTavernCardV2 {
   if (typeof data !== 'object' || data === null) return false;
   if (!('spec' in data) || !('data' in data)) return false;
@@ -231,23 +177,16 @@ function isV2OrV3Card(data: unknown): data is SillyTavernCardV2 {
   return spec === 'chara_card_v2' || spec === 'chara_card_v3';
 }
 
-/**
- * Check if the data is a V1 card
- */
 function isV1Card(data: unknown): data is SillyTavernCardV1 {
   return (
     typeof data === 'object' &&
     data !== null &&
     'name' in data &&
     'description' in data &&
-    !('spec' in data) // V2 cards have spec field
+    !('spec' in data)
   );
 }
 
-/**
- * Parse a character card JSON string into normalized format.
- * Supports both V1 and V2 SillyTavern formats.
- */
 export function parseCharacterCard(jsonString: string): ParsedCard | null {
   try {
     const data = JSON.parse(jsonString);
@@ -293,45 +232,28 @@ export function parseCharacterCard(jsonString: string): ParsedCard | null {
 
 // ===== Macro Replacement =====
 
-/**
- * Normalize {{user}} macro to consistent case.
- * We keep {{user}} in the text - it will be replaced with protagonist name at story creation time.
- */
 export function normalizeUserMacro(text: string): string {
   if (!text) return '';
-
-  // Normalize to consistent {{user}} case
   return text.replace(/\{\{user\}\}/gi, '{{user}}');
 }
 
 // ===== LLM Conversion =====
 
-/**
- * Build the combined card content for LLM processing.
- * Combines scenario, description, personality, and example messages.
- * Note: first_mes and alternate_greetings are excluded - they go to step 7.
- * Note: {{user}} is normalized but kept - will be replaced with protagonist name at story creation.
- * Note: {{char}} is left for LLM to interpret.
- */
 function buildCardContext(card: ParsedCard): string {
   const sections: string[] = [];
 
-  // Always include scenario if present
   if (card.scenario.trim()) {
     sections.push(`<scenario>\n${normalizeUserMacro(card.scenario)}\n</scenario>`);
   }
 
-  // Always include character description
   if (card.description.trim()) {
     sections.push(`<character_description>\n${normalizeUserMacro(card.description)}\n</character_description>`);
   }
 
-  // Always include personality
   if (card.personality.trim()) {
     sections.push(`<personality>\n${normalizeUserMacro(card.personality)}\n</personality>`);
   }
 
-  // Include example messages for additional lore/context
   if (card.exampleMessages.trim()) {
     sections.push(`<example_messages>\n${normalizeUserMacro(card.exampleMessages)}\n</example_messages>`);
   }
@@ -348,7 +270,6 @@ export async function convertCardToScenario(
   genre: Genre,
   profileId?: string | null
 ): Promise<CardImportResult> {
-  // Parse the card
   const card = parseCharacterCard(jsonString);
   if (!card) {
     return {
@@ -366,175 +287,67 @@ export async function convertCardToScenario(
   log('Parsed card:', { name: card.name, version: card.version });
 
   const cardTitle = card.name;
-
-  // Pre-process first message and alternate greetings - normalize {{user}} case
-  // {{char}} will be replaced after LLM determines the actual character name
   const preprocessedFirstMessage = normalizeUserMacro(card.firstMessage);
   const preprocessedAlternateGreetings = card.alternateGreetings.map(g => normalizeUserMacro(g));
 
-  // Get preset configuration from Agent Profiles system
-  const presetId = settings.getServicePresetId('characterCardImport');
-  const preset = settings.getPresetConfig(presetId, 'Character Card Import');
+  // Build card content for LLM
+  const cardContent = buildCardContext(card);
 
-  // Use specified profile, or fall back to preset profile, or main narrative profile
-  const resolvedProfileId = profileId ?? preset.profileId ?? settings.apiSettings.mainNarrativeProfileId;
-  const apiSettings = settings.getApiSettingsForProfile(resolvedProfileId);
-
-  if (!apiSettings.openaiApiKey) {
-    return {
-      success: false,
-      settingSeed: '',
-      npcs: [],
-      primaryCharacterName: cardTitle,
-      storyTitle: cardTitle,
-      firstMessage: preprocessedFirstMessage,
-      alternateGreetings: preprocessedAlternateGreetings,
-      errors: ['No API key configured. Please set up an API key to convert character cards.'],
-    };
-  }
-
-  const provider = new OpenAIProvider(apiSettings);
-
-  // Build the card context - normalize {{user}}, keep {{char}} for LLM to interpret
-  const cardContext = buildCardContext(card);
-
-  if (!cardContext.trim()) {
-    return {
-      success: false,
-      settingSeed: '',
-      npcs: [],
-      primaryCharacterName: cardTitle,
-      storyTitle: cardTitle,
-      firstMessage: preprocessedFirstMessage,
-      alternateGreetings: preprocessedAlternateGreetings,
-      errors: ['Character card appears to be empty. No content found to convert.'],
-    };
-  }
-
-  const context: PromptContext = {
-    mode: 'adventure',
+  // Minimal context for prompt rendering
+  const promptContext: PromptContext = {
+    mode,
     pov: 'second',
     tense: 'present',
-    protagonistName: '{{user}}',
+    protagonistName: '',
   };
 
-  const systemPrompt = promptService.renderPrompt('character-card-import', context);
-  const userPrompt = promptService.renderUserPrompt('character-card-import', context, {
+  const system = promptService.renderPrompt('character-card-import', promptContext);
+  const prompt = promptService.renderUserPrompt('character-card-import', promptContext, {
     genre,
     title: cardTitle,
-    cardContent: cardContext,
+    cardContent,
   });
 
-  log('Sending to LLM for conversion...');
+  const result = await generateStructured({
+    presetId: 'classification',
+    schema: cardImportResultSchema,
+    system,
+    prompt,
+    
+  },"character-card-import");
 
-  try {
-    const response = await provider.generateResponse({
-      model: preset.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: preset.temperature,
-      maxTokens: preset.maxTokens,
-      extraBody: buildExtraBody({
-        manualMode: settings.advancedRequestSettings.manualMode,
-        manualBody: preset.manualBody,
-        reasoningEffort: preset.reasoningEffort,
-        providerOnly: preset.providerOnly,
-      }),
-    });
+  // Convert LLM result to CardImportResult format
+  const npcs: GeneratedCharacter[] = result.npcs.map(npc => ({
+    name: npc.name,
+    role: npc.role,
+    description: npc.description,
+    relationship: npc.relationship,
+    traits: npc.personality.split(',').map(t => t.trim()).filter(Boolean),
+  }));
 
-    log('LLM response received, parsing...');
+  log('Card import successful', { primaryCharacter: result.primaryCharacterName, npcCount: npcs.length });
 
-    interface LLMNpc {
-      name: string;
-      role: string;
-      description: string;
-      personality: string;
-      relationship: string;
-    }
-
-    interface ConversionResult {
-      primaryCharacterName: string;
-      settingSeed: string;
-      npcs: LLMNpc[];
-    }
-
-    const result = tryParseJsonWithHealing<ConversionResult>(response.content);
-    if (!result) {
-      throw new Error('Failed to parse LLM conversion response');
-    }
-
-    // Get the primary character name for replacing {{char}} in first_mes
-    const primaryName = result.primaryCharacterName || cardTitle;
-
-    // Convert LLM NPCs to GeneratedCharacter format
-    const npcs: GeneratedCharacter[] = (result.npcs || []).map(npc => ({
-      name: npc.name || 'Unknown',
-      role: npc.role || 'NPC',
-      description: npc.description || '',
-      relationship: npc.relationship || 'acquaintance',
-      traits: npc.personality
-        ? npc.personality.split(/[,;]/).map(t => t.trim()).filter(t => t.length > 0).slice(0, 5)
-        : [],
-    }));
-
-    // Replace {{char}} in first message and alternate greetings with the actual character name
-    const finalFirstMessage = preprocessedFirstMessage.replace(/\{\{char\}\}/gi, primaryName);
-    const finalAlternateGreetings = preprocessedAlternateGreetings.map(g => g.replace(/\{\{char\}\}/gi, primaryName));
-
-    log('Conversion successful:', { 
-      settingSeedLength: result.settingSeed?.length, 
-      primaryName,
-      npcCount: npcs.length 
-    });
-
-    return {
-      success: true,
-      settingSeed: result.settingSeed || '',
-      npcs,
-      primaryCharacterName: primaryName,
-      storyTitle: cardTitle,
-      firstMessage: finalFirstMessage,
-      alternateGreetings: finalAlternateGreetings,
-      errors: [],
-    };
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error during conversion';
-    log('LLM conversion failed:', error);
-
-    // Return a fallback with basic extraction (keep {{char}} as-is since we couldn't determine the name)
-    const fallbackDescription = normalizeUserMacro(
-      [card.scenario, card.description].filter(s => s.trim()).join('\n\n')
-    );
-
-    return {
-      success: false,
-      settingSeed: fallbackDescription.slice(0, 2000),
-      npcs: [],
-      primaryCharacterName: cardTitle,
-      storyTitle: cardTitle,
-      firstMessage: preprocessedFirstMessage,
-      alternateGreetings: preprocessedAlternateGreetings,
-      errors: [`LLM conversion failed: ${errorMsg}. Basic extraction was used as fallback.`],
-    };
-  }
+  return {
+    success: true,
+    settingSeed: result.settingSeed,
+    npcs,
+    primaryCharacterName: result.primaryCharacterName,
+    storyTitle: result.primaryCharacterName || cardTitle,
+    firstMessage: preprocessedFirstMessage,
+    alternateGreetings: preprocessedAlternateGreetings,
+    errors: [],
+  };
 }
 
-/**
- * Sanitized character result from vault-character-import prompt.
- * Maps to VaultCharacter fields.
- */
 export interface SanitizedCharacter {
   name: string;
   description: string;
   traits: string[];
-  visualDescriptors: string[];
+  visualDescriptors: VisualDescriptors;
 }
 
 /**
  * Sanitize a character card using LLM to extract clean character data.
- * Used for importing characters into the Vault.
  */
 export async function sanitizeCharacterCard(
   jsonString: string,
@@ -546,82 +359,41 @@ export async function sanitizeCharacterCard(
     return null;
   }
 
-  log('Sanitizing card:', card.name);
+  // Build card content for LLM
+  const cardContent = buildCardContext(card);
 
-  // Get preset configuration from Agent Profiles system
-  const presetId = settings.getServicePresetId('characterCardImport');
-  const preset = settings.getPresetConfig(presetId, 'Character Card Import');
-  const resolvedProfileId = profileId ?? preset.profileId ?? settings.apiSettings.mainNarrativeProfileId;
-  const apiSettings = settings.getApiSettingsForProfile(resolvedProfileId);
-
-  if (!apiSettings.openaiApiKey) {
-    log('No API key for sanitization');
-    return null;
-  }
-
-  const provider = new OpenAIProvider(apiSettings);
-  const cardContext = buildCardContext(card);
-
-  if (!cardContext.trim()) {
-    log('Empty card context');
-    return null;
-  }
-
-  const context: PromptContext = {
+  // Minimal context for prompt rendering
+  const promptContext: PromptContext = {
     mode: 'adventure',
     pov: 'second',
     tense: 'present',
-    protagonistName: '{{user}}',
+    protagonistName: '',
   };
 
-  // Use the vault-character-import prompt for clean extraction
-  const userPrompt = promptService.renderUserPrompt('vault-character-import', context, {
-    cardContent: cardContext,
+  const system = promptService.renderPrompt('vault-character-import', promptContext);
+  const prompt = promptService.renderUserPrompt('vault-character-import', promptContext, {
+    cardContent,
   });
 
-  const systemPrompt = promptService.renderPrompt('vault-character-import', context);
+  const result = await generateStructured({
+    presetId: 'classification',
+    schema: vaultCharacterImportSchema,
+    system,
+    prompt,
+  },'vault-character-import');
 
-  try {
-    log('Sending to LLM for sanitization...');
-    const response = await provider.generateResponse({
-      model: preset.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: preset.temperature,
-      maxTokens: preset.maxTokens,
-      extraBody: buildExtraBody({
-        manualMode: settings.advancedRequestSettings.manualMode,
-        manualBody: preset.manualBody,
-        reasoningEffort: preset.reasoningEffort,
-        providerOnly: preset.providerOnly,
-      }),
-    });
+  log('Character sanitization successful', { name: result.name });
 
-    log('LLM response received');
+  // Convert array of visual descriptors to VisualDescriptors object
+  const visualDescriptors: VisualDescriptors = {};
+  result.visualDescriptors.forEach((desc, i) => {
+    visualDescriptors[`descriptor_${i}`] = desc;
+  });
 
-    interface VaultImportResult {
-      name: string;
-      description: string;
-      traits: string[];
-      visualDescriptors: string[];
-    }
-
-    const result = tryParseJsonWithHealing<VaultImportResult>(response.content);
-    if (!result) {
-      throw new Error('Failed to parse LLM vault import response');
-    }
-
-    // Validate and normalize the result
-    return {
-      name: result.name || card.name,
-      description: result.description || '',
-      traits: Array.isArray(result.traits) ? result.traits.slice(0, 10) : [],
-      visualDescriptors: Array.isArray(result.visualDescriptors) ? result.visualDescriptors : [],
-    };
-  } catch (error) {
-    log('Sanitization failed:', error);
-    return null;
-  }
+  return {
+    name: result.name,
+    description: result.description,
+    traits: result.traits,
+    visualDescriptors,
+  };
 }

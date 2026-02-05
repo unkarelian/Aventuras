@@ -3,6 +3,17 @@ export type StoryMode = 'adventure' | 'creative-writing';
 export type POV = 'first' | 'second' | 'third';
 export type Tense = 'past' | 'present';
 
+// Visual descriptors for character appearance (used for image generation)
+export interface VisualDescriptors {
+  face?: string;           // Skin tone, facial features, expression, age indicators
+  hair?: string;           // Color, length, style, texture
+  eyes?: string;           // Color, shape, notable features
+  build?: string;          // Height, body type, posture
+  clothing?: string;       // Full outfit description
+  accessories?: string;    // Jewelry, weapons, bags, distinctive items
+  distinguishing?: string; // Scars, tattoos, birthmarks
+}
+
 // Time tracking for story progression
 export interface TimeTracker {
   years: number;
@@ -57,7 +68,7 @@ export interface PersistentCharacterSnapshot {
   traits: string[];
   status: 'active' | 'inactive' | 'deceased';
   relationship: string | null;
-  visualDescriptors: string[];
+  visualDescriptors: VisualDescriptors;
   portrait: string | null;  // Data URL (data:image/...) or legacy base64
 }
 
@@ -139,7 +150,7 @@ export interface Character {
   description: string | null;
   relationship: string | null;
   traits: string[];
-  visualDescriptors: string[];  // Visual appearance details for image generation (hair, clothing, features)
+  visualDescriptors: VisualDescriptors;  // Visual appearance details for image generation
   portrait: string | null;  // Data URL (data:image/...) for reference in image generation
   status: 'active' | 'inactive' | 'deceased';
   metadata: Record<string, unknown> | null;
@@ -149,7 +160,7 @@ export interface Character {
   translatedDescription?: string | null;
   translatedRelationship?: string | null;
   translatedTraits?: string[] | null;
-  translatedVisualDescriptors?: string[] | null;
+  translatedVisualDescriptors?: VisualDescriptors | null;
   translationLanguage?: string | null;
 }
 
@@ -168,7 +179,7 @@ export interface VaultCharacter {
 
   // Common fields (same as Character)
   traits: string[];
-  visualDescriptors: string[];
+  visualDescriptors: VisualDescriptors;
   portrait: string | null;  // Data URL
 
   // Organization
@@ -616,14 +627,37 @@ export interface UIState {
   settingsModalOpen: boolean;
 }
 
+// Provider types matching Vercel AI SDK providers
+export type ProviderType =
+  | 'openrouter'        // @openrouter/ai-sdk-provider
+  | 'nanogpt'           // OpenAI-compatible at nano-gpt.com
+  | 'chutes'            // @chutes-ai/ai-sdk-provider
+  | 'pollinations'      // ai-sdk-pollinations
+  | 'ollama'            // ollama-ai-provider (local)
+  | 'lmstudio'          // @ai-sdk/openai (local, default localhost:1234)
+  | 'llamacpp'          // @ai-sdk/openai (local, default localhost:8080)
+  | 'nvidia-nim'        // @ai-sdk/openai (NVIDIA NIM)
+  | 'openai-compatible' // @ai-sdk/openai (requires custom baseUrl)
+  | 'openai'            // @ai-sdk/openai
+  | 'anthropic'         // @ai-sdk/anthropic
+  | 'google'            // @ai-sdk/google
+  | 'xai'               // @ai-sdk/xai (Grok)
+  | 'groq'              // @ai-sdk/groq
+  | 'zhipu'             // zhipu-ai-provider (Z.AI/GLM)
+  | 'deepseek'          // @ai-sdk/deepseek
+  | 'mistral';          // @ai-sdk/mistral
+
 // API Profile for saving OpenAI-compatible endpoint configurations
 export interface APIProfile {
   id: string;                 // UUID
   name: string;               // User-friendly name (e.g., "Local LLM", "OpenRouter")
-  baseUrl: string;            // API base URL (e.g., "https://openrouter.ai/api/v1")
+  providerType: ProviderType; // Explicit provider selection (determines SDK provider)
+  baseUrl?: string;           // Optional custom base URL (works for all providers)
   apiKey: string;             // API key for this endpoint
   customModels: string[];     // Manually added models
   fetchedModels: string[];    // Auto-fetched from /models endpoint
+  hiddenModels: string[];     // Models hidden from selection lists
+  favoriteModels: string[];   // Models shown at the top of selection lists
   createdAt: number;          // Timestamp
 }
 
@@ -642,7 +676,6 @@ export interface APISettings {
   temperature: number;
   maxTokens: number;
   reasoningEffort: ReasoningEffort; // Reasoning effort for the main narrative model
-  providerOnly: string[]; // Allowed providers for the main narrative model
   manualBody: string; // Manual request body JSON for the main narrative model
   enableThinking: boolean; // Legacy toggle for reasoning (backward compatibility)
   llmTimeoutMs: number; // Request timeout in milliseconds (default: 180000 = 3 minutes)
@@ -739,7 +772,6 @@ export interface ImageGenerationSettings {
   promptTemperature: number;
   promptMaxTokens: number;
   reasoningEffort: ReasoningEffort;
-  providerOnly: string[];
   manualBody: string;
 }
 
@@ -752,7 +784,6 @@ export interface GenerationPreset {
   temperature: number;
   maxTokens: number;
   reasoningEffort: ReasoningEffort;
-  providerOnly: string[];
   manualBody: string;
 }
 
@@ -770,7 +801,6 @@ export interface ExportedGenerationPreset {
   temperature: number;
   maxTokens: number;
   reasoningEffort: ReasoningEffort;
-  providerOnly: string[];
   manualBody: string;
   // profileId is EXCLUDED - will be reconnected on import
 }
@@ -814,7 +844,6 @@ export interface ImportPresetConfig {
   temperature: number;
   maxTokens: number;
   reasoningEffort: ReasoningEffort;
-  providerOnly: string[];
   manualBody: string;
 }
 

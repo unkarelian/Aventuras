@@ -1,14 +1,8 @@
 <script lang="ts">
   import { ui } from "$lib/stores/ui.svelte";
   import { story } from "$lib/stores/story.svelte";
-  import {
-    parseLorebook,
-    classifyEntriesWithLLM,
-    convertToEntries,
-    type ImportedEntry,
-    type LorebookImportResult,
-  } from "$lib/services/lorebookImporter";
-  import { database } from "$lib/services/database";
+  import { lorebookImportService, type ImportProgress } from "$lib/services/lorebook";
+  import type { LorebookImportResult } from "$lib/services/lorebookImporter";
   import { open } from '@tauri-apps/plugin-dialog';
   import { readTextFile } from '@tauri-apps/plugin-fs';
   import {
@@ -16,10 +10,8 @@
     FileJson,
     Loader2,
     Check,
-    AlertCircle,
   } from "lucide-svelte";
-  import type { Entry } from "$lib/types";
-  
+
   import * as ResponsiveModal from "$lib/components/ui/responsive-modal";
   import { Button } from "$lib/components/ui/button";
   import { Progress } from "$lib/components/ui/progress";
@@ -30,9 +22,8 @@
   let dragOver = $state(false);
   let parseResult = $state<LorebookImportResult | null>(null);
   let useAIClassification = $state(true);
-  let classifying = $state(false);
-  let classificationProgress = $state(0);
   let importing = $state(false);
+  let importProgress = $state<ImportProgress | null>(null);
 
   const previewCount = $derived(parseResult?.entries.length ?? 0);
 
@@ -47,6 +38,13 @@
       {} as Record<string, number>,
     );
   });
+
+  // Progress percentage for UI
+  const progressPercent = $derived(
+    importProgress && importProgress.total > 0
+      ? Math.round((importProgress.current / importProgress.total) * 100)
+      : 0
+  );
 
   function handleDrop(e: DragEvent) {
     e.preventDefault();
@@ -69,34 +67,29 @@
   async function processContent(text: string, filename: string) {
     parseResult = null;
 
-    const fileName = filename.toLowerCase();
-    if (!fileName.endsWith(".json") && !fileName.endsWith(".avt")) {
+    const result = lorebookImportService.parseFile(text, filename);
+
+    if (!result) {
       ui.showToast("Please select a JSON or Aventuras file (.json or .avt)", "error");
       return;
     }
 
-    try {
-      const result = parseLorebook(text);
-
-      if (!result.success) {
-        ui.showToast(
-          result.errors.length > 0
-            ? result.errors.join(", ")
-            : "Invalid lorebook file format",
-          "error"
-        );
-        return;
-      }
-
-      if (result.entries.length === 0) {
-        ui.showToast("No valid entries found in this lorebook file", "error");
-        return;
-      }
-
-      parseResult = result;
-    } catch (err) {
-      ui.showToast(err instanceof Error ? err.message : "Failed to read file", "error");
+    if (!result.success) {
+      ui.showToast(
+        result.errors.length > 0
+          ? result.errors.join(", ")
+          : "Invalid lorebook file format",
+        "error"
+      );
+      return;
     }
+
+    if (result.entries.length === 0) {
+      ui.showToast("No valid entries found in this lorebook file", "error");
+      return;
+    }
+
+    parseResult = result;
   }
 
   async function processFile(file: File) {
@@ -130,79 +123,40 @@
     }
   }
 
-  async function handleClassify() {
-    if (!parseResult) return;
-
-    classifying = true;
-    classificationProgress = 0;
-
-    try {
-      const classified = await classifyEntriesWithLLM(
-        parseResult.entries,
-        (progress) => {
-          classificationProgress = progress;
-        },
-        story.currentStory?.mode ?? "adventure",
-      );
-      parseResult = {
-        ...parseResult,
-        entries: classified,
-      };
-    } catch (err) {
-      ui.showToast(err instanceof Error ? err.message : "Classification failed", "error");
-    } finally {
-      classifying = false;
-    }
-  }
-
   async function handleImport() {
     if (!parseResult || !story.currentStory) return;
 
     importing = true;
+    importProgress = null;
 
     try {
-      // Run AI classification first if enabled
-      let entriesToImport = parseResult.entries;
-      if (useAIClassification) {
-        classifying = true;
-        classificationProgress = 0;
-        entriesToImport = await classifyEntriesWithLLM(
-          parseResult.entries,
-          (progress) => {
-            classificationProgress = progress;
-          },
-          story.currentStory?.mode ?? "adventure",
-        );
-        classifying = false;
+      const result = await lorebookImportService.importEntries(parseResult, {
+        storyId: story.currentStory.id,
+        useAIClassification,
+        storyMode: story.currentStory.mode ?? 'adventure',
+        onProgress: (progress) => {
+          importProgress = progress;
+        },
+      });
+
+      if (result.success) {
+        // Reload entries into store
+        const allEntries = await lorebookImportService.getStoryEntries(story.currentStory.id);
+        story.lorebookEntries = allEntries;
+
+        ui.showToast(`Successfully imported ${result.entriesImported} entries`, "info");
+        ui.closeLorebookImport();
+      } else {
+        const errorMsg = result.errors.length > 0
+          ? result.errors.join(", ")
+          : "Import failed";
+        ui.showToast(errorMsg, "error");
       }
-
-      // Convert to Entry format
-      const entries = convertToEntries(entriesToImport, "import");
-
-      // Add each entry to the database
-      const storyId = story.currentStory.id;
-      for (const entryData of entries) {
-        const entry: Entry = {
-          ...entryData,
-          id: crypto.randomUUID(),
-          storyId,
-        };
-        await database.addEntry(entry);
-      }
-
-      // Reload entries into store
-      const allEntries = await database.getEntries(storyId);
-      story.lorebookEntries = allEntries;
-
-      ui.showToast(`Successfully imported ${entries.length} entries`, "info");
-
-      // Close modal
-      ui.closeLorebookImport();
     } catch (err) {
       ui.showToast(err instanceof Error ? err.message : "Import failed", "error");
     } finally {
       importing = false;
-      classifying = false;
+      importProgress = null;
     }
   }
 
@@ -270,9 +224,9 @@
 
         <!-- AI Classification toggle -->
         <div class="flex items-start space-x-2 p-3 rounded-lg border">
-          <Checkbox 
-            id="ai-classification" 
-            bind:checked={useAIClassification} 
+          <Checkbox
+            id="ai-classification"
+            bind:checked={useAIClassification}
             class="mt-1"
           />
           <div class="grid gap-1.5 leading-none">
@@ -288,13 +242,13 @@
           </div>
         </div>
 
-        {#if classifying}
+        {#if importing && importProgress}
           <div class="space-y-2 p-3 rounded-lg bg-muted/30 border">
             <div class="flex items-center gap-2">
               <Loader2 class="h-4 w-4 text-primary animate-spin" />
-              <span class="text-sm text-foreground">Classifying entries...</span>
+              <span class="text-sm text-foreground">{importProgress.message}</span>
             </div>
-            <Progress value={classificationProgress} class="h-2" />
+            <Progress value={progressPercent} class="h-2" />
           </div>
         {/if}
 
@@ -315,14 +269,14 @@
       <Button variant="outline" onclick={close} disabled={importing}>
         Cancel
       </Button>
-      <Button 
-        onclick={handleImport} 
-        disabled={!parseResult || importing || classifying}
+      <Button
+        onclick={handleImport}
+        disabled={!parseResult || importing}
         class="gap-2"
       >
-        {#if importing || classifying}
+        {#if importing}
           <Loader2 class="h-4 w-4 animate-spin" />
-          {classifying ? "Classifying..." : "Importing..."}
+          {importProgress?.phase === 'classifying' ? "Classifying..." : "Importing..."}
         {:else}
           Import {previewCount} Entries
         {/if}
@@ -330,4 +284,3 @@
     </ResponsiveModal.Footer>
   </ResponsiveModal.Content>
 </ResponsiveModal.Root>
-

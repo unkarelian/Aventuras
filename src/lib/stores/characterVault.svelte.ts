@@ -103,7 +103,7 @@ class CharacterVaultStore {
       name: storyCharacter.name,
       description: storyCharacter.description,
       traits: [...storyCharacter.traits],
-      visualDescriptors: [...(storyCharacter.visualDescriptors || [])],
+      visualDescriptors: { ...(storyCharacter.visualDescriptors || {}) },
       portrait: storyCharacter.portrait,
       tags: [],
       favorite: false,
@@ -123,9 +123,9 @@ class CharacterVaultStore {
       name: vaultCharacter.name,
       description: vaultCharacter.description,
       // Relationship, motivation, and role will be set by the wizard or default
-      relationship: null, 
+      relationship: null,
       traits: [...vaultCharacter.traits],
-      visualDescriptors: [...vaultCharacter.visualDescriptors],
+      visualDescriptors: { ...vaultCharacter.visualDescriptors },
       portrait: vaultCharacter.portrait,
       status: 'active',
       metadata: null,
@@ -165,7 +165,7 @@ class CharacterVaultStore {
       name: sanitized.name,
       description: sanitized.description,
       traits: sanitized.traits || [],
-      visualDescriptors: sanitized.visualDescriptors || [],
+      visualDescriptors: sanitized.visualDescriptors || {},
       portrait: null,
       tags: originalCard.tags || ['imported', 'sanitized'],
       favorite: false,
@@ -197,7 +197,7 @@ class CharacterVaultStore {
       name: card.name,
       description: card.description || card.creator_notes || null,
       traits,
-      visualDescriptors: [],
+      visualDescriptors: {},
       portrait: null,
       tags: card.tags || ['imported'],
       favorite: false,
@@ -221,7 +221,7 @@ class CharacterVaultStore {
       name: card.name,
       description: card.description || 'Importing...',
       traits: [],
-      visualDescriptors: [],
+      visualDescriptors: {},
       portrait: card.avatarUrl || null,
       tags: card.tags,
       favorite: false,
@@ -229,9 +229,9 @@ class CharacterVaultStore {
       originalStoryId: null,
       createdAt: now,
       updatedAt: now,
-      metadata: { 
-        importing: true, 
-        sourceUrl: card.imageUrl || card.avatarUrl 
+      metadata: {
+        importing: true,
+        sourceUrl: card.imageUrl || card.avatarUrl
       },
     };
 
@@ -271,7 +271,7 @@ class CharacterVaultStore {
       name: name,
       description: 'Importing from file...',
       traits: [],
-      visualDescriptors: [],
+      visualDescriptors: {},
       portrait: null,
       tags: ['imported'],
       favorite: false,
@@ -333,7 +333,7 @@ class CharacterVaultStore {
         name: sanitized?.name || parsed.name,
         description: sanitized?.description || parsed.description || parsed.creator_notes || null,
         traits: sanitized?.traits || (parsed.personality ? parsed.personality.split(/[,;]/).map(t => t.trim()).filter(Boolean).slice(0, 10) : []),
-        visualDescriptors: sanitized?.visualDescriptors || [],
+        visualDescriptors: sanitized?.visualDescriptors || {},
         portrait: portrait || null,
         tags: extraMetadata.tags || parsed.tags || ['imported'],
         favorite: false,

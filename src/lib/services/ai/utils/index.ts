@@ -2,12 +2,9 @@
  * AI Utilities Module
  *
  * Utility services and helpers for AI operations:
- * - JSON healing: Parse and repair malformed JSON from LLM responses
  * - Translation: Multi-language translation service
  * - TTS: Text-to-speech service
  */
-
-export { tryParseJsonWithHealing, parseJsonWithHealing } from './jsonHealing';
 
 export { TranslationService, type TranslationResult, type UITranslationItem } from './TranslationService';
 
@@ -17,8 +14,11 @@ export {
   TTSProvider,
   GoogleTranslateTTSProvider,
   OpenAICompatibleTTSProvider,
+  MicrosoftSpeechProvider,
   GOOGLE_TRANSLATE_LANGUAGES,
+  DEFAULT_SPEECH_RATE,
+  DEFAULT_PITCH,
+  DEFAULT_VOLUME,
   type TTSSettings,
   type TTSVoice,
-  type TTSStreamChunk,
 } from './TTSService';

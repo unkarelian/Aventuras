@@ -1,298 +1,43 @@
-import type { OpenAIProvider } from '../core/OpenAIProvider';
-import type {
-  Tool,
-  ToolCall,
-  AgenticMessage,
-} from '../core/types';
-import type { VaultLorebookEntry, EntryType, EntryInjectionMode } from '$lib/types';
-import { settings, getDefaultInteractiveLorebookSettings, type InteractiveLorebookSettings } from '$lib/stores/settings.svelte';
-import { buildExtraBody } from '../core/requestOverrides';
-import { promptService } from '$lib/services/prompts';
-import { tryParseJsonWithHealing } from '../utils/jsonHealing';
+/**
+ * Interactive Lorebook Service
+ *
+ * Provides an interactive chat interface for creating and managing lorebook entries.
+ * Uses the Vercel AI SDK streamText with tools for real-time responses.
+ */
+
+import type { VaultLorebookEntry } from '$lib/types';
+import type { ModelMessage, ToolModelMessage, TextPart, ToolCallPart } from 'ai';
+import { settings } from '$lib/stores/settings.svelte';
 import { createLogger } from '../core/config';
 import { FandomService } from '../../fandom';
+import { resolveAgentConfig, stopWhenDone } from '../sdk/agents';
+import { createLorebookTools, createFandomTools, type LorebookToolContext, type FandomToolContext } from '../sdk/tools';
+import type { PendingChangeSchema } from '../sdk/schemas/lorebook';
+import { promptService } from '$lib/services/prompts';
+import { streamText } from 'ai';
+
+const log = createLogger('InteractiveLorebook');
 
 // Event types for progress updates
 export type StreamEvent =
   | { type: 'tool_start'; toolCallId: string; toolName: string; args: Record<string, unknown> }
   | { type: 'tool_end'; toolCall: ToolCallDisplay }
   | { type: 'thinking' }
-  | { type: 'message'; message: ChatMessage } // Intermediate message (after tool calls)
+  | { type: 'message'; message: ChatMessage }
   | { type: 'done'; result: SendMessageResult }
   | { type: 'error'; error: string };
-
-const log = createLogger('InteractiveLorebook');
-
-// Tool definitions for Interactive Lorebook Creation
-const INTERACTIVE_LOREBOOK_TOOLS: Tool[] = [
-  {
-    type: 'function',
-    function: {
-      name: 'list_entries',
-      description: 'List all entries in the lorebook, optionally filtered by type',
-      parameters: {
-        type: 'object',
-        properties: {
-          type: {
-            type: 'string',
-            description: 'Optional filter by entry type',
-            enum: ['character', 'location', 'item', 'faction', 'concept', 'event'],
-          },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_entry',
-      description: 'Get full details of a specific entry by index',
-      parameters: {
-        type: 'object',
-        properties: {
-          index: {
-            type: 'number',
-            description: 'The index of the entry (0-based)',
-          },
-        },
-        required: ['index'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_entry',
-      description: 'Create a new lorebook entry. Requires user approval before being added.',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: {
-            type: 'string',
-            description: 'Name of the entry',
-          },
-          type: {
-            type: 'string',
-            description: 'Type of entry',
-            enum: ['character', 'location', 'item', 'faction', 'concept', 'event'],
-          },
-          description: {
-            type: 'string',
-            description: 'Description of the entry',
-          },
-          keywords: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Keywords that trigger this entry (optional)',
-          },
-          injectionMode: {
-            type: 'string',
-            description: 'When to inject this entry into context',
-            enum: ['always', 'keyword', 'relevant', 'never'],
-          },
-          priority: {
-            type: 'number',
-            description: 'Priority for injection ordering (higher = more important)',
-          },
-          group: {
-            type: 'string',
-            description: 'Optional group to organize entries',
-          },
-        },
-        required: ['name', 'type', 'description'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'update_entry',
-      description: 'Update an existing lorebook entry. Requires user approval before changes are applied.',
-      parameters: {
-        type: 'object',
-        properties: {
-          index: {
-            type: 'number',
-            description: 'The index of the entry to update (0-based)',
-          },
-          name: {
-            type: 'string',
-            description: 'New name (optional)',
-          },
-          type: {
-            type: 'string',
-            description: 'New type (optional)',
-            enum: ['character', 'location', 'item', 'faction', 'concept', 'event'],
-          },
-          description: {
-            type: 'string',
-            description: 'New description (optional)',
-          },
-          keywords: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'New keywords (optional)',
-          },
-          injectionMode: {
-            type: 'string',
-            description: 'New injection mode (optional)',
-            enum: ['always', 'keyword', 'relevant', 'never'],
-          },
-          priority: {
-            type: 'number',
-            description: 'New priority (optional)',
-          },
-          disabled: {
-            type: 'boolean',
-            description: 'Whether the entry is disabled (optional)',
-          },
-          group: {
-            type: 'string',
-            description: 'New group (optional, null to remove)',
-          },
-        },
-        required: ['index'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'delete_entry',
-      description: 'Delete an entry from the lorebook. Requires user approval.',
-      parameters: {
-        type: 'object',
-        properties: {
-          index: {
-            type: 'number',
-            description: 'The index of the entry to delete (0-based)',
-          },
-        },
-        required: ['index'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'merge_entries',
-      description: 'Merge multiple entries into one. Requires user approval.',
-      parameters: {
-        type: 'object',
-        properties: {
-          indices: {
-            type: 'array',
-            items: { type: 'number' },
-            description: 'Indices of entries to merge (0-based)',
-          },
-          merged_name: {
-            type: 'string',
-            description: 'Name for the merged entry',
-          },
-          merged_type: {
-            type: 'string',
-            description: 'Type for the merged entry',
-            enum: ['character', 'location', 'item', 'faction', 'concept', 'event'],
-          },
-          merged_description: {
-            type: 'string',
-            description: 'Description for the merged entry',
-          },
-          merged_keywords: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Keywords for the merged entry (optional)',
-          },
-        },
-        required: ['indices', 'merged_name', 'merged_type', 'merged_description'],
-      },
-    },
-  },
-  // Fandom wiki integration tools
-  {
-    type: 'function',
-    function: {
-      name: 'search_fandom',
-      description: 'Search for articles on a Fandom wiki. Use this to find characters, locations, items, or lore from established fictional universes.',
-      parameters: {
-        type: 'object',
-        properties: {
-          wiki: {
-            type: 'string',
-            description: 'The wiki name/subdomain (e.g., "harrypotter", "starwars", "lotr", "elderscrolls"). This is the part before .fandom.com in the URL.',
-          },
-          query: {
-            type: 'string',
-            description: 'The search query (e.g., "Hermione Granger", "Mos Eisley", "Daedric Princes")',
-          },
-          limit: {
-            type: 'number',
-            description: 'Maximum number of results to return (default: 10, max: 50)',
-          },
-        },
-        required: ['wiki', 'query'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_fandom_article_info',
-      description: 'Get the structure of a Fandom wiki article including its sections and categories. Use this to understand what information is available before fetching specific sections.',
-      parameters: {
-        type: 'object',
-        properties: {
-          wiki: {
-            type: 'string',
-            description: 'The wiki name/subdomain (e.g., "harrypotter", "starwars")',
-          },
-          title: {
-            type: 'string',
-            description: 'The exact article title from search results',
-          },
-        },
-        required: ['wiki', 'title'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'fetch_fandom_section',
-      description: 'Fetch the content of a specific section from a Fandom wiki article. Use section index "0" for the introduction/lead section, or use section indices from get_fandom_article_info.',
-      parameters: {
-        type: 'object',
-        properties: {
-          wiki: {
-            type: 'string',
-            description: 'The wiki name/subdomain (e.g., "harrypotter", "starwars")',
-          },
-          title: {
-            type: 'string',
-            description: 'The exact article title',
-          },
-          section_index: {
-            type: 'string',
-            description: 'The section index to fetch. Use "0" for the introduction, or indices from get_fandom_article_info (e.g., "1", "2", "3").',
-          },
-        },
-        required: ['wiki', 'title', 'section_index'],
-      },
-    },
-  },
-];
 
 // Types for pending changes and chat messages
 export interface PendingChange {
   id: string;
   type: 'create' | 'update' | 'delete' | 'merge';
   toolCallId: string;
-  entry?: VaultLorebookEntry;           // For create: the new entry
-  index?: number;                        // For update/delete: target index
-  indices?: number[];                    // For merge: source indices
-  updates?: Partial<VaultLorebookEntry>; // For update: the changes
-  previous?: VaultLorebookEntry;         // For update: original entry (for diff)
-  previousEntries?: VaultLorebookEntry[]; // For merge: original entries
+  entry?: VaultLorebookEntry;
+  index?: number;
+  indices?: number[];
+  updates?: Partial<VaultLorebookEntry>;
+  previous?: VaultLorebookEntry;
+  previousEntries?: VaultLorebookEntry[];
   status: 'pending' | 'approved' | 'rejected';
 }
 
@@ -313,7 +58,7 @@ export interface ChatMessage {
   pendingChanges?: PendingChange[];
   toolCalls?: ToolCallDisplay[];
   reasoning?: string;
-  isGreeting?: boolean; // Display-only message, not sent to API
+  isGreeting?: boolean;
 }
 
 export interface SendMessageResult {
@@ -323,16 +68,36 @@ export interface SendMessageResult {
   reasoning?: string;
 }
 
+/**
+ * Convert PendingChangeSchema to PendingChange for UI compatibility.
+ */
+function schemaToPendingChange(schema: PendingChangeSchema): PendingChange {
+  return {
+    id: schema.id,
+    type: schema.type,
+    toolCallId: schema.toolCallId,
+    entry: schema.entry,
+    index: schema.index,
+    indices: schema.indices,
+    updates: schema.updates,
+    previous: schema.previous,
+    previousEntries: schema.previousEntries,
+    status: schema.status,
+  };
+}
+
+/**
+ * Service that provides interactive lorebook management via chat.
+ * Uses streamText with tools for real-time responses.
+ */
 export class InteractiveLorebookService {
-  private provider: OpenAIProvider;
-  private messages: AgenticMessage[] = [];
-  private lorebookName: string = '';
   private initialized: boolean = false;
   private presetId: string;
   private fandomService: FandomService;
+  private conversationHistory: ModelMessage[] = [];
+  private systemPrompt: string = '';
 
-  constructor(provider: OpenAIProvider, presetId: string) {
-    this.provider = provider;
+  constructor(presetId: string) {
     this.presetId = presetId;
     this.fandomService = new FandomService();
   }
@@ -345,32 +110,29 @@ export class InteractiveLorebookService {
   }
 
   /**
-   * Get the interactive lorebook settings from the settings store.
-   * Falls back to defaults if not yet initialized (for existing users).
-   */
-  private getSettings(): InteractiveLorebookSettings {
-    return settings.systemServicesSettings.interactiveLorebook ?? getDefaultInteractiveLorebookSettings();
-  }
-
-  /**
-   * Initialize the conversation with the system prompt from the prompt service.
+   * Initialize the conversation.
    */
   initialize(lorebookName: string, entryCount: number): void {
-    this.lorebookName = lorebookName;
-    this.initialized = true;
+    this.conversationHistory = [];
 
-    // Use the prompt service to render the system prompt with placeholders
-    // Provide minimal context - service prompts don't use story-specific macros
-    const systemPrompt = promptService.renderPrompt(
+    // Get system prompt from prompt service
+    // Service prompts don't use narrative context, so pass minimal required values
+    // and use placeholders for service-specific variables
+    this.systemPrompt = promptService.renderPrompt(
       'interactive-lorebook',
-      { mode: 'adventure', pov: 'second', tense: 'present', protagonistName: '' },
-      { lorebookName, entryCount: String(entryCount) }
+      {
+        mode: 'adventure',
+        pov: 'second',
+        tense: 'present',
+        protagonistName: '',
+      },
+      {
+        lorebookName,
+        entryCount,
+      }
     );
 
-    this.messages = [
-      { role: 'system', content: systemPrompt },
-    ];
-
+    this.initialized = true;
     log('Initialized conversation', { lorebookName, entryCount, model: this.preset.model });
   }
 
@@ -383,139 +145,38 @@ export class InteractiveLorebookService {
 
   /**
    * Send a user message and get the AI response.
-   * Implements an agentic loop that continues until the AI responds without tool calls.
-   * Returns pending changes that need approval before being applied.
+   * Non-streaming version for backwards compatibility.
    */
   async sendMessage(
     userMessage: string,
     entries: VaultLorebookEntry[]
   ): Promise<SendMessageResult> {
-    if (!this.initialized) {
-      throw new Error('Service not initialized. Call initialize() first.');
+    // Use the streaming version and collect results
+    const events: StreamEvent[] = [];
+    for await (const event of this.sendMessageStreaming(userMessage, entries)) {
+      events.push(event);
     }
 
-    // Add user message to conversation
-    this.messages.push({
-      role: 'user',
-      content: userMessage,
-    });
+    const doneEvent = events.find(e => e.type === 'done');
+    if (doneEvent && doneEvent.type === 'done') {
+      return doneEvent.result;
+    }
 
-    log('Sending message', { userMessage, entriesCount: entries.length });
-
-    const pendingChanges: PendingChange[] = [];
-    const toolCalls: ToolCallDisplay[] = [];
-    let responseContent = '';
-    let reasoning: string | undefined;
-
-    let iterations = 0;
-    let continueLoop = true;
-
-    try {
-      // Agentic loop - continue until AI responds without tool calls
-      // No iteration cap for interactive lorebook mode to allow complex multi-step operations
-      while (continueLoop) {
-        iterations++;
-        log(`Agentic loop iteration ${iterations}`);
-
-        const response = await this.provider.generateWithTools({
-          messages: this.messages,
-          model: this.preset.model,
-          temperature: this.preset.temperature,
-          maxTokens: this.preset.maxTokens,
-          tools: INTERACTIVE_LOREBOOK_TOOLS,
-          tool_choice: 'auto',
-          extraBody: buildExtraBody({
-            manualMode: false,
-            manualBody: this.preset.manualBody,
-            reasoningEffort: this.preset.reasoningEffort,
-            providerOnly: this.preset.providerOnly,
-          }),
-        });
-
-        log('Received response', {
-          iteration: iterations,
-          hasContent: !!response.content,
-          hasToolCalls: !!response.tool_calls,
-          toolCallCount: response.tool_calls?.length ?? 0,
-          finishReason: response.finish_reason,
-          hasReasoning: !!response.reasoning,
-        });
-
-        // Capture reasoning from the final response
-        reasoning = response.reasoning;
-
-        // Process tool calls if present
-        if (response.tool_calls && response.tool_calls.length > 0) {
-          // Add assistant response with tool calls to messages
-          this.messages.push({
-            role: 'assistant',
-            content: response.content,
-            tool_calls: response.tool_calls,
-            reasoning: response.reasoning ?? null,
-            reasoning_details: response.reasoning_details,
-          });
-
-          // Process each tool call
-          for (const toolCall of response.tool_calls) {
-            const { result, pendingChange, parsedArgs } = await this.processToolCall(toolCall, entries);
-
-            // Track tool call for display
-            const toolCallDisplay: ToolCallDisplay = {
-              id: toolCall.id,
-              name: toolCall.function.name,
-              args: parsedArgs,
-              result,
-              pendingChange,
-            };
-            toolCalls.push(toolCallDisplay);
-
-            if (pendingChange) {
-              pendingChanges.push(pendingChange);
-            }
-
-            // Add tool result to messages
-            this.messages.push({
-              role: 'tool',
-              tool_call_id: toolCall.id,
-              content: result,
-            });
-          }
-
-          // Continue the loop to let the AI respond to tool results
-          continueLoop = true;
-        } else {
-          // No tool calls - this is the final response
-          responseContent = response.content ?? '';
-
-          // Add final assistant response to messages
-          this.messages.push({
-            role: 'assistant',
-            content: responseContent,
-            reasoning: response.reasoning ?? null,
-            reasoning_details: response.reasoning_details,
-          });
-
-          // Exit the loop
-          continueLoop = false;
-        }
-      }
-    } catch (error) {
-      log('Error in agentic loop:', error);
-      throw error;
+    const errorEvent = events.find(e => e.type === 'error');
+    if (errorEvent && errorEvent.type === 'error') {
+      throw new Error(errorEvent.error);
     }
 
     return {
-      response: responseContent,
-      pendingChanges,
-      toolCalls,
-      reasoning,
+      response: '',
+      pendingChanges: [],
+      toolCalls: [],
     };
   }
 
   /**
-   * Async version of sendMessage that yields progress events.
-   * Uses non-streaming API calls but yields events for UI updates.
-   * Yields separate 'message' events for each iteration that has tool calls.
+   * Streaming version of sendMessage.
+   * Yields events as the AI processes the message.
    */
   async *sendMessageStreaming(
     userMessage: string,
@@ -527,532 +188,248 @@ export class InteractiveLorebookService {
       return;
     }
 
-    // Add user message to conversation
-    this.messages.push({
+    // Track state for this message
+    const pendingChanges: PendingChange[] = [];
+    const toolCalls: ToolCallDisplay[] = [];
+    let responseContent = '';
+    let reasoning: string | undefined;
+    let changeIdCounter = 0;
+
+    // Create tool context
+    const lorebookContext: LorebookToolContext = {
+      entries,
+      onPendingChange: (change) => {
+        pendingChanges.push(schemaToPendingChange(change));
+      },
+      generateId: () => `il-${++changeIdCounter}-${Date.now()}`,
+    };
+
+    const fandomContext: FandomToolContext = {
+      fandomService: this.fandomService,
+    };
+
+    // Create combined tools
+    const lorebookTools = createLorebookTools(lorebookContext);
+    const fandomTools = createFandomTools(fandomContext);
+    const tools = { ...lorebookTools, ...fandomTools };
+
+    // Remove the finish_lore_management tool since this is interactive mode
+    delete (tools as Record<string, unknown>)['finish_lore_management'];
+
+    // Add user message to conversation history
+    this.conversationHistory.push({
       role: 'user',
       content: userMessage,
     });
 
-    log('Sending message', { userMessage, entriesCount: entries.length });
-
-    // Track all pending changes across iterations (for final result)
-    const allPendingChanges: PendingChange[] = [];
-
-    let iterations = 0;
-    let continueLoop = true;
-    let finalResponseContent = '';
-    let finalReasoning: string | undefined;
+    // Resolve agent config
+    const { model, providerOptions, preset } = resolveAgentConfig(this.presetId, 'interactive-lorebook');
 
     try {
-      // Agentic loop - continue until AI responds without tool calls
-      // No iteration cap for interactive lorebook mode to allow complex multi-step operations
-      while (continueLoop) {
-        // Check for abort before each iteration
-        if (signal?.aborted) {
-          log('Request aborted by user');
-          yield { type: 'error', error: 'Request cancelled' };
-          return;
-        }
+      // Use streamText for streaming with tools
+      // Continue until the model stops calling tools (or hits safety limit of 50 steps)
+      const result = streamText({
+        model,
+        system: this.systemPrompt,
+        messages: this.conversationHistory,
+        tools,
+        temperature: preset.temperature,
+        maxOutputTokens: preset.maxTokens,
+        providerOptions,
+        abortSignal: signal,
+        stopWhen: stopWhenDone(50),
+      });
 
-        iterations++;
-        log(`Agentic loop iteration ${iterations}`);
+      // Track tool calls for the current step
+      const currentToolCalls: Map<string, { name: string; args: Record<string, unknown> }> = new Map();
 
-        // Signal that we're thinking
-        yield { type: 'thinking' };
+      // Track per-step content (reset on each new step)
+      let stepContent = '';
+      let stepToolCalls: ToolCallDisplay[] = [];
+      let stepReasoning: string | undefined;
 
-        // Track this iteration's data separately
-        const iterationToolCalls: ToolCallDisplay[] = [];
-        const iterationPendingChanges: PendingChange[] = [];
+      // Process the stream
+      for await (const event of result.fullStream) {
+        switch (event.type) {
+          case 'start-step':
+            // Reset step-level accumulators for the new step
+            stepContent = '';
+            stepToolCalls = [];
+            stepReasoning = undefined;
+            currentToolCalls.clear();
+            break;
 
-        // Use non-streaming generateWithTools for clean reasoning
-        const response = await this.provider.generateWithTools({
-          messages: this.messages,
-          model: this.preset.model,
-          temperature: this.preset.temperature,
-          maxTokens: this.preset.maxTokens,
-          tools: INTERACTIVE_LOREBOOK_TOOLS,
-          tool_choice: 'auto',
-          extraBody: buildExtraBody({
-            manualMode: false,
-            manualBody: this.preset.manualBody,
-            reasoningEffort: this.preset.reasoningEffort,
-            providerOnly: this.preset.providerOnly,
-          }),
-          signal,
-        });
+          case 'finish-step':
+            // Step completed - emit a message if we have content or tool calls
+            if (stepContent || stepToolCalls.length > 0) {
+              // Accumulate for conversation history
+              responseContent += (responseContent && stepContent ? '\n\n' : '') + stepContent;
+              toolCalls.push(...stepToolCalls);
+              if (stepReasoning) {
+                reasoning = (reasoning ? reasoning + '\n\n' : '') + stepReasoning;
+              }
 
-        log('Received response', {
-          iteration: iterations,
-          hasContent: !!response.content,
-          hasToolCalls: !!response.tool_calls,
-          toolCallCount: response.tool_calls?.length ?? 0,
-          finishReason: response.finish_reason,
-          hasReasoning: !!response.reasoning,
-        });
-
-        // Process tool calls if present
-        if (response.tool_calls && response.tool_calls.length > 0) {
-          // Add assistant response with tool calls to messages
-          this.messages.push({
-            role: 'assistant',
-            content: response.content,
-            tool_calls: response.tool_calls,
-            reasoning: response.reasoning ?? null,
-            reasoning_details: response.reasoning_details,
-          });
-
-          // Process each tool call
-          for (const toolCall of response.tool_calls) {
-            const { result, pendingChange, parsedArgs } = await this.processToolCall(toolCall, entries);
-
-            // Yield tool start event
-            yield { type: 'tool_start', toolCallId: toolCall.id, toolName: toolCall.function.name, args: parsedArgs };
-
-            // Track tool call for display
-            const toolCallDisplay: ToolCallDisplay = {
-              id: toolCall.id,
-              name: toolCall.function.name,
-              args: parsedArgs,
-              result,
-              pendingChange,
-            };
-            iterationToolCalls.push(toolCallDisplay);
-
-            if (pendingChange) {
-              iterationPendingChanges.push(pendingChange);
-              allPendingChanges.push(pendingChange);
+              // Emit intermediate message to UI for this step
+              const stepMessage: ChatMessage = {
+                id: `msg-step-${Date.now()}`,
+                role: 'assistant',
+                content: stepContent,
+                timestamp: Date.now(),
+                pendingChanges: pendingChanges.filter(pc =>
+                  stepToolCalls.some(tc => tc.pendingChange?.id === pc.id)
+                ),
+                toolCalls: stepToolCalls.length > 0 ? [...stepToolCalls] : undefined,
+                reasoning: stepReasoning,
+              };
+              yield { type: 'message', message: stepMessage };
             }
+            break;
 
-            // Add tool result to messages
-            this.messages.push({
-              role: 'tool',
-              tool_call_id: toolCall.id,
-              content: result,
+          case 'reasoning-start':
+          case 'reasoning-delta':
+            // Capture reasoning/thinking
+            if (event.type === 'reasoning-delta') {
+              stepReasoning = (stepReasoning || '') + event.text;
+            }
+            yield { type: 'thinking' };
+            break;
+
+          case 'text-delta':
+            // Accumulate response text for this step
+            stepContent += event.text;
+            break;
+
+          case 'tool-call':
+            // Tool is being called
+            currentToolCalls.set(event.toolCallId, {
+              name: event.toolName,
+              args: event.input as Record<string, unknown>,
             });
+            yield {
+              type: 'tool_start',
+              toolCallId: event.toolCallId,
+              toolName: event.toolName,
+              args: event.input as Record<string, unknown>,
+            };
+            break;
 
-            // Yield tool end event
-            yield { type: 'tool_end', toolCall: toolCallDisplay };
+          case 'tool-result': {
+            // Tool completed
+            const toolInfo = currentToolCalls.get(event.toolCallId);
+            // Extract result - handle both typed and dynamic tool results
+            const toolResult = 'result' in event ? event.result : event.output;
+            if (toolInfo) {
+              const toolCallDisplay: ToolCallDisplay = {
+                id: event.toolCallId,
+                name: toolInfo.name,
+                args: toolInfo.args,
+                result: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+              };
+
+              // Check if this tool call created a pending change
+              const latestChange = pendingChanges[pendingChanges.length - 1];
+              if (latestChange && latestChange.toolCallId.startsWith('il-')) {
+                toolCallDisplay.pendingChange = latestChange;
+              }
+
+              stepToolCalls.push(toolCallDisplay);
+              yield { type: 'tool_end', toolCall: toolCallDisplay };
+            }
+            break;
           }
 
-          // Yield an intermediate message for this iteration
-          const iterationMessage: ChatMessage = {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: response.content ?? '',
-            timestamp: Date.now(),
-            toolCalls: iterationToolCalls,
-            pendingChanges: iterationPendingChanges,
-            reasoning: response.reasoning,
-          };
-          yield { type: 'message', message: iterationMessage };
-
-          // Continue the loop
-          continueLoop = true;
-        } else {
-          // No tool calls - this is the final response
-          // Add the message to context
-          this.messages.push({
-            role: 'assistant',
-            content: response.content ?? '',
-            reasoning: response.reasoning ?? null,
-            reasoning_details: response.reasoning_details,
-          });
-
-          finalResponseContent = response.content ?? '';
-          finalReasoning = response.reasoning;
-          continueLoop = false;
+          case 'error':
+            yield { type: 'error', error: String(event.error) };
+            return;
         }
       }
-    } catch (error) {
-      log('Error in agentic loop:', error);
-      yield { type: 'error', error: error instanceof Error ? error.message : 'Unknown error' };
-      return;
-    }
 
-    // Yield final result (the last message without tool calls)
-    yield {
-      type: 'done',
-      result: {
-        response: finalResponseContent,
-        pendingChanges: [],
-        toolCalls: [], // Tool calls were in intermediate messages
-        reasoning: finalReasoning,
-      },
-    };
+      // Add assistant response to conversation history
+      if (responseContent || toolCalls.length > 0) {
+        // Build the assistant message with tool calls if any
+        const assistantMessage: ModelMessage = {
+          role: 'assistant',
+          content: this.buildAssistantContent(responseContent, toolCalls),
+        };
+        this.conversationHistory.push(assistantMessage);
+
+        // Add tool results as tool messages
+        if (toolCalls.length > 0) {
+          const toolResultMessage: ToolModelMessage = {
+            role: 'tool',
+            content: toolCalls.map(tc => ({
+              type: 'tool-result' as const,
+              toolCallId: tc.id,
+              toolName: tc.name,
+              output: { type: 'text' as const, value: tc.result },
+            })),
+          };
+          this.conversationHistory.push(toolResultMessage);
+        }
+      }
+
+      // Note: Individual step messages are emitted via 'finish-step' events above
+      // We don't emit a final 'message' here to avoid duplication
+
+      // Return final result (for non-streaming callers and completion signal)
+      yield {
+        type: 'done',
+        result: {
+          response: responseContent,
+          pendingChanges,
+          toolCalls,
+          reasoning,
+        },
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log('Error in sendMessageStreaming', { error: errorMessage });
+      yield { type: 'error', error: errorMessage };
+    }
   }
 
   /**
-   * Process a tool call and return the result + any pending change.
-   * This method is async to support Fandom wiki API calls.
+   * Build assistant message content with text and tool calls.
    */
-  private async processToolCall(
-    toolCall: ToolCall,
-    entries: VaultLorebookEntry[]
-  ): Promise<{ result: string; pendingChange?: PendingChange; parsedArgs: Record<string, unknown> }> {
-    const args = tryParseJsonWithHealing<Record<string, unknown>>(toolCall.function.arguments);
-    if (!args) {
-      log('Failed to parse tool call arguments:', toolCall.function.arguments);
-      return {
-        result: JSON.stringify({ error: 'Invalid tool call arguments - malformed JSON' }),
-        parsedArgs: {},
-      };
+  private buildAssistantContent(text: string, toolCalls: ToolCallDisplay[]): Array<TextPart | ToolCallPart> {
+    const content: Array<TextPart | ToolCallPart> = [];
+
+    if (text) {
+      content.push({ type: 'text', text });
     }
-    log('Processing tool call:', toolCall.function.name, args);
 
-    switch (toolCall.function.name) {
-      case 'list_entries': {
-        const typeFilter = args.type as EntryType | undefined;
-        const filtered = typeFilter
-          ? entries.filter(e => e.type === typeFilter)
-          : entries;
-
-        const result = filtered.map((e) => ({
-          index: entries.indexOf(e),
-          name: e.name,
-          type: e.type,
-          keywords: e.keywords,
-          disabled: e.disabled,
-        }));
-
-        return { result: JSON.stringify(result), parsedArgs: args };
-      }
-
-      case 'get_entry': {
-        const index = this.parseIndexArg(args.index);
-        if (index === null) {
-          return {
-            result: JSON.stringify({ error: `Invalid index ${this.formatArg(args.index)}. Expected an integer.` }),
-            parsedArgs: args,
-          };
-        }
-        if (index < 0 || index >= entries.length) {
-          return { result: JSON.stringify({ error: `Invalid index ${index}. Valid range: 0-${entries.length - 1}` }), parsedArgs: args };
-        }
-        return { result: JSON.stringify(entries[index]), parsedArgs: args };
-      }
-
-      case 'create_entry': {
-        const newEntry: VaultLorebookEntry = {
-          name: args.name as string,
-          type: args.type as EntryType,
-          description: args.description as string,
-          keywords: (args.keywords as string[]) ?? [],
-          injectionMode: (args.injectionMode as EntryInjectionMode) ?? 'keyword',
-          priority: (args.priority as number) ?? 10,
-          disabled: false,
-          group: (args.group as string | null) ?? null,
-        };
-
-        const pendingChange: PendingChange = {
-          id: crypto.randomUUID(),
-          type: 'create',
-          toolCallId: toolCall.id,
-          entry: newEntry,
-          status: 'pending',
-        };
-
-        return {
-          result: JSON.stringify({
-            status: 'pending_approval',
-            message: `Creating entry "${newEntry.name}" requires user approval.`,
-            entry: newEntry,
-          }),
-          pendingChange,
-          parsedArgs: args,
-        };
-      }
-
-      case 'update_entry': {
-        const index = this.parseIndexArg(args.index);
-        if (index === null) {
-          return {
-            result: JSON.stringify({ error: `Invalid index ${this.formatArg(args.index)}. Expected an integer.` }),
-            parsedArgs: args,
-          };
-        }
-        if (index < 0 || index >= entries.length) {
-          return { result: JSON.stringify({ error: `Invalid index ${index}. Valid range: 0-${entries.length - 1}` }), parsedArgs: args };
-        }
-
-        const previous = entries[index];
-        const updates: Partial<VaultLorebookEntry> = {};
-
-        if (args.name !== undefined) updates.name = args.name as string;
-        if (args.type !== undefined) updates.type = args.type as EntryType;
-        if (args.description !== undefined) updates.description = args.description as string;
-        if (args.keywords !== undefined) updates.keywords = args.keywords as string[];
-        if (args.injectionMode !== undefined) updates.injectionMode = args.injectionMode as EntryInjectionMode;
-        if (args.priority !== undefined) updates.priority = args.priority as number;
-        if (args.disabled !== undefined) updates.disabled = args.disabled as boolean;
-        if (args.group !== undefined) updates.group = args.group as string | null;
-
-        const pendingChange: PendingChange = {
-          id: crypto.randomUUID(),
-          type: 'update',
-          toolCallId: toolCall.id,
-          index,
-          updates,
-          previous: { ...previous },
-          status: 'pending',
-        };
-
-        return {
-          result: JSON.stringify({
-            status: 'pending_approval',
-            message: `Updating entry "${previous.name}" requires user approval.`,
-            updates,
-          }),
-          pendingChange,
-          parsedArgs: args,
-        };
-      }
-
-      case 'delete_entry': {
-        const index = this.parseIndexArg(args.index);
-        if (index === null) {
-          return {
-            result: JSON.stringify({ error: `Invalid index ${this.formatArg(args.index)}. Expected an integer.` }),
-            parsedArgs: args,
-          };
-        }
-        if (index < 0 || index >= entries.length) {
-          return { result: JSON.stringify({ error: `Invalid index ${index}. Valid range: 0-${entries.length - 1}` }), parsedArgs: args };
-        }
-
-        const entry = entries[index];
-        const pendingChange: PendingChange = {
-          id: crypto.randomUUID(),
-          type: 'delete',
-          toolCallId: toolCall.id,
-          index,
-          previous: { ...entry },
-          status: 'pending',
-        };
-
-        return {
-          result: JSON.stringify({
-            status: 'pending_approval',
-            message: `Deleting entry "${entry.name}" requires user approval.`,
-            entry: entry.name,
-          }),
-          pendingChange,
-          parsedArgs: args,
-        };
-      }
-
-      case 'merge_entries': {
-        const indices = this.parseIndicesArg(args.indices);
-        if (!indices) {
-          return {
-            result: JSON.stringify({
-              error: `Invalid indices ${this.formatArg(args.indices)}. Expected an array of integers.`,
-            }),
-            parsedArgs: args,
-          };
-        }
-
-        // Validate all indices
-        for (const index of indices) {
-          if (index < 0 || index >= entries.length) {
-            return { result: JSON.stringify({ error: `Invalid index ${index}. Valid range: 0-${entries.length - 1}` }), parsedArgs: args };
-          }
-        }
-
-        if (indices.length < 2) {
-          return { result: JSON.stringify({ error: 'Need at least 2 entries to merge' }), parsedArgs: args };
-        }
-
-        const previousEntries = indices.map(i => ({ ...entries[i] }));
-
-        const mergedEntry: VaultLorebookEntry = {
-          name: args.merged_name as string,
-          type: args.merged_type as EntryType,
-          description: args.merged_description as string,
-          keywords: (args.merged_keywords as string[]) ?? [],
-          injectionMode: 'keyword',
-          priority: Math.max(...previousEntries.map(e => e.priority)),
-          disabled: false,
-          group: previousEntries[0].group,
-        };
-
-        const pendingChange: PendingChange = {
-          id: crypto.randomUUID(),
-          type: 'merge',
-          toolCallId: toolCall.id,
-          indices,
-          entry: mergedEntry,
-          previousEntries,
-          status: 'pending',
-        };
-
-        return {
-          result: JSON.stringify({
-            status: 'pending_approval',
-            message: `Merging ${indices.length} entries into "${mergedEntry.name}" requires user approval.`,
-            mergedEntry,
-            sourceEntries: previousEntries.map(e => e.name),
-          }),
-          pendingChange,
-          parsedArgs: args,
-        };
-      }
-
-      // Fandom wiki integration tools
-      case 'search_fandom': {
-        const wiki = args.wiki as string;
-        const query = args.query as string;
-        const limit = (args.limit as number) ?? 10;
-
-        if (!wiki || !query) {
-          return {
-            result: JSON.stringify({ error: 'Both wiki and query are required' }),
-            parsedArgs: args,
-          };
-        }
-
-        try {
-          const results = await this.fandomService.search(wiki, query, limit);
-          return {
-            result: JSON.stringify({
-              wiki,
-              query,
-              resultCount: results.length,
-              results: results.map(r => ({
-                title: r.title,
-                snippet: r.snippet,
-                wordcount: r.wordcount,
-              })),
-            }),
-            parsedArgs: args,
-          };
-        } catch (error) {
-          return {
-            result: JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to search wiki' }),
-            parsedArgs: args,
-          };
-        }
-      }
-
-      case 'get_fandom_article_info': {
-        const wiki = args.wiki as string;
-        const title = args.title as string;
-
-        if (!wiki || !title) {
-          return {
-            result: JSON.stringify({ error: 'Both wiki and title are required' }),
-            parsedArgs: args,
-          };
-        }
-
-        try {
-          const info = await this.fandomService.getArticleInfo(wiki, title);
-          return {
-            result: JSON.stringify({
-              title: info.title,
-              pageid: info.pageid,
-              categories: info.categories.slice(0, 10), // Limit categories for context size
-              sections: info.sections.map(s => ({
-                index: s.index,
-                title: s.line,
-                level: s.level,
-              })),
-              hint: 'Use fetch_fandom_section with section_index="0" to get the introduction, or use other section indices to fetch specific sections.',
-            }),
-            parsedArgs: args,
-          };
-        } catch (error) {
-          return {
-            result: JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to get article info' }),
-            parsedArgs: args,
-          };
-        }
-      }
-
-      case 'fetch_fandom_section': {
-        const wiki = args.wiki as string;
-        const title = args.title as string;
-        const sectionIndex = args.section_index as string;
-
-        if (!wiki || !title || sectionIndex === undefined) {
-          return {
-            result: JSON.stringify({ error: 'wiki, title, and section_index are all required' }),
-            parsedArgs: args,
-          };
-        }
-
-        try {
-          const section = await this.fandomService.getSection(wiki, title, sectionIndex);
-          return {
-            result: JSON.stringify({
-              title: section.title,
-              sectionTitle: section.sectionTitle,
-              sectionIndex: section.sectionIndex,
-              content: section.content,
-              hint: 'You can now use this information to create_entry for the lorebook. Synthesize the wiki content into a concise, useful lorebook entry.',
-            }),
-            parsedArgs: args,
-          };
-        } catch (error) {
-          return {
-            result: JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to fetch section' }),
-            parsedArgs: args,
-          };
-        }
-      }
-
-      default:
-        return { result: JSON.stringify({ error: `Unknown tool: ${toolCall.function.name}` }), parsedArgs: args };
+    for (const tc of toolCalls) {
+      content.push({
+        type: 'tool-call',
+        toolCallId: tc.id,
+        toolName: tc.name,
+        input: tc.args,
+      });
     }
+
+    return content.length > 0 ? content : [{ type: 'text', text: '' }];
   }
 
   /**
    * Handle approval or rejection of a pending change.
-   * This adds a message to the conversation indicating the result.
    */
   handleApproval(change: PendingChange, approved: boolean, rejectionReason?: string): void {
-    const message = approved
-      ? `Change approved: ${this.describeChange(change)}`
-      : `Change rejected: ${this.describeChange(change)}${rejectionReason ? `. Reason: ${rejectionReason}` : ''}`;
+    change.status = approved ? 'approved' : 'rejected';
+    log('Handled approval', { changeId: change.id, approved, rejectionReason });
 
-    // Find and update the tool result message for this change
-    const toolResultIndex = this.messages.findIndex(
-      m => m.role === 'tool' && (m as { tool_call_id: string }).tool_call_id === change.toolCallId
-    );
+    // Add a note to conversation about the approval/rejection
+    const note = approved
+      ? `[System: User approved the ${change.type} operation for "${change.entry?.name || change.previous?.name || 'entry'}"]`
+      : `[System: User rejected the ${change.type} operation${rejectionReason ? `: ${rejectionReason}` : ''}]`;
 
-    if (toolResultIndex !== -1) {
-      // Update the tool result with the approval/rejection status
-      const originalResult = JSON.parse((this.messages[toolResultIndex] as { content: string }).content);
-      (this.messages[toolResultIndex] as { content: string }).content = JSON.stringify({
-        ...originalResult,
-        status: approved ? 'approved' : 'rejected',
-        message: approved ? 'Change applied successfully.' : `Change rejected. ${rejectionReason ?? 'User declined the change.'}`,
-      });
-    }
-
-    log('Handled approval', { changeId: change.id, approved, message });
-  }
-
-  /**
-   * Describe a change for display in messages.
-   */
-  private describeChange(change: PendingChange): string {
-    switch (change.type) {
-      case 'create':
-        return `Created entry "${change.entry?.name}"`;
-      case 'update':
-        return `Updated entry "${change.previous?.name}"`;
-      case 'delete':
-        return `Deleted entry "${change.previous?.name}"`;
-      case 'merge':
-        return `Merged ${change.indices?.length} entries into "${change.entry?.name}"`;
-      default:
-        return 'Unknown change';
-    }
+    this.conversationHistory.push({
+      role: 'user',
+      content: note,
+    });
   }
 
   /**
    * Apply a pending change to the entries array.
-   * Returns the modified entries array.
    */
   applyChange(change: PendingChange, entries: VaultLorebookEntry[]): VaultLorebookEntry[] {
     const newEntries = [...entries];
@@ -1065,55 +442,25 @@ export class InteractiveLorebookService {
         break;
 
       case 'update':
-        if (change.updates) {
-          const targetIndex = this.findEntryIndex(newEntries, change.previous, change.index);
-          if (targetIndex !== null) {
-            newEntries[targetIndex] = {
-              ...newEntries[targetIndex],
-              ...change.updates,
-            };
-          } else {
-            log('Update skipped: entry not found for pending change', { changeId: change.id });
-          }
+        if (change.updates && change.index !== undefined && change.index >= 0 && change.index < newEntries.length) {
+          newEntries[change.index] = { ...newEntries[change.index], ...change.updates };
         }
         break;
 
       case 'delete':
-        {
-          const targetIndex = this.findEntryIndex(newEntries, change.previous, change.index);
-          if (targetIndex !== null) {
-            newEntries.splice(targetIndex, 1);
-          } else {
-            log('Delete skipped: entry not found for pending change', { changeId: change.id });
-          }
+        if (change.index !== undefined && change.index >= 0 && change.index < newEntries.length) {
+          newEntries.splice(change.index, 1);
         }
         break;
 
       case 'merge':
         if (change.indices && change.entry) {
-          const indicesToRemove = new Set<number>();
-
-          if (change.previousEntries && change.previousEntries.length > 0) {
-            for (const previousEntry of change.previousEntries) {
-              const targetIndex = this.findEntryIndex(newEntries, previousEntry);
-              if (targetIndex !== null) {
-                indicesToRemove.add(targetIndex);
-              }
-            }
-          }
-
-          if (indicesToRemove.size === 0) {
-            for (const index of change.indices) {
-              if (index >= 0 && index < newEntries.length) {
-                indicesToRemove.add(index);
-              }
-            }
-          }
-
           // Remove source entries (in reverse order to preserve indices)
-          const sortedIndices = [...indicesToRemove].sort((a, b) => b - a);
+          const sortedIndices = [...change.indices].sort((a, b) => b - a);
           for (const index of sortedIndices) {
-            newEntries.splice(index, 1);
+            if (index >= 0 && index < newEntries.length) {
+              newEntries.splice(index, 1);
+            }
           }
           // Add merged entry
           newEntries.push(change.entry);
@@ -1124,117 +471,24 @@ export class InteractiveLorebookService {
     return newEntries;
   }
 
-  private findEntryIndex(
-    entries: VaultLorebookEntry[],
-    target?: VaultLorebookEntry,
-    fallbackIndex?: number
-  ): number | null {
-    if (target) {
-      const exactIndex = entries.findIndex(entry => this.entriesEqual(entry, target));
-      if (exactIndex !== -1) {
-        return exactIndex;
-      }
-
-      const identityIndex = entries.findIndex(entry => this.entriesMatchIdentity(entry, target));
-      if (identityIndex !== -1) {
-        return identityIndex;
-      }
-    }
-
-    if (fallbackIndex !== undefined && fallbackIndex >= 0 && fallbackIndex < entries.length) {
-      if (!target || this.entriesMatchIdentity(entries[fallbackIndex], target)) {
-        return fallbackIndex;
-      }
-    }
-
-    return null;
-  }
-
-  private entriesEqual(a: VaultLorebookEntry, b: VaultLorebookEntry): boolean {
-    if (a === b) {
-      return true;
-    }
-
-    if (
-      a.name !== b.name ||
-      a.type !== b.type ||
-      a.description !== b.description ||
-      a.injectionMode !== b.injectionMode ||
-      a.priority !== b.priority ||
-      a.disabled !== b.disabled ||
-      a.group !== b.group
-    ) {
-      return false;
-    }
-
-    if (a.keywords.length !== b.keywords.length) {
-      return false;
-    }
-
-    for (let i = 0; i < a.keywords.length; i++) {
-      if (a.keywords[i] !== b.keywords[i]) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  private entriesMatchIdentity(a: VaultLorebookEntry, b: VaultLorebookEntry): boolean {
-    return a.name === b.name && a.type === b.type && a.group === b.group;
-  }
-
-  private parseIndexArg(value: unknown): number | null {
-    if (typeof value === 'number' && Number.isInteger(value)) {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const parsed = Number(value);
-      if (Number.isInteger(parsed)) {
-        return parsed;
-      }
-    }
-    return null;
-  }
-
-  private parseIndicesArg(value: unknown): number[] | null {
-    if (!Array.isArray(value)) {
-      return null;
-    }
-    const parsed: number[] = [];
-    for (const item of value) {
-      const index = this.parseIndexArg(item);
-      if (index === null) {
-        return null;
-      }
-      parsed.push(index);
-    }
-    return parsed;
-  }
-
-  private formatArg(value: unknown): string {
-    if (value === undefined) {
-      return 'undefined';
-    }
-    try {
-      const json = JSON.stringify(value);
-      return json ?? String(value);
-    } catch {
-      return String(value);
-    }
-  }
-
   /**
-   * Get the conversation history for display.
-   */
-  getMessages(): AgenticMessage[] {
-    return this.messages;
-  }
-
-  /**
-   * Reset the conversation (clear all messages except system prompt).
+   * Reset the conversation.
    */
   reset(lorebookName: string, entryCount: number): void {
     this.initialize(lorebookName, entryCount);
+  }
+
+  /**
+   * Get the current conversation history for persistence.
+   */
+  getConversationHistory(): ModelMessage[] {
+    return [...this.conversationHistory];
+  }
+
+  /**
+   * Restore conversation history from persistence.
+   */
+  setConversationHistory(history: ModelMessage[]): void {
+    this.conversationHistory = [...history];
   }
 }

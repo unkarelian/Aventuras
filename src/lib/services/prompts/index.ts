@@ -21,7 +21,7 @@
  */
 
 import { macroEngine } from './macros';
-import { BUILTIN_MACROS, PROMPT_TEMPLATES, getTemplateById } from './definitions';
+import { BUILTIN_MACROS, PROMPT_TEMPLATES, CONTEXT_PLACEHOLDERS, getTemplateById } from './definitions';
 import type {
   Macro,
   PromptTemplate,
@@ -44,6 +44,9 @@ class PromptService {
    * @param settings - Saved prompt settings (overrides, custom macros)
    */
   init(settings: PromptSettings): void {
+    // Validate all templates on init (fail fast)
+    this.validateAllTemplates();
+
     // Register custom macros
     macroEngine.setCustomMacros(settings.customMacros);
 
@@ -396,6 +399,58 @@ class PromptService {
 
     return { raw, expanded, macrosUsed };
   }
+
+  // ===========================================================================
+  // VALIDATION METHODS
+  // ===========================================================================
+
+  /**
+   * Validate that all macros referenced in a template exist.
+   * Checks both builtin macros and context placeholders.
+   *
+   * @param template - The template to validate
+   * @returns Array of unknown tokens (empty if all valid)
+   */
+  private validateTemplateReferences(template: PromptTemplate): string[] {
+    const allContent = template.content + (template.userContent || '');
+    const tokens = macroEngine.findMacros(allContent);
+
+    return tokens.filter(token => {
+      // Check if it's a builtin macro
+      if (macroEngine.getMacro(token)) return false;
+      // Check if it's a known context placeholder
+      if (CONTEXT_PLACEHOLDERS.find(p => p.token === token)) return false;
+      // Unknown token
+      return true;
+    });
+  }
+
+  /**
+   * Validate all templates and throw if any have invalid macro references.
+   * Called during init() to fail fast.
+   */
+  private validateAllTemplates(): void {
+    const errors: string[] = [];
+
+    for (const template of PROMPT_TEMPLATES) {
+      const unknownTokens = this.validateTemplateReferences(template);
+      if (unknownTokens.length > 0) {
+        errors.push(
+          `Template "${template.id}" references unknown macros: ${unknownTokens.join(', ')}`
+        );
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(
+        `[PromptService] Template validation failed:\n${errors.join('\n')}`
+      );
+    }
+  }
+
+  // ===========================================================================
+  // PRIVATE HELPER METHODS
+  // ===========================================================================
 
   private applyPlaceholders(
     text: string,

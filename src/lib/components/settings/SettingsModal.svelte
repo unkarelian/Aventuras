@@ -3,8 +3,6 @@
   import { getVersion } from "@tauri-apps/api/app";
   import { ui } from "$lib/stores/ui.svelte";
   import { settings } from "$lib/stores/settings.svelte";
-  import type { ProviderInfo } from "$lib/services/ai/types";
-  import { DEFAULT_PROVIDERS } from "$lib/services/ai/providers";
   import {
     Settings2,
     RotateCcw,
@@ -62,17 +60,19 @@
     { id: "advanced", label: "Advanced", icon: SettingsIcon },
   ] as const;
 
-  let activeTab = $state<
-    | "api"
-    | "generation"
-    | "interface"
-    | "prompts"
-    | "images"
-    | "tts"
-    | "advanced"
-  >("api");
+  type SettingsTab = "api" | "generation" | "interface" | "prompts" | "images" | "tts" | "advanced";
+
+  // Use the tab from UI store (allows navigation from outside, e.g., profile warning banner)
+  let activeTab = $state<SettingsTab>(ui.settingsTab as SettingsTab);
+
+  // Sync activeTab when modal opens with a specific tab requested
+  $effect(() => {
+    if (ui.settingsModalOpen && ui.settingsTab !== activeTab) {
+      activeTab = ui.settingsTab as SettingsTab;
+    }
+  });
+
   let promptImportModalOpen = $state(false);
-  let providerOptions = $state<ProviderInfo[]>(DEFAULT_PROVIDERS);
 
   let manualBodyEditorOpen = $state(false);
   let manualBodyEditorTitle = $state("Manual Request Body");
@@ -129,10 +129,12 @@
     if (deltaX > 0 && currentIndex > 0) {
       slideDirection = "right";
       activeTab = tabs[currentIndex - 1].id;
+      ui.setSettingsTab(activeTab);
       setTimeout(() => (slideDirection = "none"), 300);
     } else if (deltaX < 0 && currentIndex < tabs.length - 1) {
       slideDirection = "left";
       activeTab = tabs[currentIndex + 1].id;
+      ui.setSettingsTab(activeTab);
       setTimeout(() => (slideDirection = "none"), 300);
     }
   }
@@ -231,7 +233,10 @@
               class:bg-accent={activeTab === tab.id}
               class:text-accent-foreground={activeTab === tab.id}
               class:text-muted-foreground={activeTab !== tab.id}
-              onclick={() => (activeTab = tab.id)}
+              onclick={() => {
+                activeTab = tab.id;
+                ui.setSettingsTab(tab.id);
+              }}
             >
               <tab.icon class="h-4 w-4" />
               {tab.label}
@@ -264,7 +269,10 @@
         style="touch-action: pan-y pinch-zoom;"
       >
         <div class="mx-auto px-4 sm:p-6">
-          <Tabs value={activeTab} onValueChange={(v) => (activeTab = v as any)}>
+          <Tabs value={activeTab} onValueChange={(v) => {
+            activeTab = v as any;
+            ui.setSettingsTab(v);
+          }}>
             {#each tabs as tab}
               <TabsContent value={tab.id} class="mt-0">
                 <div
@@ -275,10 +283,9 @@
                       : ""}
                 >
                   {#if tab.id === "api"}
-                    <ApiConnectionTab {providerOptions} />
+                    <ApiConnectionTab />
                   {:else if tab.id === "generation"}
                     <GenerationTab
-                      {providerOptions}
                       onOpenManualBodyEditor={openManualBodyEditor}
                     />
                   {:else if tab.id === "interface"}
@@ -332,7 +339,12 @@
         {#each tabs as tab}
           <Toggle
             pressed={activeTab === tab.id}
-            onPressedChange={(pressed) => pressed && (activeTab = tab.id)}
+            onPressedChange={(pressed) => {
+              if (pressed) {
+                activeTab = tab.id;
+                ui.setSettingsTab(tab.id);
+              }
+            }}
             size="sm"
             class="shrink-0 px-2"
           >

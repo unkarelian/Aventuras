@@ -7,6 +7,7 @@ import Overlay from "./drawer-overlay.svelte";
 import Footer from "./drawer-footer.svelte";
 import Header from "./drawer-header.svelte";
 import Title from "./drawer-title.svelte";
+import Handle from "./drawer-handle.svelte";
 import NestedRoot from "./drawer-nested.svelte";
 
 const Trigger: typeof DrawerPrimitive.Trigger = DrawerPrimitive.Trigger;
@@ -21,6 +22,7 @@ export {
 	Overlay,
 	Footer,
 	Header,
+	Handle,
 	Title,
 	Trigger,
 	Portal,
@@ -34,6 +36,7 @@ export {
 	Overlay as DrawerOverlay,
 	Footer as DrawerFooter,
 	Header as DrawerHeader,
+	Handle as DrawerHandle,
 	Title as DrawerTitle,
 	Trigger as DrawerTrigger,
 	Portal as DrawerPortal,

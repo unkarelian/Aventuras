@@ -1,0 +1,164 @@
+/**
+ * Prompt Schema Middleware
+ *
+ * For providers/models that don't support response_format (structured outputs),
+ * this middleware injects the schema into the prompt as TypeScript-like types
+ * and removes response_format from the request.
+ *
+ * Works with extractJsonMiddleware to parse the output.
+ */
+
+import type { LanguageModelV3Middleware, LanguageModelV3Prompt } from '@ai-sdk/provider';
+import type { JSONSchema7 } from 'json-schema';
+
+// ============================================================================
+// Schema to TypeScript Conversion
+// ============================================================================
+
+function jsonSchemaToTypeScript(schema: JSONSchema7, indent = 0): string {
+  const pad = '  '.repeat(indent);
+  const padInner = '  '.repeat(indent + 1);
+
+  const nullable = Array.isArray(schema.type) && schema.type.includes('null');
+  const primaryType = Array.isArray(schema.type)
+    ? schema.type.find((t) => t !== 'null')
+    : schema.type;
+
+  function withNullable(type: string): string {
+    return nullable ? `${type} | null` : type;
+  }
+
+  switch (primaryType) {
+    case 'string':
+      if (schema.enum) {
+        const enumValues = schema.enum.map((v) => `"${v}"`).join(' | ');
+        return nullable ? `(${enumValues}) | null` : enumValues;
+      }
+      return withNullable('string');
+
+    case 'number':
+    case 'integer':
+      return withNullable('number');
+
+    case 'boolean':
+      return withNullable('boolean');
+
+    case 'array': {
+      const items = schema.items as JSONSchema7 | undefined;
+      const itemType = items ? jsonSchemaToTypeScript(items, indent) : 'unknown';
+      return withNullable(`${itemType}[]`);
+    }
+
+    case 'object': {
+      if (!schema.properties || Object.keys(schema.properties).length === 0) {
+        return withNullable('Record<string, unknown>');
+      }
+
+      const required = new Set(schema.required ?? []);
+      const props = Object.entries(schema.properties)
+        .map(([key, propSchema]) => {
+          const propDef = propSchema as JSONSchema7;
+          const optional = required.has(key) ? '' : '?';
+          const propType = jsonSchemaToTypeScript(propDef, indent + 1);
+          const description = propDef.description ? ` // ${propDef.description}` : '';
+          return `${padInner}${key}${optional}: ${propType};${description}`;
+        })
+        .join('\n');
+
+      return withNullable(`{\n${props}\n${pad}}`);
+    }
+
+    default:
+      return 'unknown';
+  }
+}
+
+function schemaToTypeScriptBlock(schema: JSONSchema7, name = 'Response'): string {
+  const typeBody = jsonSchemaToTypeScript(schema, 0);
+  if (schema.type === 'object' && schema.properties) {
+    return `interface ${name} ${typeBody}`;
+  }
+  return `type ${name} = ${typeBody}`;
+}
+
+// ============================================================================
+// Prompt Injection
+// ============================================================================
+
+const SCHEMA_INSTRUCTION_TEMPLATE = `Respond strictly with JSON. The JSON should be compatible with the TypeScript type Response from the following:
+
+{schema}
+
+Output ONLY the JSON object, no other text or markdown.`;
+
+const SIMPLE_JSON_INSTRUCTION = 'Respond strictly with valid JSON. Output ONLY the JSON, no other text.';
+
+function injectSchemaIntoPrompt(
+  prompt: LanguageModelV3Prompt,
+  instruction: string
+): LanguageModelV3Prompt {
+  const newPrompt = [...prompt];
+  const lastUserIdx = newPrompt.findLastIndex((msg) => msg.role === 'user');
+
+  if (lastUserIdx >= 0) {
+    const lastUserMsg = newPrompt[lastUserIdx];
+    if (lastUserMsg.role === 'user') {
+      const textParts = lastUserMsg.content.filter((p) => p.type === 'text');
+      const otherParts = lastUserMsg.content.filter((p) => p.type !== 'text');
+      const combinedText = textParts.map((p) => p.text).join('\n') + '\n\n' + instruction;
+
+      newPrompt[lastUserIdx] = {
+        ...lastUserMsg,
+        content: [{ type: 'text', text: combinedText }, ...otherParts],
+      };
+    }
+  } else {
+    newPrompt.push({
+      role: 'user',
+      content: [{ type: 'text', text: instruction }],
+    });
+  }
+
+  return newPrompt;
+}
+
+// ============================================================================
+// Middleware
+// ============================================================================
+
+export interface PromptSchemaMiddlewareOptions {
+  instruction?: string;
+  typeName?: string;
+}
+
+export function promptSchemaMiddleware(
+  options: PromptSchemaMiddlewareOptions = {}
+): LanguageModelV3Middleware {
+  const instructionTemplate = options.instruction ?? SCHEMA_INSTRUCTION_TEMPLATE;
+  const typeName = options.typeName ?? 'Response';
+
+  return {
+    specificationVersion: 'v3',
+
+    transformParams: async ({ params }) => {
+      const { responseFormat } = params;
+
+      if (!responseFormat || responseFormat.type !== 'json') {
+        return params;
+      }
+
+      const instruction = responseFormat.schema
+        ? instructionTemplate.replace(
+            '{schema}',
+            schemaToTypeScriptBlock(responseFormat.schema as JSONSchema7, typeName)
+          )
+        : SIMPLE_JSON_INSTRUCTION;
+
+      return {
+        ...params,
+        prompt: injectSchemaIntoPrompt(params.prompt, instruction),
+        responseFormat: undefined,
+      };
+    },
+  };
+}

@@ -3,8 +3,7 @@
   import { ui } from "$lib/stores/ui.svelte";
   import { story } from "$lib/stores/story.svelte";
   import { settings } from "$lib/stores/settings.svelte";
-  import { exportService } from "$lib/services/export";
-  import { database } from "$lib/services/database";
+  import { exportService, gatherStoryData } from "$lib/services/export";
   import { Button } from "$lib/components/ui/button";
   import * as DropdownMenu from "$lib/components/ui/dropdown-menu";
   import {
@@ -83,43 +82,21 @@
 
   async function exportAventuras() {
     if (!story.currentStory) return;
-    const [
-      entries,
-      characters,
-      locations,
-      items,
-      storyBeats,
-      lorebookEntries,
-      embeddedImages,
-      checkpoints,
-      branches,
-      chapters,
-    ] = await Promise.all([
-      database.getStoryEntries(story.currentStory.id),
-      database.getCharacters(story.currentStory.id),
-      database.getLocations(story.currentStory.id),
-      database.getItems(story.currentStory.id),
-      database.getStoryBeats(story.currentStory.id),
-      database.getEntries(story.currentStory.id),
-      database.getEmbeddedImagesForStory(story.currentStory.id),
-      database.getCheckpoints(story.currentStory.id),
-      database.getBranches(story.currentStory.id),
-      database.getChapters(story.currentStory.id),
-    ]);
+    const data = await gatherStoryData(story.currentStory.id);
     await handleExport(
       () =>
         exportService.exportToAventura(
           story.currentStory,
-          entries,
-          characters,
-          locations,
-          items,
-          storyBeats,
-          lorebookEntries,
-          embeddedImages,
-          checkpoints,
-          branches,
-          chapters,
+          data.entries,
+          data.characters,
+          data.locations,
+          data.items,
+          data.storyBeats,
+          data.lorebookEntries,
+          data.embeddedImages,
+          data.checkpoints,
+          data.branches,
+          data.chapters,
         ),
       "Aventuras (.avt)",
     );

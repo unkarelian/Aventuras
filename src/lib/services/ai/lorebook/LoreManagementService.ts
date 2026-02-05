@@ -1,990 +1,331 @@
-import { BaseAIService, type OpenAIProvider } from '../core/BaseAIService';
-import type {
-  Tool,
-  ToolCall,
-  AgenticMessage,
-  AgenticResponse,
-} from '../core/types';
-import type {
-  Entry,
-  EntryType,
-  EntryState,
-  EntryPreview,
-  EntryInjection,
-  LoreChange,
-  LoreManagementResult,
-  Chapter,
-  StoryEntry,
-  CharacterEntryState,
-  LocationEntryState,
-  ItemEntryState,
-  FactionEntryState,
-  ConceptEntryState,
-  EventEntryState,
-  GenerationPreset,
-} from '$lib/types';
-import type { ReasoningEffort } from '$lib/types';
-import { promptService, type PromptContext, type StoryMode, type POV, type Tense } from '$lib/services/prompts';
-import { parseJsonWithHealing } from '../utils/jsonHealing';
-import { AI_CONFIG, createLogger, getContextConfig } from '../core/config';
+/**
+ * Lore Management Service
+ *
+ * Autonomous agent that manages lorebook entries, updating and creating
+ * entries based on story events using the Vercel AI SDK ToolLoopAgent.
+ */
+
+import type { Entry, VaultLorebookEntry } from '$lib/types';
+import { createLogger } from '../core/config';
+import { createAgentFromPreset, extractTerminalToolResult, stopOnTerminalTool } from '../sdk/agents';
+import { createLorebookTools, type LorebookToolContext } from '../sdk/tools';
+import type { PendingChangeSchema, FinishLoreManagementSchema } from '../sdk/schemas/lorebook';
+import { promptService } from '$lib/services/prompts';
 
 const log = createLogger('LoreManagement');
 
-// Tool definitions for Lore Management Mode (per design doc section 3.4.3)
-const LORE_MANAGEMENT_TOOLS: Tool[] = [
-  // === Entry Operations ===
-  {
-    type: 'function',
-    function: {
-      name: 'list_entries',
-      description: 'List all entries in the lorebook, optionally filtered by type',
-      parameters: {
-        type: 'object',
-        properties: {
-          type: {
-            type: 'string',
-            description: 'Optional filter by entry type',
-            enum: ['character', 'location', 'item', 'faction', 'concept', 'event'],
-          },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_entry',
-      description: 'Get full details of a specific entry by ID',
-      parameters: {
-        type: 'object',
-        properties: {
-          entry_id: {
-            type: 'string',
-            description: 'The ID of the entry to retrieve',
-          },
-        },
-        required: ['entry_id'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'create_entry',
-      description: 'Create a new lorebook entry',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: {
-            type: 'string',
-            description: 'Name of the entry',
-          },
-          type: {
-            type: 'string',
-            description: 'Type of entry',
-            enum: ['character', 'location', 'item', 'faction', 'concept', 'event'],
-          },
-          description: {
-            type: 'string',
-            description: 'Description of the entry',
-          },
-          aliases: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Alternative names or keywords',
-          },
-          hidden_info: {
-            type: 'string',
-            description: 'Information the protagonist does not know yet',
-          },
-          state: {
-            type: 'object',
-            description: 'Optional full state object (overrides default state)',
-          },
-          injection: {
-            type: 'object',
-            description: 'Optional injection rules (overrides default injection)',
-          },
-        },
-        required: ['name', 'type', 'description'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'update_entry',
-      description: 'Update an existing lorebook entry',
-      parameters: {
-        type: 'object',
-        properties: {
-          entry_id: {
-            type: 'string',
-            description: 'The ID of the entry to update',
-          },
-          name: {
-            type: 'string',
-            description: 'New name (optional)',
-          },
-          description: {
-            type: 'string',
-            description: 'New description (optional)',
-          },
-          aliases: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'New aliases (optional)',
-          },
-          hidden_info: {
-            type: 'string',
-            description: 'New hidden info (optional)',
-          },
-          description_replace: {
-            type: 'object',
-            description: 'Search/replace update for description',
-            properties: {
-              find: { type: 'string', description: 'Text to find' },
-              replace: { type: 'string', description: 'Replacement text (default: empty)' },
-              match_all: { type: 'boolean', description: 'Replace all matches (default: false)' },
-            },
-            required: ['find'],
-          },
-          hidden_info_replace: {
-            type: 'object',
-            description: 'Search/replace update for hidden info',
-            properties: {
-              find: { type: 'string', description: 'Text to find' },
-              replace: { type: 'string', description: 'Replacement text (default: empty)' },
-              match_all: { type: 'boolean', description: 'Replace all matches (default: false)' },
-            },
-            required: ['find'],
-          },
-          state: {
-            type: 'object',
-            description: 'Full state object (overrides existing)',
-          },
-          state_update: {
-            type: 'object',
-            description: 'Partial state update (merged into existing)',
-          },
-          injection: {
-            type: 'object',
-            description: 'Full injection rules (overrides existing)',
-          },
-          injection_update: {
-            type: 'object',
-            description: 'Partial injection update (merged into existing)',
-          },
-        },
-        required: ['entry_id'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'merge_entries',
-      description: 'Merge multiple entries into one (for duplicates)',
-      parameters: {
-        type: 'object',
-        properties: {
-          entry_ids: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'IDs of entries to merge',
-          },
-          merged_name: {
-            type: 'string',
-            description: 'Name for the merged entry',
-          },
-          merged_description: {
-            type: 'string',
-            description: 'Description for the merged entry',
-          },
-          merged_aliases: {
-            type: 'array',
-            items: { type: 'string' },
-            description: 'Combined aliases',
-          },
-          merged_state: {
-            type: 'object',
-            description: 'Optional merged state object',
-          },
-          merged_injection: {
-            type: 'object',
-            description: 'Optional merged injection rules',
-          },
-        },
-        required: ['entry_ids', 'merged_name', 'merged_description'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'delete_entry',
-      description: 'Delete an entry from the lorebook',
-      parameters: {
-        type: 'object',
-        properties: {
-          entry_id: {
-            type: 'string',
-            description: 'The ID of the entry to delete',
-          },
-        },
-        required: ['entry_id'],
-      },
-    },
-  },
-  // === Memory/Story Access ===
-  {
-    type: 'function',
-    function: {
-      name: 'get_recent_story',
-      description: 'Get recent story messages for context',
-      parameters: {
-        type: 'object',
-        properties: {
-          message_count: {
-            type: 'number',
-            description: 'Number of recent messages to retrieve (default: 50)',
-          },
-        },
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'list_chapters',
-      description: 'List all chapter summaries',
-      parameters: {
-        type: 'object',
-        properties: {},
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_chapter_summary',
-      description: 'Get the summary of a specific chapter',
-      parameters: {
-        type: 'object',
-        properties: {
-          chapter_number: {
-            type: 'number',
-            description: 'The chapter number to get',
-          },
-        },
-        required: ['chapter_number'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'query_chapter',
-      description: 'Ask a specific question about a chapter',
-      parameters: {
-        type: 'object',
-        properties: {
-          chapter_number: {
-            type: 'number',
-            description: 'The chapter number to query',
-          },
-          question: {
-            type: 'string',
-            description: 'The question to ask about the chapter',
-          },
-        },
-        required: ['chapter_number', 'question'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'query_chapters',
-      description: 'Ask a question across a range of chapters',
-      parameters: {
-        type: 'object',
-        properties: {
-          start_chapter: {
-            type: 'number',
-            description: 'Start of chapter range',
-          },
-          end_chapter: {
-            type: 'number',
-            description: 'End of chapter range',
-          },
-          question: {
-            type: 'string',
-            description: 'The question to ask',
-          },
-        },
-        required: ['start_chapter', 'end_chapter', 'question'],
-      },
-    },
-  },
-  // === Completion ===
-  {
-    type: 'function',
-    function: {
-      name: 'finish_lore_management',
-      description: 'Signal that lore management is complete and provide a summary',
-      parameters: {
-        type: 'object',
-        properties: {
-          summary: {
-            type: 'string',
-            description: 'Summary of changes made during this session',
-          },
-        },
-        required: ['summary'],
-      },
-    },
-  },
-];
-
-// NOTE: The default system prompt for Lore Management is now in the centralized
-// prompt system at src/lib/services/prompts/definitions.ts (template id: 'lore-management')
-// The systemPrompt field in LoreManagementSettings is kept for backwards compatibility
-// with user-customized settings, but the actual prompt is rendered via promptService.
-
-interface LoreManagementContext {
-  entries: Entry[];
-  recentMessages: StoryEntry[];
-  chapters: Chapter[];
+/**
+ * Result from a lore management session.
+ */
+export interface LoreManagementResult {
+  updatedEntries: Entry[];
+  createdEntries: Entry[];
+  reasoning?: string;
 }
 
-interface ToolExecutionContext {
+/**
+ * Chapter info for lore management.
+ */
+export interface LoreManagementChapter {
+  number: number;
+  title: string | null;
+  summary: string;
+  keywords?: string[];
+  characters?: string[];
+}
+
+/**
+ * Context for running lore management.
+ */
+export interface LoreManagementContext {
   storyId: string;
-  branchId: string | null;
-  entries: Entry[];
-  recentMessages: StoryEntry[];
-  chapters: Chapter[];
-  // Callbacks to execute actual database operations
-  onCreateEntry: (entry: Entry) => Promise<void>;
-  onUpdateEntry: (id: string, updates: Partial<Entry>) => Promise<void>;
-  onDeleteEntry: (id: string) => Promise<void>;
-  onMergeEntries: (entryIds: string[], mergedEntry: Entry) => Promise<void>;
-  // Memory query callback
-  onQueryChapter?: (chapterNumber: number, question: string) => Promise<string>;
+  narrativeResponse: string;
+  userAction: string;
+  existingEntries: Entry[];
+  /** Available chapters for querying */
+  chapters?: LoreManagementChapter[];
+  /** Callback to query a chapter with a question */
+  queryChapter?: (chapterNumber: number, question: string) => Promise<string>;
 }
 
-export class LoreManagementService extends BaseAIService {
-  private changes: LoreChange[] = [];
-  private maxIterations: number;
-
-  constructor(
-    provider: OpenAIProvider,
-    presetId: string = 'agentic',
-    maxIterations: number = 50,
-    settingsOverride?: Partial<GenerationPreset>
-  ) {
-    super(provider, presetId, settingsOverride);
-    this.maxIterations = maxIterations;
-  }
-
-  /**
-   * Run a lore management session.
-   * This is an agentic loop that reviews and updates entries.
-   * @param context - The tool execution context with entries and chapters
-   * @param mode - Story mode (affects prompt context defaults)
-   * @param pov - Point of view from story settings
-   * @param tense - Tense from story settings
-   */
-  async runSession(context: ToolExecutionContext, mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): Promise<LoreManagementResult> {
-    this.changes = [];
-    const sessionId = crypto.randomUUID();
-
-    // Lore management runs with its own agentic context; do not include live chat history.
-    const sanitizedContext: ToolExecutionContext = {
-      ...context,
-      recentMessages: [],
-    };
-
-    // Filter out blacklisted entries - AI won't see or be able to modify them
-    const blacklistedCount = sanitizedContext.entries.filter(e => e.loreManagementBlacklisted).length;
-    sanitizedContext.entries = sanitizedContext.entries.filter(e => !e.loreManagementBlacklisted);
-
-    log('Starting lore management session', {
-      sessionId,
-      entriesCount: sanitizedContext.entries.length,
-      blacklistedCount,
-      recentMessagesCount: sanitizedContext.recentMessages.length,
-      chaptersCount: sanitizedContext.chapters.length,
-    });
-
-    // Build initial prompt with context
-    const initialPrompt = this.buildInitialPrompt(sanitizedContext, mode, pov, tense);
-
-    // Initialize conversation with system message and context
-    const messages: AgenticMessage[] = [
-      { role: 'system', content: promptService.renderPrompt('lore-management', this.getPromptContext(mode, pov, tense)) },
-      { role: 'user', content: initialPrompt },
-    ];
-
-    let complete = false;
-    let iterations = 0;
-    let consecutiveNoToolCalls = 0;
-    const MAX_NO_TOOL_CALL_RETRIES = 3;
-
-    while (!complete && iterations < this.maxIterations) {
-      iterations++;
-      log(`Iteration ${iterations}/${this.maxIterations}`);
-
-      try {
-        const response = await this.provider.generateWithTools({
-          messages,
-          model: this.model,
-          temperature: this.temperature,
-          maxTokens: this.maxTokens,
-          tools: LORE_MANAGEMENT_TOOLS,
-          tool_choice: 'auto',
-          extraBody: this.extraBody,
-        });
-
-        log('Agent response', {
-          hasContent: !!response.content,
-          hasToolCalls: !!response.tool_calls,
-          toolCallCount: response.tool_calls?.length ?? 0,
-          finishReason: response.finish_reason,
-          hasReasoning: !!response.reasoning,
-          hasReasoningDetails: !!response.reasoning_details,
-          reasoningDetailsCount: response.reasoning_details?.length ?? 0,
-        });
-
-        // Log reasoning if present (useful for debugging agent decisions)
-        if (response.reasoning) {
-          log('Agent reasoning:', response.reasoning.substring(0, 500));
-        }
-        if (response.reasoning_details) {
-          log('Agent reasoning_details count:', response.reasoning_details.length);
-        }
-
-        // Handle no tool calls - model may need prompting
-        if (!response.tool_calls || response.tool_calls.length === 0) {
-          consecutiveNoToolCalls++;
-          log(`No tool calls (${consecutiveNoToolCalls}/${MAX_NO_TOOL_CALL_RETRIES})`, {
-            content: response.content?.substring(0, 200),
-          });
-
-          // Add the assistant's response to maintain context
-          if (response.content) {
-            messages.push({
-              role: 'assistant',
-              content: response.content,
-              reasoning: response.reasoning ?? null,
-              // Pass reasoning_details back for context continuity per OpenRouter docs
-              reasoning_details: response.reasoning_details,
-            });
-          }
-
-          if (consecutiveNoToolCalls >= MAX_NO_TOOL_CALL_RETRIES) {
-            // Force finish after too many retries without tool calls
-            log('Max no-tool-call retries reached, forcing finish');
-            this.changes.push({
-              type: 'complete',
-              summary: `Session ended after ${this.changes.length} changes (model stopped making tool calls)`,
-            });
-            complete = true;
-            break;
-          }
-
-          // Prompt the model to use tools
-          messages.push({
-            role: 'user',
-            content: promptService.getPrompt('lore-management-retry', this.getPromptContext(mode, pov, tense)),
-          });
-          continue;
-        }
-
-        // Reset counter on successful tool call
-        consecutiveNoToolCalls = 0;
-
-        // Add assistant response to messages, including reasoning_details for context continuity
-        // Per OpenRouter docs: reasoning_details must be passed back unmodified for tool calling flows
-        // https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
-        messages.push({
-          role: 'assistant',
-          content: response.content,
-          tool_calls: response.tool_calls,
-          reasoning: response.reasoning ?? null, // Legacy field for backwards compatibility
-          reasoning_details: response.reasoning_details, // Required for context continuity
-        });
-
-        // Execute each tool call
-        for (const toolCall of response.tool_calls) {
-          const result = await this.executeTool(toolCall, sanitizedContext);
-
-          if (toolCall.function.name === 'finish_lore_management') {
-            complete = true;
-          }
-
-          // Add tool result to messages
-          messages.push({
-            role: 'tool',
-            tool_call_id: toolCall.id,
-            content: result,
-          });
-        }
-      } catch (error) {
-        log('Error in lore management iteration:', error);
-        // Don't break immediately - add to changes and force finish
-        this.changes.push({
-          type: 'complete',
-          summary: `Session ended due to error after ${this.changes.length} changes`,
-        });
-        complete = true;
-        break;
-      }
-    }
-
-    if (iterations >= this.maxIterations && !complete) {
-      log('Max iterations reached, forcing finish');
-      this.changes.push({
-        type: 'complete',
-        summary: `Session ended at max iterations (${this.maxIterations}) with ${this.changes.length} changes`,
-      });
-    }
-
-    const summary = this.changes.find(c => c.type === 'complete')?.summary || 'Session completed';
-
-    log('Lore management session complete', {
-      sessionId,
-      iterations,
-      changesCount: this.changes.length,
-    });
-
-    return {
-      changes: this.changes,
-      summary,
-      sessionId,
-    };
-  }
-
-  private buildInitialPrompt(context: ToolExecutionContext, mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): string {
-    const promptContext = this.getPromptContext(mode, pov, tense);
-
-    // Build entry summary
-    const entrySummary = context.entries.length > 0
-      ? context.entries.map(e => `- ${e.name} (${e.type}): ${e.description}`).join('\n')
-      : 'No entries yet.';
-
-    // Build recent story summary (last few messages)
-    const contextConfig = getContextConfig();
-    const recentStory = context.recentMessages.slice(-contextConfig.recentEntriesForLoreManagement).map(m => {
-      const prefix = m.type === 'user_action' ? '[ACTION]' : '[NARRATION]';
-      return `${prefix} ${m.content}`;
-    }).join('\n\n');
-    const recentStorySection = context.recentMessages.length > 0
-      ? `# Recent Story (last ${Math.min(10, context.recentMessages.length)} messages)\n${recentStory}\n`
-      : '';
-
-    // Build chapter summary
-    const chapterSummary = context.chapters.length > 0
-      ? context.chapters.map(c => `Chapter ${c.number}: ${c.summary}`).join('\n')
-      : 'No chapters yet.';
-
-    return promptService.renderUserPrompt('lore-management', promptContext, {
-      entrySummary,
-      recentStorySection,
-      chapterSummary,
-    });
-  }
-
-  private getPromptContext(mode: StoryMode = 'adventure', pov?: POV, tense?: Tense): PromptContext {
-    return {
-      mode,
-      pov: pov ?? (mode === 'creative-writing' ? 'third' : 'second'),
-      tense: tense ?? (mode === 'creative-writing' ? 'past' : 'present'),
-      protagonistName: 'the protagonist',
-    };
-  }
-
-  private async executeTool(toolCall: ToolCall, context: ToolExecutionContext): Promise<string> {
-    const args = parseJsonWithHealing<Record<string, any>>(toolCall.function.arguments);
-    log('Executing tool:', toolCall.function.name, args);
-
-    switch (toolCall.function.name) {
-      case 'list_entries': {
-        const typeFilter = args.type as EntryType | undefined;
-        const filtered = typeFilter
-          ? context.entries.filter(e => e.type === typeFilter)
-          : context.entries;
-        return JSON.stringify(filtered.map(e => ({
-          id: e.id,
-          name: e.name,
-          type: e.type,
-          description: e.description,
-          aliases: e.aliases,
-        })));
-      }
-
-      case 'get_entry': {
-        const entry = context.entries.find(e => e.id === args.entry_id);
-        if (!entry) {
-          return JSON.stringify({ error: `Entry ${args.entry_id} not found` });
-        }
-        return JSON.stringify(entry);
-      }
-
-      case 'create_entry': {
-        const newEntry = this.createEntry(context.storyId, context.branchId, args as any);
-        context.entries.push(newEntry);
-        await context.onCreateEntry(newEntry);
-        this.changes.push({ type: 'create', entry: newEntry });
-        return JSON.stringify({ success: true, id: newEntry.id, name: newEntry.name });
-      }
-
-      case 'update_entry': {
-        const entryIndex = context.entries.findIndex(e => e.id === args.entry_id);
-        if (entryIndex === -1) {
-          return JSON.stringify({ error: `Entry ${args.entry_id} not found` });
-        }
-        const previous = {
-          ...context.entries[entryIndex],
-          state: JSON.parse(JSON.stringify(context.entries[entryIndex].state)),
-          injection: JSON.parse(JSON.stringify(context.entries[entryIndex].injection)),
-        };
-        const updates: Partial<Entry> = {};
-        if (args.name !== undefined) updates.name = args.name;
-        if (args.description !== undefined) updates.description = args.description;
-        if (args.aliases !== undefined) updates.aliases = args.aliases;
-        if (args.hidden_info !== undefined) updates.hiddenInfo = args.hidden_info;
-
-        if (args.description_replace && updates.description === undefined) {
-          updates.description = this.applyTextReplace(
-            context.entries[entryIndex].description,
-            args.description_replace
-          );
-        }
-        if (args.hidden_info_replace && updates.hiddenInfo === undefined) {
-          updates.hiddenInfo = this.applyTextReplace(
-            context.entries[entryIndex].hiddenInfo ?? '',
-            args.hidden_info_replace
-          );
-        }
-
-        if (args.state !== undefined || args.state_update !== undefined) {
-          const baseState = args.state !== undefined
-            ? this.normalizeState(context.entries[entryIndex].type, args.state)
-            : this.normalizeState(context.entries[entryIndex].type, context.entries[entryIndex].state);
-          const mergedState = args.state_update
-            ? { ...baseState, ...args.state_update }
-            : baseState;
-          if (!mergedState.type) mergedState.type = baseState.type;
-          updates.state = mergedState as EntryState;
-        }
-
-        if (args.injection !== undefined || args.injection_update !== undefined) {
-          const baseInjection = args.injection !== undefined
-            ? this.normalizeInjection(
-              updates.name ?? context.entries[entryIndex].name,
-              updates.aliases ?? context.entries[entryIndex].aliases,
-              args.injection
-            )
-            : this.normalizeInjection(
-              context.entries[entryIndex].name,
-              context.entries[entryIndex].aliases,
-              context.entries[entryIndex].injection
-            );
-          const mergedInjection = args.injection_update
-            ? { ...baseInjection, ...args.injection_update }
-            : baseInjection;
-          updates.injection = this.normalizeInjection(
-            updates.name ?? context.entries[entryIndex].name,
-            updates.aliases ?? context.entries[entryIndex].aliases,
-            mergedInjection as EntryInjection
-          );
-        }
-
-        Object.assign(context.entries[entryIndex], updates);
-        await context.onUpdateEntry(args.entry_id, updates);
-        this.changes.push({ type: 'update', entry: context.entries[entryIndex], previous });
-        return JSON.stringify({ success: true, id: args.entry_id });
-      }
-
-      case 'merge_entries': {
-        const entryIds = args.entry_ids as string[];
-        const entriesToMerge = context.entries.filter(e => entryIds.includes(e.id));
-        if (entriesToMerge.length !== entryIds.length) {
-          return JSON.stringify({ error: 'Some entries not found' });
-        }
-
-        // Use the type of the first entry
-        const mergedEntry = this.createEntry(context.storyId, context.branchId, {
-          name: args.merged_name,
-          type: entriesToMerge[0].type,
-          description: args.merged_description,
-          aliases: args.merged_aliases || [],
-          state: args.merged_state,
-          injection: args.merged_injection,
-        });
-
-        // Remove old entries from context
-        context.entries = context.entries.filter(e => !entryIds.includes(e.id));
-        context.entries.push(mergedEntry);
-
-        await context.onMergeEntries(entryIds, mergedEntry);
-        this.changes.push({ type: 'merge', entry: mergedEntry, mergedFrom: entryIds });
-        return JSON.stringify({ success: true, id: mergedEntry.id, mergedFrom: entryIds });
-      }
-
-      case 'delete_entry': {
-        const entryIndex = context.entries.findIndex(e => e.id === args.entry_id);
-        if (entryIndex === -1) {
-          return JSON.stringify({ error: `Entry ${args.entry_id} not found` });
-        }
-        const deleted = context.entries.splice(entryIndex, 1)[0];
-        await context.onDeleteEntry(args.entry_id);
-        this.changes.push({ type: 'delete', entry: deleted });
-        return JSON.stringify({ success: true, id: args.entry_id });
-      }
-
-      case 'get_recent_story': {
-        const count = args.message_count || 50;
-        const recent = context.recentMessages.slice(-count);
-        return JSON.stringify(recent.map(m => ({
-          id: m.id,
-          type: m.type,
-          content: m.content,
-          position: m.position,
-        })));
-      }
-
-      case 'list_chapters': {
-        return JSON.stringify(context.chapters.map(c => ({
-          number: c.number,
-          title: c.title,
-          summary: c.summary,
-          characters: c.characters,
-          locations: c.locations,
-        })));
-      }
-
-      case 'get_chapter_summary': {
-        const chapter = context.chapters.find(c => c.number === args.chapter_number);
-        if (!chapter) {
-          return JSON.stringify({ error: `Chapter ${args.chapter_number} not found` });
-        }
-        return JSON.stringify({
-          number: chapter.number,
-          title: chapter.title,
-          summary: chapter.summary,
-          characters: chapter.characters,
-          locations: chapter.locations,
-          plotThreads: chapter.plotThreads,
-          emotionalTone: chapter.emotionalTone,
-        });
-      }
-
-      case 'query_chapter': {
-        if (context.onQueryChapter) {
-          const answer = await context.onQueryChapter(args.chapter_number, args.question);
-          return JSON.stringify({ chapter: args.chapter_number, question: args.question, answer });
-        }
-        // Fallback: return summary
-        const chapter = context.chapters.find(c => c.number === args.chapter_number);
-        if (!chapter) {
-          return JSON.stringify({ error: `Chapter ${args.chapter_number} not found` });
-        }
-        return JSON.stringify({
-          chapter: args.chapter_number,
-          question: args.question,
-          answer: `Based on summary: ${chapter.summary}`,
-        });
-      }
-
-      case 'query_chapters': {
-        // For range queries, concatenate summaries
-        const chapters = context.chapters.filter(
-          c => c.number >= args.start_chapter && c.number <= args.end_chapter
-        );
-        if (chapters.length === 0) {
-          return JSON.stringify({ error: 'No chapters in range' });
-        }
-        const combinedSummary = chapters.map(c =>
-          `Chapter ${c.number}: ${c.summary}`
-        ).join('\n\n');
-        return JSON.stringify({
-          range: { start: args.start_chapter, end: args.end_chapter },
-          question: args.question,
-          answer: `Based on summaries:\n${combinedSummary}`,
-        });
-      }
-
-      case 'finish_lore_management': {
-        this.changes.push({ type: 'complete', summary: args.summary });
-        return JSON.stringify({ success: true, message: 'Lore management complete' });
-      }
-
-      default:
-        return JSON.stringify({ error: `Unknown tool: ${toolCall.function.name}` });
-    }
-  }
-
-  private createEntry(storyId: string, branchId: string | null, args: {
-    name: string;
-    type: EntryType;
-    description: string;
-    aliases?: string[];
-    hidden_info?: string;
-    state?: EntryState;
-    injection?: EntryInjection;
-  }): Entry {
-    const now = Date.now();
-    const id = crypto.randomUUID();
-
-    // Create type-specific state
-    const state = this.normalizeState(args.type, args.state);
-    const injection = this.normalizeInjection(args.name, args.aliases ?? [], args.injection);
-
-    return {
-      id,
-      storyId,
-      name: args.name,
-      type: args.type,
-      description: args.description,
-      hiddenInfo: args.hidden_info || null,
-      aliases: args.aliases || [],
-      state,
-      adventureState: null,
-      creativeState: null,
-      injection,
-      firstMentioned: null,
-      lastMentioned: null,
-      mentionCount: 0,
-      createdBy: 'ai',
-      createdAt: now,
-      updatedAt: now,
-      loreManagementBlacklisted: false,
-      branchId,
-    };
-  }
-
-  private normalizeState(type: EntryType, state?: EntryState | null): EntryState {
-    if (state && typeof state === 'object' && 'type' in state) {
-      return state;
-    }
-    if (state && typeof state === 'object') {
-      return { ...(state as Omit<EntryState, 'type'>), type } as EntryState;
-    }
-    return this.createDefaultState(type);
-  }
-
-  private normalizeInjection(
-    name: string,
-    aliases: string[],
-    injection?: EntryInjection | null
-  ): EntryInjection {
-    if (injection && typeof injection === 'object') {
-      return {
-        mode: injection.mode ?? 'keyword',
-        keywords: Array.isArray(injection.keywords) ? injection.keywords : [],
-        priority: typeof injection.priority === 'number' ? injection.priority : 0,
-      };
-    }
-    return {
-      mode: 'keyword',
-      keywords: [name.toLowerCase(), ...aliases.map(alias => alias.toLowerCase())],
-      priority: 0,
-    };
-  }
-
-  private applyTextReplace(
-    value: string,
-    replaceSpec?: { find?: string; replace?: string; match_all?: boolean }
-  ): string {
-    if (!replaceSpec?.find) return value;
-    const replacement = replaceSpec.replace ?? '';
-    if (replaceSpec.match_all) {
-      return value.split(replaceSpec.find).join(replacement);
-    }
-    return value.replace(replaceSpec.find, replacement);
-  }
-
-  private createDefaultState(type: EntryType): EntryState {
-    switch (type) {
-      case 'character':
-        return {
-          type: 'character',
-          isPresent: false,
-          lastSeenLocation: null,
-          currentDisposition: null,
-          relationship: { level: 0, status: 'neutral', history: [] },
-          knownFacts: [],
-          revealedSecrets: [],
-        } as CharacterEntryState;
-
-      case 'location':
-        return {
-          type: 'location',
-          isCurrentLocation: false,
-          visitCount: 0,
-          changes: [],
-          presentCharacters: [],
-          presentItems: [],
-        } as LocationEntryState;
-
-      case 'item':
-        return {
-          type: 'item',
-          inInventory: false,
-          currentLocation: null,
-          condition: null,
-          uses: [],
-        } as ItemEntryState;
-
-      case 'faction':
-        return {
-          type: 'faction',
-          playerStanding: 0,
-          status: 'unknown',
-          knownMembers: [],
-        } as FactionEntryState;
-
-      case 'concept':
-        return {
-          type: 'concept',
-          revealed: false,
-          comprehensionLevel: 'unknown',
-          relatedEntries: [],
-        } as ConceptEntryState;
-
-      case 'event':
-        return {
-          type: 'event',
-          occurred: false,
-          occurredAt: null,
-          witnesses: [],
-          consequences: [],
-        } as EventEntryState;
-    }
-  }
-}
-
-// Settings interface
+/**
+ * Settings for lore management behavior.
+ */
 export interface LoreManagementSettings {
-  model: string;
-  temperature: number;
+  enabled: boolean;
   maxIterations: number;
-  systemPrompt: string;
-  reasoningEffort: ReasoningEffort;
-  providerOnly: string[];
-  manualBody: string;
 }
 
 export function getDefaultLoreManagementSettings(): LoreManagementSettings {
   return {
-    model: 'minimax/minimax-m2.1', // Good for agentic tool calling with reasoning
-    temperature: 0.3,
-    maxIterations: 50,
-    systemPrompt: '', // Uses centralized prompt system (template id: 'lore-management')
-    reasoningEffort: 'high',
-    providerOnly: ['minimax'],
-    manualBody: '',
+    enabled: true,
+    maxIterations: 3,
   };
+}
+
+/**
+ * Convert Entry to VaultLorebookEntry format for tool compatibility.
+ */
+function entryToVaultEntry(entry: Entry): VaultLorebookEntry {
+  return {
+    name: entry.name,
+    type: entry.type,
+    description: entry.description,
+    keywords: entry.injection.keywords,
+    injectionMode: entry.injection.mode,
+    priority: entry.injection.priority,
+    disabled: false,
+    group: null,
+  };
+}
+
+/**
+ * Service that autonomously manages lorebook entries.
+ * Uses ToolLoopAgent for multi-turn tool calling.
+ */
+export class LoreManagementService {
+  private presetId: string;
+  private maxIterations: number;
+
+  constructor(presetId: string = 'agentic', maxIterations: number = 3) {
+    this.presetId = presetId;
+    this.maxIterations = maxIterations;
+  }
+
+  /**
+   * Run a lore management session to update/create entries.
+   *
+   * @param context - The story context for lore management
+   * @param signal - Optional abort signal for cancellation
+   * @returns Result with updated and created entries
+   */
+  async runSession(
+    context: LoreManagementContext,
+    signal?: AbortSignal
+  ): Promise<LoreManagementResult> {
+    log('Starting lore management session', {
+      storyId: context.storyId,
+      entryCount: context.existingEntries.length,
+      maxIterations: this.maxIterations,
+    });
+
+    // Track pending changes - in autonomous mode, we auto-approve everything
+    const pendingChanges: PendingChangeSchema[] = [];
+    const createdEntries: Entry[] = [];
+    const updatedEntries: Entry[] = [];
+    let changeIdCounter = 0;
+
+    // Convert entries to vault format for tools
+    // Deep clone to avoid Svelte proxy issues with AI SDK structured cloning
+    const vaultEntries = JSON.parse(JSON.stringify(context.existingEntries.map(entryToVaultEntry)));
+    const plainChapters = context.chapters ? JSON.parse(JSON.stringify(context.chapters)) : undefined;
+
+    // Create tool context with chapter querying
+    const toolContext: LorebookToolContext = {
+      entries: vaultEntries,
+      onPendingChange: (change) => {
+        // Auto-approve in autonomous mode
+        change.status = 'approved';
+        pendingChanges.push(change);
+        log('Auto-approved change', { type: change.type, id: change.id });
+      },
+      generateId: () => `lm-${++changeIdCounter}`,
+      chapters: plainChapters,
+      queryChapter: context.queryChapter,
+    };
+
+    // Create tools
+    const tools = createLorebookTools(toolContext);
+
+    // Build entry summaries for user prompt (use 0-based indices to match tool expectations)
+    const entrySummary = context.existingEntries
+      .map((e, i) => `[${i}] [${e.type}] ${e.name}: ${e.description?.slice(0, 100) || 'No description'}`)
+      .join('\n') || 'No entries yet.';
+
+    // Build recent story section
+    const recentStorySection = `# Recent Story Content
+User action: ${context.userAction}
+
+Narrative:
+${context.narrativeResponse}
+
+`;
+
+    // Get prompts from prompt service
+    const dummyContext = {
+      mode: 'adventure' as const,
+      pov: 'second' as const,
+      tense: 'present' as const,
+      protagonistName: '',
+    };
+
+    const systemPrompt = promptService.renderPrompt('lore-management', dummyContext);
+
+    // Build chapter summary from chapters array
+    const chapterSummary = context.chapters && context.chapters.length > 0
+      ? context.chapters.map(ch =>
+          `Chapter ${ch.number}${ch.title ? `: ${ch.title}` : ''} - ${ch.summary.slice(0, 200)}...`
+        ).join('\n')
+      : 'No chapters available. Use list_chapters and query_chapter tools to explore story history.';
+
+    const userPrompt = promptService.renderUserPrompt('lore-management', dummyContext, {
+      entrySummary,
+      recentStorySection,
+      chapterSummary,
+    });
+
+    // Create the agent
+    const agent = createAgentFromPreset({
+      presetId: this.presetId,
+      instructions: systemPrompt,
+      tools,
+      stopWhen: stopOnTerminalTool('finish_lore_management', this.maxIterations),
+      signal,
+    }, 'lore-management');
+
+    // Run the agent
+    const result = await agent.generate({ prompt: userPrompt });
+
+    // Extract the terminal result
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const terminalResult = extractTerminalToolResult<FinishLoreManagementSchema & { completed: boolean }>(
+      result.steps as any,
+      'finish_lore_management'
+    );
+
+    log('Lore management session completed', {
+      steps: result.steps.length,
+      pendingChanges: pendingChanges.length,
+      terminalResult,
+    });
+
+    // Process approved changes to build result
+    // Note: In this autonomous mode, changes are captured but not actually
+    // applied to the database here - that's handled by the caller
+    for (const change of pendingChanges) {
+      if (change.status !== 'approved') continue;
+
+      switch (change.type) {
+        case 'create':
+          if (change.entry) {
+            // Create a minimal Entry from the VaultLorebookEntry
+            const newEntry: Entry = {
+              id: `pending-${change.id}`,
+              storyId: context.storyId,
+              name: change.entry.name,
+              type: change.entry.type,
+              description: change.entry.description,
+              hiddenInfo: null,
+              aliases: [],
+              state: createDefaultState(change.entry.type),
+              adventureState: null,
+              creativeState: null,
+              injection: {
+                mode: change.entry.injectionMode,
+                keywords: change.entry.keywords,
+                priority: change.entry.priority,
+              },
+              firstMentioned: null,
+              lastMentioned: null,
+              mentionCount: 0,
+              createdBy: 'ai',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              loreManagementBlacklisted: false,
+              branchId: null,
+            };
+            createdEntries.push(newEntry);
+          }
+          break;
+
+        case 'update':
+          if (change.index !== undefined && change.updates) {
+            const original = context.existingEntries[change.index];
+            if (original) {
+              const updated: Entry = {
+                ...original,
+                ...(change.updates.name && { name: change.updates.name }),
+                ...(change.updates.description && { description: change.updates.description }),
+                ...(change.updates.type && { type: change.updates.type }),
+                injection: {
+                  ...original.injection,
+                  ...(change.updates.injectionMode && { mode: change.updates.injectionMode }),
+                  ...(change.updates.keywords && { keywords: change.updates.keywords }),
+                  ...(change.updates.priority !== undefined && { priority: change.updates.priority }),
+                },
+                updatedAt: Date.now(),
+              };
+              updatedEntries.push(updated);
+            }
+          }
+          break;
+
+        // Delete and merge operations would need different handling
+        // depending on how the caller wants to process them
+      }
+    }
+
+    return {
+      updatedEntries,
+      createdEntries,
+      reasoning: terminalResult?.summary,
+    };
+  }
+}
+
+/**
+ * Create default state for an entry type.
+ */
+function createDefaultState(type: Entry['type']): Entry['state'] {
+  switch (type) {
+    case 'character':
+      return {
+        type: 'character',
+        isPresent: false,
+        lastSeenLocation: null,
+        currentDisposition: null,
+        relationship: { level: 0, status: 'neutral', history: [] },
+        knownFacts: [],
+        revealedSecrets: [],
+      };
+    case 'location':
+      return {
+        type: 'location',
+        isCurrentLocation: false,
+        visitCount: 0,
+        changes: [],
+        presentCharacters: [],
+        presentItems: [],
+      };
+    case 'item':
+      return {
+        type: 'item',
+        inInventory: false,
+        currentLocation: null,
+        condition: null,
+        uses: [],
+      };
+    case 'faction':
+      return {
+        type: 'faction',
+        playerStanding: 0,
+        status: 'unknown',
+        knownMembers: [],
+      };
+    case 'concept':
+      return {
+        type: 'concept',
+        revealed: false,
+        comprehensionLevel: 'unknown',
+        relatedEntries: [],
+      };
+    case 'event':
+      return {
+        type: 'event',
+        occurred: false,
+        occurredAt: null,
+        witnesses: [],
+        consequences: [],
+      };
+  }
 }

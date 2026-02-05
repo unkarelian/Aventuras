@@ -149,29 +149,36 @@
   background-color: #282828;
 }
 
-/* Text color overrides */
+/* Text color overrides - maintain proper contrast hierarchy */
+/* Lower numbers = brighter (for active text), Higher numbers = dimmer (for placeholder) */
 [data-theme="gruvbox-dark"] .text-surface-50 {
-  color: #fbf1c7;
+  color: #fbf1c7; /* fg0 - brightest */
 }
 
 [data-theme="gruvbox-dark"] .text-surface-100 {
-  color: #ebdbb2;
+  color: #ebdbb2; /* fg1 */
 }
 
 [data-theme="gruvbox-dark"] .text-surface-200 {
-  color: #d5c4a1;
+  color: #ebdbb2; /* fg1 - for input text */
 }
 
 [data-theme="gruvbox-dark"] .text-surface-300 {
-  color: #bdae93;
+  color: #d5c4a1; /* fg2 */
 }
 
 [data-theme="gruvbox-dark"] .text-surface-400 {
-  color: #a89984;
+  color: #bdae93; /* fg3 */
 }
 
 [data-theme="gruvbox-dark"] .text-surface-500 {
-  color: #ebdbb2;
+  color: #928374; /* gray - for placeholder */
+}
+
+/* Placeholder color override for inputs */
+[data-theme="gruvbox-dark"] textarea::placeholder,
+[data-theme="gruvbox-dark"] input::placeholder {
+  color: #928374 !important; /* gray */
 }
 
 /* Border color overrides */

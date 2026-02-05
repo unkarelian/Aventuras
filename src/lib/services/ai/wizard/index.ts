@@ -16,8 +16,4 @@ export {
   type ProcessSettings,
   type AdvancedWizardSettings,
   type WizardData,
-  type ExpandedSetting,
-  type GeneratedProtagonist,
-  type GeneratedCharacter,
-  type GeneratedOpening,
 } from './ScenarioService';

@@ -1,18 +1,14 @@
 <script lang="ts">
   import {
     settings,
-    DEFAULT_OPENROUTER_PROFILE_ID,
   } from "$lib/stores/settings.svelte";
-  import { Cpu, RefreshCw } from "lucide-svelte";
-  import ProviderOnlySelector from "./ProviderOnlySelector.svelte";
-  import type { ProviderInfo } from "$lib/services/ai/types";
-  import { OpenAIProvider } from "$lib/services/ai/openrouter";
+  import { Cpu, AlertTriangle } from "lucide-svelte";
   import type { ReasoningEffort } from "$lib/types";
   import { cn } from "$lib/utils/cn";
+  import { fetchModelsFromProvider, supportsReasoning, modelSupportsReasoning } from "$lib/services/ai/sdk/providers";
 
   // Shadcn Components
   import * as Card from "$lib/components/ui/card";
-  import * as Select from "$lib/components/ui/select";
   import { Label } from "$lib/components/ui/label";
   import { Button } from "$lib/components/ui/button";
   import { Slider } from "$lib/components/ui/slider";
@@ -21,7 +17,6 @@
   import ModelSelector from "./ModelSelector.svelte";
 
   interface Props {
-    providerOptions: ProviderInfo[];
     onOpenManualBodyEditor: (
       title: string,
       value: string,
@@ -29,7 +24,7 @@
     ) => void;
   }
 
-  let { providerOptions, onOpenManualBodyEditor }: Props = $props();
+  let { onOpenManualBodyEditor }: Props = $props();
 
   const reasoningLevels: ReasoningEffort[] = ["off", "low", "medium", "high"];
   const reasoningLabels: Record<ReasoningEffort, string> = {
@@ -94,32 +89,18 @@
     modelError = null;
 
     try {
-      const apiSettings = settings.getApiSettingsForProfile(profile.id);
-      const provider = new OpenAIProvider(apiSettings);
-      const fetchedModels = await provider.listModels();
-
-      const filteredModelIds = fetchedModels
-        .filter((m) => {
-          const id = m.id.toLowerCase();
-          if (
-            id.includes("embedding") ||
-            id.includes("vision-only") ||
-            id.includes("tts") ||
-            id.includes("whisper")
-          ) {
-            return false;
-          }
-          return true;
-        })
-        .map((m) => m.id);
+      const models = await fetchModelsFromProvider(
+        profile.providerType,
+        profile.baseUrl,
+        profile.apiKey
+      );
 
       await settings.updateProfile(profile.id, {
-        fetchedModels: filteredModelIds,
+        ...profile,
+        fetchedModels: models,
       });
 
-      console.log(
-        `[MainNarrative] Fetched ${filteredModelIds.length} models to profile`,
-      );
+      console.log(`[MainNarrative] Fetched ${models.length} models from ${profile.providerType}`);
     } catch (error) {
       console.error("[MainNarrative] Failed to fetch models:", error);
       modelError =
@@ -135,16 +116,19 @@
     )?.name || "Select Profile",
   );
 
-  let isOpenRouter = $derived.by(() => {
-    const p = settings.apiSettings.profiles.find(
-      (p) => p.id === settings.apiSettings.mainNarrativeProfileId,
-    );
-    if (!p) return false;
-    // Check if it's the default OpenRouter profile OR if the base URL contains openrouter.ai
-    return (
-      p.id === DEFAULT_OPENROUTER_PROFILE_ID ||
-      (p.baseUrl && p.baseUrl.toLowerCase().includes("openrouter"))
-    );
+  // Check if reasoning is supported for the current profile and model
+  let reasoningSupported = $derived.by(() => {
+    const profile = settings.getMainNarrativeProfile();
+    if (!profile) return false;
+
+    // Check if provider supports reasoning
+    if (!supportsReasoning(profile.providerType)) return false;
+
+    // Check if the specific model supports reasoning
+    const model = settings.apiSettings.defaultModel;
+    if (!model) return false;
+
+    return modelSupportsReasoning(model, profile.providerType);
   });
 
   // Proxy states for sliders to ensure correct array type binding
@@ -188,6 +172,17 @@
   </Card.Header>
 
   <Card.Content class="grid gap-3 pt-4">
+    {#if settings.apiSettings.profiles.length === 0}
+      <div class="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-3 py-2">
+        <AlertTriangle class="h-4 w-4 shrink-0" />
+        No API profiles configured. Add one in the API tab.
+      </div>
+    {:else if !settings.apiSettings.defaultModel}
+      <div class="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 border border-dashed rounded px-3 py-2">
+        <AlertTriangle class="h-4 w-4 shrink-0" />
+        No model selected. Choose a model below or set one from the API tab.
+      </div>
+    {/if}
     <div class="grid gap-2">
       <ModelSelector
         class="grid-cols-1 md:grid-cols-2"
@@ -271,50 +266,39 @@
       </div>
     </div>
 
-    <!-- Thinking & Provider Row -->
-    <div
-      class={cn(
-        "grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t",
-        settings.advancedRequestSettings.manualMode &&
-          "opacity-50 pointer-events-none",
-      )}
-    >
-      <div class="grid gap-4">
-        <div class="flex justify-between">
-          <Label
-            >Thinking: {reasoningLabels[
-              settings.apiSettings.reasoningEffort
-            ]}</Label
-          >
-        </div>
-        <Slider
-          bind:value={reasoningValue}
-          min={0}
-          max={3}
-          step={1}
-          onValueChange={updateReasoning}
-        />
-        <div class="flex justify-between text-xs text-muted-foreground">
-          <span>Off</span>
-          <span>Low</span>
-          <span>Med</span>
-          <span>High</span>
+    <!-- Thinking Row (only shown if provider/model supports reasoning) -->
+    {#if reasoningSupported}
+      <div
+        class={cn(
+          "grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t",
+          settings.advancedRequestSettings.manualMode &&
+            "opacity-50 pointer-events-none",
+        )}
+      >
+        <div class="grid gap-4">
+          <div class="flex justify-between">
+            <Label
+              >Thinking: {reasoningLabels[
+                settings.apiSettings.reasoningEffort
+              ]}</Label
+            >
+          </div>
+          <Slider
+            bind:value={reasoningValue}
+            min={0}
+            max={3}
+            step={1}
+            onValueChange={updateReasoning}
+          />
+          <div class="flex justify-between text-xs text-muted-foreground">
+            <span>Off</span>
+            <span>Low</span>
+            <span>Med</span>
+            <span>High</span>
+          </div>
         </div>
       </div>
-
-      {#if isOpenRouter}
-        <div>
-          <ProviderOnlySelector
-            providers={providerOptions}
-            selected={settings.apiSettings.providerOnly}
-            disabled={settings.advancedRequestSettings.manualMode}
-            onChange={(next) => {
-              settings.setMainProviderOnly(next);
-            }}
-          />
-        </div>
-      {/if}
-    </div>
+    {/if}
 
     {#if settings.advancedRequestSettings.manualMode}
       <div class="mt-4 pt-4 border-t">

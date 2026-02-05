@@ -225,7 +225,7 @@
   </div>
 
   <!-- Action input area -->
-  <div class="border-t border-border bg-card px-3 sm:pl-6 sm:pr-8 pt-2 pb-1 sm:py-4 pb-safe">
+  <div class="border-t border-border bg-card px-3 sm:pl-6 sm:pr-8 pt-2 pb-1 sm:py-4">
     <div class="mx-auto max-w-3xl">
       <ActionInput />
     </div>

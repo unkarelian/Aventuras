@@ -1,12 +1,13 @@
 /**
  * Service Factory
  *
- * Centralized factory for creating OpenAI providers and AI service instances.
- * This module handles profile resolution and provider configuration.
+ * Factory for creating AI service instances.
+ * Provider-related methods have been removed during SDK migration.
+ * Services are being migrated to use Vercel AI SDK directly.
  */
 
 import { settings } from '$lib/stores/settings.svelte';
-import { OpenAIProvider } from './OpenAIProvider';
+import { NarrativeService } from '../generation/NarrativeService';
 import { ClassifierService } from '../generation/ClassifierService';
 import { MemoryService } from '../generation/MemoryService';
 import { SuggestionsService } from '../generation/SuggestionsService';
@@ -17,80 +18,31 @@ import { LoreManagementService } from '../lorebook/LoreManagementService';
 import { AgenticRetrievalService } from '../retrieval/AgenticRetrievalService';
 import { TimelineFillService } from '../retrieval/TimelineFillService';
 import { EntryRetrievalService, getEntryRetrievalConfigFromSettings } from '../retrieval/EntryRetrievalService';
-import { ImageGenerationService } from '../image/ImageGenerationService';
 import { TranslationService } from '../utils/TranslationService';
-import { createLogger } from './config';
-
-const log = createLogger('ServiceFactory');
+import { ImageAnalysisService } from '../image/ImageAnalysisService';
 
 /**
- * Factory class for creating AI providers and services.
- * Centralizes profile resolution and provider configuration.
+ * Factory class for creating AI services.
+ * Note: Provider methods removed during SDK migration.
  */
 export class ServiceFactory {
-  /**
-   * Get a provider configured for the main narrative generation.
-   * Uses the mainNarrativeProfileId to get the correct API credentials.
-   */
-  getMainProvider(): OpenAIProvider {
-    const profileId = settings.apiSettings.mainNarrativeProfileId;
-    return this.getProviderForProfileId(profileId, 'main narrative');
-  }
-
-  /**
-   * Get a provider configured for a specific profile.
-   * Used by services that have their own profile setting.
-   */
-  getProviderForProfile(profileId: string | null): OpenAIProvider {
-    const resolvedProfileId = profileId ?? settings.apiSettings.mainNarrativeProfileId;
-    return this.getProviderForProfileId(resolvedProfileId);
-  }
-
-  /**
-   * Get a provider for a specific profile ID.
-   * @throws Error if no API key is configured for the profile
-   */
-  getProviderForProfileId(profileId: string, contextLabel?: string): OpenAIProvider {
-    const apiSettings = settings.getApiSettingsForProfile(profileId);
-
-    log('Getting provider for profile', {
-      profileId,
-      apiKeyConfigured: !!apiSettings.openaiApiKey,
-      context: contextLabel,
-    });
-
-    if (!apiSettings.openaiApiKey) {
-      if (contextLabel) {
-        throw new Error(`No API key configured for ${contextLabel} profile`);
-      }
-      throw new Error(`No API key configured for profile: ${profileId}`);
-    }
-    return new OpenAIProvider(apiSettings);
-  }
-
-  /**
-   * Try to get a provider, returning null if not configured.
-   * Useful for optional services that can run without AI.
-   */
-  tryGetProviderForProfile(profileId: string | null): OpenAIProvider | null {
-    try {
-      return this.getProviderForProfile(profileId);
-    } catch {
-      log('Provider not available for profile', profileId);
-      return null;
-    }
-  }
-
   // ===== Service Instance Creators =====
+
+  /**
+   * Create a narrative service instance.
+   * This is the core service for story generation.
+   * Uses main narrative profile directly (no preset needed).
+   */
+  createNarrativeService(): NarrativeService {
+    return new NarrativeService();
+  }
 
   /**
    * Create a classifier service instance.
    */
   createClassifierService(): ClassifierService {
     const presetId = settings.getServicePresetId('classifier');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Classifier').profileId);
     return new ClassifierService(
-      provider,
       presetId,
       settings.systemServicesSettings.classifier.chatHistoryTruncation ?? 100
     );
@@ -101,17 +53,16 @@ export class ServiceFactory {
    */
   createMemoryService(): MemoryService {
     const presetId = settings.getServicePresetId('memory');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Memory').profileId);
-    return new MemoryService(provider, presetId);
+    return new MemoryService(presetId);
   }
 
   /**
    * Create a suggestions service instance.
+   * Note: Uses SDK-based pattern - fully working.
    */
   createSuggestionsService(): SuggestionsService {
     const presetId = settings.getServicePresetId('suggestions');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Suggestions').profileId);
-    return new SuggestionsService(provider, presetId);
+    return new SuggestionsService(presetId);
   }
 
   /**
@@ -119,8 +70,7 @@ export class ServiceFactory {
    */
   createActionChoicesService(): ActionChoicesService {
     const presetId = settings.getServicePresetId('actionChoices');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Action Choices').profileId);
-    return new ActionChoicesService(provider, presetId);
+    return new ActionChoicesService(presetId);
   }
 
   /**
@@ -128,21 +78,14 @@ export class ServiceFactory {
    */
   createStyleReviewerService(): StyleReviewerService {
     const presetId = settings.getServicePresetId('styleReviewer');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Style Reviewer').profileId);
-    return new StyleReviewerService(provider, presetId);
+    return new StyleReviewerService(presetId);
   }
 
   /**
    * Create a context builder instance.
    */
   createContextBuilder(config?: Partial<ContextConfig>): ContextBuilder {
-    let provider: OpenAIProvider | null = null;
-    try {
-      provider = this.getMainProvider();
-    } catch {
-      log('No provider available for context builder, skipping Tier 3');
-    }
-    return new ContextBuilder(provider, config);
+    return new ContextBuilder(config);
   }
 
   /**
@@ -151,11 +94,7 @@ export class ServiceFactory {
   createEntryRetrievalService(): EntryRetrievalService {
     const config = getEntryRetrievalConfigFromSettings();
     const presetId = settings.getServicePresetId('entryRetrieval');
-    let provider: OpenAIProvider | null = null;
-    if (config.enableLLMSelection) {
-      provider = this.tryGetProviderForProfile(settings.getPresetConfig(presetId, 'Entry Retrieval').profileId);
-    }
-    return new EntryRetrievalService(provider, config, presetId);
+    return new EntryRetrievalService(config, presetId);
   }
 
   /**
@@ -164,9 +103,7 @@ export class ServiceFactory {
   createLoreManagementService(): LoreManagementService {
     const presetId = settings.getServicePresetId('loreManagement');
     const loreManagementSettings = settings.systemServicesSettings.loreManagement;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Lore Manager').profileId);
     return new LoreManagementService(
-      provider,
       presetId,
       loreManagementSettings.maxIterations
     );
@@ -178,9 +115,7 @@ export class ServiceFactory {
   createAgenticRetrievalService(): AgenticRetrievalService {
     const presetId = settings.getServicePresetId('agenticRetrieval');
     const agenticRetrievalSettings = settings.systemServicesSettings.agenticRetrieval;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Agentic Retrieval').profileId);
     return new AgenticRetrievalService(
-      provider,
       presetId,
       agenticRetrievalSettings.maxIterations
     );
@@ -192,9 +127,7 @@ export class ServiceFactory {
   createTimelineFillService(): TimelineFillService {
     const presetId = settings.getServicePresetId('timelineFill');
     const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Timeline Fill').profileId);
     return new TimelineFillService(
-      provider,
       presetId,
       timelineFillSettings.maxQueries
     );
@@ -202,34 +135,11 @@ export class ServiceFactory {
 
   /**
    * Create a timeline fill service for chapter queries.
-   * Uses dedicated chapterQuery settings.
    */
   createChapterQueryService(): TimelineFillService {
     const presetId = settings.getServicePresetId('chapterQuery');
-    const chapterQuerySettings = settings.systemServicesSettings.chapterQuery;
     const timelineFillSettings = settings.systemServicesSettings.timelineFill;
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Chapter Query').profileId);
-    return new TimelineFillService(
-      provider,
-      presetId,
-      timelineFillSettings.maxQueries,
-      {
-        model: chapterQuerySettings.model,
-        temperature: chapterQuerySettings.temperature,
-        reasoningEffort: chapterQuerySettings.reasoningEffort,
-        providerOnly: chapterQuerySettings.providerOnly,
-        manualBody: chapterQuerySettings.manualBody,
-      }
-    );
-  }
-
-  /**
-   * Create an image generation service instance.
-   */
-  createImageGenerationService(): ImageGenerationService {
-    const presetId = settings.getServicePresetId('imageGeneration');
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Image Generation').profileId);
-    return new ImageGenerationService(provider, presetId);
+    return new TimelineFillService(presetId, timelineFillSettings.maxQueries);
   }
 
   /**
@@ -237,8 +147,16 @@ export class ServiceFactory {
    */
   createTranslationService(type: 'narration' | 'input' | 'ui' | 'suggestions' | 'actionChoices' | 'wizard'): TranslationService {
     const presetId = settings.getServicePresetId(`translation:${type}`);
-    const provider = this.getProviderForProfile(settings.getPresetConfig(presetId, 'Translation').profileId);
-    return new TranslationService(provider, presetId);
+    return new TranslationService(presetId);
+  }
+
+  /**
+   * Create an image analysis service instance.
+   * Used for "analyzed" mode where LLM identifies imageable scenes in narrative.
+   */
+  createImageAnalysisService(): ImageAnalysisService {
+    const presetId = settings.getServicePresetId('imageAnalysis');
+    return new ImageAnalysisService(presetId);
   }
 }
 

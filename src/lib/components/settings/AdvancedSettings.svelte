@@ -529,7 +529,7 @@
       </Collapsible.Root>
     </div>
 
-    <!-- Agentic Retrieval Settings -->
+    <!-- Memory Retrieval Settings -->
     <div class="rounded-lg border bg-card text-card-foreground shadow-sm">
       <Collapsible.Root bind:open={showAgenticRetrievalSection}>
         <div class="flex items-center p-3 pl-4 gap-3">
@@ -540,9 +540,9 @@
               <Sparkles class="h-4 w-4 text-pink-500" />
             </div>
             <div class="flex-1">
-              <Label class="font-medium leading-none">Agentic Retrieval</Label>
+              <Label class="font-medium leading-none">Memory Retrieval</Label>
               <p class="text-xs text-muted-foreground mt-1">
-                Tool-based retrieval iteration limits
+                How past chapters are retrieved for context
               </p>
             </div>
           </Collapsible.Trigger>
@@ -551,7 +551,10 @@
               variant="ghost"
               size="icon"
               class="h-8 w-8"
-              onclick={() => settings.resetAgenticRetrievalSpecificSettings()}
+              onclick={() => {
+                settings.resetTimelineFillSettings();
+                settings.resetAgenticRetrievalSpecificSettings();
+              }}
               title="Reset to default"
             >
               <RotateCcw class="h-3.5 w-3.5" />
@@ -580,36 +583,109 @@
 
         <Collapsible.Content>
           <div class="border-t bg-muted/10 p-4 space-y-6">
-            <!-- Max Iterations -->
-            <div class="space-y-3">
-              <div class="flex justify-between">
-                <Label>Max Iterations</Label>
-                <span class="text-xs font-medium bg-muted px-2 py-0.5 rounded">
-                  {settings.serviceSpecificSettings.agenticRetrieval
-                    ?.maxIterations ?? 10}
-                </span>
+            <!-- Enable Memory Retrieval -->
+            <div class="flex flex-row items-center justify-between">
+              <div class="space-y-0.5">
+                <Label class="text-sm">Enable Memory Retrieval</Label>
+                <p class="text-xs text-muted-foreground">
+                  Retrieve context from past chapters during generation
+                </p>
               </div>
-              <Slider
-                value={[
-                  settings.serviceSpecificSettings.agenticRetrieval
-                    ?.maxIterations ?? 10,
-                ]}
-                min={5}
-                max={30}
-                step={5}
-                onValueChange={(v) => {
-                  settings.serviceSpecificSettings.agenticRetrieval.maxIterations =
-                    v[0];
-                  settings.saveServiceSpecificSettings();
+              <Switch
+                checked={settings.systemServicesSettings.timelineFill?.enabled ?? true}
+                onCheckedChange={(v) => {
+                  settings.systemServicesSettings.timelineFill.enabled = v;
+                  settings.saveSystemServicesSettings();
                 }}
               />
-              <div
-                class="flex justify-between text-[10px] text-muted-foreground uppercase tracking-wider font-medium"
-              >
-                <span>Quick</span>
-                <span>Thorough</span>
-              </div>
             </div>
+
+            {#if settings.systemServicesSettings.timelineFill?.enabled}
+              <!-- Mode Selection -->
+              <div class="space-y-3">
+                <Label>Retrieval Mode</Label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button
+                    class="flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors {settings.systemServicesSettings.timelineFill?.mode === 'static' || !settings.systemServicesSettings.timelineFill?.mode
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:bg-muted/50'}"
+                    onclick={() => {
+                      settings.systemServicesSettings.timelineFill.mode = 'static';
+                      settings.saveSystemServicesSettings();
+                    }}
+                  >
+                    <span class="font-medium text-sm">Static</span>
+                    <span class="text-xs text-muted-foreground">
+                      Generates questions, then answers them from chapters
+                    </span>
+                  </button>
+                  <button
+                    class="flex flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors {settings.systemServicesSettings.timelineFill?.mode === 'agentic'
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border hover:bg-muted/50'}"
+                    onclick={() => {
+                      settings.systemServicesSettings.timelineFill.mode = 'agentic';
+                      settings.saveSystemServicesSettings();
+                    }}
+                  >
+                    <span class="font-medium text-sm">Agentic</span>
+                    <span class="text-xs text-muted-foreground">
+                      LLM agent explores chapters and entries with tools
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Static Mode Options -->
+              {#if settings.systemServicesSettings.timelineFill?.mode === 'static' || !settings.systemServicesSettings.timelineFill?.mode}
+                <div class="space-y-3">
+                  <div class="flex justify-between">
+                    <Label>Max Queries</Label>
+                    <span class="text-xs font-medium bg-muted px-2 py-0.5 rounded">
+                      {settings.systemServicesSettings.timelineFill?.maxQueries ?? 5}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[settings.systemServicesSettings.timelineFill?.maxQueries ?? 5]}
+                    min={1}
+                    max={10}
+                    step={1}
+                    onValueChange={(v) => {
+                      settings.systemServicesSettings.timelineFill.maxQueries = v[0];
+                      settings.saveSystemServicesSettings();
+                    }}
+                  />
+                  <p class="text-xs text-muted-foreground">
+                    Number of questions generated to query chapter history
+                  </p>
+                </div>
+              {/if}
+
+              <!-- Agentic Mode Options -->
+              {#if settings.systemServicesSettings.timelineFill?.mode === 'agentic'}
+                <div class="space-y-3">
+                  <div class="flex justify-between">
+                    <Label>Max Iterations</Label>
+                    <span class="text-xs font-medium bg-muted px-2 py-0.5 rounded">
+                      {settings.systemServicesSettings.agenticRetrieval?.maxIterations ?? 30}
+                    </span>
+                  </div>
+                  <Slider
+                    value={[settings.systemServicesSettings.agenticRetrieval?.maxIterations ?? 30]}
+                    min={1}
+                    max={30}
+                    step={1}
+                    onValueChange={(v) => {
+                      settings.systemServicesSettings.agenticRetrieval.maxIterations = v[0];
+                      settings.saveSystemServicesSettings();
+                    }}
+                  />
+                  <p class="text-xs text-muted-foreground">
+                    Maximum tool-calling rounds for the retrieval agent
+                  </p>
+                </div>
+              {/if}
+            {/if}
           </div>
         </Collapsible.Content>
       </Collapsible.Root>
@@ -666,34 +742,6 @@
 
         <Collapsible.Content>
           <div class="border-t bg-muted/10 p-4 space-y-6">
-            <!-- Narrative Context -->
-            <div class="space-y-3">
-              <div class="flex justify-between">
-                <Label>Narrative Context</Label>
-                <span class="text-xs font-medium bg-muted px-2 py-0.5 rounded">
-                  {settings.serviceSpecificSettings.contextWindow
-                    ?.recentEntriesForNarrative ?? 20} entries
-                </span>
-              </div>
-              <Slider
-                value={[
-                  settings.serviceSpecificSettings.contextWindow
-                    ?.recentEntriesForNarrative ?? 20,
-                ]}
-                min={5}
-                max={50}
-                step={5}
-                onValueChange={(v) => {
-                  settings.serviceSpecificSettings.contextWindow.recentEntriesForNarrative =
-                    v[0];
-                  settings.saveServiceSpecificSettings();
-                }}
-              />
-              <p class="text-xs text-muted-foreground">
-                Entries sent to the narrator for story generation
-              </p>
-            </div>
-
             <!-- Retrieval Context -->
             <div class="space-y-3">
               <div class="flex justify-between">

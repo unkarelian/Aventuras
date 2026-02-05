@@ -1,7 +1,6 @@
 <script lang="ts">
   import MainNarrative from "../MainNarrative.svelte";
   import AgentProfiles from "../AgentProfiles.svelte";
-  import type { ProviderInfo } from "$lib/services/ai/types";
   import { settings } from "$lib/stores/settings.svelte";
   import {
     Card,
@@ -23,11 +22,10 @@
   } from "$lib/constants/timeout";
 
   interface Props {
-    providerOptions: ProviderInfo[];
     onOpenManualBodyEditor: (title: string, value: string, onSave: (v: string) => void) => void;
   }
 
-  let { providerOptions, onOpenManualBodyEditor }: Props = $props();
+  let { onOpenManualBodyEditor }: Props = $props();
 
   // Timeout slider state
   let timeoutValue = $state([settings.apiSettings.llmTimeoutMs]);
@@ -122,8 +120,7 @@
   </Card>
 
   <MainNarrative
-    {providerOptions}
     onOpenManualBodyEditor={onOpenManualBodyEditor}
   />
-  <AgentProfiles {providerOptions} />
+  <AgentProfiles />
 </div>

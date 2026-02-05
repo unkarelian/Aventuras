@@ -159,21 +159,110 @@
   </div>
 
   <!-- Translation Section -->
-  <div class="flex items-center justify-between">
-    <div>
-      <Label>Enable Translation</Label>
-      <p class="text-xs text-muted-foreground">
-        Translate AI responses and world state to your language while keeping
-        English prompts for optimal LLM performance
-      </p>
+  <div class="space-y-3">
+    <div class="flex items-center gap-2">
+      <Languages class="h-4 w-4 text-muted-foreground" />
+      <Label class="text-base font-medium">Translation</Label>
     </div>
-    <Switch
-      checked={settings.translationSettings.enabled}
-      onCheckedChange={(v) => {
-        settings.translationSettings.enabled = v;
-        settings.saveTranslationSettings();
-      }}
-    />
+
+    <div class="flex items-center justify-between">
+      <div>
+        <Label>Enable Translation</Label>
+        <p class="text-xs text-muted-foreground">
+          Translate AI responses to your language while keeping English prompts
+          for optimal LLM performance
+        </p>
+      </div>
+      <Switch
+        checked={settings.translationSettings.enabled}
+        onCheckedChange={(v) => {
+          settings.translationSettings.enabled = v;
+          settings.saveTranslationSettings();
+        }}
+      />
+    </div>
+
+    {#if settings.translationSettings.enabled}
+      <!-- Target Language -->
+      <div>
+        <Label class="mb-2 block">Target Language</Label>
+        <Select.Root
+          type="single"
+          value={settings.translationSettings.targetLanguage}
+          onValueChange={(v) => {
+            settings.translationSettings.targetLanguage = v;
+            settings.saveTranslationSettings();
+          }}
+        >
+          <Select.Trigger class="h-10 w-full">
+            {getSupportedLanguages().find(
+              (l) => l.code === settings.translationSettings.targetLanguage
+            )?.name ?? "Select language"}
+          </Select.Trigger>
+          <Select.Content class="max-h-60">
+            {#each getSupportedLanguages() as lang}
+              <Select.Item value={lang.code} label={lang.name}>
+                {lang.name}
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
+        <p class="mt-1 text-xs text-muted-foreground">
+          Language for translated content display
+        </p>
+      </div>
+
+      <!-- Translate Narration -->
+      <div class="flex items-center justify-between">
+        <div>
+          <Label>Translate Narration</Label>
+          <p class="text-xs text-muted-foreground">
+            Translate AI-generated story content after generation
+          </p>
+        </div>
+        <Switch
+          checked={settings.translationSettings.translateNarration}
+          onCheckedChange={(v) => {
+            settings.translationSettings.translateNarration = v;
+            settings.saveTranslationSettings();
+          }}
+        />
+      </div>
+
+      <!-- Translate User Input -->
+      <div class="flex items-center justify-between">
+        <div>
+          <Label>Translate User Input</Label>
+          <p class="text-xs text-muted-foreground">
+            Translate your input to English before sending to the AI
+          </p>
+        </div>
+        <Switch
+          checked={settings.translationSettings.translateUserInput}
+          onCheckedChange={(v) => {
+            settings.translationSettings.translateUserInput = v;
+            settings.saveTranslationSettings();
+          }}
+        />
+      </div>
+
+      <!-- Translate World State -->
+      <div class="flex items-center justify-between">
+        <div>
+          <Label>Translate World State</Label>
+          <p class="text-xs text-muted-foreground">
+            Translate character names, locations, and items in the UI
+          </p>
+        </div>
+        <Switch
+          checked={settings.translationSettings.translateWorldState}
+          onCheckedChange={(v) => {
+            settings.translationSettings.translateWorldState = v;
+            settings.saveTranslationSettings();
+          }}
+        />
+      </div>
+    {/if}
   </div>
 
   <Separator class="my-4" />
