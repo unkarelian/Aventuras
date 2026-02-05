@@ -28,11 +28,7 @@
   let { onOpenManualBodyEditor }: Props = $props()
 
   // Timeout slider state
-  let timeoutValue = $state([settings.apiSettings.llmTimeoutMs])
-
-  $effect(() => {
-    timeoutValue = [settings.apiSettings.llmTimeoutMs]
-  })
+  let timeoutValue = $derived([settings.apiSettings.llmTimeoutMs])
 
   function updateTimeout(v: number[]) {
     settings.setLlmTimeout(v[0])

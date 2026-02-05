@@ -188,7 +188,7 @@
             value={ui.lorebookTypeFilter}
             onValueChange={(val) => ui.setLorebookTypeFilter(val as EntryType | 'all')}
           >
-            {#each entryTypes as type}
+            {#each entryTypes as type (type)}
               <DropdownMenuRadioItem value={type} class="capitalize">
                 {type === 'all' ? 'All Types' : type}
               </DropdownMenuRadioItem>
@@ -221,7 +221,7 @@
               value={ui.lorebookSortBy}
               onValueChange={(val) => ui.setLorebookSortBy(val as 'name' | 'type' | 'updated')}
             >
-              {#each sortOptions as option}
+              {#each sortOptions as option (option.value)}
                 <DropdownMenuRadioItem value={option.value}>
                   {option.label}
                 </DropdownMenuRadioItem>

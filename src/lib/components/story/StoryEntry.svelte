@@ -48,6 +48,7 @@
     IMAGE_STUCK_THRESHOLD_MS,
     DEFAULT_FALLBACK_STYLE_PROMPT,
   } from '$lib/services/ai/image/constants'
+  import { SvelteSet } from 'svelte/reactivity'
 
   let { entry }: { entry: StoryEntry } = $props()
 
@@ -171,7 +172,7 @@
   let branchName = $state('')
 
   // Inline image edit state
-  let isEditingImage = $state(false)
+  let _isEditingImage = $state(false)
   let editingImageId = $state<string | null>(null)
   let editingImagePrompt = $state('')
 
@@ -369,7 +370,7 @@
       editingImageId = imageId
       // Extract the original prompt from the stored prompt (remove style suffix)
       editingImagePrompt = image.prompt.split('. ').slice(0, -1).join('. ') || image.prompt
-      isEditingImage = true
+      _isEditingImage = true
     } else if (action === 'regenerate') {
       // Regenerate with same prompt
       await regenerateInlineImage(imageId, image.prompt)
@@ -428,7 +429,7 @@
       await loadEmbeddedImages()
     } finally {
       // Remove from regenerating set
-      const newSet = new Set(regeneratingImageIds)
+      const newSet = new SvelteSet(regeneratingImageIds)
       newSet.delete(imageId)
       regeneratingImageIds = newSet
     }
@@ -460,15 +461,8 @@
     const fullPrompt = `${editingImagePrompt.trim()}. ${stylePrompt}`
 
     // Close modal and regenerate
-    isEditingImage = false
+    _isEditingImage = false
     await regenerateInlineImage(editingImageId, fullPrompt)
-    editingImageId = null
-    editingImagePrompt = ''
-  }
-
-  // Cancel edit modal
-  function handleEditImageCancel() {
-    isEditingImage = false
     editingImageId = null
     editingImagePrompt = ''
   }
@@ -1103,6 +1097,7 @@
 
     <!-- Edit area -->
     <div class="bg-surface-900 border-surface-800 border-t px-4 py-3">
+      <!-- svelte-ignore a11y_label_has_associated_control -->
       <label class="text-surface-400 mb-1.5 block text-xs">Image Prompt</label>
       <Textarea
         bind:value={viewingImagePrompt}
@@ -1450,6 +1445,7 @@
     line-height: 1.4;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }

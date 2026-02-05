@@ -18,6 +18,7 @@
   import { Badge } from '$lib/components/ui/badge'
   import { Separator } from '$lib/components/ui/separator'
   import { cn } from '$lib/utils/cn.js'
+  import { SvelteMap } from 'svelte/reactivity'
 
   interface Props {
     logs: DebugLogEntry[]
@@ -62,7 +63,7 @@
     return `${(duration / 1000).toFixed(2)}s`
   }
 
-  const jsonCache = new Map<string, string>()
+  const jsonCache = new SvelteMap<string, string>()
 
   function formatJson(entry: DebugLogEntry): string {
     const cacheKey = `${entry.id}-${renderNewlines}`
@@ -113,7 +114,7 @@
     }
 
     const groups: { request?: DebugLogEntry; response?: DebugLogEntry }[] = []
-    const requestMap = new Map<string, number>()
+    const requestMap = new SvelteMap<string, number>()
 
     for (const log of currentLogs) {
       if (log.type === 'request') {
@@ -185,7 +186,7 @@
                       {selectedCategories.length} selected
                     </Badge>
                   {:else}
-                    {#each selectedCategories as cat}
+                    {#each selectedCategories as cat (cat)}
                       <Badge variant="secondary" class="rounded-sm px-1 font-normal">
                         {cat}
                       </Badge>
@@ -202,7 +203,7 @@
             <Command.List>
               <Command.Empty>No service found.</Command.Empty>
               <Command.Group>
-                {#each categories as cat}
+                {#each categories as cat (cat)}
                   {@const isSelected = selectedCategories.includes(cat)}
                   <Command.Item
                     value={cat}
@@ -282,7 +283,7 @@
       </div>
     {:else}
       <div class="space-y-4 pb-4">
-        {#each pagedLogs as group}
+        {#each pagedLogs as group (group.id)}
           <div class="border-border bg-card overflow-hidden rounded-lg border">
             <!-- Request -->
             {#if group.request}

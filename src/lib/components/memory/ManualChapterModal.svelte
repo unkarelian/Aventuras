@@ -33,11 +33,6 @@
     }
   })
 
-  function truncate(text: string, maxLength: number = 80): string {
-    if (text.length <= maxLength) return text
-    return text.slice(0, maxLength).trim() + '...'
-  }
-
   function handleConfirm() {
     if (entries.length === 0) return
     // Convert to absolute index
@@ -64,7 +59,7 @@
       {:else}
         <ScrollArea class="h-[50vh] p-4">
           <div class="space-y-1">
-            {#each entries as entry, idx}
+            {#each entries as entry, idx (entry.id)}
               <button
                 class={cn(
                   'w-full rounded-lg border p-3 text-left transition-colors',

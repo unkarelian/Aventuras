@@ -59,6 +59,8 @@ export default [
       ],
       'unused-imports/no-unused-imports': 'error',
       'prettier/prettier': 'warn',
+      'svelte/no-navigation-without-resolve': 'off',
+      'svelte/no-at-html-tags': 'off',
     },
   },
 ]

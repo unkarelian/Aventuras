@@ -236,7 +236,7 @@
               <div class="bg-muted/30 border-t p-3">
                 <!-- Stats Grid -->
                 <div class="flex flex-wrap gap-2">
-                  {#each Object.entries(getTypeCounts(lorebook.entries)) as [type, count]}
+                  {#each Object.entries(getTypeCounts(lorebook.entries)) as [type, count] (type)}
                     {#if count > 0}
                       <Badge variant="outline" class="bg-background/50 gap-2 px-2.5 font-normal">
                         <span class={cn('shrink-0', getTypeColor(type as EntryType))}>●</span>
@@ -255,7 +255,7 @@
 
                 <ScrollArea class="bg-background h-45 w-full rounded-md border">
                   <div class="space-y-1 p-2">
-                    {#each lorebook.entries.slice(0, 10) as entry}
+                    {#each lorebook.entries.slice(0, 10) as entry (entry.name)}
                       <div
                         class="hover:bg-muted/50 flex items-center gap-2 rounded-sm p-2 text-sm transition-colors"
                       >
@@ -289,7 +289,7 @@
                     <Alert.Description class="text-xs">
                       {lorebook.result.warnings.length} warning(s) occurred during import.
                       <ul class="mt-1 list-inside list-disc">
-                        {#each lorebook.result.warnings.slice(0, 3) as warning}
+                        {#each lorebook.result.warnings.slice(0, 3) as warning (warning)}
                           <li>{warning}</li>
                         {/each}
                       </ul>
@@ -316,7 +316,7 @@
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
-            {#each Object.entries(importSummary.byType) as [type, count]}
+            {#each Object.entries(importSummary.byType) as [type, count] (type)}
               {#if count > 0}
                 <Badge variant="secondary" class="bg-background/80">
                   {type}: {count}

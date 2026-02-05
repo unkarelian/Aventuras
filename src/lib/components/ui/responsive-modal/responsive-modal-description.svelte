@@ -3,8 +3,14 @@
   import * as Drawer from '$lib/components/ui/drawer'
   import { getResponsiveModalContext } from './context'
   import { cn } from '$lib/utils/cn'
+  import type { Snippet } from 'svelte'
 
-  let { children, class: className, ...props } = $props()
+  type Props = {
+    children?: Snippet
+    class?: string
+  } & any
+
+  let { children, class: className, ...props }: Props = $props()
   const { isMobile } = getResponsiveModalContext()
 </script>
 

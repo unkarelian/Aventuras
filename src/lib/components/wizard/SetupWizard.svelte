@@ -68,7 +68,7 @@
 
       <!-- Progress Bar -->
       <div class="flex gap-1">
-        {#each Array(wizard.totalSteps) as _, i}
+        {#each Array(wizard.totalSteps) as _, i (i)}
           <div
             class="h-1.5 flex-1 rounded-full transition-colors {i === wizard.currentStep - 1
               ? 'bg-primary'
@@ -173,7 +173,7 @@
           onShowVaultPickerChange={(show) => (wizard.setting.showScenarioVaultPicker = show)}
           onSelectFromVault={(s) => wizard.selectScenarioFromVault(s)}
           cardImportFileInputRef={(el) => (wizard.character.cardImportFileInput = el)}
-          scenarioCarouselRef={(el) => {
+          scenarioCarouselRef={() => {
             /* managed locally if needed, or in store */
           }}
           onCarouselScroll={() => {

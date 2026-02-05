@@ -135,7 +135,7 @@
           >
             {#if issue.suggestions.length > 0}
               <div class="flex flex-wrap gap-1.5 sm:gap-2">
-                {#each issue.suggestions.slice(0, 5) as suggestion, suggestionIndex}
+                {#each issue.suggestions.slice(0, 5) as suggestion, suggestionIndex (suggestionIndex)}
                   <button
                     class="flex min-h-[32px] items-center gap-1 rounded border border-green-700/40 bg-green-900/30 px-2 py-1.5 text-[11px] text-green-300 transition-colors hover:bg-green-900/50 active:bg-green-900/60 sm:text-xs"
                     onclick={() => handleApplySuggestion(issue, suggestionIndex)}

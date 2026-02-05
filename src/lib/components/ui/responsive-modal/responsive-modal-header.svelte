@@ -5,8 +5,15 @@
   import { cn } from '$lib/utils/cn'
   import { X } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button'
+  import type { Snippet } from 'svelte'
 
-  let { title, class: className, children, ...props } = $props()
+  type Props = {
+    title?: string
+    class?: string
+    children?: Snippet
+  } & any
+
+  let { title, class: className, children, ...props }: Props = $props()
   const { isMobile } = getResponsiveModalContext()
 </script>
 

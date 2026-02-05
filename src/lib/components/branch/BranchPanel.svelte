@@ -12,6 +12,7 @@
     X,
   } from 'lucide-svelte'
   import type { Branch, Checkpoint } from '$lib/types'
+  import { SvelteSet } from 'svelte/reactivity'
 
   // Track expanded branches in tree view
   let expandedBranches = $state<Set<string>>(new Set(['main']))
@@ -33,7 +34,7 @@
     } else {
       expandedBranches.add(branchId)
     }
-    expandedBranches = new Set(expandedBranches)
+    expandedBranches = new SvelteSet(expandedBranches)
   }
 
   function isExpanded(branchId: string): boolean {
@@ -155,10 +156,12 @@
   }
 
   $effect(() => {
-    story.currentStory?.id
-    story.currentStory?.currentBranchId
-    story.branches.length
-    story.entries.length
+    const _ = [
+      story.currentStory?.id,
+      story.currentStory?.currentBranchId,
+      story.branches.length,
+      story.entries.length,
+    ]
     refreshEntryCounts()
   })
 
@@ -170,19 +173,6 @@
   // Check if branch is current
   function isCurrent(branchId: string | null): boolean {
     return story.currentStory?.currentBranchId === branchId
-  }
-
-  // Calculate depth for a branch (for limiting recursion if needed)
-  function getBranchDepth(branchId: string | null): number {
-    if (branchId === null) return 0
-    let depth = 1
-    let current = story.branches.find((b) => b.id === branchId)
-    while (current?.parentBranchId) {
-      depth++
-      current = story.branches.find((b) => b.id === current!.parentBranchId)
-      if (depth > 10) break // Safety limit
-    }
-    return depth
   }
 </script>
 

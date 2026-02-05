@@ -150,7 +150,7 @@
     {#if asCharacter}
       {#if asCharacter.traits.length > 0}
         <div class="flex flex-wrap gap-1">
-          {#each asCharacter.traits.slice(0, 3) as trait}
+          {#each asCharacter.traits.slice(0, 3) as trait (trait)}
             <Badge
               variant="outline"
               class="text-muted-foreground/80 border-muted-foreground/20 h-4 px-1.5 text-[10px] font-normal"
@@ -168,7 +168,7 @@
     {:else if asLorebook}
       {#if lorebookEntryCounts.length > 0}
         <div class="flex flex-wrap gap-1.5">
-          {#each lorebookEntryCounts.slice(0, 4) as { type, count }}
+          {#each lorebookEntryCounts.slice(0, 4) as { type, count } (type)}
             {@const Icon = entryTypeIcons[type]}
             <div
               class="text-muted-foreground/80 bg-muted/50 border-border/50 flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]"
@@ -190,7 +190,7 @@
     {:else if asScenario}
       {#if asScenario.tags.length > 0}
         <div class="flex flex-wrap gap-1">
-          {#each asScenario.tags.slice(0, 3) as tag}
+          {#each asScenario.tags.slice(0, 3) as tag (tag)}
             <TagBadge name={tag} color={tagStore.getColor(tag, 'scenario')} />
           {/each}
           {#if asScenario.tags.length > 3}

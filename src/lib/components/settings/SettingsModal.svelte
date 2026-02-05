@@ -167,7 +167,7 @@
   onMount(async () => {
     try {
       appVersion = await getVersion()
-    } catch (e) {
+    } catch {
       appVersion = '0.0.0-dev'
     }
   })
@@ -199,7 +199,7 @@
     <div class="flex min-h-0 flex-1 overflow-hidden">
       <ScrollArea class="border-border bg-muted/30 hidden w-64 border-r md:block">
         <div class="space-y-1 p-4">
-          {#each tabs as tab}
+          {#each tabs as tab (tab.id)}
             <button
               class="hover:bg-accent/50 hover:text-foreground flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors"
               class:bg-accent={activeTab === tab.id}
@@ -248,7 +248,7 @@
               ui.setSettingsTab(v)
             }}
           >
-            {#each tabs as tab}
+            {#each tabs as tab (tab.id)}
               <TabsContent value={tab.id} class="mt-0">
                 <div
                   class={activeTab === tab.id && slideDirection === 'left'
@@ -309,7 +309,7 @@
 
     <div class="border-border bg-background border-t p-1 md:hidden">
       <div class="flex justify-center gap-0 overflow-x-auto pb-0.5">
-        {#each tabs as tab}
+        {#each tabs as tab (tab.id)}
           <Toggle
             pressed={activeTab === tab.id}
             onPressedChange={(pressed) => {

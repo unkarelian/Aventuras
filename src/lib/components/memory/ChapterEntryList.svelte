@@ -41,7 +41,7 @@
 
 {#if expanded && entries.length > 0}
   <div class="mt-2 space-y-1 border-l-2 pl-2" transition:slide={{ duration: 200 }}>
-    {#each entries.slice(0, 10) as entry}
+    {#each entries.slice(0, 10) as entry (entry.id)}
       {@const Icon = getEntryIcon(entry.type)}
       <div class="flex items-start gap-2 py-1 text-xs">
         <Badge

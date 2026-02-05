@@ -11,17 +11,8 @@
   const bufferMessages = $derived(story.memoryConfig.chapterBuffer)
 
   // Local state for editing
-  let localThreshold = $state(threshold)
-  let localBuffer = $state(bufferMessages)
-
-  // Sync local state when props change
-  $effect(() => {
-    localThreshold = threshold
-  })
-
-  $effect(() => {
-    localBuffer = bufferMessages
-  })
+  let localThreshold = $derived(threshold)
+  let localBuffer = $derived(bufferMessages)
 
   // Debounced save
   let saveTimeout: ReturnType<typeof setTimeout> | null = null
@@ -84,7 +75,7 @@
             onValueChange={(val) => val && scheduleThresholdSave(parseInt(val))}
             class="flex-wrap justify-start"
           >
-            {#each thresholdPresets as preset}
+            {#each thresholdPresets as preset (preset.value)}
               <ToggleGroupItem value={preset.value.toString()} size="sm" class="h-7 px-2 text-xs">
                 {preset.label}
               </ToggleGroupItem>

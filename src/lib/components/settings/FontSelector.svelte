@@ -183,21 +183,21 @@
         >
           {#if availableFonts.serif.length > 0}
             <optgroup label="Serif">
-              {#each availableFonts.serif as font}
+              {#each availableFonts.serif as font (font)}
                 <option value={font}>{font}</option>
               {/each}
             </optgroup>
           {/if}
           {#if availableFonts.sansSerif.length > 0}
             <optgroup label="Sans-Serif">
-              {#each availableFonts.sansSerif as font}
+              {#each availableFonts.sansSerif as font (font)}
                 <option value={font}>{font}</option>
               {/each}
             </optgroup>
           {/if}
           {#if availableFonts.monospace.length > 0}
             <optgroup label="Monospace">
-              {#each availableFonts.monospace as font}
+              {#each availableFonts.monospace as font (font)}
                 <option value={font}>{font}</option>
               {/each}
             </optgroup>
@@ -243,7 +243,7 @@
         disabled={isLoading}
       >
         <option value="" disabled>Select a font...</option>
-        {#each popularGoogleFonts as font}
+        {#each popularGoogleFonts as font (font)}
           <option value={font}>{font}</option>
         {/each}
       </select>

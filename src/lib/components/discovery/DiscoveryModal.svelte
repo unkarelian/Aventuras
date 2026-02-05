@@ -16,6 +16,7 @@
   import * as Popover from '$lib/components/ui/popover'
   import * as Command from '$lib/components/ui/command'
   import { cn } from '$lib/utils/cn'
+  import { SvelteSet } from 'svelte/reactivity'
 
   interface Props {
     isOpen: boolean
@@ -50,7 +51,7 @@
   let selectedCard = $state<DiscoveryCard | null>(null)
 
   let importedUrls = $derived.by(() => {
-    const urls = new Set<string>()
+    const urls = new SvelteSet<string>()
     if (mode === 'character') {
       for (const c of characterVault.characters) {
         if (c.metadata?.sourceUrl) urls.add(String(c.metadata.sourceUrl))
@@ -77,7 +78,7 @@
   let tagInput = $state('')
   let showTagDropdown = $state(false)
   let availableTags = $state<string[]>([])
-  let isLoadingTags = $state(false)
+  let _isLoadingTags = $state(false)
 
   let providers = $derived(discoveryService.getProviders(mode))
 
@@ -94,7 +95,7 @@
   let popularTags = $derived(availableTags.slice(0, 20).filter((t) => !selectedTags.includes(t)))
 
   async function loadTags() {
-    isLoadingTags = true
+    _isLoadingTags = true
     try {
       if (activeProviderId === 'all') {
         availableTags = await discoveryService.getAllTags(mode)
@@ -106,7 +107,7 @@
       console.error('[Discovery] Failed to load tags:', error)
       availableTags = []
     } finally {
-      isLoadingTags = false
+      _isLoadingTags = false
     }
   }
 
@@ -311,7 +312,7 @@
                       <Globe class="mr-2 h-4 w-4" />
                       All Sources
                     </Select.Item>
-                    {#each providers as provider}
+                    {#each providers as provider (provider.id)}
                       <Select.Item value={provider.id}>
                         {#if provider.icon}
                           <img src={provider.icon} alt="" class="mr-2 h-4 w-4 rounded" />
@@ -379,7 +380,7 @@
                         </Command.Empty>
                         {#if tagSuggestions.length > 0}
                           <Command.Group heading="Suggestions">
-                            {#each tagSuggestions as tag}
+                            {#each tagSuggestions as tag (tag)}
                               <Command.Item
                                 value={tag}
                                 onSelect={() => {
@@ -401,7 +402,7 @@
 
                         {#if popularTags.length > 0 && !tagInput}
                           <Command.Group heading="Popular">
-                            {#each popularTags as tag}
+                            {#each popularTags as tag (tag)}
                               <Command.Item value={tag} onSelect={() => toggleTag(tag)}>
                                 <div
                                   class="mr-2 flex h-4 w-4 items-center justify-center opacity-0"
@@ -507,7 +508,7 @@
 
           {#if selectedTags.length > 0}
             <div class="flex flex-wrap items-center gap-2 border-t pt-3 text-sm">
-              {#each selectedTags as tag}
+              {#each selectedTags as tag (tag)}
                 <Badge variant="secondary" class="h-7 items-center gap-1.5 pr-1.5 pl-2 font-normal">
                   {tag}
                   <Button

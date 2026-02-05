@@ -28,6 +28,7 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { cn } from '$lib/utils/cn'
   import { isTouchDevice } from '$lib/utils/swipe'
+  import { SvelteSet } from 'svelte/reactivity'
 
   // AbortController for cancelling ongoing requests
   let abortController: AbortController | null = null
@@ -40,7 +41,7 @@
     onSave: () => Promise<void>
   }
 
-  let { lorebookName, entries, onEntriesChange, onClose, onSave }: Props = $props()
+  let { lorebookName, entries, onEntriesChange, onSave }: Props = $props()
 
   // Service instance
   let service: InteractiveLorebookService | null = $state(null)
@@ -361,7 +362,7 @@
   }
 
   function toggleReasoning(messageId: string) {
-    const newSet = new Set(expandedReasoning)
+    const newSet = new SvelteSet(expandedReasoning)
     if (newSet.has(messageId)) {
       newSet.delete(messageId)
     } else {

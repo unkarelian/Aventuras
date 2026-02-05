@@ -70,7 +70,13 @@
   }
 
   async function handleSaveNew(entry: Entry) {
-    const { id, storyId, createdAt, updatedAt, ...entryData } = entry
+    const {
+      id: _id,
+      storyId: _storyId,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      ...entryData
+    } = entry
     const newEntry = await story.addLorebookEntry(entryData)
     creatingNew = false
     ui.setLorebookEditMode(false)

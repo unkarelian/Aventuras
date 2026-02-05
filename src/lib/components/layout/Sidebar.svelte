@@ -73,7 +73,7 @@
   >
     <div class="border-border bg-muted/60 flex-shrink-0 border-b px-0">
       <Tabs.List class="flex h-auto w-full justify-start rounded-none bg-transparent p-0">
-        {#each tabs as tab}
+        {#each tabs as tab (tab.id)}
           <Tabs.Trigger
             value={tab.id}
             class="data-[state=active]:border-primary data-[state=active]:text-primary data-[state=active]:bg-muted/30 hover:bg-muted/20 text-muted-foreground flex-1 rounded-none border-b-2 border-transparent bg-transparent py-3 transition-colors"

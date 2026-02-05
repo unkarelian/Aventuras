@@ -215,6 +215,8 @@
     ></div>
 
     <!-- Modal -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div
       class="border-surface-700 bg-surface-900 relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl border shadow-2xl"
       onclick={(e) => e.stopPropagation()}
@@ -249,7 +251,7 @@
           {#if macro.variesBy.mode}
             <div class="flex flex-wrap items-center gap-1">
               <span class="text-surface-500 mr-1 w-12 text-xs sm:w-auto">Mode:</span>
-              {#each Object.entries(modeLabels) as [mode, label]}
+              {#each Object.entries(modeLabels) as [mode, label] (mode)}
                 <button
                   class="tab-btn {selectedMode === mode ? 'tab-btn-active' : ''} {isActiveVariant(
                     mode,
@@ -273,7 +275,7 @@
           {#if macro.variesBy.pov}
             <div class="flex flex-wrap items-center gap-1">
               <span class="text-surface-500 mr-1 w-12 text-xs sm:w-auto">POV:</span>
-              {#each Object.entries(povLabels) as [pov, label]}
+              {#each Object.entries(povLabels) as [pov, label] (pov)}
                 <button
                   class="tab-btn {selectedPov === pov ? 'tab-btn-active' : ''} {isActiveVariant(
                     selectedMode,
@@ -297,7 +299,7 @@
           {#if macro.variesBy.tense}
             <div class="flex flex-wrap items-center gap-1">
               <span class="text-surface-500 mr-1 w-12 text-xs sm:w-auto">Tense:</span>
-              {#each Object.entries(tenseLabels) as [tense, label]}
+              {#each Object.entries(tenseLabels) as [tense, label] (tense)}
                 <button
                   class="tab-btn {selectedTense === tense ? 'tab-btn-active' : ''} {isActiveVariant(
                     selectedMode,

@@ -5,10 +5,6 @@
   import { Button } from '$lib/components/ui/button'
   import DebugLogView from './DebugLogView.svelte'
 
-  let scrollContainer: HTMLDivElement | null = $state(null)
-  let savedScrollTop = 0
-  let savedScrollHeight = 0
-
   // Throttled snapshot of logs - only updates every 500ms when modal is open
   let throttledLogs = $state<DebugLogEntry[]>([])
   let lastUpdateTime = 0

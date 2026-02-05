@@ -12,7 +12,6 @@
     AlertCircle,
   } from 'lucide-svelte'
   import UniversalVaultBrowser from '$lib/components/vault/UniversalVaultBrowser.svelte'
-  import { characterVault } from '$lib/stores/characterVault.svelte'
   import type { VaultCharacter } from '$lib/types'
   import type { ExpandedSetting, GeneratedProtagonist, StoryMode } from '../wizardTypes'
 
@@ -110,10 +109,6 @@
   let editMotivation = $state('')
   let editTraits = $state('')
   let activeElaborationSource = $state<'expand' | 'refine' | null>(null)
-
-  const hasVaultCharacters = $derived(
-    characterVault.isLoaded && characterVault.characters.length > 0,
-  )
 
   $effect(() => {
     if (!isExpandingCharacter && !isRefiningCharacter) {
@@ -516,7 +511,7 @@
             {#if protagonist.traits && (Array.isArray(protagonist.traits) ? protagonist.traits.length > 0 : typeof protagonist.traits === 'string')}
               <div class="flex flex-wrap gap-1.5 pt-0.5">
                 {#if Array.isArray(protagonist.traits)}
-                  {#each protagonist.traits as trait}
+                  {#each protagonist.traits as trait (trait)}
                     <Badge variant="secondary" class="h-5 px-1.5 text-[10px] font-normal"
                       >{trait}</Badge
                     >

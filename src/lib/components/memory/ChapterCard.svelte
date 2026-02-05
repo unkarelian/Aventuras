@@ -34,12 +34,7 @@
   const isExpanded = $derived(ui.memoryExpandedChapterId === chapter.id)
   const isEditing = $derived(ui.memoryEditingChapterId === chapter.id)
 
-  let editedSummary = $state(chapter.summary)
-
-  // Reset edit state when chapter changes
-  $effect(() => {
-    editedSummary = chapter.summary
-  })
+  let editedSummary = $derived(chapter.summary)
 
   // Format time for display (compact version)
   function formatTime(time: TimeTracker | null): string {

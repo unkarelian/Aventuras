@@ -93,7 +93,7 @@ try {
   console.log('Updating Cargo.lock...')
   try {
     execSync('cargo update -p aventura --offline', { cwd: path.join(rootDir, 'src-tauri') })
-  } catch (e) {
+  } catch {
     console.error('Offline update failed.')
     process.exit(1)
   }

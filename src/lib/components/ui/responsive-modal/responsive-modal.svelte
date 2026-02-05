@@ -2,9 +2,18 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import * as Drawer from '$lib/components/ui/drawer'
   import { createIsMobile } from '$lib/hooks/is-mobile.svelte'
+  import type { Snippet } from 'svelte'
   import { setResponsiveModalContext } from './context'
+  import type { OnChangeFn } from 'vaul-svelte'
 
-  let { open = $bindable(false), onOpenChange, children, ...props } = $props()
+  type Props = {
+    open: boolean
+    onOpenChange?: OnChangeFn<boolean>
+    children: Snippet
+    [key: string]: unknown
+  }
+
+  let { open = $bindable(false), onOpenChange, children, ...props }: Props = $props()
 
   const isMobile = createIsMobile()
   setResponsiveModalContext({ isMobile })

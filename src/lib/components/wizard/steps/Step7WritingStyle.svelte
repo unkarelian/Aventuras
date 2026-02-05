@@ -69,7 +69,7 @@
             onValueChange={(v) => onPOVChange(v as POV)}
             class="grid grid-cols-3 gap-2"
           >
-            {#each ['first', 'second', 'third'] as pov}
+            {#each ['first', 'second', 'third'] as pov (pov)}
               <Label
                 for={`pov-${pov}`}
                 class="border-muted bg-popover hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 p-3 text-center"
@@ -101,7 +101,7 @@
             onValueChange={(v) => onTenseChange(v as Tense)}
             class="grid grid-cols-2 gap-2"
           >
-            {#each ['present', 'past'] as tense}
+            {#each ['present', 'past'] as tense (tense)}
               <Label
                 for={`tense-${tense}`}
                 class="border-muted bg-popover hover:bg-accent hover:text-accent-foreground has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5 flex cursor-pointer flex-col items-center justify-center rounded-md border-2 p-3 text-center"
@@ -133,7 +133,7 @@
           />
         </div>
         <div class="flex flex-wrap gap-2">
-          {#each ['Dark Fantasy', 'High Adventure', 'Cozy', 'Horror', 'Cyberpunk', 'Mystery'] as t}
+          {#each ['Dark Fantasy', 'High Adventure', 'Cozy', 'Horror', 'Cyberpunk', 'Mystery'] as t (t)}
             <Button variant="outline" size="sm" class="h-7 text-xs" onclick={() => onToneChange(t)}>
               {t}
             </Button>

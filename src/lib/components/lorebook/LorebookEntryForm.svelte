@@ -230,7 +230,7 @@
         {entryTypes.find((t) => t.value === type)?.label ?? 'Select type'}
       </SelectTrigger>
       <SelectContent>
-        {#each entryTypes as option}
+        {#each entryTypes as option (option.value)}
           <SelectItem value={option.value}>{option.label}</SelectItem>
         {/each}
       </SelectContent>
@@ -258,7 +258,7 @@
       </span>
     </Label>
     <div class="mb-2 flex flex-wrap gap-2">
-      {#each aliases as alias}
+      {#each aliases as alias (alias)}
         <Badge variant="secondary" class="gap-1 pr-1">
           {alias}
           <button class="hover:bg-muted rounded-full p-0.5" onclick={() => removeAlias(alias)}>
@@ -290,7 +290,7 @@
       </span>
     </Label>
     <div class="mb-2 flex flex-wrap gap-2">
-      {#each keywords as keyword}
+      {#each keywords as keyword (keyword)}
         <Badge
           variant="default"
           class="bg-primary/20 text-primary hover:bg-primary/30 gap-1 border-transparent pr-1"
@@ -327,7 +327,7 @@
       onValueChange={(v) => (injectionMode = v as EntryInjectionMode)}
       class="grid h-full grid-cols-1 gap-2 sm:grid-cols-3"
     >
-      {#each injectionModes as mode}
+      {#each injectionModes as mode (mode.value)}
         <div
           class={cn(
             'hover:bg-muted/50 flex h-full cursor-pointer items-start space-x-2 rounded-lg border transition-colors',

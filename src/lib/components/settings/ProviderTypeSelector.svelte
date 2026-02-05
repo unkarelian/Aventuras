@@ -36,7 +36,7 @@
       {/if}
     </Select.Trigger>
     <Select.Content>
-      {#each providers as provider}
+      {#each providers as provider (provider.value)}
         <Select.Item value={provider.value} label={provider.label}>
           <div class="flex flex-col py-1">
             <span class="font-medium">{provider.label}</span>

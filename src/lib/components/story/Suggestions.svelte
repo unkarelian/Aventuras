@@ -103,7 +103,7 @@
           </div>
         {:else}
           <div class="space-y-1.5 pt-0.5">
-            {#each suggestions as suggestion}
+            {#each suggestions as suggestion (suggestion.id)}
               <button
                 class="card hover:bg-surface-700/50 group w-full p-2.5 text-left transition-colors"
                 onclick={() => {

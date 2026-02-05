@@ -50,7 +50,6 @@
   // UI State
   let searchQuery = $state('')
   let selectedIndex = $state<number | null>(null)
-  let showDeleteConfirm = $state(false)
   let saving = $state(false)
   let error = $state<string | null>(null)
   let activeTab = $state('editor')
@@ -369,7 +368,7 @@
                     {/if}
                   </div>
                 {:else}
-                  {#each filteredEntries as { entry, index }}
+                  {#each filteredEntries as { entry, index } (index)}
                     {@const Icon = typeIcons[entry.type]}
                     <button
                       class={cn(
@@ -465,7 +464,7 @@
                             }` || 'Select type'}
                           </SelectTrigger>
                           <SelectContent>
-                            {#each entryTypes as option}
+                            {#each entryTypes as option (option)}
                               <SelectItem value={option}
                                 >{option.charAt(0).toUpperCase() + option.slice(1)}</SelectItem
                               >
@@ -527,7 +526,7 @@
                               }` || 'Select mode'}
                             </SelectTrigger>
                             <SelectContent>
-                              {#each injectionModes as option}
+                              {#each injectionModes as option (option)}
                                 <SelectItem value={option}
                                   >{option.charAt(0).toUpperCase() + option.slice(1)}</SelectItem
                                 >

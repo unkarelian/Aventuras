@@ -279,7 +279,7 @@
                   <Button variant="link" onclick={addNpc}>Create your first NPC</Button>
                 </div>
               {:else}
-                {#each npcs as npc, i}
+                {#each npcs as npc, i (i)}
                   <div class="bg-card text-card-foreground group rounded-lg border shadow-sm">
                     <Collapsible.Root>
                       <div class="flex items-center gap-3 p-3 pl-4">
@@ -382,7 +382,7 @@
                 </Button>
               </div>
 
-              {#each alternateGreetings as greeting, i}
+              {#each alternateGreetings as _greeting, i (i)}
                 <div class="relative">
                   <Textarea
                     bind:value={alternateGreetings[i]}
@@ -458,7 +458,7 @@
             <p>No characters found</p>
           </div>
         {:else}
-          {#each filteredCharacters as char}
+          {#each filteredCharacters as char (char.id)}
             <button
               class="hover:bg-muted flex w-full items-center gap-3 rounded-md p-3 text-left transition-colors"
               onclick={() => addNpcFromCharacter(char)}

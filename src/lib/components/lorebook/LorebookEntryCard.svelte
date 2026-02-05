@@ -61,7 +61,7 @@
     }
   }
 
-  function handleCheckboxClick(checked: boolean) {
+  function handleCheckboxClick() {
     ui.toggleBulkSelection(entry.id)
   }
 </script>

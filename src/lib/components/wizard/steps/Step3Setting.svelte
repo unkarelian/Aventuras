@@ -17,7 +17,6 @@
     MapPin,
   } from 'lucide-svelte'
   import UniversalVaultBrowser from '$lib/components/vault/UniversalVaultBrowser.svelte'
-  import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
   import type { VaultScenario } from '$lib/types'
   import type { ExpandedSetting, GeneratedCharacter } from '../wizardTypes'
   import { QUICK_START_SEEDS } from '$lib/services/templates'
@@ -73,11 +72,9 @@
     isExpandingSetting,
     isRefiningSetting,
     settingError,
-    isEditingSetting,
     selectedScenarioId,
     importedCardNpcs,
     cardImportError,
-    isImportingCard,
     savedScenarioToVaultConfirm,
     showScenarioVaultPicker,
     customGenre,
@@ -87,17 +84,11 @@
     onUseAsIs,
     onExpandSetting,
     onExpandFurther,
-    onEditSetting,
-    onCancelEdit,
     onSelectScenario,
-    onCardImport,
     onClearCardImport,
     onSaveToVault,
     onShowVaultPickerChange,
     onSelectFromVault,
-    cardImportFileInputRef,
-    scenarioCarouselRef,
-    onCarouselScroll,
     onNavigateToVault,
   }: Props = $props()
 
@@ -111,7 +102,6 @@
   }
 
   const hasUserPlaceholder = $derived(settingSeed.includes('{{user}}'))
-  const hasVaultScenarios = $derived(scenarioVault.isLoaded && scenarioVault.scenarios.length > 0)
 
   let showExpandOptions = $state(false)
   let loadedVaultScenarioId = $state<string | null>(null)
@@ -408,7 +398,7 @@
       {#if expandedSetting.keyLocations.length > 0}
         <div class="flex flex-wrap gap-2 text-xs">
           <span class="text-foreground py-0.5 font-medium">Locations:</span>
-          {#each expandedSetting.keyLocations as loc}
+          {#each expandedSetting.keyLocations as loc (loc.name)}
             <Badge variant="secondary" class="font-normal">{loc.name}</Badge>
           {/each}
         </div>
@@ -417,7 +407,7 @@
       <!-- Themes -->
       {#if expandedSetting.themes.length > 0}
         <div class="flex flex-wrap gap-1.5">
-          {#each expandedSetting.themes as theme}
+          {#each expandedSetting.themes as theme (theme)}
             <Badge variant="outline" class="text-[10px]">{theme}</Badge>
           {/each}
         </div>

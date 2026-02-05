@@ -176,7 +176,7 @@
                     'Select a theme'}
                 </Select.Trigger>
                 <Select.Content>
-                  {#each THEMES as theme}
+                  {#each THEMES as theme (theme.id)}
                     <Select.Item value={theme.id}>{theme.label}</Select.Item>
                   {/each}
                 </Select.Content>
@@ -190,7 +190,7 @@
                 Font Size
               </Label>
               <div class="grid grid-cols-3 gap-2">
-                {#each ['small', 'medium', 'large'] as size}
+                {#each ['small', 'medium', 'large'] as size (size)}
                   <Button
                     variant={settings.uiSettings.fontSize === size ? 'default' : 'outline'}
                     class="w-full capitalize"
@@ -236,7 +236,7 @@
                         )?.name ?? 'Select language'}
                       </Select.Trigger>
                       <Select.Content class="max-h-[200px] overflow-y-auto">
-                        {#each getSupportedLanguages() as lang}
+                        {#each getSupportedLanguages() as lang (lang.code)}
                           <Select.Item value={lang.code}>{lang.name}</Select.Item>
                         {/each}
                       </Select.Content>
@@ -286,7 +286,7 @@
         out:blur={{ amount: 10, duration: 200, easing: quintOut }}
       >
         <div class="grid w-full grid-cols-1 gap-4 sm:grid-cols-3">
-          {#each providers as provider}
+          {#each providers as provider (provider.id)}
             <button
               onclick={() => selectProvider(provider.id)}
               class="group flex flex-col items-center gap-4 rounded-xl border p-6 text-center transition-all duration-200 hover:-translate-y-1 hover:shadow-lg {provider.color} bg-card text-card-foreground"
@@ -354,7 +354,6 @@
                     {/if}
                   </div>
                   <div class="relative">
-                    <!-- svelte-ignore a11y_autofocus -->
                     <Input
                       id="api-key"
                       type={showApiKey ? 'text' : 'password'}

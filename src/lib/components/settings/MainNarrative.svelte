@@ -35,33 +35,6 @@
   let isLoadingModels = $state(false)
   let modelError = $state<string | null>(null)
 
-  // Get models from main narrative profile (sorted by provider priority)
-  let profileModels = $derived.by(() => {
-    const profile = settings.getMainNarrativeProfile()
-    if (!profile) return []
-    const models = [...new Set([...profile.fetchedModels, ...profile.customModels])]
-
-    const providerPriority: Record<string, number> = {
-      'x-ai': 1,
-      deepseek: 2,
-      openai: 3,
-      anthropic: 4,
-      google: 5,
-      'meta-llama': 6,
-      mistralai: 7,
-    }
-
-    return models.sort((a, b) => {
-      const providerA = a.split('/')[0]
-      const providerB = b.split('/')[0]
-      const priorityA = providerPriority[providerA] ?? 99
-      const priorityB = providerPriority[providerB] ?? 99
-
-      if (priorityA !== priorityB) return priorityA - priorityB
-      return a.localeCompare(b)
-    })
-  })
-
   function getReasoningIndex(value?: ReasoningEffort): number {
     const index = reasoningLevels.indexOf(value ?? 'off')
     return index === -1 ? 0 : index
@@ -105,11 +78,6 @@
     }
   }
 
-  let selectedProfileName = $derived(
-    settings.apiSettings.profiles.find((p) => p.id === settings.apiSettings.mainNarrativeProfileId)
-      ?.name || 'Select Profile',
-  )
-
   // Check if reasoning is supported for the current profile and model
   let reasoningSupported = $derived.by(() => {
     const profile = settings.getMainNarrativeProfile()
@@ -126,21 +94,9 @@
   })
 
   // Proxy states for sliders to ensure correct array type binding
-  let tempValue = $state([settings.apiSettings.temperature])
-  let tokensValue = $state([settings.apiSettings.maxTokens])
-  let reasoningValue = $state([getReasoningIndex(settings.apiSettings.reasoningEffort)])
-
-  $effect(() => {
-    tempValue = [settings.apiSettings.temperature]
-  })
-
-  $effect(() => {
-    tokensValue = [settings.apiSettings.maxTokens]
-  })
-
-  $effect(() => {
-    reasoningValue = [getReasoningIndex(settings.apiSettings.reasoningEffort)]
-  })
+  let tempValue = $derived([settings.apiSettings.temperature])
+  let tokensValue = $derived([settings.apiSettings.maxTokens])
+  let reasoningValue = $derived([getReasoningIndex(settings.apiSettings.reasoningEffort)])
 
   function updateTemperature(v: number[]) {
     settings.setTemperature(v[0])

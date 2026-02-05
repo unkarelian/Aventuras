@@ -233,8 +233,8 @@
 
     <!-- Templates List (Accordion) -->
     <Tabs.Content value={promptsCategory} class="mt-4">
-      <Accordion.Root type="single" collapsible class="w-full space-y-2">
-        {#each getTemplatesForCategory() as template}
+      <Accordion.Root type="single" class="w-full space-y-2">
+        {#each getTemplatesForCategory() as template (template.id)}
           <Accordion.Item value={template.id} class="bg-card rounded-lg border px-3 shadow-sm">
             <Accordion.Trigger class="py-3 hover:no-underline">
               <div class="flex items-center gap-2 text-left">
@@ -338,7 +338,7 @@
       </Card.Header>
       <Card.Content>
         <div class="flex flex-wrap gap-2">
-          {#each allMacros.filter((m) => m.type === 'simple') as macro}
+          {#each allMacros.filter((m) => m.type === 'simple') as macro (macro.id)}
             <MacroChip
               {macro}
               interactive={true}
@@ -366,7 +366,7 @@
       </Card.Header>
       <Card.Content>
         <div class="flex flex-wrap gap-2">
-          {#each allMacros.filter((m) => m.type === 'complex') as macro}
+          {#each allMacros.filter((m) => m.type === 'complex') as macro (macro.id)}
             <MacroChip
               {macro}
               interactive={true}

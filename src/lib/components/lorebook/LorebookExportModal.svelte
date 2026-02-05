@@ -117,7 +117,7 @@
           value={selectedFormat}
           onValueChange={(v) => (selectedFormat = v as ExportFormat)}
         >
-          {#each formats as format}
+          {#each formats as format (format)}
             {@const info = getFormatInfo(format)}
             <div
               class={cn(

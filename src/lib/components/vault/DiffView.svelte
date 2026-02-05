@@ -153,7 +153,7 @@
             Entries to Merge ({change.previousEntries?.length ?? 0})
           </div>
           <div class="space-y-2">
-            {#each change.previousEntries ?? [] as entry, i}
+            {#each change.previousEntries ?? [] as entry, i (i)}
               <div class="bg-surface-700/50 rounded p-2">
                 <div class="text-surface-400 mb-1 text-xs">Entry {i + 1}: {entry.name}</div>
                 <pre class="text-surface-300 font-mono text-sm whitespace-pre-wrap">{formatEntry(

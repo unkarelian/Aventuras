@@ -65,7 +65,7 @@
       >
     </div>
 
-    {#each ui.actionChoices as choice, index}
+    {#each ui.actionChoices as choice, index (choice.text)}
       {@const Icon = typeIcons[choice.type]}
       <Button
         variant="secondary"

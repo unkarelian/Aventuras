@@ -301,7 +301,7 @@
           onclick={() => (showTagManager = true)}
         />
 
-        {#each sections as section}
+        {#each sections as section (section.id)}
           {#if activeTab === section.id}
             <Button
               icon={Globe}
@@ -345,13 +345,13 @@
     <!-- Tab Bar -->
     <div class="px-4 pb-2">
       <TabsList class="bg-muted/50 grid w-full max-w-md grid-cols-3">
-        {#each sections as section}
+        {#each sections as section (section.id)}
           <TabsTrigger value={section.id} class="flex items-center gap-2">
             <section.icon class="h-4 w-4" />
             <span class="hidden sm:inline">{section.label}</span>
             <Badge variant="secondary" class="ml-1 h-5 px-1 py-0 text-[10px]">
-              {// @ts-ignore - dynamic access
-              section.store[section.id].length}
+              <!-- @ts-expect-error - dynamic access -->
+              {section.store[section.id].length}
             </Badge>
           </TabsTrigger>
         {/each}
@@ -401,7 +401,7 @@
   </div>
 
   <!-- Content -->
-  {#each sections as section}
+  {#each sections as section (section.id)}
     <TabsContent
       value={section.id}
       class="m-0 flex-1 overflow-hidden p-0 outline-none data-[state=inactive]:hidden"
@@ -410,7 +410,7 @@
         <div class="flex min-h-full flex-col px-4 pb-36 sm:pb-16">
           {#if !section.store.isLoaded}
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {#each Array(6) as _}
+              {#each Array(6) as _, i (i)}
                 <div class="space-y-3">
                   <Skeleton class="h-[200px] w-full rounded-xl" />
                   <div class="space-y-2">
@@ -422,7 +422,7 @@
             </div>
           {:else}
             {@const filteredItems = getFilteredItems(
-              // @ts-ignore - dynamic access
+              // @ts-expect-error - dynamic access
               section.store[section.id],
             )}
 

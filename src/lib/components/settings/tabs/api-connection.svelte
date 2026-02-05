@@ -31,6 +31,7 @@
   import IconRow from '$lib/components/ui/icon-row.svelte'
   import X from '@lucide/svelte/icons/x'
   import { isMobileDevice } from '$lib/utils/swipe'
+  import { SvelteSet } from 'svelte/reactivity'
 
   let editingProfileId = $state<string | null>(null)
   let isNewProfile = $state(false)
@@ -43,8 +44,6 @@
   let formCustomModels = $state<string[]>([])
   let formFetchedModels = $state<string[]>([])
   let formSetAsDefault = $state(false)
-  let formNewModelInput = $state('')
-  let formShowApiKey = $state(false)
   let formHiddenModels = $state<string[]>([])
   let formFavoriteModels = $state<string[]>([])
   let showCustomModelDialog = $state(false)
@@ -109,12 +108,11 @@
     formHiddenModels = [...(profile.hiddenModels ?? [])]
     formFavoriteModels = [...(profile.favoriteModels ?? [])]
     formSetAsDefault = false
-    formShowApiKey = false
     showHiddenModels = false
     modelFilterInput = ''
     showBaseUrlCollapsible = false
     fetchError = null
-    openCollapsibles = new Set([...openCollapsibles, profile.id])
+    openCollapsibles = new SvelteSet([...openCollapsibles, profile.id])
   }
 
   function startNewProfile() {
@@ -129,7 +127,6 @@
     formHiddenModels = []
     formFavoriteModels = []
     formSetAsDefault = settings.apiSettings.profiles.length === 0
-    formShowApiKey = false
     fetchError = null
   }
 
@@ -191,18 +188,6 @@
     }
   }
 
-  function handleAddCustomModel() {
-    const model = formNewModelInput.trim()
-    if (model && !formCustomModels.includes(model)) {
-      formCustomModels = [...formCustomModels, model]
-      // Custom models are favorites by default
-      if (!formFavoriteModels.includes(model)) {
-        formFavoriteModels = [...formFavoriteModels, model]
-      }
-      formNewModelInput = ''
-    }
-  }
-
   function handleRemoveCustomModel(model: string) {
     formCustomModels = formCustomModels.filter((m) => m !== model)
   }
@@ -257,7 +242,7 @@
       startEdit(profile)
     } else {
       openCollapsibles.delete(profile.id)
-      openCollapsibles = new Set(openCollapsibles)
+      openCollapsibles = new SvelteSet(openCollapsibles)
 
       if (editingProfileId === profile.id) {
         if (saveTimeout) clearTimeout(saveTimeout)
@@ -304,14 +289,16 @@
 
   $effect(() => {
     if (editingProfileId && !isNewProfile) {
-      formName
-      formProviderType
-      formBaseUrl
-      formApiKey
-      formCustomModels
-      formFetchedModels
-      formHiddenModels
-      formFavoriteModels
+      const _ = [
+        formName,
+        formProviderType,
+        formBaseUrl,
+        formApiKey,
+        formCustomModels,
+        formFetchedModels,
+        formHiddenModels,
+        formFavoriteModels,
+      ]
       triggerAutoSave()
     }
   })
@@ -478,7 +465,7 @@
                 </p>
                 <ScrollArea class="h-32 w-full rounded-md border">
                   <div class="flex flex-wrap gap-1 p-2">
-                    {#each formFetchedModels as model}
+                    {#each formFetchedModels as model (model)}
                       <Badge variant="secondary" class="gap-1 pr-1">
                         <span class="max-w-37.5 truncate">{model}</span>
                         <Button
@@ -503,7 +490,7 @@
                 </p>
                 <ScrollArea class="h-24 w-full rounded-md border">
                   <div class="flex flex-wrap gap-1 p-2">
-                    {#each formCustomModels as model}
+                    {#each formCustomModels as model (model)}
                       <Badge variant="outline" class="gap-1 pr-1">
                         <span class="max-w-37.5 truncate">{model}</span>
                         <Button
@@ -769,7 +756,7 @@
                       </p>
                       <ScrollArea class="h-32 w-full rounded-md border">
                         <div class="flex flex-wrap gap-1 p-2">
-                          {#each filterModels(sortedModels(formFetchedModels)) as model}
+                          {#each filterModels(sortedModels(formFetchedModels)) as model (model)}
                             {@const isFav = formFavoriteModels.includes(model)}
                             <Badge variant="secondary" class="gap-1 pr-0.5">
                               <button
@@ -805,7 +792,7 @@
                       </p>
                       <ScrollArea class="h-24 w-full rounded-md border">
                         <div class="flex flex-wrap gap-1 p-2">
-                          {#each filterModels(sortedModels(formCustomModels)) as model}
+                          {#each filterModels(sortedModels(formCustomModels)) as model (model)}
                             {@const isFav = formFavoriteModels.includes(model)}
                             <Badge variant="outline" class="gap-1 pr-0.5">
                               <button
@@ -848,7 +835,7 @@
                       {#if showHiddenModels}
                         <ScrollArea class="h-24 w-full rounded-md border border-dashed">
                           <div class="flex flex-wrap gap-1 p-2">
-                            {#each filterModels(formHiddenModels) as model}
+                            {#each filterModels(formHiddenModels) as model (model)}
                               <Badge variant="outline" class="gap-1 pr-1 opacity-60">
                                 <span class="max-w-48 truncate">{model}</span>
                                 <button
@@ -937,7 +924,7 @@
                 <div class="grid gap-2">
                   <Label class="text-muted-foreground text-xs">Models</Label>
                   <div class="flex flex-wrap gap-1">
-                    {#each [...profile.fetchedModels, ...profile.customModels] as model}
+                    {#each [...profile.fetchedModels, ...profile.customModels] as model (model)}
                       <Badge variant="secondary" class="font-mono text-xs">
                         {model}
                       </Badge>

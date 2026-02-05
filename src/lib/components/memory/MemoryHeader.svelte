@@ -15,7 +15,6 @@
 
   let { onCreateChapter }: Props = $props()
 
-  const tokensSinceLastChapter = $derived(story.tokensSinceLastChapter)
   const tokensOutsideBuffer = $derived(story.tokensOutsideBuffer)
   const threshold = $derived(story.memoryConfig.tokenThreshold)
   const autoSummarize = $derived(story.memoryConfig.autoSummarize)

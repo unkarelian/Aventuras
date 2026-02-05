@@ -241,7 +241,7 @@
             {/if}
           </Select.Trigger>
           <Select.Content>
-            {#each imageCapableProfiles as profile}
+            {#each imageCapableProfiles as profile (profile.id)}
               <Select.Item value={profile.id} label={`${profile.name} (${profile.providerType})`}>
                 {profile.name} <span class="text-muted-foreground">({profile.providerType})</span>
               </Select.Item>
@@ -300,7 +300,7 @@
             )?.label ?? 'Select style'}
           </Select.Trigger>
           <Select.Content>
-            {#each imageStyles as style}
+            {#each imageStyles as style (style.value)}
               <Select.Item value={style.value} label={style.label}>
                 {style.label}
               </Select.Item>
@@ -332,7 +332,7 @@
             )?.label ?? 'Select size'}
           </Select.Trigger>
           <Select.Content>
-            {#each imageSizes as size}
+            {#each imageSizes as size (size.value)}
               <Select.Item value={size.value} label={size.label}>
                 {size.label}
               </Select.Item>
@@ -403,7 +403,7 @@
               {/if}
             </Select.Trigger>
             <Select.Content>
-              {#each imageCapableProfiles as profile}
+              {#each imageCapableProfiles as profile (profile.id)}
                 <Select.Item value={profile.id} label={`${profile.name} (${profile.providerType})`}>
                   {profile.name} <span class="text-muted-foreground">({profile.providerType})</span>
                 </Select.Item>
@@ -470,7 +470,7 @@
               {/if}
             </Select.Trigger>
             <Select.Content>
-              {#each imageCapableProfiles as profile}
+              {#each imageCapableProfiles as profile (profile.id)}
                 <Select.Item value={profile.id} label={`${profile.name} (${profile.providerType})`}>
                   {profile.name} <span class="text-muted-foreground">({profile.providerType})</span>
                 </Select.Item>

@@ -57,7 +57,7 @@
                   : 's'} will be used as context:
               </p>
               <div class="max-h-32 space-y-1 overflow-y-auto pr-1">
-                {#each previousChapters as prevChapter}
+                {#each previousChapters as prevChapter (prevChapter.id)}
                   <div class="text-muted-foreground bg-muted/30 rounded p-2 text-xs">
                     <span class="text-foreground/80 font-medium">Ch {prevChapter.number}</span>
                     {#if prevChapter.title}

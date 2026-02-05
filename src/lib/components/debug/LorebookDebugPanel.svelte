@@ -96,7 +96,7 @@
             </div>
           {:else}
             <!-- Tier Sections -->
-            {#each [1, 2, 3] as tier}
+            {#each [1, 2, 3] as tier (tier)}
               {@const tierEntries =
                 tier === 1 ? result.tier1 : tier === 2 ? result.tier2 : result.tier3}
               {#if tierEntries.length > 0}
@@ -120,7 +120,7 @@
                   </p>
 
                   <div class="grid gap-3">
-                    {#each tierEntries as retrieved}
+                    {#each tierEntries as retrieved (retrieved.entry.id)}
                       {@const Icon = getIcon(retrieved.entry.type)}
                       <Card
                         class={cn(

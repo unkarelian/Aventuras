@@ -194,7 +194,7 @@
             'Select provider'}
         </Select.Trigger>
         <Select.Content>
-          {#each providers as provider}
+          {#each providers as provider (provider.value)}
             <Select.Item value={provider.value} label={provider.label}>
               {provider.label}
             </Select.Item>
@@ -297,7 +297,7 @@
                 ?.name ?? 'Select system voice'}
             </Select.Trigger>
             <Select.Content>
-              {#each systemVoices as voice}
+              {#each systemVoices as voice (voice.name)}
                 <Select.Item value={voice.name} label={voice.name}>
                   {voice.name}
                   <span class="text-muted-foreground ml-2 text-xs">({voice.lang})</span>
@@ -328,7 +328,7 @@
             )?.name ?? 'Select language'}
           </Select.Trigger>
           <Select.Content>
-            {#each GOOGLE_TRANSLATE_LANGUAGES as lang}
+            {#each GOOGLE_TRANSLATE_LANGUAGES as lang (lang.id)}
               <Select.Item value={lang.id} label={lang.name}>
                 {lang.name}
               </Select.Item>

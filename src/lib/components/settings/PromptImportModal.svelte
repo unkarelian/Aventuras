@@ -21,6 +21,7 @@
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
   import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert'
+  import { SvelteMap } from 'svelte/reactivity'
 
   interface Props {
     open: boolean
@@ -127,7 +128,7 @@
 
     parseResult = result
 
-    const configs = new Map<string, ImportPresetConfig>()
+    const configs = new SvelteMap<string, ImportPresetConfig>()
     const profiles = settings.apiSettings.profiles
     const defaultProfileId = profiles.length > 0 ? profiles[0].id : ''
 
@@ -161,7 +162,7 @@
   }
 
   function updatePresetConfig(presetId: string, updates: Partial<ImportPresetConfig>) {
-    const newConfigs = new Map(presetConfigs)
+    const newConfigs = new SvelteMap(presetConfigs)
     const config = newConfigs.get(presetId)!
     newConfigs.set(presetId, { ...config, ...updates })
     presetConfigs = newConfigs
@@ -206,7 +207,7 @@
 
       <!-- Progress Steps -->
       <div class="mt-4 flex items-center gap-2">
-        {#each [1, 2, 3] as step}
+        {#each [1, 2, 3] as step (step)}
           <div class="flex flex-1 items-center gap-2">
             <div
               class="h-1.5 flex-1 rounded-full transition-all duration-300 {step < currentStep
@@ -239,7 +240,7 @@
           <AlertTitle>Warnings</AlertTitle>
           <AlertDescription>
             <ul class="list-inside list-disc">
-              {#each parseResult.warnings as warning}
+              {#each parseResult.warnings as warning (warning)}
                 <li>{warning}</li>
               {/each}
             </ul>
@@ -322,6 +323,7 @@
                   class="border-border bg-card text-card-foreground rounded-lg border shadow-sm transition-all"
                 >
                   <!-- Preset Header -->
+                  <!-- svelte-ignore a11y_click_events_have_key_events -->
                   <button
                     class="hover:bg-muted/50 flex w-full flex-col gap-3 rounded-t-lg px-4 py-3 text-left transition-colors {isExpanded
                       ? ''
@@ -347,6 +349,8 @@
                     </div>
 
                     <!-- Controls Row (Always visible now for easier access) -->
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
                     <div
                       class="flex w-full items-center gap-2"
                       onclick={(e) => e.stopPropagation()}
@@ -373,7 +377,7 @@
                             </span>
                           </Select.Trigger>
                           <Select.Content>
-                            {#each availableProfiles as profile}
+                            {#each availableProfiles as profile (profile.value)}
                               <Select.Item value={profile.value} label={profile.label}
                                 >{profile.label}</Select.Item
                               >
@@ -400,7 +404,7 @@
                           </Select.Trigger>
                           <Select.Content>
                             {#if availableModels.length > 0}
-                              {#each availableModels as model}
+                              {#each availableModels as model (model.value)}
                                 <Select.Item value={model.value} label={model.label}
                                   >{model.label}</Select.Item
                                 >
@@ -458,7 +462,7 @@
                         <div class="col-span-2 space-y-1.5">
                           <Label class="text-muted-foreground text-xs">Reasoning Effort</Label>
                           <div class="grid grid-cols-4 gap-2">
-                            {#each ['off', 'low', 'medium', 'high'] as level}
+                            {#each ['off', 'low', 'medium', 'high'] as level (level)}
                               <Button
                                 variant={config.reasoningEffort === level ? 'default' : 'outline'}
                                 size="sm"

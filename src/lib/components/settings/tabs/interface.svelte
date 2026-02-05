@@ -51,7 +51,7 @@
         {THEMES.find((t) => t.id === settings.uiSettings.theme)?.label ?? 'Select theme'}
       </Select.Trigger>
       <Select.Content>
-        {#each THEMES as theme}
+        {#each THEMES as theme (theme.id)}
           <Select.Item value={theme.id} label={theme.label}>
             {theme.label}
           </Select.Item>
@@ -75,7 +75,7 @@
         {fontSizes.find((s) => s.value === settings.uiSettings.fontSize)?.label ?? 'Select size'}
       </Select.Trigger>
       <Select.Content>
-        {#each fontSizes as size}
+        {#each fontSizes as size (size.value)}
           <Select.Item value={size.value} label={size.label}>
             {size.label}
           </Select.Item>
@@ -192,7 +192,7 @@
             )?.name ?? 'Select language'}
           </Select.Trigger>
           <Select.Content class="max-h-60">
-            {#each getSupportedLanguages() as lang}
+            {#each getSupportedLanguages() as lang (lang.code)}
               <Select.Item value={lang.code} label={lang.name}>
                 {lang.name}
               </Select.Item>

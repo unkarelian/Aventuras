@@ -121,7 +121,7 @@
         await syncService.clearReceivedStories()
         stopPolling()
       }
-    } catch (e) {
+    } catch {
       // Ignore polling errors
     }
   }
@@ -261,7 +261,7 @@
       } catch {
         // Zoom not supported on this device, continue without it
       }
-    } catch (e) {
+    } catch {
       error = 'Camera access denied or not available'
       ui.setSyncMode('select')
     }
@@ -630,7 +630,7 @@
               </h3>
               {#if remoteStories.length > 0}
                 <ScrollArea class="h-40 rounded-md border p-1">
-                  {#each remoteStories as remoteStory}
+                  {#each remoteStories as remoteStory (remoteStory.id)}
                     <button
                       class="hover:bg-accent hover:text-accent-foreground flex w-full flex-col items-start gap-1 rounded-sm px-3 py-2 text-left {selectedRemoteStory?.id ===
                       remoteStory.id
@@ -672,7 +672,7 @@
               </h3>
               {#if localStories.length > 0}
                 <ScrollArea class="h-40 rounded-md border p-1">
-                  {#each localStories as localStory}
+                  {#each localStories as localStory (localStory.id)}
                     <button
                       class="hover:bg-accent hover:text-accent-foreground flex w-full flex-col items-start gap-1 rounded-sm px-3 py-2 text-left {selectedLocalStory?.id ===
                       localStory.id

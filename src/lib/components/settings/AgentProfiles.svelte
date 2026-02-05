@@ -276,13 +276,6 @@
     return reasoningLevels[clamped]
   }
 
-  function getServiceSettings(serviceId: string): any {
-    const presetId = settings.servicePresetAssignments[serviceId]
-    if (!presetId) return null
-    const preset = settings.generationPresets.find((p) => p.id === presetId)
-    return preset ? { presetId: preset.id, ...preset } : null
-  }
-
   function getServicesForProfile(profileId: string | 'custom') {
     return systemServices.filter((service) => {
       const assignedPresetId = settings.servicePresetAssignments[service.id]
@@ -738,7 +731,7 @@
                     >
                       Move to...
                     </div>
-                    {#each settings.generationPresets as targetPreset}
+                    {#each settings.generationPresets as targetPreset (targetPreset.id)}
                       {#if targetPreset.id !== preset.id}
                         <button
                           class="hover:bg-background w-full truncate rounded-sm px-2 py-1.5 text-left text-xs transition-colors"
@@ -821,7 +814,7 @@
                 >
                   Move to...
                 </div>
-                {#each settings.generationPresets as targetPreset}
+                {#each settings.generationPresets as targetPreset (targetPreset.id)}
                   <button
                     class="hover:bg-background w-full truncate rounded-sm px-2 py-1.5 text-left text-xs transition-colors"
                     onclick={(e) => {

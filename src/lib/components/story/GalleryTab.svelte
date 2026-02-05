@@ -19,6 +19,7 @@
   import { Checkbox } from '$lib/components/ui/checkbox'
   import { Textarea } from '$lib/components/ui/textarea'
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
+  import { SvelteSet } from 'svelte/reactivity'
 
   const SWIPE_THRESHOLD = 50
 
@@ -95,8 +96,12 @@
   }
 
   function toggleImageSelection(imageId: string) {
-    const newSet = new Set(selectedImageIds)
-    newSet.has(imageId) ? newSet.delete(imageId) : newSet.add(imageId)
+    const newSet = new SvelteSet(selectedImageIds)
+    if (newSet.has(imageId)) {
+      newSet.delete(imageId)
+    } else {
+      newSet.add(imageId)
+    }
     selectedImageIds = newSet
     selectAllChecked = newSet.size === images.length
   }
@@ -170,7 +175,11 @@
     const diff = touchStartX - touchEndX
 
     if (Math.abs(diff) > SWIPE_THRESHOLD) {
-      diff > 0 ? nextImage() : previousImage()
+      if (diff > 0) {
+        nextImage()
+      } else {
+        previousImage()
+      }
     }
   }
 
@@ -213,14 +222,6 @@
     }
   })
 
-  // Open edit modal for an image
-  function openEditModal(image: EmbeddedImage) {
-    editingImageId = image.id
-    // Show the full stored prompt - user can edit as needed
-    editingImagePrompt = image.prompt
-    isEditingImage = true
-  }
-
   // Cancel edit modal
   function handleEditImageCancel() {
     isEditingImage = false
@@ -249,14 +250,6 @@
     editingImagePrompt = ''
 
     // Refresh gallery images
-    await refreshImages()
-  }
-
-  // Regenerate image with same prompt
-  async function handleRegenerateImage(image: EmbeddedImage) {
-    // Use the stored prompt as-is
-    closeLightbox()
-    await retryImageGeneration(image.id, image.prompt)
     await refreshImages()
   }
 </script>
@@ -391,6 +384,8 @@
             </div>
 
             <!-- Image container - click opens lightbox -->
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
               class="bg-surface-700 relative aspect-video cursor-pointer"
               onclick={() => openLightbox(index)}

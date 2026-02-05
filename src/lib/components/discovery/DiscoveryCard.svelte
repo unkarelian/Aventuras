@@ -132,7 +132,7 @@
       <!-- Tags -->
       {#if card.tags.length > 0}
         <div class="mt-auto flex flex-wrap gap-1 pt-2">
-          {#each card.tags.slice(0, 3) as tag}
+          {#each card.tags.slice(0, 3) as tag (tag)}
             <Badge variant="outline" class="h-5 px-1 py-0 text-[10px] font-normal">
               {tag}
             </Badge>

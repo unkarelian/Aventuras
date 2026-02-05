@@ -99,7 +99,7 @@
     tabindex="-1"
     onkeydown={() => {}}
   >
-    {#each value as tagName}
+    {#each value as tagName (tagName)}
       <TagBadge
         name={tagName}
         color={tagStore.getColor(tagName, type)}
@@ -122,7 +122,7 @@
       transition:fade={{ duration: 100 }}
       class="border-surface-600 bg-surface-800 absolute top-full left-0 z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border shadow-xl"
     >
-      {#each filteredTags as tag}
+      {#each filteredTags as tag (tag.id)}
         <button
           class="text-surface-200 hover:bg-surface-700 flex w-full items-center justify-between px-3 py-2 text-left text-sm"
           onclick={() => addTag(tag.name)}

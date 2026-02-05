@@ -84,7 +84,7 @@
     <div class="p-2">
       {#if isLoading}
         <div class="space-y-3 p-2">
-          {#each Array(3) as _}
+          {#each Array(3) as _, i (i)}
             <div class="flex items-center space-x-4">
               <Skeleton class="h-10 w-10 rounded-full" />
               <div class="space-y-2">

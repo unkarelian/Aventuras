@@ -157,7 +157,7 @@
               >
                 Default
               </Button>
-              {#each cardImportedAlternateGreetings as _, i}
+              {#each cardImportedAlternateGreetings as _, i (i)}
                 <Button
                   size="sm"
                   variant={selectedGreetingIndex === i + 1 ? 'default' : 'secondary'}
