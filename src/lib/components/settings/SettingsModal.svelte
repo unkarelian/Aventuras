@@ -129,10 +129,12 @@
     if (deltaX > 0 && currentIndex > 0) {
       slideDirection = "right";
       activeTab = tabs[currentIndex - 1].id;
+      ui.setSettingsTab(activeTab);
       setTimeout(() => (slideDirection = "none"), 300);
     } else if (deltaX < 0 && currentIndex < tabs.length - 1) {
       slideDirection = "left";
       activeTab = tabs[currentIndex + 1].id;
+      ui.setSettingsTab(activeTab);
       setTimeout(() => (slideDirection = "none"), 300);
     }
   }
@@ -231,7 +233,10 @@
               class:bg-accent={activeTab === tab.id}
               class:text-accent-foreground={activeTab === tab.id}
               class:text-muted-foreground={activeTab !== tab.id}
-              onclick={() => (activeTab = tab.id)}
+              onclick={() => {
+                activeTab = tab.id;
+                ui.setSettingsTab(tab.id);
+              }}
             >
               <tab.icon class="h-4 w-4" />
               {tab.label}
@@ -264,7 +269,10 @@
         style="touch-action: pan-y pinch-zoom;"
       >
         <div class="mx-auto px-4 sm:p-6">
-          <Tabs value={activeTab} onValueChange={(v) => (activeTab = v as any)}>
+          <Tabs value={activeTab} onValueChange={(v) => {
+            activeTab = v as any;
+            ui.setSettingsTab(v);
+          }}>
             {#each tabs as tab}
               <TabsContent value={tab.id} class="mt-0">
                 <div
@@ -331,7 +339,12 @@
         {#each tabs as tab}
           <Toggle
             pressed={activeTab === tab.id}
-            onPressedChange={(pressed) => pressed && (activeTab = tab.id)}
+            onPressedChange={(pressed) => {
+              if (pressed) {
+                activeTab = tab.id;
+                ui.setSettingsTab(tab.id);
+              }
+            }}
             size="sm"
             class="shrink-0 px-2"
           >

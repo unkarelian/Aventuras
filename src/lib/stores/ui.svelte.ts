@@ -1701,6 +1701,13 @@ class UIStore {
     this.settingsActiveTab = 'api';
     this.settingsModalOpen = true;
   }
+
+  /**
+   * Set the active settings tab.
+   */
+  setSettingsTab(tab: string) {
+    this.settingsActiveTab = tab;
+  }
 }
 
 export const ui = new UIStore();
