@@ -61,6 +61,11 @@ export function createTimeoutFetch(timeoutMs = 180000, serviceId: string, debugI
 
       const response = await tauriFetch(input, { ...init, signal: controller.signal });
 
+      if (!response.ok) {
+        const error = await response.text();
+        ui.addDebugResponse(debugId, serviceId, { status: response.status, error: JSON.parse(error), statusText: response.statusText }, startTime, error);
+      }
+
       if (!response.headers.get('content-type')?.includes('application/json')) {
         return response;
       }
@@ -91,11 +96,6 @@ export function createTimeoutFetch(timeoutMs = 180000, serviceId: string, debugI
           headers: response.headers,
         });
       }
-    } catch (error) {
-      ui.addDebugResponse(debugId, serviceId, {
-        error: error,
-      },
-      startTime, error as string);
     } finally {
       clearTimeout(timeoutId);
     }

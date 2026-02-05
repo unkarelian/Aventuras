@@ -12,6 +12,7 @@ import { countTokens } from '$lib/services/tokenizer';
 import { emit, listen } from '@tauri-apps/api/event';
 import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { type UnlistenFn } from '@tauri-apps/api/event';
+import { settings } from './settings.svelte';
 
 export type VaultTab = 'characters' | 'lorebooks' | 'scenarios';
 
@@ -1447,6 +1448,8 @@ class UIStore {
     startTime: number,
     error?: string
   ) {
+    if(!settings.uiSettings.debugMode) return
+
     const entry: DebugLogEntry = {
       id: `${requestId}-response`,
       timestamp: Date.now(),
