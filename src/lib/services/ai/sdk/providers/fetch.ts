@@ -51,7 +51,7 @@ export function createTimeoutFetch(timeoutMs = 180000, serviceId: string, debugI
 
     init?.signal?.addEventListener('abort', () => controller.abort());
     const startTime = Date.now();
-    const parsedBody = JSON.parse(init?.body?.toString() || "");
+    const parsedBody = JSON.parse(init?.body?.toString() || "{}");
     const debugId = ui.addDebugRequest(serviceId, {
       url: input.toString(),
       method: init?.method ?? 'GET',
