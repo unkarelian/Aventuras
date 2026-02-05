@@ -1402,8 +1402,8 @@ class UIStore {
   /**
    * Add a request log entry. Returns the entry ID for pairing with response.
    */
-  addDebugRequest(serviceName: string, data: Record<string, unknown>): string {
-    const id = `debug-${++this.debugLogIdCounter}-${Date.now()}`;
+  addDebugRequest(serviceName: string, data: Record<string, unknown>, debugId?:string ): string {
+    const id = debugId || `debug-${++this.debugLogIdCounter}-${Date.now()}`;
     const entry: DebugLogEntry = {
       id,
       timestamp: Date.now(),

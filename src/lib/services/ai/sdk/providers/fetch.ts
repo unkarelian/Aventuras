@@ -44,21 +44,21 @@ function patchResponseJson(json: Record<string, unknown>): Record<string, unknow
   return json;
 }
 
-export function createTimeoutFetch(timeoutMs = 180000, serviceId: string) {
+export function createTimeoutFetch(timeoutMs = 180000, serviceId: string, debugIdExternal?:string) {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     init?.signal?.addEventListener('abort', () => controller.abort());
-    console.log('presetId :>> ', serviceId);
+    const startTime = Date.now();
+    const parsedBody = JSON.parse(init?.body?.toString() || "");
+    const debugId = ui.addDebugRequest(serviceId, {
+      url: input.toString(),
+      method: init?.method ?? 'GET',
+      body: parsedBody,
+    }, debugIdExternal);
     try {
-      const startTime = Date.now();
-      const parsedBody = JSON.parse(init?.body?.toString() || "");
-      const debugId = ui.addDebugRequest(serviceId, {
-        url: input.toString(),
-        method: init?.method ?? 'GET',
-        body: parsedBody,
-      });
+
       const response = await tauriFetch(input, { ...init, signal: controller.signal });
 
       if (!response.headers.get('content-type')?.includes('application/json')) {
@@ -91,6 +91,11 @@ export function createTimeoutFetch(timeoutMs = 180000, serviceId: string) {
           headers: response.headers,
         });
       }
+    } catch (error) {
+      ui.addDebugResponse(debugId, serviceId, {
+        error: error,
+      },
+      startTime, error as string);
     } finally {
       clearTimeout(timeoutId);
     }
