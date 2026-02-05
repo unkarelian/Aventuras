@@ -2,7 +2,6 @@
   import { settings } from '$lib/stores/settings.svelte'
   import {
     ChevronDown,
-    ChevronRight,
     RotateCcw,
     FolderOpen,
     BookOpen,

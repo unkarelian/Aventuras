@@ -5,12 +5,10 @@
     Loader2,
     Check,
     Sparkles,
-    X,
     PenTool,
     User,
     RefreshCw,
     ChevronDown,
-    Send,
     AlertCircle,
   } from 'lucide-svelte'
   import UniversalVaultBrowser from '$lib/components/vault/UniversalVaultBrowser.svelte'

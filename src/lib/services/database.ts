@@ -9,10 +9,8 @@ import type {
   Chapter,
   Checkpoint,
   Branch,
-  MemoryConfig,
   Entry,
   EntryType,
-  EntryState,
   EntryPreview,
   PersistentRetryState,
   PersistentStyleReviewState,
@@ -1538,8 +1536,6 @@ class DatabaseService {
   }
 
   async mergeEntries(entryIds: string[], mergedEntry: Entry): Promise<void> {
-    const db = await this.getDb()
-
     // Delete old entries
     for (const id of entryIds) {
       await this.deleteEntry(id)
@@ -2463,7 +2459,7 @@ class DatabaseService {
             'INSERT INTO vault_tags (id, name, type, color, created_at) VALUES (?, ?, ?, ?, ?)',
             [id, tagName, type, color, Date.now()],
           )
-        } catch (e) {
+        } catch {
           // Ignore unique constraint errors
           console.warn(`[Database] Skipped duplicate tag ${tagName} during migration`)
         }

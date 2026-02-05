@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ui, type DebugLogEntry } from '$lib/stores/ui.svelte'
-  import { Trash2, WrapText, ExternalLink, RefreshCcw } from 'lucide-svelte'
+  import { ExternalLink, RefreshCcw } from 'lucide-svelte'
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Button } from '$lib/components/ui/button'
   import DebugLogView from './DebugLogView.svelte'

@@ -11,7 +11,6 @@
     Plus,
     Trash2,
     ChevronDown,
-    Send,
     User,
   } from 'lucide-svelte'
   import UniversalVaultBrowser from '$lib/components/vault/UniversalVaultBrowser.svelte'
@@ -22,7 +21,6 @@
   // Shadcn Components
   import * as Card from '$lib/components/ui/card'
   import * as Collapsible from '$lib/components/ui/collapsible'
-  import * as Alert from '$lib/components/ui/alert'
   import * as Avatar from '$lib/components/ui/avatar'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'

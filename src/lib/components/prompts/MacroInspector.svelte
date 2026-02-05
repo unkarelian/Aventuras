@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { RotateCcw, Save, X, Check } from 'lucide-svelte'
+  import { RotateCcw, Save, X } from 'lucide-svelte'
   import type {
     Macro,
     MacroOverride,

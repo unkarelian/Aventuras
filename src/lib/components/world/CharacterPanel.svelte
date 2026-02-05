@@ -66,7 +66,7 @@
   let expandedDescriptors = $state<Set<string>>(new Set())
 
   function toggleDescriptorExpand(characterId: string) {
-    const newSet = new Set(expandedDescriptors)
+    const newSet = new SvelteSet(expandedDescriptors)
     if (newSet.has(characterId)) {
       newSet.delete(characterId)
     } else {
@@ -85,6 +85,7 @@
     stringToDescriptors,
     hasDescriptors as hasVisualDescriptors,
   } from '$lib/utils/visualDescriptors'
+  import { SvelteSet } from 'svelte/reactivity'
 
   // Color palette for descriptor categories
   const CATEGORY_COLORS: Record<keyof VisualDescriptors, string> = {
@@ -821,7 +822,7 @@
               <div class="mt-2 flex flex-col gap-1.5">
                 {#if hasTraits}
                   <div class="flex flex-wrap gap-1">
-                    {#each character.translatedTraits ?? character.traits as trait}
+                    {#each character.translatedTraits ?? character.traits as trait (trait)}
                       <span
                         class="bg-muted text-muted-foreground inline-flex items-center rounded-sm px-1.5 py-0.5 text-[10px] font-medium"
                       >
@@ -847,7 +848,7 @@
                     </button>
                     {#if descriptorsExpanded}
                       <div class="flex flex-col gap-1">
-                        {#each descriptorsList as { label, color, value }}
+                        {#each descriptorsList as { label, color, value } (`${character.id}-${label}-${value}`)}
                           <div class="bg-muted/40 flex flex-col gap-0.5 rounded px-2 py-1">
                             <span class={cn('font-medium', color)}>{label}</span>
                             <span class="text-muted-foreground">{value}</span>
@@ -943,7 +944,6 @@
 
 <!-- Expanded Portrait Modal -->
 {#if expandedPortrait}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div
     class="bg-background/80 animate-in fade-in fixed inset-0 z-50 flex cursor-pointer items-center justify-center p-4 backdrop-blur-sm duration-200"

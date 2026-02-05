@@ -16,7 +16,6 @@ import type {
   PhaseCompleteEvent,
   AbortedEvent,
   ErrorEvent,
-  WorldState,
 } from '../types'
 import type {
   StoryEntry,

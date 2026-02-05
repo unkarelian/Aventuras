@@ -9,7 +9,7 @@
 
 import { settings, getPresetDefaults } from '$lib/stores/settings.svelte'
 import type { ProviderType } from '$lib/types'
-import type { ReasoningEffort, GenerationPreset } from '$lib/types'
+import type { ReasoningEffort } from '$lib/types'
 import type { StoryMode, POV, Character, Location, Item } from '$lib/types'
 import { promptService, type PromptContext } from '$lib/services/prompts'
 import { createLogger } from '../core/config'

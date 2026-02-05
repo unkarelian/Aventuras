@@ -18,7 +18,6 @@
     DropdownMenuSeparator,
     DropdownMenuTrigger,
   } from '$lib/components/ui/dropdown-menu'
-  import { cn } from '$lib/utils/cn'
 
   interface Props {
     onNewEntry?: () => void

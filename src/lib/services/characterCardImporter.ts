@@ -6,11 +6,12 @@
  */
 
 import type { StoryMode, VisualDescriptors } from '$lib/types'
-import type { Genre, GeneratedCharacter } from '$lib/services/ai/wizard/ScenarioService'
+import type { Genre } from '$lib/services/ai/wizard/ScenarioService'
 import { promptService, type PromptContext } from '$lib/services/prompts'
 import { generateStructured } from './ai/sdk/generate'
 import { cardImportResultSchema, vaultCharacterImportSchema } from './ai/sdk/schemas/cardimport'
 import { createLogger } from './ai/core/config'
+import type { GeneratedCharacter } from './ai/sdk'
 
 const log = createLogger('CharacterCardImporter')
 
@@ -280,7 +281,6 @@ export async function convertCardToScenario(
   jsonString: string,
   mode: StoryMode,
   genre: Genre,
-  profileId?: string | null,
 ): Promise<CardImportResult> {
   const card = parseCharacterCard(jsonString)
   if (!card) {
@@ -373,7 +373,6 @@ export interface SanitizedCharacter {
  */
 export async function sanitizeCharacterCard(
   jsonString: string,
-  profileId?: string | null,
 ): Promise<SanitizedCharacter | null> {
   const card = parseCharacterCard(jsonString)
   if (!card) {

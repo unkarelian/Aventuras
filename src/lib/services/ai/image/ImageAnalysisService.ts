@@ -8,7 +8,7 @@
  * which phrases/moments should have images generated.
  */
 
-import type { Character, VisualDescriptors } from '$lib/types'
+import type { VisualDescriptors } from '$lib/types'
 import { promptService, type PromptContext } from '$lib/services/prompts'
 import { createLogger } from '../core/config'
 import { generateStructured } from '../sdk/generate'

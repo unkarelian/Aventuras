@@ -184,7 +184,7 @@ export class AgenticRetrievalService {
     const result = await agent.generate({ prompt: userPrompt })
 
     // Extract the terminal result
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const terminalResult = extractTerminalToolResult<FinishRetrievalResult>(
       result.steps as any,
       'finish_retrieval',

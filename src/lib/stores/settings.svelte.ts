@@ -21,6 +21,7 @@ import type { ReasoningEffort } from '$lib/types'
 import { ui } from '$lib/stores/ui.svelte'
 import { getTheme } from '../../themes/themes'
 import { LLM_TIMEOUT_DEFAULT, LLM_TIMEOUT_MIN, LLM_TIMEOUT_MAX } from '$lib/constants/timeout'
+import { SvelteSet } from 'svelte/reactivity'
 
 // Provider preset type (used by WelcomeScreen)
 export type ProviderPreset = 'openrouter' | 'nanogpt' | 'custom'
@@ -600,7 +601,7 @@ export function getDefaultTTSSettings(): TTSServiceSettings {
   }
 }
 
-export function getDefaultTTSSettingsForProvider(provider: ProviderType): TTSServiceSettings {
+export function getDefaultTTSSettingsForProvider(_provider: ProviderType): TTSServiceSettings {
   return {
     enabled: false,
     endpoint: '',
@@ -673,22 +674,31 @@ export interface LorebookClassifierSpecificSettings {
   maxConcurrent: number
 }
 
+// Linter doesnt like empty objects interfaces, but keeping them for potential future use.
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface SuggestionsSpecificSettings {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ActionChoicesSpecificSettings {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface StyleReviewerSpecificSettings {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface LoreManagementSpecificSettings {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface InteractiveLorebookSpecificSettings {}
 
 export interface AgenticRetrievalSpecificSettings {
   maxIterations: number
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface TimelineFillSpecificSettings {}
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ChapterQuerySpecificSettings {}
 
 // Global context configuration - controls how much context is included in AI operations
@@ -747,7 +757,8 @@ export interface TTSSpecificSettings {
   volume: number
 }
 
-export interface CharacterCardImportSpecificSettings {}
+// Linter doesnt like empty objects interfaces, but keeping them for potential future use.
+export type CharacterCardImportSpecificSettings = object
 
 export interface ServiceSpecificSettings {
   classifier: ClassifierSpecificSettings
@@ -1668,7 +1679,9 @@ class SettingsStore {
         const defaultSystemServices = getDefaultSystemServicesSettingsForProvider(
           this.getDefaultProviderType(),
         )
-        const overrideIds = new Set(this.promptSettings.templateOverrides.map((o) => o.templateId))
+        const overrideIds = new SvelteSet(
+          this.promptSettings.templateOverrides.map((o) => o.templateId),
+        )
 
         const addOverride = (
           templateId: string,
@@ -2043,7 +2056,7 @@ class SettingsStore {
    * This is used for migration to ensure the default profile has all needed models.
    */
   private collectModelsInUse(): string[] {
-    const models = new Set<string>()
+    const models = new SvelteSet<string>()
 
     // Default model
     if (this.apiSettings.defaultModel) {
@@ -2743,7 +2756,7 @@ class SettingsStore {
     const activeProfileId = preserveApiSettings ? this.apiSettings.activeProfileId : null
     const mainNarrativeProfileId = preserveApiSettings
       ? this.apiSettings.mainNarrativeProfileId
-      : null
+      : ''
 
     // For providers without service defaults, use empty model (requires manual configuration)
     const defaultNarrativeModel = defaults.services?.narrative.model ?? ''

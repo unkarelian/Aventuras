@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { ImageModelInfo } from '$lib/services/ai/image/modelListing'
   import * as Select from '$lib/components/ui/select'
-  import { Label } from '$lib/components/ui/label'
   import { Button } from '$lib/components/ui/button'
   import { RefreshCw, Loader2 } from 'lucide-svelte'
   import {

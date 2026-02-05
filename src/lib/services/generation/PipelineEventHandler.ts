@@ -41,9 +41,11 @@ export function handleEvent(
         callbacks.setGenerationStatus(
           state.isCreativeMode ? 'Generating suggestions...' : 'Generating actions...',
         )
-        state.isCreativeMode
-          ? callbacks.setSuggestionsLoading(true)
-          : callbacks.setActionChoicesLoading(true)
+        if (state.isCreativeMode) {
+          callbacks.setSuggestionsLoading(true)
+        } else {
+          callbacks.setActionChoicesLoading(true)
+        }
       }
       break
 

@@ -17,9 +17,7 @@
     ExpandedSetting,
     GeneratedProtagonist,
     GeneratedOpening,
-    ImportedEntry,
     POVOption,
-    TenseOption,
   } from '../wizardTypes'
   import { styleUserPlaceholders, tenseOptions } from '../wizardTypes'
 

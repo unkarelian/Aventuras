@@ -5,7 +5,6 @@
   import { exportService } from '$lib/services/export'
   import { getVersion } from '@tauri-apps/api/app'
   import {
-    X,
     QrCode,
     Camera,
     Upload,
@@ -20,13 +19,7 @@
   import { onDestroy } from 'svelte'
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Button } from '$lib/components/ui/button'
-  import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-  } from '$lib/components/ui/card'
+  import { Card, CardHeader, CardTitle, CardDescription } from '$lib/components/ui/card'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
   import { Badge } from '$lib/components/ui/badge'
 

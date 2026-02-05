@@ -36,13 +36,13 @@
       variant?: ButtonVariant
       size?: ButtonSize
       // ResponsiveButton props
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       icon?: any
       label?: string
       mobileLabel?: string
       mobileVariant?: ButtonVariant
       iconClass?: string
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       endIcon?: any
     }
 </script>

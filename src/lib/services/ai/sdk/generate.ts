@@ -13,13 +13,11 @@ import {
   Output,
   generateImage as sdkGenerateImage,
   wrapLanguageModel,
-  createGateway,
 } from 'ai'
 import type { LanguageModelV3, LanguageModelV3Middleware } from '@ai-sdk/provider'
 import type { ProviderOptions } from '@ai-sdk/provider-utils'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createChutes } from '@chutes-ai/ai-sdk-provider'
-import { createPollinations } from 'ai-sdk-pollinations'
 import { jsonrepair } from 'jsonrepair'
 import type { z } from 'zod'
 
@@ -27,7 +25,7 @@ import { settings } from '$lib/stores/settings.svelte'
 import type { ProviderType, GenerationPreset, ReasoningEffort, APIProfile } from '$lib/types'
 import { createLogger } from '../core/config'
 import { createProviderFromProfile } from './providers'
-import { PROVIDERS, getApiModelName, getReasoningMode } from './providers/config'
+import { PROVIDERS, getApiModelName } from './providers/config'
 import { promptSchemaMiddleware, patchResponseMiddleware, loggingMiddleware } from './middleware'
 import { ui } from '$lib/stores/ui.svelte'
 

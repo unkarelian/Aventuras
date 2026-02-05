@@ -12,6 +12,7 @@
     "tauri": "tauri",
     "release": "node scripts/release.js",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.{ts,js,svelte,json,css,html}\""
   },
   "license": "AGPL-3.0",

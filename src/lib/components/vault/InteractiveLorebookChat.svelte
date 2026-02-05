@@ -5,7 +5,6 @@
     type PendingChange,
     type ChatMessage,
     type ToolCallDisplay,
-    type StreamEvent,
   } from '$lib/services/ai/lorebook/InteractiveLorebookService'
   import { settings } from '$lib/stores/settings.svelte'
   import DiffView from './DiffView.svelte'
@@ -27,7 +26,6 @@
   import { parseMarkdown } from '$lib/utils/markdown'
   import { Button } from '$lib/components/ui/button'
   import { Textarea } from '$lib/components/ui/textarea'
-  import { Badge } from '$lib/components/ui/badge'
   import { cn } from '$lib/utils/cn'
   import { isTouchDevice } from '$lib/utils/swipe'
 

@@ -4,7 +4,7 @@
  * Exports lorebook entries to various formats.
  */
 
-import type { Entry, EntryType, EntryInjectionMode } from '$lib/types'
+import type { Entry, EntryType } from '$lib/types'
 import { save } from '@tauri-apps/plugin-dialog'
 import { writeTextFile } from '@tauri-apps/plugin-fs'
 

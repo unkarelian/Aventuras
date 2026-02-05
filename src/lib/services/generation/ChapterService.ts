@@ -18,7 +18,10 @@ function log(...args: unknown[]) {
   console.log('[ChapterService]', ...args)
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ChapterAnalysisResult extends ChapterAnalysis {}
+
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ChapterSummaryData extends ChapterSummaryResult {}
 
 export interface ChapterCheckInput {

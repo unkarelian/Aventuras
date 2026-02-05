@@ -11,7 +11,7 @@
   import VaultBrowser from './shared/VaultBrowser.svelte'
 
   type VaultType = 'character' | 'lorebook' | 'scenario'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   type VaultItem = any // Union type is hard to work with in generic props
 
   interface Props {
@@ -25,7 +25,7 @@
   let { type, onSelect, selectedId = null, disabledIds = [], onNavigateToVault }: Props = $props()
 
   // Store Selection
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const store = $derived(
     type === 'character' ? characterVault : type === 'lorebook' ? lorebookVault : scenarioVault,
   ) as any

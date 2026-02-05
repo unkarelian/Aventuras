@@ -3,12 +3,10 @@ import { ui } from '$lib/stores/ui.svelte'
 import { settings } from '$lib/stores/settings.svelte'
 import { aiService } from '$lib/services/ai'
 import {
-  scenarioService,
-  type WizardData,
   type ExpandedSetting,
   type GeneratedCharacter,
-  type Genre,
-} from '$lib/services/ai/wizard/ScenarioService'
+} from '$lib/services/ai/sdk/schemas/scenario'
+import { scenarioService, type WizardData } from '$lib/services/ai/wizard/ScenarioService'
 import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 import { QUICK_START_SEEDS } from '$lib/services/templates'
 import { replaceUserPlaceholders } from '$lib/components/wizard/wizardTypes'
@@ -20,6 +18,7 @@ import { NarrativeStore } from './narrativeStore.svelte'
 import { SettingStore } from './settingStore.svelte'
 import { CharacterStore } from './characterStore.svelte'
 import { ImageStore } from './imageStore.svelte'
+import { SvelteSet } from 'svelte/reactivity'
 
 export class WizardStore {
   // Sub-stores
@@ -139,7 +138,7 @@ export class WizardStore {
 
     // Filter duplicates if any existing imported NPCs
     if (this.character.importedCardNpcs.length > 0) {
-      const prevImportedNames = new Set(this.character.importedCardNpcs.map((n) => n.name))
+      const prevImportedNames = new SvelteSet(this.character.importedCardNpcs.map((n) => n.name))
       this.character.supportingCharacters = this.character.supportingCharacters.filter(
         (c) => !prevImportedNames.has(c.name),
       )
@@ -300,7 +299,7 @@ export class WizardStore {
       relationship: char.relationship
         ? replaceUserPlaceholders(char.relationship, protagonistName)
         : '',
-      traits: char.traits?.map((t) => replaceUserPlaceholders(t, protagonistName)) || [],
+      traits: char.trats.map((t) => replaceUserPlaceholders(t, protagonistName)),
     }))
 
     const processedEntries = this.narrative.importedEntries.map((e) => ({

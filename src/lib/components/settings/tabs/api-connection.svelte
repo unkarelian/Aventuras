@@ -9,10 +9,7 @@
     Edit2,
     ChevronRight,
     RefreshCw,
-    Eye,
-    EyeOff,
     Check,
-    Globe,
     Key as KeyIcon,
     Box,
     AlertCircle,
@@ -22,21 +19,13 @@
   } from 'lucide-svelte'
 
   import { Button } from '$lib/components/ui/button'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-  } from '$lib/components/ui/card'
+  import { Card, CardContent } from '$lib/components/ui/card'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Badge } from '$lib/components/ui/badge'
   import { Separator } from '$lib/components/ui/separator'
-  import { Slider } from '$lib/components/ui/slider'
   import * as Collapsible from '$lib/components/ui/collapsible'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
-  import { Textarea } from '$lib/components/ui/textarea'
   import { Alert, AlertDescription } from '$lib/components/ui/alert'
   import * as Dialog from '$lib/components/ui/dialog'
   import IconRow from '$lib/components/ui/icon-row.svelte'

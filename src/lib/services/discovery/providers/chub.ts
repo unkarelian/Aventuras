@@ -17,7 +17,6 @@ export class ChubProvider implements DiscoveryProvider {
     options: SearchOptions,
     type: 'character' | 'lorebook' | 'scenario',
   ): Promise<SearchResult> {
-    const namespace = type === 'lorebook' ? 'lorebooks' : 'characters'
     const sortMap: Record<string, string> = {
       popular: 'download_count',
       new: 'created_at',

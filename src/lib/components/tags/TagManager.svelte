@@ -3,7 +3,7 @@
   import type { VaultTag, VaultType } from '$lib/types'
   import { Trash2, Edit2, Check, Plus } from 'lucide-svelte'
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
-  import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs'
+  import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs'
   import { Input } from '$lib/components/ui/input'
   import { Button } from '$lib/components/ui/button'
   import { cn } from '$lib/utils/cn'

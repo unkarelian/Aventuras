@@ -9,8 +9,7 @@ import { aiService } from '$lib/services/ai'
 import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 import { settings } from '$lib/stores/settings.svelte'
 import type { StoryMode, POV, VaultLorebook } from '$lib/types'
-import type { ImportedLorebookItem, ImportedEntry } from '$lib/components/wizard/wizardTypes'
-import { replaceUserPlaceholders } from '$lib/components/wizard/wizardTypes'
+import type { ImportedLorebookItem } from '$lib/components/wizard/wizardTypes'
 
 export class NarrativeStore {
   // Step 1: Mode

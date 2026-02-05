@@ -8,7 +8,6 @@
     Plus,
     Search as SearchIcon,
     Star,
-    User,
     Users,
     ChevronLeft,
     Upload,
@@ -43,7 +42,7 @@
   // Types
   type VaultTab = 'characters' | 'lorebooks' | 'scenarios'
   type VaultType = 'character' | 'lorebook' | 'scenario'
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   type AnyVaultItem = VaultCharacter | VaultLorebook | VaultScenario
 
   // State

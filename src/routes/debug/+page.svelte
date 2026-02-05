@@ -4,7 +4,7 @@
   import { type DebugLogEntry } from '$lib/stores/ui.svelte'
   import DebugLogView from '$lib/components/debug/DebugLogView.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { WrapText, Minimize2, Trash2 } from 'lucide-svelte'
+  import { Minimize2 } from 'lucide-svelte'
 
   let logs = $state<DebugLogEntry[]>([])
   let renderNewlines = $state(false)

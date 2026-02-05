@@ -1,5 +1,4 @@
 import { LocalLinter, BinaryModule, type Lint, type Suggestion, type LintConfig } from 'harper.js'
-// @ts-ignore - Vite handles this import
 import wasmUrl from 'harper.js/dist/harper_wasm_bg.wasm?url'
 
 const DEBUG = false

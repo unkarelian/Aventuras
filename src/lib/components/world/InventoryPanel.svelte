@@ -33,7 +33,6 @@
   let editDescription = $state('')
   let editQuantity = $state(1)
   let editEquipped = $state(false)
-  let confirmingDeleteId = $state<string | null>(null)
   let droppingItemId = $state<string | null>(null)
   let dropLocationId = $state<string>('')
 
@@ -61,7 +60,6 @@
     editEquipped = item.equipped
     // Reset other modes
     droppingItemId = null
-    confirmingDeleteId = null
   }
 
   function cancelEdit() {
@@ -89,7 +87,6 @@
 
   async function deleteItem(item: Item) {
     await story.deleteItem(item.id)
-    confirmingDeleteId = null
   }
 
   function beginDrop(item: Item) {
@@ -98,7 +95,6 @@
     dropLocationId = preferredLocation || story.currentLocation?.id || story.locations[0]?.id || ''
     // Reset other modes
     editingId = null
-    confirmingDeleteId = null
   }
 
   function cancelDrop() {

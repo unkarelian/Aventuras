@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Code, Eye, Plus, RotateCcw, ChevronDown, Info } from 'lucide-svelte'
+  import { Code, Eye, Plus, RotateCcw, Info } from 'lucide-svelte'
   import {
     promptService,
     type Macro,

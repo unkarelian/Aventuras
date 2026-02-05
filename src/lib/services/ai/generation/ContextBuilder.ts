@@ -9,7 +9,7 @@
  */
 
 import type { Character, Location, Item, StoryBeat, StoryEntry, Chapter } from '$lib/types'
-import { createLogger, getContextConfig } from '../core/config'
+import { createLogger } from '../core/config'
 import { generateStructured } from '../sdk/generate'
 import { entitySelectionSchema } from '../sdk/schemas/context'
 import { promptService } from '$lib/services/prompts'

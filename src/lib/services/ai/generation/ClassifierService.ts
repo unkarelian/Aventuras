@@ -220,7 +220,7 @@ export class ClassifierService {
   /**
    * Build chat history block for context.
    */
-  private buildChatHistoryBlock(entries: StoryEntry[], currentTime?: TimeTracker | null): string {
+  private buildChatHistoryBlock(entries: StoryEntry[], _currentTime?: TimeTracker | null): string {
     if (entries.length === 0) return ''
 
     const recentEntries = entries.slice(-this.chatHistoryTruncation)

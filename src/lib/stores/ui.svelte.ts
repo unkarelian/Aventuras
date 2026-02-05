@@ -1,14 +1,12 @@
 import type {
   ActivePanel,
   SidebarTab,
-  UIState,
   EntryType,
   StoryEntry,
   Character,
   Location,
   Item,
   StoryBeat,
-  Entry,
   ActionInputType,
   PersistentStyleReviewState,
   PersistentStyleReviewResult,
@@ -30,7 +28,7 @@ import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 import { StreamingHtmlRenderer } from '$lib/utils/htmlStreaming'
 import { countTokens } from '$lib/services/tokenizer'
 import { emit, listen } from '@tauri-apps/api/event'
-import { getCurrentWebviewWindow, WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { type UnlistenFn } from '@tauri-apps/api/event'
 import { settings } from './settings.svelte'
 
@@ -926,7 +924,7 @@ class UIStore {
     }
   }
 
-  setPendingActionChoice(text: string, storyId?: string) {
+  setPendingActionChoice(text: string, _storyId?: string) {
     // Only set the pending choice text - don't clear action choices yet
     // They will be cleared when the message is actually sent (in handleSubmit)
     this.pendingActionChoice = text
@@ -1174,7 +1172,7 @@ class UIStore {
   }
 
   toggleBulkSelection(id: string) {
-    const newSet = new Set(this.lorebookBulkSelection)
+    const newSet = new SvelteSet(this.lorebookBulkSelection)
     if (newSet.has(id)) {
       newSet.delete(id)
     } else {

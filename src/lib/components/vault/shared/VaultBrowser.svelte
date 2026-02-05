@@ -1,6 +1,5 @@
 <script lang="ts" generics="T">
   import { Search } from 'lucide-svelte'
-  import { Input } from '$lib/components/ui/input'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
   import { Skeleton } from '$lib/components/ui/skeleton'
   import EmptyState from '$lib/components/ui/empty-state/empty-state.svelte'
@@ -12,7 +11,7 @@
     searchPlaceholder?: string
 
     // Empty State configuration
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     emptyIcon: any
     emptyTitle: string
     emptyDescription?: string

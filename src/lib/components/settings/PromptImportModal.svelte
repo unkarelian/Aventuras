@@ -12,7 +12,7 @@
     ChevronDown,
     Sparkles,
   } from 'lucide-svelte'
-  import { fly, fade, slide } from 'svelte/transition'
+  import { fade, slide } from 'svelte/transition'
 
   // Shadcn Components
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
@@ -21,8 +21,6 @@
   import { Label } from '$lib/components/ui/label'
   import * as Select from '$lib/components/ui/select'
   import { Alert, AlertDescription, AlertTitle } from '$lib/components/ui/alert'
-  import { ScrollArea } from '$lib/components/ui/scroll-area'
-  import { Separator } from '$lib/components/ui/separator'
 
   interface Props {
     open: boolean

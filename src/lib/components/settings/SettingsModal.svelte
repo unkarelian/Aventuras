@@ -14,27 +14,17 @@
     Image,
     Volume2,
     Settings as SettingsIcon,
-    X,
   } from 'lucide-svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
-  import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs'
-  import { Switch } from '$lib/components/ui/switch'
+  import { Tabs, TabsContent } from '$lib/components/ui/tabs'
   import { Button } from '$lib/components/ui/button'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-  } from '$lib/components/ui/card'
+
   import { Separator } from '$lib/components/ui/separator'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
-  import { Label } from '$lib/components/ui/label'
   import { Textarea } from '$lib/components/ui/textarea'
   import * as Dialog from '$lib/components/ui/dialog'
   import { Toggle } from '$lib/components/ui/toggle'
-  import { Alert, AlertDescription } from '$lib/components/ui/alert'
 
   import ApiConnectionTab from './tabs/api-connection.svelte'
   import GenerationTab from './tabs/generation.svelte'

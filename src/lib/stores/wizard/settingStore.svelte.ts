@@ -1,13 +1,9 @@
-import {
-  type ExpandedSetting,
-  scenarioService,
-  type Genre,
-} from '$lib/services/ai/wizard/ScenarioService'
+import { scenarioService, type Genre } from '$lib/services/ai/wizard/ScenarioService'
+import { type ExpandedSetting } from '$lib/services/ai/sdk'
 import { aiService } from '$lib/services/ai'
 import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 import { settings } from '$lib/stores/settings.svelte'
 import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
-import type { VaultScenario, VaultScenarioNpc } from '$lib/types'
 import type { ImportedEntry, GeneratedCharacter } from '$lib/components/wizard/wizardTypes'
 
 export class SettingStore {
@@ -30,7 +26,9 @@ export class SettingStore {
   savedScenarioToVaultConfirm = $state(false)
 
   // Derived
-  expandedSettingDisplay = $derived(this.expandedSettingTranslated ?? this.expandedSetting)
+  expandedSettingDisplay = $derived<ExpandedSetting | null>(
+    this.expandedSettingTranslated ?? this.expandedSetting,
+  )
 
   // Actions
   clearSettingEditState() {
@@ -181,7 +179,6 @@ export class SettingStore {
     if (setting.atmosphere) fields.atmosphere = setting.atmosphere
     if (setting.themes?.length) fields.themes = setting.themes.join(', ')
     if (setting.potentialConflicts?.length) fields.conflicts = setting.potentialConflicts.join('; ')
-
     ;(setting.keyLocations || []).forEach((loc, i) => {
       fields[`loc_${i}_name`] = loc.name
       if (loc.description) fields[`loc_${i}_desc`] = loc.description

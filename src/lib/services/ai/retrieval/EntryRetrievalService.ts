@@ -19,7 +19,7 @@ import type {
 } from '$lib/types'
 import { settings } from '$lib/stores/settings.svelte'
 import { buildExtraBody } from '../core/requestOverrides'
-import { createLogger, getContextConfig } from '../core/config'
+import { createLogger } from '../core/config'
 import { generateStructured } from '../sdk/generate'
 import { entitySelectionSchema } from '../sdk/schemas/context'
 import { promptService } from '$lib/services/prompts'

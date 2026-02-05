@@ -10,7 +10,7 @@
   import PromptEditor from '$lib/components/prompts/PromptEditor.svelte'
   import MacroChip from '$lib/components/prompts/MacroChip.svelte'
   import MacroInspector from '$lib/components/prompts/MacroInspector.svelte'
-  import { RotateCcw, Download, Upload, Loader2, ListFilter, X, Check } from 'lucide-svelte'
+  import { RotateCcw, Download, Upload, Loader2, X, Check } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as Accordion from '$lib/components/ui/accordion'

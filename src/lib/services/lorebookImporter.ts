@@ -66,16 +66,6 @@ interface SillyTavernEntry {
   characterFilter: SillyTavernCharacterFilter
 }
 
-interface SillyTavernLorebook {
-  entries: Record<string, SillyTavernEntry>
-  name?: string
-  description?: string
-  scan_depth?: number
-  token_budget?: number
-  recursive_scanning?: boolean
-  extensions?: Record<string, unknown>
-}
-
 // ===== Import Result Types =====
 
 export interface ImportedEntry {

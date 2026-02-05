@@ -200,7 +200,7 @@ ${context.narrativeResponse}
     const result = await agent.generate({ prompt: userPrompt })
 
     // Extract the terminal result
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     const terminalResult = extractTerminalToolResult<
       FinishLoreManagementSchema & { completed: boolean }
     >(result.steps as any, 'finish_lore_management')

@@ -5,7 +5,6 @@
  */
 
 import { PROVIDERS } from '../sdk/providers/config'
-import type { APIProfile } from '$lib/types'
 import { corsFetch } from '$lib/services/discovery/utils'
 
 // Constants
@@ -319,7 +318,7 @@ export abstract class TTSProvider {
         audio.pause()
         audio.removeAttribute('src')
         audio.load()
-      } catch (e) {
+      } catch {
         // Ignore errors during cleanup
       }
     }
@@ -549,7 +548,7 @@ export class MicrosoftSpeechProvider extends TTSProvider {
    * does not allow direct access to the generated audio data as a Blob.
    * Playback must be handled via the overridden streamAndPlay method.
    */
-  protected override async generateChunk(text: string, voice: string): Promise<Blob> {
+  protected override async generateChunk(_text: string, _voice: string): Promise<Blob> {
     throw new Error('Generating audio blobs is not supported by the Windows System TTS provider.')
   }
 

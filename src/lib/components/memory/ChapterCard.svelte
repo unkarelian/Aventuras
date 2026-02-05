@@ -21,7 +21,6 @@
   import { Card, CardContent } from '$lib/components/ui/card'
   import { Textarea } from '$lib/components/ui/textarea'
   import { Badge } from '$lib/components/ui/badge'
-  import { Separator } from '$lib/components/ui/separator'
   import { cn } from '$lib/utils/cn'
 
   interface Props {

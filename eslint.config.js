@@ -38,15 +38,16 @@ export default [
     },
   },
   {
-    ignores: ['build/', '.svelte-kit/', 'dist/', 'node_modules/','src-tauri/'],
+    ignores: ['build/', '.svelte-kit/', 'dist/', 'node_modules/', 'src-tauri/'],
   },
   {
     plugins: {
       'unused-imports': unusedImports,
-      'prettier': eslintPluginPrettier,
+      prettier: eslintPluginPrettier,
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
       'unused-imports/no-unused-vars': [
         'error',
         {

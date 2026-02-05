@@ -8,7 +8,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { getSupportedLanguages } from '$lib/services/ai/utils/TranslationService'
   import { updaterService } from '$lib/services/updater'
-  import { Download, RefreshCw, Loader2, Languages } from 'lucide-svelte'
+  import { RefreshCw, Loader2, Languages } from 'lucide-svelte'
 
   let isCheckingUpdates = $state(false)
   let updateMessage = $state<string | null>(null)

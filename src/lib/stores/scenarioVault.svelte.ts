@@ -1,4 +1,4 @@
-import type { VaultScenario, VaultScenarioSource, VaultScenarioNpc } from '$lib/types'
+import type { VaultScenario, VaultScenarioNpc } from '$lib/types'
 import type { CardImportResult } from '$lib/services/characterCardImporter'
 import { database } from '$lib/services/database'
 import { discoveryService, type DiscoveryCard } from '$lib/services/discovery'

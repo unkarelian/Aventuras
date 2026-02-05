@@ -8,7 +8,6 @@
     Book,
     MapPin,
     MessageSquare,
-    Archive,
     Box,
     Flag,
     Brain,
@@ -17,7 +16,6 @@
   import TagBadge from '$lib/components/tags/TagBadge.svelte'
   import { tagStore } from '$lib/stores/tags.svelte'
   import VaultCard from './shared/VaultCard.svelte'
-  import * as Avatar from '$lib/components/ui/avatar'
 
   type VaultItem = VaultCharacter | VaultLorebook | VaultScenario
   type VaultType = 'character' | 'lorebook' | 'scenario'
@@ -50,7 +48,7 @@
   let isImporting = $derived(item.metadata?.importing === true)
 
   // Helper for Lorebook Entry Icons
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const entryTypeIcons: Record<string, any> = {
     character: Users,
     location: MapPin,

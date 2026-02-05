@@ -14,7 +14,6 @@
     Building,
     Archive,
     ChevronDown,
-    Send,
     MapPin,
   } from 'lucide-svelte'
   import UniversalVaultBrowser from '$lib/components/vault/UniversalVaultBrowser.svelte'
@@ -24,12 +23,10 @@
   import { QUICK_START_SEEDS } from '$lib/services/templates'
 
   // Shadcn Components
-  import * as Card from '$lib/components/ui/card'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Label } from '$lib/components/ui/label'
   import { Textarea } from '$lib/components/ui/textarea'
-  import { ScrollArea } from '$lib/components/ui/scroll-area'
   import { Separator } from '$lib/components/ui/separator'
   import { Badge } from '$lib/components/ui/badge'
   import * as Collapsible from '$lib/components/ui/collapsible'

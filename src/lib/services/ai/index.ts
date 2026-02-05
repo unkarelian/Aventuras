@@ -30,7 +30,7 @@ import {
   type POV,
   type Tense,
 } from '$lib/services/prompts'
-import { ClassifierService, type ClassificationContext } from './generation/ClassifierService'
+import { type ClassificationContext } from './generation/ClassifierService'
 import type { ClassificationResult } from './sdk/schemas/classifier'
 import { MemoryService, type RetrievalContext } from './generation/MemoryService'
 import type { ChapterAnalysis, ChapterSummaryResult, RetrievalDecision } from './sdk/schemas/memory'
@@ -38,7 +38,6 @@ import type { SuggestionsResult } from './sdk/schemas/suggestions'
 import type { ActionChoicesResult } from './sdk/schemas/actionchoices'
 import type { StyleReviewResult } from './generation/StyleReviewerService'
 import {
-  AgenticRetrievalService,
   type AgenticRetrievalResult,
   type RetrievalContext as AgenticRetrievalContext,
 } from './retrieval/AgenticRetrievalService'
@@ -54,7 +53,6 @@ import {
   inlineImageService,
   type InlineImageContext,
   isImageGenerationEnabled,
-  ImageAnalysisService,
   type ImageAnalysisContext,
 } from './image'
 import {
@@ -505,9 +503,9 @@ class AIService {
       onMergeEntries: (entryIds: string[], mergedEntry: Entry) => Promise<void>
       onQueryChapter?: (chapterNumber: number, question: string) => Promise<string>
     },
-    mode: StoryMode = 'adventure',
-    pov?: POV,
-    tense?: Tense,
+    _mode: StoryMode = 'adventure',
+    _pov?: POV,
+    _tense?: Tense,
   ): Promise<LoreManagementResult> {
     // Extract recent user action and narrative
     const recentNarration = recentMessages.filter((m) => m.type === 'narration')
@@ -591,9 +589,9 @@ class AIService {
       question: string,
     ) => Promise<string>,
     signal?: AbortSignal,
-    mode: StoryMode = 'adventure',
-    pov?: POV,
-    tense?: Tense,
+    _mode: StoryMode = 'adventure',
+    _pov?: POV,
+    _tense?: Tense,
   ): Promise<AgenticRetrievalResult> {
     log('runAgenticRetrieval called', {
       userInputLength: userInput.length,
@@ -630,7 +628,7 @@ class AIService {
   /**
    * Determine if agentic retrieval should be used.
    */
-  shouldUseAgenticRetrieval(chapters: Chapter[]): boolean {
+  shouldUseAgenticRetrieval(_chapters: Chapter[]): boolean {
     const timelineFillSettings = settings.systemServicesSettings.timelineFill
     if (!timelineFillSettings?.enabled) {
       return false
@@ -728,7 +726,7 @@ class AIService {
   /**
    * Determine if timeline fill should be used.
    */
-  shouldUseTimelineFill(chapters: Chapter[]): boolean {
+  shouldUseTimelineFill(_chapters: Chapter[]): boolean {
     const timelineFillSettings = settings.systemServicesSettings.timelineFill
     if (!timelineFillSettings?.enabled) {
       return false
@@ -741,11 +739,11 @@ class AIService {
    * Format timeline fill result for prompt injection.
    */
   formatTimelineFillForPrompt(
-    chapters: Chapter[],
+    _chapters: Chapter[],
     result: TimelineFillResult,
-    currentEntryPosition: number,
-    firstVisibleEntryPosition: number,
-    locations?: Location[],
+    _currentEntryPosition: number,
+    _firstVisibleEntryPosition: number,
+    _locations?: Location[],
   ): string {
     if (!result.responses || result.responses.length === 0) {
       return ''

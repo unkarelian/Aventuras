@@ -9,11 +9,7 @@ import type { Chapter, StoryEntry } from '$lib/types'
 import { promptService, type PromptContext } from '$lib/services/prompts'
 import { createLogger } from '../core/config'
 import { generateStructured, generatePlainText } from '../sdk/generate'
-import {
-  timelineQueriesResultSchema,
-  type TimelineQuery,
-  type TimelineQueriesResult,
-} from '../sdk/schemas/timeline'
+import { timelineQueriesResultSchema, type TimelineQuery } from '../sdk/schemas/timeline'
 
 const log = createLogger('TimelineFill')
 

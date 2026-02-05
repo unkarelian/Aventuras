@@ -1,5 +1,5 @@
 import type { DiscoveryCard, DiscoveryProvider, SearchOptions, SearchResult } from '../types'
-import { corsFetch, GENERIC_ICON } from '../utils'
+import { corsFetch } from '../utils'
 
 const BACKYARD_API_BASE = 'https://backyard.ai/api/trpc'
 

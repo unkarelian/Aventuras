@@ -12,7 +12,6 @@
   } from 'lucide-svelte'
   import { ui } from '$lib/stores/ui.svelte'
   import { Checkbox } from '$lib/components/ui/checkbox'
-  import { Badge } from '$lib/components/ui/badge'
   import { cn } from '$lib/utils/cn'
 
   interface Props {

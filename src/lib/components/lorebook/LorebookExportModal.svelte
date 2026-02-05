@@ -2,7 +2,7 @@
   import { ui } from '$lib/stores/ui.svelte'
   import { story } from '$lib/stores/story.svelte'
   import { exportLorebook, getFormatInfo, type ExportFormat } from '$lib/services/lorebookExporter'
-  import { Download, FileJson, FileText, Check, Loader2 } from 'lucide-svelte'
+  import { Download, FileJson, FileText, Loader2 } from 'lucide-svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Button } from '$lib/components/ui/button'

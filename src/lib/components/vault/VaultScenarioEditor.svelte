@@ -3,7 +3,6 @@
   import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
   import { characterVault } from '$lib/stores/characterVault.svelte'
   import {
-    X,
     Save,
     Plus,
     Trash2,
@@ -11,16 +10,13 @@
     MessageSquare,
     FileText,
     MapPin,
-    ChevronDown,
     ChevronRight,
     Search,
     Loader2,
     User,
   } from 'lucide-svelte'
   import TagInput from '$lib/components/tags/TagInput.svelte'
-  import VaultListItem from './shared/VaultListItem.svelte'
   import { normalizeImageDataUrl } from '$lib/utils/image'
-  import { cn } from '$lib/utils/cn'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Button } from '$lib/components/ui/button'

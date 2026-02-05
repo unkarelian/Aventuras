@@ -2,10 +2,9 @@
   import type { VaultCharacter } from '$lib/types'
   import { descriptorsToString, stringToDescriptors } from '$lib/utils/visualDescriptors'
   import { characterVault } from '$lib/stores/characterVault.svelte'
-  import { X, User, Users, ImageUp, Loader2 } from 'lucide-svelte'
+  import { X, User, ImageUp, Loader2 } from 'lucide-svelte'
   import { normalizeImageDataUrl } from '$lib/utils/image'
   import TagInput from '$lib/components/tags/TagInput.svelte'
-  import { cn } from '$lib/utils/cn'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Input } from '$lib/components/ui/input'

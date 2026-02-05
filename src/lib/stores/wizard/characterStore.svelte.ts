@@ -1,10 +1,4 @@
-import {
-  type GeneratedProtagonist,
-  type GeneratedCharacter,
-  type Genre,
-  type ExpandedSetting,
-  scenarioService,
-} from '$lib/services/ai/wizard/ScenarioService'
+import { type Genre, scenarioService } from '$lib/services/ai/wizard/ScenarioService'
 import { aiService } from '$lib/services/ai'
 import { TranslationService } from '$lib/services/ai/utils/TranslationService'
 import { settings } from '$lib/stores/settings.svelte'
@@ -12,6 +6,12 @@ import { characterVault } from '$lib/stores/characterVault.svelte'
 import type { StoryMode, POV, VaultCharacter } from '$lib/types'
 import { descriptorsToString, stringToDescriptors } from '$lib/utils/visualDescriptors'
 import { convertCardToScenario, readCharacterCardFile } from '$lib/services/characterCardImporter'
+import type {
+  ExpandedSetting,
+  GeneratedCharacter,
+  GeneratedProtagonist,
+} from '$lib/services/ai/sdk'
+import { SvelteSet } from 'svelte/reactivity'
 
 export class CharacterStore {
   // Protagonist State
@@ -606,7 +606,7 @@ export class CharacterStore {
 
   clearCardImport() {
     if (this.importedCardNpcs.length > 0) {
-      const importedNames = new Set(this.importedCardNpcs.map((n) => n.name))
+      const importedNames = new SvelteSet(this.importedCardNpcs.map((n) => n.name))
       this.supportingCharacters = this.supportingCharacters.filter(
         (c) => !importedNames.has(c.name),
       )

@@ -22,10 +22,6 @@
     ui.toggleEntityCollapsed(locationId, !isCollapsed)
   }
 
-  function hasDetails(location: Location): boolean {
-    return !!location.description
-  }
-
   async function addLocation() {
     if (!newName.trim()) return
     const makeCurrent = story.locations.length === 0

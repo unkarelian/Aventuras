@@ -13,7 +13,6 @@
     RefreshCw,
     ChevronLeft,
     ChevronRight,
-    Pencil,
     RotateCcw,
   } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button'

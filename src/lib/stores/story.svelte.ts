@@ -15,7 +15,6 @@ import type {
   TimeTracker,
   EmbeddedImage,
   PersistentCharacterSnapshot,
-  VisualDescriptors,
 } from '$lib/types'
 import { database } from '$lib/services/database'
 import { ui } from './ui.svelte'
@@ -30,10 +29,9 @@ import {
   emitStateUpdated,
   emitChapterCreated,
   type CheckpointCreatedEvent,
-  type CheckpointRestoredEvent,
   type StoryCreatedEvent,
-  type SaveCompleteEvent,
 } from '$lib/services/events'
+import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 
 const DEBUG = true
 
@@ -1846,7 +1844,7 @@ class StoryStore {
       id: crypto.randomUUID(),
       storyId: this.currentStory.id,
       number: chapterNumber,
-      title: chapterData.title,
+      title: chapterData.title || null,
       startEntryId: chapterEntries[0].id,
       endEntryId: chapterEntries[chapterEntries.length - 1].id,
       entryCount: chapterEntries.length,
@@ -1857,7 +1855,7 @@ class StoryStore {
       characters: chapterData.characters,
       locations: chapterData.locations,
       plotThreads: chapterData.plotThreads,
-      emotionalTone: chapterData.emotionalTone,
+      emotionalTone: chapterData.emotionalTone || null,
       branchId: this.currentStory.currentBranchId,
       createdAt: Date.now(),
     }
@@ -2011,7 +2009,7 @@ class StoryStore {
     }
 
     // Copy locations - need to remap connection IDs to new location IDs
-    const locationIdMap = new Map<string, string>() // old ID -> new ID
+    const locationIdMap = new SvelteMap<string, string>() // old ID -> new ID
     for (const loc of checkpoint.locationsSnapshot) {
       const newId = crypto.randomUUID()
       locationIdMap.set(loc.id, newId)
@@ -2088,7 +2086,7 @@ class StoryStore {
   private buildBranchLineage(branchId: string): Branch[] {
     const lineage: Branch[] = []
     let current: Branch | null = this.branches.find((b) => b.id === branchId) ?? null
-    const visited = new Set<string>()
+    const visited = new SvelteSet<string>()
 
     while (current) {
       if (visited.has(current.id)) break
@@ -2102,11 +2100,13 @@ class StoryStore {
     return lineage
   }
 
-  private async getForkEntryPositions(lineage: Branch[]): Promise<Map<string, number | null>> {
+  private async getForkEntryPositions(
+    lineage: Branch[],
+  ): Promise<SvelteMap<string, number | null>> {
     const entries = await Promise.all(
       lineage.map((branch) => database.getStoryEntry(branch.forkEntryId)),
     )
-    const positions = new Map<string, number | null>()
+    const positions = new SvelteMap<string, number | null>()
     entries.forEach((entry, index) => {
       positions.set(lineage[index].id, entry?.position ?? null)
     })
@@ -2211,7 +2211,7 @@ class StoryStore {
 
       this.entries = [...inheritedEntries, ...branchEntries].sort((a, b) => a.position - b.position)
 
-      const entryPositions = new Map<string, number>()
+      const entryPositions = new SvelteMap<string, number>()
       for (const entry of this.entries) {
         entryPositions.set(entry.id, entry.position)
       }

@@ -20,7 +20,6 @@
   } from 'lucide-svelte'
   import { aiTTSService } from '$lib/services/ai/utils/TTSService'
   import { parseMarkdown } from '$lib/utils/markdown'
-  import { slide } from 'svelte/transition'
   import { sanitizeTextForTTS } from '$lib/utils/htmlSanitize'
   import {
     processContentWithImages,

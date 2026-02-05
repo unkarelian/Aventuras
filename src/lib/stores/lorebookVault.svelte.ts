@@ -1,4 +1,4 @@
-import type { VaultLorebook, VaultLorebookSource, EntryType, VaultLorebookEntry } from '$lib/types'
+import type { VaultLorebook, EntryType, VaultLorebookEntry } from '$lib/types'
 import type { LorebookImportResult } from '$lib/services/lorebookImporter'
 import { database } from '$lib/services/database'
 import { discoveryService, type DiscoveryCard } from '$lib/services/discovery'
@@ -271,6 +271,7 @@ class LorebookVaultStore {
     // Classify entries with LLM
     const entries = await classifyEntriesWithLLM(
       parsed.entries,
+      // eslint-disable-next-line unused-imports/no-unused-vars
       (current, total) => {
         // Update progress logic could go here if we tracked it in metadata
       },
@@ -278,7 +279,7 @@ class LorebookVaultStore {
     )
 
     const vaultEntries = entries.map((e) => {
-      const { originalData, ...rest } = e
+      const { originalData: _originalData, ...rest } = e
       return rest
     })
 
@@ -366,12 +367,15 @@ class LorebookVaultStore {
 
     const entries = await classifyEntriesWithLLM(
       parsed.entries,
-      (current, total) => {},
+      // eslint-disable-next-line unused-imports/no-unused-vars
+      (current, total) => {
+        // Update progress logic could go here if we tracked it in metadata
+      },
       'adventure',
     )
 
     const vaultEntries = entries.map((e) => {
-      const { originalData, ...rest } = e
+      const { originalData: _originalData, ...rest } = e
       return rest
     })
 

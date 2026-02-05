@@ -5,7 +5,6 @@
  * Provides backwards-compatible functions for components that need them.
  */
 
-import type { EmbeddedImage } from '$lib/types'
 import { generateImage } from '$lib/services/ai/sdk/generate'
 import { PROVIDERS } from '$lib/services/ai/sdk/providers/config'
 import { database } from '$lib/services/database'

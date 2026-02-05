@@ -2,7 +2,6 @@
   import { Button } from '$lib/components/ui/button'
 
   interface Props {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     icon?: any
     title: string
     description: string
