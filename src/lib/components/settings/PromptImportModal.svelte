@@ -38,7 +38,7 @@
   let presetConfigs = $state<Map<string, ImportPresetConfig>>(new Map())
   let expandedPreset = $state<string | null>(null)
   let isImporting = $state(false)
-  let importSuccess = $state(false)
+  let _importSuccess = $state(false)
 
   // Derived
   const availableProfiles = $derived(
@@ -75,7 +75,7 @@
     presetConfigs = new Map()
     expandedPreset = null
     isImporting = false
-    importSuccess = false
+    _importSuccess = false
   }
 
   function handleOpenChange(newOpen: boolean) {
@@ -180,7 +180,7 @@
 
     try {
       await promptExportService.applyImport(parseResult.data, presetConfigs)
-      importSuccess = true
+      _importSuccess = true
       currentStep = 3
 
       setTimeout(() => {

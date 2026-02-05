@@ -12,7 +12,7 @@
   let { text, onApplySuggestion }: Props = $props()
 
   let issues = $state<GrammarIssue[]>([])
-  let checking = $state(false)
+  let _checking = $state(false)
   let expandedIssue = $state<number | null>(null)
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -37,11 +37,11 @@
     }
 
     debounceTimeout = setTimeout(async () => {
-      checking = true
+      _checking = true
       try {
         issues = await grammarService.lint(text)
       } finally {
-        checking = false
+        _checking = false
       }
     }, 500)
 
