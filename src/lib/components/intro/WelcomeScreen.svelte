@@ -59,7 +59,7 @@
       signupUrl: 'https://nano-gpt.com/api',
       keyPrefix: 'sk-nano-',
       requiresKey: true,
-      note: 'Append :thinking to model names for reasoning',
+      note: 'Reasoning models are auto-detected',
       color:
         'border-yellow-500/20 hover:border-yellow-500/50 bg-yellow-500/5 hover:bg-yellow-500/10',
       iconColor: 'text-yellow-500',

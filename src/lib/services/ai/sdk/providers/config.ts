@@ -25,12 +25,10 @@ export interface ProviderCapabilities {
    * Whether the provider supports reasoning/thinking.
    * - 'native': Provider has native reasoning support (Anthropic thinking, OpenAI reasoning)
    * - 'openrouter': Uses OpenRouter's reasoning parameter
-   * - 'suffix': Append suffix to model name (e.g., NanoGPT's :thinking)
+   * - 'fetched': Reasoning support determined per-model from API capabilities (e.g., NanoGPT)
    * - false: No reasoning support
    */
-  reasoning: 'native' | 'openrouter' | 'suffix' | false
-  /** For 'suffix' reasoning mode, the suffix to append (default: ':thinking') */
-  reasoningSuffix?: string
+  reasoning: 'native' | 'openrouter' | 'fetched' | false
   /**
    * How reasoning is extracted from the response.
    * - 'sdk-native': SDK handles it natively (Anthropic, DeepSeek)
@@ -148,8 +146,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: true,
       structuredOutput: false,
-      reasoning: 'suffix',
-      reasoningSuffix: ':thinking',
+      reasoning: 'fetched',
       reasoningExtraction: 'api-field',
     },
     imageDefaults: {
@@ -547,7 +544,7 @@ export function supportsReasoning(providerType: ProviderType): boolean {
 /** Get the reasoning mode for a provider */
 export function getReasoningMode(
   providerType: ProviderType,
-): 'native' | 'openrouter' | 'suffix' | false {
+): 'native' | 'openrouter' | 'fetched' | false {
   return PROVIDERS[providerType].capabilities.reasoning
 }
 
@@ -558,63 +555,22 @@ export function getReasoningExtraction(
   return PROVIDERS[providerType].capabilities.reasoningExtraction
 }
 
-/**
- * Get the display model name (strips reasoning suffix for UI display).
- * For providers using 'suffix' reasoning mode (e.g., NanoGPT), this removes
- * the suffix (e.g., ':thinking') from the model name.
- */
-export function getDisplayModelName(modelId: string, providerType: ProviderType): string {
-  const config = PROVIDERS[providerType]
-  if (config.capabilities.reasoning === 'suffix' && config.capabilities.reasoningSuffix) {
-    const suffix = config.capabilities.reasoningSuffix
-    if (modelId.endsWith(suffix)) {
-      return modelId.slice(0, -suffix.length)
-    }
-  }
-  return modelId
-}
 
 /**
- * Check if a model supports reasoning based on its name.
- * For 'suffix' providers, a model supports reasoning if it has the suffix.
+ * Check if a model supports reasoning controls (slider).
+ * For 'fetched' providers (e.g., NanoGPT), check the profile's reasoningModels list.
  * For other providers, we assume all models support reasoning if the provider does.
  */
-export function modelSupportsReasoning(modelId: string, providerType: ProviderType): boolean {
+export function modelSupportsReasoning(
+  modelId: string,
+  providerType: ProviderType,
+  reasoningModels?: string[],
+): boolean {
   const config = PROVIDERS[providerType]
-  if (config.capabilities.reasoning === false) {
-    return false
+  if (config.capabilities.reasoning === false) return false
+  if (config.capabilities.reasoning === 'fetched') {
+    return reasoningModels?.includes(modelId) ?? false
   }
-  if (config.capabilities.reasoning === 'suffix' && config.capabilities.reasoningSuffix) {
-    // For suffix providers, only models with the suffix support reasoning
-    return modelId.endsWith(config.capabilities.reasoningSuffix)
-  }
-  // For native/openrouter, assume all models support reasoning
   return true
 }
 
-/**
- * Get the API model name for making requests.
- * For 'suffix' providers with reasoning enabled, appends the suffix if not already present.
- */
-export function getApiModelName(
-  modelId: string,
-  providerType: ProviderType,
-  reasoningEnabled: boolean,
-): string {
-  const config = PROVIDERS[providerType]
-
-  if (config.capabilities.reasoning === 'suffix' && config.capabilities.reasoningSuffix) {
-    const suffix = config.capabilities.reasoningSuffix
-    const baseModel = modelId.endsWith(suffix) ? modelId.slice(0, -suffix.length) : modelId
-
-    if (reasoningEnabled) {
-      // Check if the model with suffix exists (model supports reasoning)
-      // For now, just append if reasoning is enabled - the model list should already have both variants
-      return baseModel + suffix
-    }
-    return baseModel
-  }
-
-  // For other providers, return as-is
-  return modelId
-}

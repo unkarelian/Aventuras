@@ -26,7 +26,11 @@
     AlertTriangle,
   } from 'lucide-svelte'
   import ModelSelector from './ModelSelector.svelte'
-  import { supportsReasoning, modelSupportsReasoning } from '$lib/services/ai/sdk/providers'
+  import {
+    supportsReasoning,
+    modelSupportsReasoning,
+    getReasoningMode,
+  } from '$lib/services/ai/sdk/providers'
 
   // Shadcn Components
   import * as Card from '$lib/components/ui/card'
@@ -451,7 +455,16 @@
     const model = tempPreset.model
     if (!model) return false
 
-    return modelSupportsReasoning(model, profile.providerType)
+    return modelSupportsReasoning(model, profile.providerType, profile.reasoningModels)
+  })
+
+  // For 'fetched' providers (e.g., NanoGPT), reasoning is binary — no slider, just text
+  let tempPresetIsFetchedProvider = $derived.by(() => {
+    if (!tempPreset) return false
+    const profileId = tempPreset.profileId ?? settings.getDefaultProfileIdForProvider()
+    const profile = settings.getProfile(profileId)
+    if (!profile) return false
+    return getReasoningMode(profile.providerType) === 'fetched'
   })
 </script>
 
@@ -565,7 +578,6 @@
             if (tempPreset) tempPreset.model = m
           }}
         />
-
         <div class="grid grid-cols-2 gap-6">
           <div class="grid gap-4">
             <div class="flex justify-between">
@@ -598,7 +610,18 @@
           </div>
         </div>
 
-        {#if tempPresetReasoningSupported}
+        {#if tempPresetIsFetchedProvider}
+          {#if tempPresetReasoningSupported}
+            <div class="flex items-center gap-1.5 text-xs text-emerald-500">
+              <Brain class="h-3.5 w-3.5" />
+              Reasoning enabled
+            </div>
+          {:else}
+            <p class="text-muted-foreground text-xs">
+              Some models support reasoning. Fetch models to detect capabilities.
+            </p>
+          {/if}
+        {:else if tempPresetReasoningSupported}
           <div class="grid gap-4">
             <div class="flex justify-between">
               <Label>Thinking: {reasoningLabels[tempPreset.reasoningEffort]}</Label>

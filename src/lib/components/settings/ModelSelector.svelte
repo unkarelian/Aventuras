@@ -8,6 +8,7 @@
     RefreshCw,
     Star,
     AlertTriangle,
+    Brain,
   } from 'lucide-svelte'
   import VirtualList from '@tutorlatin/svelte-tiny-virtual-list'
   import * as Select from '$lib/components/ui/select'
@@ -57,6 +58,13 @@
 
   // Get available models for the selected profile (excluding hidden, favorites first)
   let availableModels = $derived(settings.getAvailableModels(effectiveProfileId))
+
+  // Set of models that support reasoning (for brain icon)
+  let reasoningSet = $derived.by(() => {
+    if (!effectiveProfileId) return new Set<string>()
+    const profile = settings.getProfile(effectiveProfileId)
+    return new Set(profile?.reasoningModels ?? [])
+  })
 
   // Number of favorite models (for separator)
   let favoriteCount = $derived.by(() => {
@@ -242,7 +250,10 @@
                                 )}
                               />
                             {/if}
-                            {modelOption}
+                            <span class="truncate">{modelOption}</span>
+                            {#if reasoningSet.has(modelOption)}
+                              <Brain class="ml-auto h-3 w-3 shrink-0 text-emerald-500" />
+                            {/if}
                           </Command.Item>
                         </div>
                       {/if}

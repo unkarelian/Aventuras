@@ -25,7 +25,7 @@ import { settings } from '$lib/stores/settings.svelte'
 import type { ProviderType, GenerationPreset, ReasoningEffort, APIProfile } from '$lib/types'
 import { createLogger } from '../core/config'
 import { createProviderFromProfile } from './providers'
-import { PROVIDERS, getApiModelName } from './providers/config'
+import { PROVIDERS } from './providers/config'
 import { promptSchemaMiddleware, patchResponseMiddleware, loggingMiddleware } from './middleware'
 import { ui } from '$lib/stores/ui.svelte'
 
@@ -165,11 +165,7 @@ function resolveConfig(presetId: string, serviceId: string, debugId?: string): R
   }
 
   const provider = createProviderFromProfile(profile, serviceId, debugId)
-  const reasoningEnabled = preset.reasoningEffort && preset.reasoningEffort !== 'off'
-
-  // For 'suffix' providers (e.g., NanoGPT), append suffix if reasoning is enabled
-  const modelId = getApiModelName(preset.model, profile.providerType, reasoningEnabled)
-  const model = provider(modelId) as LanguageModelV3
+  const model = provider(preset.model) as LanguageModelV3
   const capabilities = PROVIDERS[profile.providerType].capabilities
 
   return {
@@ -194,18 +190,14 @@ function resolveNarrativeConfig(debugId?: string): NarrativeConfig {
   const provider = createProviderFromProfile(profile, 'narrative', debugId)
   const baseModelId = settings.apiSettings.defaultModel
   const reasoningEffort = settings.apiSettings.reasoningEffort ?? 'off'
-  const reasoningEnabled = reasoningEffort !== 'off'
-
-  // For 'suffix' providers (e.g., NanoGPT), append suffix if reasoning is enabled
-  const modelId = getApiModelName(baseModelId, profile.providerType, reasoningEnabled)
-  const model = provider(modelId) as LanguageModelV3
+  const model = provider(baseModelId) as LanguageModelV3
 
   const narrativePreset: GenerationPreset = {
     id: '_narrative',
     name: 'Narrative',
     description: 'Main narrative generation',
     profileId: profile.id,
-    model: modelId,
+    model: baseModelId,
     temperature: settings.apiSettings.temperature,
     maxTokens: settings.apiSettings.maxTokens,
     reasoningEffort: reasoningEffort,

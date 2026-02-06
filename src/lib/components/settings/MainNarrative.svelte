@@ -1,12 +1,13 @@
 <script lang="ts">
   import { settings } from '$lib/stores/settings.svelte'
-  import { Cpu, AlertTriangle } from 'lucide-svelte'
+  import { Cpu, AlertTriangle, Brain } from 'lucide-svelte'
   import type { ReasoningEffort } from '$lib/types'
   import { cn } from '$lib/utils/cn'
   import {
     fetchModelsFromProvider,
     supportsReasoning,
     modelSupportsReasoning,
+    getReasoningMode,
   } from '$lib/services/ai/sdk/providers'
 
   // Shadcn Components
@@ -58,7 +59,7 @@
     modelError = null
 
     try {
-      const models = await fetchModelsFromProvider(
+      const result = await fetchModelsFromProvider(
         profile.providerType,
         profile.baseUrl,
         profile.apiKey,
@@ -66,10 +67,11 @@
 
       await settings.updateProfile(profile.id, {
         ...profile,
-        fetchedModels: models,
+        fetchedModels: result.models,
+        reasoningModels: result.reasoningModels,
       })
 
-      console.log(`[MainNarrative] Fetched ${models.length} models from ${profile.providerType}`)
+      console.log(`[MainNarrative] Fetched ${result.models.length} models from ${profile.providerType}`)
     } catch (error) {
       console.error('[MainNarrative] Failed to fetch models:', error)
       modelError = error instanceof Error ? error.message : 'Failed to load models.'
@@ -90,7 +92,14 @@
     const model = settings.apiSettings.defaultModel
     if (!model) return false
 
-    return modelSupportsReasoning(model, profile.providerType)
+    return modelSupportsReasoning(model, profile.providerType, profile.reasoningModels)
+  })
+
+  // For 'fetched' providers (e.g., NanoGPT), reasoning is binary — no slider, just text
+  let isFetchedReasoningProvider = $derived.by(() => {
+    const profile = settings.getMainNarrativeProfile()
+    if (!profile) return false
+    return getReasoningMode(profile.providerType) === 'fetched'
   })
 
   // Proxy states for sliders to ensure correct array type binding
@@ -147,6 +156,18 @@
       />
       {#if modelError}
         <p class="text-destructive text-xs">{modelError}</p>
+      {/if}
+      {#if isFetchedReasoningProvider}
+        {#if reasoningSupported}
+          <div class="flex items-center gap-1.5 text-xs text-emerald-500">
+            <Brain class="h-3.5 w-3.5" />
+            Reasoning enabled
+          </div>
+        {:else}
+          <p class="text-muted-foreground text-xs">
+            Some models support reasoning. Fetch models to detect capabilities.
+          </p>
+        {/if}
       {/if}
     </div>
 
@@ -219,8 +240,8 @@
       </div>
     </div>
 
-    <!-- Thinking Row (only shown if provider/model supports reasoning) -->
-    {#if reasoningSupported}
+    <!-- Thinking Row (only shown if provider/model supports reasoning via slider) -->
+    {#if reasoningSupported && !isFetchedReasoningProvider}
       <div
         class={cn(
           'grid grid-cols-1 gap-6 border-t pt-4 md:grid-cols-2',

@@ -43,6 +43,7 @@
   let formApiKey = $state('')
   let formCustomModels = $state<string[]>([])
   let formFetchedModels = $state<string[]>([])
+  let formReasoningModels = $state<string[]>([])
   let formSetAsDefault = $state(false)
   let formHiddenModels = $state<string[]>([])
   let formFavoriteModels = $state<string[]>([])
@@ -105,6 +106,7 @@
     formApiKey = profile.apiKey
     formCustomModels = [...profile.customModels]
     formFetchedModels = [...profile.fetchedModels]
+    formReasoningModels = [...(profile.reasoningModels ?? [])]
     formHiddenModels = [...(profile.hiddenModels ?? [])]
     formFavoriteModels = [...(profile.favoriteModels ?? [])]
     formSetAsDefault = false
@@ -124,6 +126,7 @@
     formApiKey = ''
     formCustomModels = []
     formFetchedModels = []
+    formReasoningModels = []
     formHiddenModels = []
     formFavoriteModels = []
     formSetAsDefault = settings.apiSettings.profiles.length === 0
@@ -147,6 +150,7 @@
       apiKey: formApiKey,
       customModels: formCustomModels,
       fetchedModels: formFetchedModels,
+      reasoningModels: formReasoningModels,
       hiddenModels: formHiddenModels,
       favoriteModels: formFavoriteModels,
       createdAt: isNewProfile
@@ -177,10 +181,12 @@
     isFetchingModels = true
     fetchError = null
     formFetchedModels = []
+    formReasoningModels = []
 
     try {
-      const models = await fetchModelsFromProvider(formProviderType, formBaseUrl, formApiKey)
-      formFetchedModels = models
+      const result = await fetchModelsFromProvider(formProviderType, formBaseUrl, formApiKey)
+      formFetchedModels = result.models
+      formReasoningModels = result.reasoningModels
     } catch (err) {
       fetchError = err instanceof Error ? err.message : 'Failed to fetch models'
     } finally {
@@ -271,6 +277,7 @@
       apiKey: formApiKey,
       customModels: formCustomModels,
       fetchedModels: formFetchedModels,
+      reasoningModels: formReasoningModels,
       hiddenModels: formHiddenModels,
       favoriteModels: formFavoriteModels,
       createdAt: existingProfile.createdAt,
@@ -343,6 +350,7 @@
               formName = PROVIDERS[v].name
               formBaseUrl = ''
               formFetchedModels = []
+              formReasoningModels = []
               formCustomModels = []
               formHiddenModels = []
               formFavoriteModels = []

@@ -8,6 +8,12 @@ import { createTimeoutFetch } from './fetch'
 import { PROVIDERS, getBaseUrl } from './config'
 import type { ProviderType } from '$lib/types'
 
+/** Result from fetching models, including which ones support reasoning */
+export interface ModelFetchResult {
+  models: string[]
+  reasoningModels: string[]
+}
+
 /** URLs that don't require authentication for model fetching */
 const NO_AUTH_PATTERNS = ['nano-gpt.com', 'gen.pollinations.ai', '127.0.0.1', 'localhost']
 
@@ -18,14 +24,15 @@ export async function fetchModelsFromProvider(
   providerType: ProviderType,
   baseUrl?: string,
   apiKey?: string,
-): Promise<string[]> {
+): Promise<ModelFetchResult> {
   // Provider-specific fetch logic
-  if (providerType === 'google') return fetchGoogleModels(baseUrl, apiKey)
-  if (providerType === 'anthropic') return fetchAnthropicModels(baseUrl, apiKey)
-  if (providerType === 'chutes') return fetchChutesModels(baseUrl, apiKey)
-  if (providerType === 'ollama') return fetchOllamaModels(baseUrl)
-  if (providerType === 'zhipu') return fetchZhipuModels(baseUrl, apiKey)
-  if (providerType === 'mistral') return fetchMistralModels(baseUrl, apiKey)
+  if (providerType === 'nanogpt') return fetchNanogptModels(baseUrl)
+  if (providerType === 'google') return wrap(fetchGoogleModels(baseUrl, apiKey))
+  if (providerType === 'anthropic') return wrap(fetchAnthropicModels(baseUrl, apiKey))
+  if (providerType === 'chutes') return wrap(fetchChutesModels(baseUrl, apiKey))
+  if (providerType === 'ollama') return wrap(fetchOllamaModels(baseUrl))
+  if (providerType === 'zhipu') return wrap(fetchZhipuModels(baseUrl, apiKey))
+  if (providerType === 'mistral') return wrap(fetchMistralModels(baseUrl, apiKey))
 
   // Standard OpenAI-compatible endpoint
   const effectiveBaseUrl = baseUrl || getBaseUrl(providerType)
@@ -49,13 +56,58 @@ export async function fetchModelsFromProvider(
   const data = await response.json()
 
   if (data.data && Array.isArray(data.data)) {
-    return data.data.map((m: { id: string }) => m.id)
+    return { models: data.data.map((m: { id: string }) => m.id), reasoningModels: [] }
   }
   if (Array.isArray(data)) {
-    return data.map((m: { id?: string; name?: string }) => m.id || m.name || '').filter(Boolean)
+    return {
+      models: data
+        .map((m: { id?: string; name?: string }) => m.id || m.name || '')
+        .filter(Boolean),
+      reasoningModels: [],
+    }
   }
 
   throw new Error('Unexpected API response format')
+}
+
+/** Wrap a plain string[] result into ModelFetchResult */
+function wrap(promise: Promise<string[]>): Promise<ModelFetchResult> {
+  return promise.then((models) => ({ models, reasoningModels: [] }))
+}
+
+interface NanogptModelEntry {
+  model: string
+  name?: string
+  capabilities?: string[]
+}
+
+async function fetchNanogptModels(baseUrl?: string): Promise<ModelFetchResult> {
+  // Use the detailed API to get capabilities including reasoning
+  const effectiveBase = baseUrl?.replace(/\/v1\/?$/, '') || 'https://nano-gpt.com/api'
+  const modelsUrl = effectiveBase.replace(/\/$/, '') + '/models?detailed=true'
+
+  const fetchFn = createTimeoutFetch(30000, 'model-fetch')
+  const response = await fetchFn(modelsUrl, { method: 'GET' })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch NanoGPT models: ${response.status} ${response.statusText}`)
+  }
+
+  const data = await response.json()
+  const textModels: Record<string, NanogptModelEntry> = data?.models?.text ?? {}
+
+  const modelSet = new Set<string>()
+  const reasoningSet = new Set<string>()
+
+  for (const [key, entry] of Object.entries(textModels)) {
+    const modelId = entry.model || key
+    modelSet.add(modelId)
+    if (Array.isArray(entry.capabilities) && entry.capabilities.includes('reasoning')) {
+      reasoningSet.add(modelId)
+    }
+  }
+
+  return { models: [...modelSet], reasoningModels: [...reasoningSet] }
 }
 
 async function fetchAnthropicModels(baseUrl?: string, apiKey?: string): Promise<string[]> {

@@ -1281,8 +1281,11 @@ class SettingsStore {
           // Ensure new fields have defaults for profiles saved before these fields existed
           this.apiSettings.profiles = parsed.map((p) => ({
             ...p,
-            hiddenModels: p.hiddenModels ?? [],
-            favoriteModels: p.favoriteModels ?? [],
+            customModels: Array.isArray(p.customModels) ? p.customModels : [],
+            fetchedModels: Array.isArray(p.fetchedModels) ? p.fetchedModels : [],
+            reasoningModels: Array.isArray(p.reasoningModels) ? p.reasoningModels : [],
+            hiddenModels: Array.isArray(p.hiddenModels) ? p.hiddenModels : [],
+            favoriteModels: Array.isArray(p.favoriteModels) ? p.favoriteModels : [],
             providerType: p.providerType ?? 'openai-compatible',
           }))
         } catch {
@@ -2157,6 +2160,7 @@ class SettingsStore {
         apiKey: existingApiKey || '', // Migrate existing key if present
         customModels: allModels, // Include all models in use plus defaults
         fetchedModels: [], // Will be populated when user fetches from API
+        reasoningModels: [],
         hiddenModels: [],
         favoriteModels: [],
         createdAt: Date.now(),
@@ -2889,6 +2893,7 @@ class SettingsStore {
       apiKey: apiKey,
       customModels: [],
       fetchedModels: [],
+      reasoningModels: [],
       hiddenModels: [],
       favoriteModels: [],
       createdAt: Date.now(),
