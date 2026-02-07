@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { ImageModelInfo } from '$lib/services/ai/image/modelListing'
-  import * as Select from '$lib/components/ui/select'
+  import { Autocomplete } from '$lib/components/ui/autocomplete'
   import { Button } from '$lib/components/ui/button'
-  import { RefreshCw, Loader2 } from 'lucide-svelte'
+  import { RefreshCw, Loader2, Check } from 'lucide-svelte'
+  import { cn } from '$lib/utils/cn'
   import {
     DEFAULT_AVG_PROMPT_TOKENS,
     DEFAULT_AVG_IMAGE_TOKENS,
@@ -85,10 +86,6 @@
       label += ` (${formatCost(model)})`
     }
 
-    if (showImg2ImgIndicator && model.supportsImg2Img) {
-      label += ' 🖼️'
-    }
-
     return label
   }
 
@@ -98,6 +95,7 @@
       onModelChange(value)
     }
   }
+  console.log(filteredModels)
 </script>
 
 <div class="w-full space-y-2">
@@ -120,35 +118,57 @@
   {:else}
     <div class="flex items-center gap-2">
       <div class="flex-1">
-        <Select.Root type="single" value={selectedModelId} onValueChange={handleChange} {disabled}>
-          <Select.Trigger class="w-full">
-            {selectedLabel}
-          </Select.Trigger>
-          <Select.Content>
-            {#each filteredModels as model (model.id)}
-              <Select.Item value={model.id} label={getModelLabel(model)}>
-                <div class="flex flex-col items-start gap-1">
-                  <span>{getModelLabel(model)}</span>
-                  {#if showDescription && model.description}
-                    <span class="text-muted-foreground text-xs">
-                      {model.description}
-                    </span>
-                  {/if}
-                  {#if showModalities && (model.inputModalities || model.outputModalities)}
-                    <span class="text-muted-foreground text-xs">
-                      {#if model.inputModalities}
-                        In: {model.inputModalities.join(', ')}
-                      {/if}
-                      {#if model.outputModalities}
-                        → Out: {model.outputModalities.join(', ')}
-                      {/if}
-                    </span>
-                  {/if}
+        <Autocomplete
+          items={filteredModels}
+          selected={selectedModel}
+          onSelect={(m) => handleChange((m as ImageModelInfo)?.id)}
+          itemLabel={(m) => m.name}
+          itemValue={(m) => m.id}
+          {placeholder}
+          {disabled}
+        >
+          {#snippet itemSnippet(model)}
+            <div class="flex w-full flex-col items-start gap-1">
+              <div class="flex w-full items-center justify-between gap-2">
+                <div class="flex items-center gap-2 truncate">
+                  <Check
+                    class={cn(
+                      'h-4 w-4',
+                      selectedModelId === model.id ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  <span class="truncate">{getModelLabel(model)}</span>
                 </div>
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
+                {#if showImg2ImgIndicator && model.supportsImg2Img}
+                  <span class="shrink-0">🖼️</span>
+                {/if}
+              </div>
+              {#if showDescription && model.description}
+                <span class="text-muted-foreground pl-6 text-xs">
+                  {model.description}
+                </span>
+              {/if}
+              {#if showModalities && (model.inputModalities || model.outputModalities)}
+                <span class="text-muted-foreground pl-6 text-xs">
+                  {#if model.inputModalities}
+                    In: {model.inputModalities.join(', ')}
+                  {/if}
+                  {#if model.outputModalities}
+                    → Out: {model.outputModalities.join(', ')}
+                  {/if}
+                </span>
+              {/if}
+            </div>
+          {/snippet}
+          {#snippet triggerSnippet()}
+            <span class="flex w-full items-center justify-between gap-2 overflow-hidden">
+              <span class="truncate">{selectedLabel}</span>
+              {#if showImg2ImgIndicator && selectedModel?.supportsImg2Img}
+                <span class="shrink-0 text-xs">🖼️</span>
+              {/if}
+            </span>
+          {/snippet}
+        </Autocomplete>
       </div>
       {#if showRefreshButton && onRefresh}
         <Button variant="ghost" size="icon" onclick={onRefresh} disabled={isLoading}>

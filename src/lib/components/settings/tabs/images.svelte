@@ -3,7 +3,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import { Label } from '$lib/components/ui/label'
   import { Button } from '$lib/components/ui/button'
-  import * as Select from '$lib/components/ui/select'
+  import { Autocomplete } from '$lib/components/ui/autocomplete'
   import { Slider } from '$lib/components/ui/slider'
   import { RotateCcw, Info } from 'lucide-svelte'
   import {
@@ -288,31 +288,14 @@
               <div class="space-y-4">
                 <div class="space-y-2">
                   <Label>Regular Image Profile</Label>
-                  <Select.Root
-                    type="single"
-                    value={settings.systemServicesSettings.imageGeneration.profileId ?? ''}
-                    onValueChange={(v) => onProfileChange(v, 'standard')}
-                  >
-                    <Select.Trigger class="h-10 w-full">
-                      {#if getSelectedProfile('standard')}
-                        {getSelectedProfile('standard')?.name} ({getSelectedProfile('standard')
-                          ?.providerType})
-                      {:else}
-                        Select a profile
-                      {/if}
-                    </Select.Trigger>
-                    <Select.Content>
-                      {#each imageCapableProfiles as profile (profile.id)}
-                        <Select.Item
-                          value={profile.id}
-                          label={`${profile.name} (${profile.providerType})`}
-                        >
-                          {profile.name}
-                          <span class="text-muted-foreground">({profile.providerType})</span>
-                        </Select.Item>
-                      {/each}
-                    </Select.Content>
-                  </Select.Root>
+                  <Autocomplete
+                    items={imageCapableProfiles}
+                    selected={getSelectedProfile('standard')}
+                    onSelect={(v) => onProfileChange((v as APIProfile).id, 'standard')}
+                    itemLabel={(p: APIProfile) => `${p.name} (${p.providerType})`}
+                    itemValue={(p: APIProfile) => p.id}
+                    placeholder="Select a profile"
+                  />
                 </div>
 
                 {#if settings.systemServicesSettings.imageGeneration.profileId}
@@ -343,27 +326,23 @@
                   </div>
                   <div class="space-y-2">
                     <Label>Regular Image Size</Label>
-                    <Select.Root
-                      type="single"
-                      value={settings.systemServicesSettings.imageGeneration.size}
-                      onValueChange={(v) => {
-                        settings.systemServicesSettings.imageGeneration.size = v as any
+                    <Autocomplete
+                      items={imageSizes}
+                      selected={imageSizes.find(
+                        (s) => s.value === settings.systemServicesSettings.imageGeneration.size,
+                      )}
+                      onSelect={(v) => {
+                        settings.systemServicesSettings.imageGeneration.size = (
+                          v as {
+                            value: string
+                          }
+                        ).value as any
                         settings.saveSystemServicesSettings()
                       }}
-                    >
-                      <Select.Trigger class="h-10 w-full">
-                        {imageSizes.find(
-                          (s) => s.value === settings.systemServicesSettings.imageGeneration.size,
-                        )?.label ?? 'Select size'}
-                      </Select.Trigger>
-                      <Select.Content>
-                        {#each imageSizes as size (size.value)}
-                          <Select.Item value={size.value} label={size.label}>
-                            {size.label}
-                          </Select.Item>
-                        {/each}
-                      </Select.Content>
-                    </Select.Root>
+                      itemLabel={(s: { label: string }) => s.label}
+                      itemValue={(s: { value: string }) => s.value}
+                      placeholder="Select size"
+                    />
                   </div>
                 {/if}
               </div>
@@ -372,34 +351,14 @@
               <div class="space-y-4">
                 <div class="space-y-2">
                   <Label>Reference (Img2Img) Profile</Label>
-                  <Select.Root
-                    type="single"
-                    value={settings.systemServicesSettings.imageGeneration.referenceProfileId ??
-                      settings.systemServicesSettings.imageGeneration.profileId ??
-                      ''}
-                    onValueChange={(v) => onProfileChange(v, 'reference')}
-                  >
-                    <Select.Trigger class="h-10 w-full">
-                      {#if getSelectedProfile('reference') || getSelectedProfile('standard')}
-                        {(getSelectedProfile('reference') || getSelectedProfile('standard'))?.name}
-                        ({(getSelectedProfile('reference') || getSelectedProfile('standard'))
-                          ?.providerType})
-                      {:else}
-                        Select a profile
-                      {/if}
-                    </Select.Trigger>
-                    <Select.Content>
-                      {#each imageCapableProfiles as profile (profile.id)}
-                        <Select.Item
-                          value={profile.id}
-                          label={`${profile.name} (${profile.providerType})`}
-                        >
-                          {profile.name}
-                          <span class="text-muted-foreground">({profile.providerType})</span>
-                        </Select.Item>
-                      {/each}
-                    </Select.Content>
-                  </Select.Root>
+                  <Autocomplete
+                    items={imageCapableProfiles}
+                    selected={getSelectedProfile('reference') || getSelectedProfile('standard')}
+                    onSelect={(v) => onProfileChange((v as APIProfile).id, 'reference')}
+                    itemLabel={(p: APIProfile) => `${p.name} (${p.providerType})`}
+                    itemValue={(p: APIProfile) => p.id}
+                    placeholder="Select a profile"
+                  />
                 </div>
 
                 {#if settings.systemServicesSettings.imageGeneration.referenceProfileId || settings.systemServicesSettings.imageGeneration.profileId}
@@ -438,29 +397,24 @@
                   </div>
                   <div class="space-y-2">
                     <Label>Reference Image Size</Label>
-                    <Select.Root
-                      type="single"
-                      value={settings.systemServicesSettings.imageGeneration.referenceSize}
-                      onValueChange={(v) => {
-                        settings.systemServicesSettings.imageGeneration.referenceSize = v as any
+                    <Autocomplete
+                      items={imageSizes}
+                      selected={imageSizes.find(
+                        (s) =>
+                          s.value === settings.systemServicesSettings.imageGeneration.referenceSize,
+                      )}
+                      onSelect={(v) => {
+                        settings.systemServicesSettings.imageGeneration.referenceSize = (
+                          v as {
+                            value: string
+                          }
+                        ).value as any
                         settings.saveSystemServicesSettings()
                       }}
-                    >
-                      <Select.Trigger class="h-10 w-full">
-                        {imageSizes.find(
-                          (s) =>
-                            s.value ===
-                            settings.systemServicesSettings.imageGeneration.referenceSize,
-                        )?.label ?? 'Select size'}
-                      </Select.Trigger>
-                      <Select.Content>
-                        {#each imageSizes as size (size.value)}
-                          <Select.Item value={size.value} label={size.label}>
-                            {size.label}
-                          </Select.Item>
-                        {/each}
-                      </Select.Content>
-                    </Select.Root>
+                      itemLabel={(s: { label: string }) => s.label}
+                      itemValue={(s: { value: string }) => s.value}
+                      placeholder="Select size"
+                    />
                   </div>
                 {/if}
               </div>
@@ -470,27 +424,21 @@
           <!-- Image Style -->
           <div class="space-y-2">
             <Label>Story Image Style</Label>
-            <Select.Root
-              type="single"
-              value={settings.systemServicesSettings.imageGeneration.styleId}
-              onValueChange={(v) => {
-                settings.systemServicesSettings.imageGeneration.styleId = v
+            <Autocomplete
+              items={imageStyles}
+              selected={imageStyles.find(
+                (s) => s.value === settings.systemServicesSettings.imageGeneration.styleId,
+              )}
+              onSelect={(v) => {
+                settings.systemServicesSettings.imageGeneration.styleId = (
+                  v as { value: string }
+                ).value
                 settings.saveSystemServicesSettings()
               }}
-            >
-              <Select.Trigger class="h-10 w-full">
-                {imageStyles.find(
-                  (s) => s.value === settings.systemServicesSettings.imageGeneration.styleId,
-                )?.label ?? 'Select style'}
-              </Select.Trigger>
-              <Select.Content>
-                {#each imageStyles as style (style.value)}
-                  <Select.Item value={style.value} label={style.label}>
-                    {style.label}
-                  </Select.Item>
-                {/each}
-              </Select.Content>
-            </Select.Root>
+              itemLabel={(s: { label: string }) => s.label}
+              itemValue={(s: { value: string }) => s.value}
+              placeholder="Select style"
+            />
             <p class="text-muted-foreground mt-1 text-xs">
               Visual style for generated story images. Edit styles in the Prompts tab.
             </p>
@@ -525,34 +473,14 @@
           <!-- Portrait Profile -->
           <div class="space-y-2">
             <Label>Character Portrait Profile</Label>
-            <Select.Root
-              type="single"
-              value={settings.systemServicesSettings.imageGeneration.portraitProfileId ??
-                settings.systemServicesSettings.imageGeneration.profileId ??
-                ''}
-              onValueChange={(v) => onProfileChange(v, 'portrait')}
-            >
-              <Select.Trigger class="h-10 w-full">
-                {#if getSelectedProfile('portrait') || getSelectedProfile('standard')}
-                  {(getSelectedProfile('portrait') || getSelectedProfile('standard'))?.name}
-                  ({(getSelectedProfile('portrait') || getSelectedProfile('standard'))
-                    ?.providerType})
-                {:else}
-                  Select a profile
-                {/if}
-              </Select.Trigger>
-              <Select.Content>
-                {#each imageCapableProfiles as profile (profile.id)}
-                  <Select.Item
-                    value={profile.id}
-                    label={`${profile.name} (${profile.providerType})`}
-                  >
-                    {profile.name}
-                    <span class="text-muted-foreground">({profile.providerType})</span>
-                  </Select.Item>
-                {/each}
-              </Select.Content>
-            </Select.Root>
+            <Autocomplete
+              items={imageCapableProfiles}
+              selected={getSelectedProfile('portrait') || getSelectedProfile('standard')}
+              onSelect={(v) => onProfileChange((v as APIProfile).id, 'portrait')}
+              itemLabel={(p: APIProfile) => `${p.name} (${p.providerType})`}
+              itemValue={(p: APIProfile) => p.id}
+              placeholder="Select a profile"
+            />
             <p class="text-muted-foreground mt-1 text-xs">
               Profile used for generating character portraits.
             </p>
@@ -593,55 +521,46 @@
             </div>
             <div class="space-y-2">
               <Label>Character Portrait Size</Label>
-              <Select.Root
-                type="single"
-                value={settings.systemServicesSettings.imageGeneration.portraitSize}
-                onValueChange={(v) => {
-                  settings.systemServicesSettings.imageGeneration.portraitSize = v as any
+              <Autocomplete
+                items={imageSizes}
+                selected={imageSizes.find(
+                  (s) => s.value === settings.systemServicesSettings.imageGeneration.portraitSize,
+                )}
+                onSelect={(v) => {
+                  settings.systemServicesSettings.imageGeneration.portraitSize = (
+                    v as {
+                      value: string
+                    }
+                  ).value as any
                   settings.saveSystemServicesSettings()
                 }}
-              >
-                <Select.Trigger class="h-10 w-full">
-                  {imageSizes.find(
-                    (s) => s.value === settings.systemServicesSettings.imageGeneration.portraitSize,
-                  )?.label ?? 'Select size'}
-                </Select.Trigger>
-                <Select.Content>
-                  {#each imageSizes as size (size.value)}
-                    <Select.Item value={size.value} label={size.label}>
-                      {size.label}
-                    </Select.Item>
-                  {/each}
-                </Select.Content>
-              </Select.Root>
+                itemLabel={(s: { label: string }) => s.label}
+                itemValue={(s: { value: string }) => s.value}
+                placeholder="Select size"
+              />
             </div>
           {/if}
 
           <!-- Portrait Style -->
           <div class="space-y-2">
             <Label>Character Portrait Style</Label>
-            <Select.Root
-              type="single"
-              value={settings.systemServicesSettings.imageGeneration.portraitStyleId}
-              onValueChange={(v) => {
-                settings.systemServicesSettings.imageGeneration.portraitStyleId = v
+            <Autocomplete
+              items={imageStyles}
+              selected={imageStyles.find(
+                (s) => s.value === settings.systemServicesSettings.imageGeneration.portraitStyleId,
+              )}
+              onSelect={(v) => {
+                settings.systemServicesSettings.imageGeneration.portraitStyleId = (
+                  v as {
+                    value: string
+                  }
+                ).value
                 settings.saveSystemServicesSettings()
               }}
-            >
-              <Select.Trigger class="h-10 w-full">
-                {imageStyles.find(
-                  (s) =>
-                    s.value === settings.systemServicesSettings.imageGeneration.portraitStyleId,
-                )?.label ?? 'Select style'}
-              </Select.Trigger>
-              <Select.Content>
-                {#each imageStyles as style (style.value)}
-                  <Select.Item value={style.value} label={style.label}>
-                    {style.label}
-                  </Select.Item>
-                {/each}
-              </Select.Content>
-            </Select.Root>
+              itemLabel={(s: { label: string }) => s.label}
+              itemValue={(s: { value: string }) => s.value}
+              placeholder="Select style"
+            />
             <p class="text-muted-foreground mt-1 text-xs">
               Visual style for character portraits. Edit styles in the Prompts tab.
             </p>
@@ -655,34 +574,14 @@
           <!-- Background Profile -->
           <div class="space-y-2">
             <Label>Background Profile</Label>
-            <Select.Root
-              type="single"
-              value={settings.systemServicesSettings.imageGeneration.backgroundProfileId ??
-                settings.systemServicesSettings.imageGeneration.profileId ??
-                ''}
-              onValueChange={(v) => onProfileChange(v, 'background')}
-            >
-              <Select.Trigger class="h-10 w-full">
-                {#if getSelectedProfile('background') || getSelectedProfile('standard')}
-                  {(getSelectedProfile('background') || getSelectedProfile('standard'))?.name}
-                  ({(getSelectedProfile('background') || getSelectedProfile('standard'))
-                    ?.providerType})
-                {:else}
-                  Select a profile
-                {/if}
-              </Select.Trigger>
-              <Select.Content>
-                {#each imageCapableProfiles as profile (profile.id)}
-                  <Select.Item
-                    value={profile.id}
-                    label={`${profile.name} (${profile.providerType})`}
-                  >
-                    {profile.name}
-                    <span class="text-muted-foreground">({profile.providerType})</span>
-                  </Select.Item>
-                {/each}
-              </Select.Content>
-            </Select.Root>
+            <Autocomplete
+              items={imageCapableProfiles}
+              selected={getSelectedProfile('background') || getSelectedProfile('standard')}
+              onSelect={(v) => onProfileChange((v as APIProfile).id, 'background')}
+              itemLabel={(p: APIProfile) => `${p.name} (${p.providerType})`}
+              itemValue={(p: APIProfile) => p.id}
+              placeholder="Select a profile"
+            />
             <p class="text-muted-foreground mt-1 text-xs">
               Profile used for generating background scenes.
             </p>
@@ -726,27 +625,23 @@
           <!-- Background Size -->
           <div class="space-y-2">
             <Label>Background Size</Label>
-            <Select.Root
-              type="single"
-              value={settings.systemServicesSettings.imageGeneration.backgroundSize}
-              onValueChange={(v) => {
-                settings.systemServicesSettings.imageGeneration.backgroundSize = v as any
+            <Autocomplete
+              items={backgroundSizes}
+              selected={backgroundSizes.find(
+                (s) => s.value === settings.systemServicesSettings.imageGeneration.backgroundSize,
+              )}
+              onSelect={(v) => {
+                settings.systemServicesSettings.imageGeneration.backgroundSize = (
+                  v as {
+                    value: string
+                  }
+                ).value as any
                 settings.saveSystemServicesSettings()
               }}
-            >
-              <Select.Trigger class="h-10 w-full">
-                {backgroundSizes.find(
-                  (s) => s.value === settings.systemServicesSettings.imageGeneration.backgroundSize,
-                )?.label ?? 'Select size'}
-              </Select.Trigger>
-              <Select.Content>
-                {#each backgroundSizes as size (size.value)}
-                  <Select.Item value={size.value} label={size.label}>
-                    {size.label}
-                  </Select.Item>
-                {/each}
-              </Select.Content>
-            </Select.Root>
+              itemLabel={(s: { label: string }) => s.label}
+              itemValue={(s: { value: string }) => s.value}
+              placeholder="Select size"
+            />
           </div>
 
           <!-- Background Blur -->

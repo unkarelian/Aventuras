@@ -10,10 +10,8 @@
     AlertTriangle,
     Brain,
   } from 'lucide-svelte'
-  import VirtualList from '@tutorlatin/svelte-tiny-virtual-list'
+  import Autocomplete from '$lib/components/ui/autocomplete/Autocomplete.svelte'
   import * as Select from '$lib/components/ui/select'
-  import * as Command from '$lib/components/ui/command'
-  import * as Popover from '$lib/components/ui/popover'
   import { Button } from '$lib/components/ui/button'
   import { Label } from '$lib/components/ui/label'
   import { cn } from '$lib/utils/cn'
@@ -49,10 +47,6 @@
     isRefreshingModels = false,
   }: Props = $props()
 
-  // Local state for model search/input
-  let open = $state(false)
-  let inputValue = $state('')
-
   // Resolve the effective profile ID (with fallback to default)
   let effectiveProfileId = $derived(profileId || settings.getDefaultProfileIdForProvider())
 
@@ -83,27 +77,6 @@
     model.length > 0 && availableModels.length > 0 && !availableModels.includes(model),
   )
 
-  // Filter models based on search input
-  let filteredModels = $derived.by(() => {
-    if (!inputValue.trim()) return availableModels
-    const search = inputValue.toLowerCase()
-    return availableModels.filter((m) => m.toLowerCase().includes(search))
-  })
-
-  // Check if input matches an existing model exactly
-  let inputMatchesExisting = $derived(
-    availableModels.some((m) => m.toLowerCase() === inputValue.toLowerCase()),
-  )
-
-  // Should show "Use custom" option
-  let showCustomOption = $derived(inputValue.length > 0 && !inputMatchesExisting)
-
-  // Total item count for virtual list
-  let totalItemCount = $derived(filteredModels.length + (showCustomOption ? 1 : 0))
-
-  // Calculate list height (cap at MAX_LIST_HEIGHT)
-  let listHeight = $derived(Math.min(totalItemCount * ITEM_HEIGHT, MAX_LIST_HEIGHT))
-
   // Get selected profile name
   let selectedProfileName = $derived.by(() => {
     if (!profileId) return 'Select Profile'
@@ -125,8 +98,6 @@
 
   function handleSelectModel(modelName: string) {
     onModelChange(modelName)
-    open = false
-    inputValue = ''
   }
 </script>
 
@@ -171,7 +142,9 @@
         {#if isModelMissing}
           <span class="hidden text-[0.7rem] text-yellow-500 md:inline">Not in profile list</span>
         {:else if availableModels.length === 0}
-          <span class="text-muted-foreground hidden text-[0.7rem] md:inline">No models available</span>
+          <span class="text-muted-foreground hidden text-[0.7rem] md:inline"
+            >No models available</span
+          >
         {/if}
         {#if onRefreshModels}
           <Button
@@ -187,85 +160,37 @@
         {/if}
       </div>
     </div>
-    <Popover.Root bind:open>
-      <Popover.Trigger>
-        {#snippet child({ props })}
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            class="w-full justify-between {isModelMissing ? 'border-yellow-500/50' : ''}"
-            {...props}
-          >
-            <span class="flex items-center gap-1.5 truncate">
-              {#if isModelMissing}
-                <AlertTriangle class="h-3.5 w-3.5 shrink-0 text-yellow-500" />
-              {/if}
-              <span class="truncate">{model || placeholder}</span>
-            </span>
-            <ChevronsUpDown class="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        {/snippet}
-      </Popover.Trigger>
-      <Popover.Content class="w-[var(--bits-popover-anchor-width)] p-0">
-        <Command.Root shouldFilter={false}>
-          <Command.Input bind:value={inputValue} placeholder="Search or type model..." />
-          <Command.List>
-            {#if totalItemCount === 0}
-              <Command.Empty>No models found.</Command.Empty>
-            {:else}
-              <Command.Group>
-                <div class="virtual-list-container">
-                  <VirtualList
-                    height={listHeight}
-                    itemCount={totalItemCount}
-                    itemSize={ITEM_HEIGHT}
-                  >
-                    {#snippet item({ style, index })}
-                      {#if showCustomOption && index === 0}
-                        <div {style}>
-                          <Command.Item
-                            value={`__custom__${inputValue}`}
-                            onSelect={() => handleSelectModel(inputValue)}
-                          >
-                            <Plus class="mr-2 h-4 w-4" />
-                            Use "{inputValue}"
-                          </Command.Item>
-                        </div>
-                      {:else}
-                        {@const modelIndex = showCustomOption ? index - 1 : index}
-                        {@const modelOption = filteredModels[modelIndex]}
-                        <div {style}>
-                          <Command.Item
-                            value={modelOption}
-                            onSelect={() => handleSelectModel(modelOption)}
-                          >
-                            {#if modelIndex < favoriteCount}
-                              <Star class="mr-2 h-3 w-3 text-yellow-500" />
-                            {:else}
-                              <Check
-                                class={cn(
-                                  'mr-2 h-4 w-4',
-                                  model === modelOption ? 'opacity-100' : 'opacity-0',
-                                )}
-                              />
-                            {/if}
-                            <span class="truncate">{modelOption}</span>
-                            {#if reasoningSet.has(modelOption)}
-                              <Brain class="ml-auto h-3 w-3 shrink-0 text-emerald-500" />
-                            {/if}
-                          </Command.Item>
-                        </div>
-                      {/if}
-                    {/snippet}
-                  </VirtualList>
-                </div>
-              </Command.Group>
-            {/if}
-          </Command.List>
-        </Command.Root>
-      </Popover.Content>
-    </Popover.Root>
+    <Autocomplete
+      items={availableModels}
+      selected={model}
+      onSelect={(m) => onModelChange(m as string)}
+      itemLabel={(m) => m}
+      itemValue={(m) => m}
+      allowCustom={true}
+      onCustomSelect={handleSelectModel}
+      {placeholder}
+      class={cn(isModelMissing && 'border-yellow-500/50')}
+    >
+      {#snippet itemSnippet(modelOption, modelIndex)}
+        {#if modelIndex < favoriteCount}
+          <Star class="mr-2 h-3 w-3 text-yellow-500" />
+        {:else}
+          <Check class={cn('mr-2 h-4 w-4', model === modelOption ? 'opacity-100' : 'opacity-0')} />
+        {/if}
+        <span class="truncate">{modelOption}</span>
+        {#if reasoningSet.has(modelOption)}
+          <Brain class="ml-auto h-3 w-3 shrink-0 text-emerald-500" />
+        {/if}
+      {/snippet}
+      {#snippet triggerSnippet()}
+        <span class="flex items-center gap-1.5 truncate">
+          {#if isModelMissing}
+            <AlertTriangle class="h-3.5 w-3.5 shrink-0 text-yellow-500" />
+          {/if}
+          <span class="truncate">{model || placeholder}</span>
+        </span>
+      {/snippet}
+    </Autocomplete>
     {#if isModelMissing}
       <p class="mt-1 text-[0.8rem] text-yellow-500 md:hidden">
         Model not found in this profile's model list.
@@ -277,13 +202,3 @@
     {/if}
   </div>
 </div>
-
-<style>
-  .virtual-list-container :global(.virtual-list-wrapper) {
-    overflow-y: auto;
-  }
-
-  .virtual-list-container :global(.virtual-list-inner) {
-    position: relative;
-  }
-</style>
