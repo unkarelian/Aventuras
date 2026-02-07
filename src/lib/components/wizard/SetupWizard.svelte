@@ -5,7 +5,9 @@
   import { Button } from '$lib/components/ui/button'
   import { ChevronLeft, ChevronRight, Sparkles, Play } from 'lucide-svelte'
   import { ui } from '$lib/stores/ui.svelte'
+  import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
   import { hasRequiredCredentials } from '$lib/services/ai/image'
+  import type { VaultCharacter } from '$lib/types'
 
   // Step components
   import {
@@ -27,6 +29,18 @@
 
   // Initialize Wizard Store
   const wizard = new WizardStore(() => onClose())
+
+  // Auto-link embedded lorebook when selecting a vault character
+  function autoLinkCharacterLorebook(char: VaultCharacter) {
+    const linkedId = (char.metadata as Record<string, unknown>)?.linkedLorebookId as string | undefined
+    if (!linkedId) return
+    const lorebook = lorebookVault.getById(linkedId)
+    if (!lorebook) return
+    const alreadyAdded = wizard.narrative.importedLorebooks.some((lb) => lb.vaultId === linkedId)
+    if (alreadyAdded) return
+    wizard.narrative.addLorebookFromVault(lorebook)
+    ui.showToast(`Added embedded lorebook: ${lorebook.name}`, 'info')
+  }
 
   // Check if API key is configured
   const needsApiKey = $derived(settings.needsApiKey)
@@ -213,12 +227,14 @@
               wizard.image.protagonistVisualDescriptors,
               wizard.image.protagonistPortrait,
             )}
-          onSelectProtagonistFromVault={(c) =>
+          onSelectProtagonistFromVault={(c) => {
             wizard.character.handleSelectProtagonistFromVault(
               c,
               (v) => (wizard.image.protagonistVisualDescriptors = v),
               (v) => (wizard.image.protagonistPortrait = v),
-            )}
+            )
+            autoLinkCharacterLorebook(c)
+          }}
           onNavigateToVault={() => {
             ui.setActivePanel('vault')
             ui.setVaultTab('characters')
@@ -264,12 +280,14 @@
               wizard.narrative.selectedGenre,
               wizard.narrative.customGenre,
             )}
-          onSelectSupportingFromVault={(c) =>
+          onSelectSupportingFromVault={(c) => {
             wizard.character.handleSelectSupportingFromVault(
               c,
               (name, v) => (wizard.image.supportingCharacterVisualDescriptors[name] = v),
               (name, v) => (wizard.image.supportingCharacterPortraits[name] = v),
-            )}
+            )
+            autoLinkCharacterLorebook(c)
+          }}
           onNavigateToVault={() => {
             ui.setActivePanel('vault')
             ui.setVaultTab('characters')
