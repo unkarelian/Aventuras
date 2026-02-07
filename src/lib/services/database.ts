@@ -164,9 +164,8 @@ class DatabaseService {
         retry_state,
         style_review_state,
         time_tracker
-        current_background_image
       )
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         story.id,
         story.title,
@@ -181,7 +180,6 @@ class DatabaseService {
         story.retryState ? JSON.stringify(story.retryState) : null,
         story.styleReviewState ? JSON.stringify(story.styleReviewState) : null,
         story.timeTracker ? JSON.stringify(story.timeTracker) : null,
-        story.currentBgImage,
       ],
     )
     return { ...story, createdAt: now, updatedAt: now }
@@ -1670,14 +1668,81 @@ class DatabaseService {
   }
 
   /**
-   * Save the current background image for a story.
+   * Get the background image for a specific branch.
    */
-  async saveCurrentBackgroundImage(storyId: string, imageData: string | null): Promise<void> {
+  async getBackgroundForBranch(storyId: string, branchId: string | null): Promise<string | null> {
     const db = await this.getDb()
-    await db.execute('UPDATE stories SET current_background_image = ? WHERE id = ?', [
-      imageData,
-      storyId,
-    ])
+    const results = await db.select<{ image_data: string }[]>(
+      'SELECT image_data FROM background_images WHERE story_id = ? AND branch_id IS ? AND checkpoint_id IS NULL ORDER BY created_at DESC LIMIT 1',
+      [storyId, branchId],
+    )
+    return results.length > 0 ? results[0].image_data : null
+  }
+
+  /**
+   * Get the background image for a specific checkpoint.
+   */
+  async getBackgroundForCheckpoint(storyId: string, checkpointId: string): Promise<string | null> {
+    const db = await this.getDb()
+    const results = await db.select<{ image_data: string }[]>(
+      'SELECT image_data FROM background_images WHERE story_id = ? AND checkpoint_id = ? LIMIT 1',
+      [storyId, checkpointId],
+    )
+    return results.length > 0 ? results[0].image_data : null
+  }
+
+  /**
+   * Save a background image for a story/branch/checkpoint.
+   */
+  async saveBackground(
+    storyId: string,
+    branchId: string | null,
+    checkpointId: string | null,
+    imageData: string | null,
+  ): Promise<void> {
+    const db = await this.getDb()
+
+    if (!imageData) {
+      // If clearing, delete entries for this specific context
+      if (checkpointId) {
+        await db.execute('DELETE FROM background_images WHERE story_id = ? AND checkpoint_id = ?', [
+          storyId,
+          checkpointId,
+        ])
+      } else {
+        await db.execute(
+          'DELETE FROM background_images WHERE story_id = ? AND branch_id IS ? AND checkpoint_id IS NULL',
+          [storyId, branchId],
+        )
+      }
+      return
+    }
+
+    // Insert or update
+    const id = crypto.randomUUID()
+    const now = Date.now()
+
+    if (checkpointId) {
+      // Checkpoints always get a new entry or replace existing for that checkpoint
+      await db.execute(
+        'INSERT OR REPLACE INTO background_images (id, story_id, branch_id, checkpoint_id, image_data, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, storyId, branchId, checkpointId, imageData, now],
+      )
+    } else {
+      // For branches (including main), we update the single "current" record for that branch
+      const existing = await this.getBackgroundForBranch(storyId, branchId)
+      if (existing) {
+        await db.execute(
+          'UPDATE background_images SET image_data = ?, created_at = ? WHERE story_id = ? AND branch_id IS ? AND checkpoint_id IS NULL',
+          [imageData, now, storyId, branchId],
+        )
+      } else {
+        await db.execute(
+          'INSERT INTO background_images (id, story_id, branch_id, checkpoint_id, image_data, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+          [id, storyId, branchId, null, imageData, now],
+        )
+      }
+    }
   }
 
   /**
@@ -1752,7 +1817,7 @@ class DatabaseService {
       styleReviewState: row.style_review_state ? JSON.parse(row.style_review_state) : null,
       timeTracker: row.time_tracker ? JSON.parse(row.time_tracker) : null,
       currentBranchId: row.current_branch_id || null,
-      currentBgImage: row.current_background_image || null,
+      currentBgImage: null, // Loaded separately now
     }
   }
 

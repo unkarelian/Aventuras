@@ -431,7 +431,7 @@ class StoryStore {
     await database.cleanupOrphanedEmbeddedImages()
 
     this.currentStory = story
-    this.currentBgImage = story.currentBgImage
+    this.currentBgImage = await database.getBackgroundForBranch(storyId, story.currentBranchId)
 
     // Load branch-independent data first
     const [characters, locations, items, storyBeats, checkpoints, lorebookEntries, branches] =
@@ -745,7 +745,12 @@ class StoryStore {
       this.currentStory.currentBgImage = imageData
     }
 
-    await database.saveCurrentBackgroundImage(this.currentStory.id, imageData)
+    await database.saveBackground(
+      this.currentStory.id,
+      this.currentStory.currentBranchId,
+      null,
+      imageData,
+    )
     log('Background image updated and persisted')
   }
 
@@ -1915,6 +1920,18 @@ class StoryStore {
 
     await database.createCheckpoint(checkpoint)
     this.checkpoints = [checkpoint, ...this.checkpoints]
+
+    // Save current background for this checkpoint
+    if (this.currentBgImage) {
+      log('Saving background for checkpoint:', name)
+      await database.saveBackground(
+        this.currentStory.id,
+        this.currentStory.currentBranchId,
+        checkpoint.id,
+        this.currentBgImage,
+      )
+    }
+
     log('Checkpoint created:', name)
 
     // Emit event
@@ -2019,6 +2036,16 @@ class StoryStore {
 
     await database.addBranch(branch)
     this.branches = [...this.branches, branch]
+
+    // Inherit background from checkpoint
+    const checkpointBg = await database.getBackgroundForCheckpoint(
+      this.currentStory.id,
+      checkpointId,
+    )
+    if (checkpointBg) {
+      log('Inheriting background from checkpoint for new branch:', branch.name)
+      await database.saveBackground(this.currentStory.id, branch.id, null, checkpointBg)
+    }
 
     // Copy world state from checkpoint into database with the new branch_id
     // This ensures the branch has its own copy of the world state at the fork point
@@ -2169,6 +2196,9 @@ class StoryStore {
     // Invalidate caches
     this.invalidateWordCountCache()
     this.invalidateChapterCache()
+
+    // Reload background from database for the branch
+    this.currentBgImage = await database.getBackgroundForBranch(this.currentStory.id, branchId)
 
     log('Switched to branch:', branchId ?? 'main')
   }

@@ -151,7 +151,7 @@ pub fn run() {
         Migration {
             version: 24,
             description: "story_bg_image",
-            sql: include_str!("../migrations/024_story_bg_image.sql"),
+            sql: include_str!("../migrations/024_background_images.sql"),
             kind: MigrationKind::Up,
         }
     ];
