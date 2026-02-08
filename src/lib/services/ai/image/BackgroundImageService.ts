@@ -1,3 +1,4 @@
+import { emitBackgroundImageAnalysisFailed } from '$lib/services/events'
 import { type PromptContext, promptService } from '$lib/services/prompts'
 import { settings } from '$lib/stores/settings.svelte'
 import type { StoryEntry } from '$lib/types'
@@ -73,6 +74,7 @@ export class BackgroundImageService {
 
       return result
     } catch (error) {
+      emitBackgroundImageAnalysisFailed()
       log('Query generation failed:', error)
       return {
         changeNecessary: false,

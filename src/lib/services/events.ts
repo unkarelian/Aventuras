@@ -33,6 +33,11 @@ export type EventType =
   | 'StoryLoaded' // Story loaded into state
   | 'StoryCreated' // New story created
   | 'ModeChanged' // Story mode changed
+  | 'BackgroundImageAnalysisStarted' // Started analyzing narrative for background image
+  | 'BackgroundImageAnalysisComplete' // Finished analyzing narrative for background image
+  | 'BackgroundImageAnalysisFailed' // Background image analysis or generation failed
+  | 'BackgroundImageQueued' // Background image generation requested
+  | 'BackgroundImageReady' // Background image generation complete
 
 // Event payloads
 export interface UserInputEvent {
@@ -130,6 +135,26 @@ export interface ImageAnalysisStartedEvent {
   entryId: string
 }
 
+export interface BackgroundImageAnalysisStartedEvent {
+  type: 'BackgroundImageAnalysisStarted'
+}
+
+export interface BackgroundImageAnalysisCompleteEvent {
+  type: 'BackgroundImageAnalysisComplete'
+}
+
+export interface BackgroundImageAnalysisFailedEvent {
+  type: 'BackgroundImageAnalysisFailed'
+}
+
+export interface BackgroundImageQueuedEvent {
+  type: 'BackgroundImageQueued'
+}
+
+export interface BackgroundImageReadyEvent {
+  type: 'BackgroundImageReady'
+}
+
 export interface ImageAnalysisCompleteEvent {
   type: 'ImageAnalysisComplete'
   entryId: string
@@ -190,6 +215,11 @@ export type AventuraEvent =
   | ImageQueuedEvent
   | ImageReadyEvent
   | GenericEvent
+  | BackgroundImageAnalysisStartedEvent
+  | BackgroundImageAnalysisCompleteEvent
+  | BackgroundImageAnalysisFailedEvent
+  | BackgroundImageQueuedEvent
+  | BackgroundImageReadyEvent
 
 // Handler function type
 export type EventHandler<T extends AventuraEvent = AventuraEvent> = (
@@ -339,6 +369,36 @@ export function emitModeChanged(mode: 'adventure' | 'creative-writing'): void {
 
 export function emitImageAnalysisStarted(entryId: string): void {
   eventBus.emit<ImageAnalysisStartedEvent>({ type: 'ImageAnalysisStarted', entryId })
+}
+
+export function emitBackgroundImageAnalysisStarted(): void {
+  eventBus.emit<BackgroundImageAnalysisStartedEvent>({
+    type: 'BackgroundImageAnalysisStarted',
+  })
+}
+
+export function emitBackgroundImageAnalysisComplete(): void {
+  eventBus.emit<BackgroundImageAnalysisCompleteEvent>({
+    type: 'BackgroundImageAnalysisComplete',
+  })
+}
+
+export function emitBackgroundImageAnalysisFailed(): void {
+  eventBus.emit<BackgroundImageAnalysisFailedEvent>({
+    type: 'BackgroundImageAnalysisFailed',
+  })
+}
+
+export function emitBackgroundImageQueued(): void {
+  eventBus.emit<BackgroundImageQueuedEvent>({
+    type: 'BackgroundImageQueued',
+  })
+}
+
+export function emitBackgroundImageReady(): void {
+  eventBus.emit<BackgroundImageReadyEvent>({
+    type: 'BackgroundImageReady',
+  })
 }
 
 export function emitImageAnalysisComplete(

@@ -12,6 +12,10 @@
     type ImageAnalysisCompleteEvent,
     type ImageQueuedEvent,
     type ImageReadyEvent,
+    type BackgroundImageAnalysisStartedEvent,
+    type BackgroundImageAnalysisCompleteEvent,
+    type BackgroundImageQueuedEvent,
+    type BackgroundImageReadyEvent,
   } from '$lib/services/events'
   import {
     PanelRight,
@@ -47,11 +51,37 @@
       ui.decrementImagesGenerating(),
     )
 
+    const unsubBackgroundImageAnalysisStarted =
+      eventBus.subscribe<BackgroundImageAnalysisStartedEvent>(
+        'BackgroundImageAnalysisStarted',
+        () => ui.setImageAnalysisInProgress(true),
+      )
+
+    const unsubBackgroundImageAnalysisComplete =
+      eventBus.subscribe<BackgroundImageAnalysisCompleteEvent>(
+        'BackgroundImageAnalysisComplete',
+        () => ui.setImageAnalysisInProgress(false),
+      )
+
+    const unsubBackgroundImageQueued = eventBus.subscribe<BackgroundImageQueuedEvent>(
+      'BackgroundImageQueued',
+      () => ui.incrementImagesGenerating(),
+    )
+
+    const unsubBackgroundImageReady = eventBus.subscribe<BackgroundImageReadyEvent>(
+      'BackgroundImageReady',
+      () => ui.decrementImagesGenerating(),
+    )
+
     return () => {
       unsubAnalysisStarted()
       unsubAnalysisComplete()
       unsubImageQueued()
       unsubImageReady()
+      unsubBackgroundImageAnalysisStarted()
+      unsubBackgroundImageAnalysisComplete()
+      unsubBackgroundImageQueued()
+      unsubBackgroundImageReady()
     }
   })
 
@@ -165,12 +195,33 @@
 
   <!-- Right side: Export and Settings -->
   <div class="flex items-center">
-    {#if ui.isGenerating}
-      <div class="text-accent-400 hidden items-center gap-1.5 text-sm sm:flex">
-        <div class="bg-accent-500 h-2 w-2 animate-pulse rounded-full"></div>
-        <span>Generating...</span>
-      </div>
-    {/if}
+    <div class="flex items-center gap-2">
+      {#if ui.isGenerating}
+        <div class="text-accent-400 hidden items-center gap-1.5 text-sm sm:flex">
+          <div class="bg-accent-500 h-2 w-2 animate-pulse rounded-full"></div>
+          <span>Generating...</span>
+        </div>
+      {/if}
+
+      <!-- Image generation status indicators -->
+      {#if ui.imageAnalysisInProgress}
+        <div
+          class="flex items-center gap-1.5 text-sm text-blue-400"
+          title="Analyzing scene for images"
+        >
+          <ImageIcon class="h-3.5 w-3.5 animate-pulse" />
+          <span class="hidden sm:inline">Analyzing...</span>
+        </div>
+      {:else if ui.imagesGenerating > 0}
+        <div class="flex items-center gap-1.5 text-sm text-emerald-400" title="Generating images">
+          <ImageIcon class="h-3.5 w-3.5" />
+          <span class="hidden sm:inline">
+            {ui.imagesGenerating} image{ui.imagesGenerating > 1 ? 's' : ''}
+          </span>
+          <div class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></div>
+        </div>
+      {/if}
+    </div>
 
     <!-- Back to Library Button (right side) -->
     {#if story.currentStory}
@@ -185,25 +236,6 @@
         }}
         title="Return to Library"
       />
-    {/if}
-
-    <!-- Image generation status indicators -->
-    {#if ui.imageAnalysisInProgress}
-      <div
-        class="flex items-center gap-1.5 text-sm text-blue-400"
-        title="Analyzing scene for images"
-      >
-        <ImageIcon class="h-3.5 w-3.5 animate-pulse" />
-        <span class="hidden sm:inline">Analyzing...</span>
-      </div>
-    {:else if ui.imagesGenerating > 0}
-      <div class="flex items-center gap-1.5 text-sm text-emerald-400" title="Generating images">
-        <ImageIcon class="h-3.5 w-3.5" />
-        <span class="hidden sm:inline">
-          {ui.imagesGenerating} image{ui.imagesGenerating > 1 ? 's' : ''}
-        </span>
-        <div class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></div>
-      </div>
     {/if}
 
     {#if story.currentStory}

@@ -17,7 +17,10 @@ import type { Character } from '$lib/types'
 /** Dependencies for image phase - injected to avoid tight coupling */
 export interface ImageDependencies {
   generateImagesForNarrative: (context: ImageGenerationContext) => Promise<void>
-  isImageGenerationEnabled: (storySettings?: any) => boolean
+  isImageGenerationEnabled: (
+    storySettings?: any,
+    type?: 'standard' | 'background' | 'portrait' | 'reference',
+  ) => boolean
 }
 
 /** Settings needed for image phase decision making */
@@ -93,7 +96,11 @@ export class ImagePhase {
     }
 
     // Check if image generation is actually configured (profile exists)
-    if (!this.deps.isImageGenerationEnabled(imageSettings)) {
+    if (
+      !this.deps.isImageGenerationEnabled(imageSettings, 'standard') ||
+      (imageSettings.referenceMode &&
+        !this.deps.isImageGenerationEnabled(imageSettings, 'reference'))
+    ) {
       const result: ImageResult = { started: false, skippedReason: 'not_configured' }
       yield { type: 'phase_complete', phase: 'image', result } satisfies PhaseCompleteEvent
       return result

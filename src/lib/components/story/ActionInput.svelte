@@ -233,7 +233,8 @@
       classifyResponse: aiService.classifyResponse.bind(aiService),
       translateNarration: aiService.translateNarration.bind(aiService),
       generateImagesForNarrative: aiService.generateImagesForNarrative.bind(aiService),
-      isImageGenerationEnabled: (settings) => aiService.isImageGenerationEnabled(settings),
+      isImageGenerationEnabled: (settings, type) =>
+        aiService.isImageGenerationEnabled(settings, type),
       generateSuggestions: aiService.generateSuggestions.bind(aiService),
       translateSuggestions: aiService.translateSuggestions.bind(aiService),
       generateActionChoices: aiService.generateActionChoices.bind(aiService),

@@ -61,6 +61,11 @@ import {
   emitImageAnalysisFailed,
   emitImageQueued,
   emitImageReady,
+  emitBackgroundImageAnalysisStarted,
+  emitBackgroundImageAnalysisComplete,
+  emitBackgroundImageAnalysisFailed,
+  emitBackgroundImageQueued,
+  emitBackgroundImageReady,
 } from '$lib/services/events'
 import { database } from '$lib/services/database'
 import { generateImage as sdkGenerateImage } from './sdk/generate'
@@ -771,8 +776,11 @@ class AIService {
   /**
    * Check if image generation is enabled for a story.
    */
-  isImageGenerationEnabled(storySettings?: StorySettings): boolean {
-    return isImageGenerationEnabledUtil(storySettings)
+  isImageGenerationEnabled(
+    storySettings?: StorySettings,
+    type: 'standard' | 'background' | 'portrait' | 'reference' = 'standard',
+  ): boolean {
+    return isImageGenerationEnabledUtil(storySettings, type)
   }
 
   /**
@@ -790,7 +798,7 @@ class AIService {
       translationLanguage: context.translationLanguage,
     })
 
-    if (!this.isImageGenerationEnabled()) {
+    if (!this.isImageGenerationEnabled(undefined, 'standard')) {
       log('Image generation not enabled or not configured')
       return
     }
@@ -941,6 +949,10 @@ class AIService {
       }
 
       if (portraitUrls.length > 0) {
+        if (!this.isImageGenerationEnabled(undefined, 'reference')) {
+          log('Reference image generation not configured')
+          return
+        }
         // Use reference profile and model for img2img
         profileId = imageSettings.referenceProfileId
         modelToUse = imageSettings.referenceModel
@@ -956,6 +968,10 @@ class AIService {
 
     // For portrait generation, use portrait-specific settings
     if (scene.generatePortrait) {
+      if (!this.isImageGenerationEnabled(undefined, 'portrait')) {
+        log('Portrait image generation not configured')
+        return
+      }
       profileId = imageSettings.portraitProfileId
       modelToUse = imageSettings.portraitModel
       sizeToUse = imageSettings.portraitSize
@@ -1096,20 +1112,19 @@ class AIService {
     storyId: string,
     visibleEntries: StoryEntry[],
   ): Promise<void> {
-    log('analyzeBackgroundChangeAndGenerateImage called')
-
     try {
       const service = serviceFactory.createBackgroundImageService()
-
+      emitBackgroundImageAnalysisStarted()
       const result = await service.analyzeReponsesForBackgroundImage(visibleEntries)
-
+      emitBackgroundImageAnalysisComplete()
       // Ai returns empty string or short response if no change, otherwise the image prompt
       if (result.changeNecessary) {
         log('Background change detected, prompt:', result.prompt)
-
+        emitBackgroundImageQueued()
         const image = await service.generateBackgroundImage(result.prompt)
 
         if (image) {
+          emitBackgroundImageReady()
           log('Background image generated successfully', { image })
           story.updateCurrentBackgroundImage(image)
         } else {
@@ -1117,6 +1132,7 @@ class AIService {
         }
       }
     } catch (error) {
+      emitBackgroundImageAnalysisFailed()
       log('Background image analysis failed', error)
     }
   }

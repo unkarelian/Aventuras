@@ -19,12 +19,17 @@ const log = createLogger('ImageUtils')
  * Check if image generation is enabled and has valid configuration.
  * Returns true if a valid image-capable profile is selected.
  */
-export function isImageGenerationEnabled(storySettings?: StorySettings): boolean {
+export function isImageGenerationEnabled(
+  storySettings?: StorySettings,
+  type: 'standard' | 'background' | 'portrait' | 'reference' = 'standard',
+): boolean {
   const imageSettings = settings.systemServicesSettings.imageGeneration
 
   // If story settings are provided, use them to check if generation is enabled for this story
   if (storySettings) {
-    if (storySettings.imageGenerationMode === 'none') return false
+    // Only 'none' mode blocks standard/reference/portrait images.
+    // Background images have their own toggle (backgroundImagesEnabled).
+    if (type !== 'background' && storySettings.imageGenerationMode === 'none') return false
   } else {
     // Falls back to global enabled if no story context (e.g. initial setup or legacy check)
     // NOTE: User wants overall toggle to not exist, so we might want to default this to true
@@ -32,7 +37,12 @@ export function isImageGenerationEnabled(storySettings?: StorySettings): boolean
     if (!imageSettings?.profileId) return false
   }
 
-  const profileId = imageSettings.profileId
+  // Determine which profileId to check based on type
+  let profileId: string | null = imageSettings.profileId
+  if (type === 'background') profileId = imageSettings.backgroundProfileId
+  if (type === 'portrait') profileId = imageSettings.portraitProfileId
+  if (type === 'reference') profileId = imageSettings.referenceProfileId
+
   if (!profileId) return false
 
   const profile = settings.getProfile(profileId)
