@@ -23,6 +23,7 @@ import type {
   StoryBeatBeforeState,
 } from '$lib/types'
 import { database } from '$lib/services/database'
+import { rollbackService } from '$lib/services/rollbackService'
 import { ui } from './ui.svelte'
 import { settings } from './settings.svelte'
 import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier'
@@ -674,6 +675,40 @@ class StoryStore {
       )
     }
 
+    // Phase 2: Rollback on delete — cascade delete from this position with world state undo
+    const rollbackEnabled =
+      settings.experimentalFeatures.stateTracking &&
+      settings.experimentalFeatures.rollbackOnDelete
+
+    if (rollbackEnabled) {
+      log('Rollback-on-delete: cascading from position', existingEntry.position)
+
+      // Run rollback to undo world state changes for this entry and all after it
+      const rollbackSummary = await rollbackService.rollbackFromPosition(
+        this.currentStory.id,
+        currentBranchId ?? null,
+        existingEntry.position,
+        this.entries,
+      )
+
+      log('Rollback summary:', rollbackSummary)
+
+      // Now cascade-delete entries from this position onward (skip rollback — already done)
+      await this.deleteEntriesFromPosition(existingEntry.position, { skipRollback: true })
+
+      // Reload all entities from DB to ensure in-memory state is consistent
+      await this.reloadEntriesForCurrentBranch()
+
+      // Also reload time tracker from the story record
+      const freshStory = await database.getStory(this.currentStory.id)
+      if (freshStory) {
+        this.currentStory = { ...this.currentStory, timeTracker: freshStory.timeTracker }
+      }
+
+      return
+    }
+
+    // Legacy behavior: delete just this one entry (no world state changes)
     await database.deleteStoryEntry(entryId)
     this.entries = this.entries.filter((e) => e.id !== entryId)
 
@@ -794,8 +829,32 @@ class StoryStore {
    * Delete all entries from a given position onward.
    * Used for entry-only retry restore (persistent retry).
    */
-  async deleteEntriesFromPosition(position: number): Promise<void> {
+  async deleteEntriesFromPosition(
+    position: number,
+    options?: { skipRollback?: boolean },
+  ): Promise<void> {
     if (!this.currentStory) throw new Error('No story loaded')
+
+    // Phase 2: Rollback world state before deleting entries
+    // Skip if caller already performed rollback (e.g. deleteEntry)
+    const rollbackEnabled =
+      !options?.skipRollback &&
+      settings.experimentalFeatures.stateTracking &&
+      settings.experimentalFeatures.rollbackOnDelete
+
+    if (rollbackEnabled) {
+      try {
+        const rollbackSummary = await rollbackService.rollbackFromPosition(
+          this.currentStory.id,
+          this.currentStory.currentBranchId ?? null,
+          position,
+          this.entries,
+        )
+        log('Rollback before deleteEntriesFromPosition:', rollbackSummary)
+      } catch (error) {
+        console.error('[StoryStore] Rollback failed, proceeding with entry deletion:', error)
+      }
+    }
 
     // Find entries to delete (position >= the given position)
     const entriesToDelete = this.entries.filter((e) => e.position >= position)
