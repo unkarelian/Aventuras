@@ -89,6 +89,31 @@ export function getProviderDisplayName(): string {
 }
 
 /**
+ * Parse an image size string (e.g., "1024x1024" or "800x600") into width and height.
+ * Falls back to 1024x1024 if the format is invalid.
+ */
+export function parseImageSize(size: string): { width: number; height: number } {
+  try {
+    const parts = size.toLowerCase().split('x')
+    if (parts.length === 2) {
+      const width = parseInt(parts[0], 10)
+      const height = parseInt(parts[1], 10)
+      if (!isNaN(width) && !isNaN(height)) {
+        return { width, height }
+      }
+    }
+  } catch (e) {
+    log('Failed to parse image size', { size, error: e })
+  }
+
+  // Common fallbacks for simple literals if parsing fails
+  if (size === '512x512') return { width: 512, height: 512 }
+  if (size === '2048x2048') return { width: 2048, height: 2048 }
+
+  return { width: 1024, height: 1024 }
+}
+
+/**
  * Retry image generation for a failed/existing image using current settings.
  * This regenerates an image with the given prompt using the current profile configuration.
  */
@@ -114,6 +139,7 @@ export async function retryImageGeneration(imageId: string, prompt: string): Pro
 
   const model = imageSettings.model
   const size = imageSettings.size
+  const { width, height } = parseImageSize(size)
 
   // Update image status to generating and save the new prompt
   await database.updateEmbeddedImage(imageId, {
@@ -121,8 +147,8 @@ export async function retryImageGeneration(imageId: string, prompt: string): Pro
     model,
     status: 'generating',
     errorMessage: undefined,
-    width: size === '2048x2048' ? 2048 : size === '1024x1024' ? 1024 : 512,
-    height: size === '2048x2048' ? 2048 : size === '1024x1024' ? 1024 : 512,
+    width,
+    height,
   })
 
   log('Retrying image generation', {

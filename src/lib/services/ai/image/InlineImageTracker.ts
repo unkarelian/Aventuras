@@ -23,6 +23,7 @@ import { settings } from '$lib/stores/settings.svelte'
 import { emitImageQueued, emitImageReady } from '$lib/services/events'
 import { normalizeImageDataUrl } from '$lib/utils/image'
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants'
+import { parseImageSize } from './imageUtils'
 import { createLogger } from '../core/config'
 import type { Character, EmbeddedImage } from '$lib/types'
 
@@ -223,8 +224,7 @@ export class InlineImageTracker {
 
     for (const pending of this.pendingImages) {
       // Determine dimensions from size setting
-      const width = pending.size === '1024x1024' ? 1024 : pending.size === '2048x2048' ? 2048 : 512
-      const height = width
+      const { width, height } = parseImageSize(pending.size)
 
       // Create DB record immediately with 'generating' status
       const embeddedImage: Omit<EmbeddedImage, 'createdAt'> = {

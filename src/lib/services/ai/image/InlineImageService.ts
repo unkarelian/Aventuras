@@ -21,6 +21,7 @@ import { emitImageQueued, emitImageReady } from '$lib/services/events'
 import { normalizeImageDataUrl } from '$lib/utils/image'
 import { extractPicTags, type ParsedPicTag } from '$lib/utils/inlineImageParser'
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants'
+import { parseImageSize } from './imageUtils'
 import { createLogger } from '../core/config'
 
 const log = createLogger('InlineImageGen')
@@ -166,6 +167,8 @@ export class InlineImageGenerationService {
     const stylePrompt = this.getStylePrompt(imageSettings.styleId)
     const fullPrompt = `${tag.prompt}. ${stylePrompt}`
 
+    const { width, height } = parseImageSize(sizeToUse)
+
     // Create pending record in database
     const embeddedImage: Omit<EmbeddedImage, 'createdAt'> = {
       id: imageId,
@@ -176,8 +179,8 @@ export class InlineImageGenerationService {
       styleId: imageSettings.styleId,
       model: modelToUse,
       imageData: '',
-      width: sizeToUse === '1024x1024' ? 1024 : sizeToUse === '2048x2048' ? 2048 : 512,
-      height: sizeToUse === '1024x1024' ? 1024 : sizeToUse === '2048x2048' ? 2048 : 512,
+      width,
+      height,
       status: 'pending',
       generationMode: 'inline',
     }

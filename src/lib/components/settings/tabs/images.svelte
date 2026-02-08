@@ -380,13 +380,24 @@
                       items={availableStandardSizes}
                       selected={availableStandardSizes.find(
                         (s) => s.value === settings.systemServicesSettings.imageGeneration.size,
-                      )}
+                      ) ||
+                        (settings.systemServicesSettings.imageGeneration.size
+                          ? {
+                              value: settings.systemServicesSettings.imageGeneration.size,
+                              label: settings.systemServicesSettings.imageGeneration.size,
+                            }
+                          : undefined)}
                       onSelect={(v) => {
                         settings.systemServicesSettings.imageGeneration.size = (
                           v as {
                             value: string
                           }
-                        ).value as any
+                        ).value
+                        settings.saveSystemServicesSettings()
+                      }}
+                      allowCustom={true}
+                      onCustomSelect={(v) => {
+                        settings.systemServicesSettings.imageGeneration.size = v
                         settings.saveSystemServicesSettings()
                       }}
                       itemLabel={(s: { label: string }) => s.label}
@@ -452,13 +463,24 @@
                       selected={availableReferenceSizes.find(
                         (s) =>
                           s.value === settings.systemServicesSettings.imageGeneration.referenceSize,
-                      )}
+                      ) ||
+                        (settings.systemServicesSettings.imageGeneration.referenceSize
+                          ? {
+                              value: settings.systemServicesSettings.imageGeneration.referenceSize,
+                              label: settings.systemServicesSettings.imageGeneration.referenceSize,
+                            }
+                          : undefined)}
                       onSelect={(v) => {
                         settings.systemServicesSettings.imageGeneration.referenceSize = (
                           v as {
                             value: string
                           }
-                        ).value as any
+                        ).value
+                        settings.saveSystemServicesSettings()
+                      }}
+                      allowCustom={true}
+                      onCustomSelect={(v) => {
+                        settings.systemServicesSettings.imageGeneration.referenceSize = v
                         settings.saveSystemServicesSettings()
                       }}
                       itemLabel={(s: { label: string }) => s.label}
@@ -575,13 +597,24 @@
                 items={availablePortraitSizes}
                 selected={availablePortraitSizes.find(
                   (s) => s.value === settings.systemServicesSettings.imageGeneration.portraitSize,
-                )}
+                ) ||
+                  (settings.systemServicesSettings.imageGeneration.portraitSize
+                    ? {
+                        value: settings.systemServicesSettings.imageGeneration.portraitSize,
+                        label: settings.systemServicesSettings.imageGeneration.portraitSize,
+                      }
+                    : undefined)}
                 onSelect={(v) => {
                   settings.systemServicesSettings.imageGeneration.portraitSize = (
                     v as {
                       value: string
                     }
-                  ).value as any
+                  ).value
+                  settings.saveSystemServicesSettings()
+                }}
+                allowCustom={true}
+                onCustomSelect={(v) => {
+                  settings.systemServicesSettings.imageGeneration.portraitSize = v
                   settings.saveSystemServicesSettings()
                 }}
                 itemLabel={(s: { label: string }) => s.label}
@@ -679,13 +712,24 @@
               items={availableBackgroundSizes}
               selected={availableBackgroundSizes.find(
                 (s) => s.value === settings.systemServicesSettings.imageGeneration.backgroundSize,
-              )}
+              ) ||
+                (settings.systemServicesSettings.imageGeneration.backgroundSize
+                  ? {
+                      value: settings.systemServicesSettings.imageGeneration.backgroundSize,
+                      label: settings.systemServicesSettings.imageGeneration.backgroundSize,
+                    }
+                  : undefined)}
               onSelect={(v) => {
                 settings.systemServicesSettings.imageGeneration.backgroundSize = (
                   v as {
                     value: string
                   }
-                ).value as any
+                ).value
+                settings.saveSystemServicesSettings()
+              }}
+              allowCustom={true}
+              onCustomSelect={(v) => {
+                settings.systemServicesSettings.imageGeneration.backgroundSize = v
                 settings.saveSystemServicesSettings()
               }}
               itemLabel={(s: { label: string }) => s.label}

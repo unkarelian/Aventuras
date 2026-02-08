@@ -508,12 +508,12 @@ export interface ImageGenerationServiceSettings {
   // Profile-based image generation (profiles must have supportsImageGeneration capability)
   profileId: string | null // API profile for standard image generation
   model: string // Image model for the selected profile
-  size: '512x512' | '1024x1024' | '2048x2048' // Regular image size
+  size: string // Regular image size
 
   // Reference model settings (for image-to-image with portrait references)
   referenceProfileId: string | null // API profile for image-to-image with portrait references
   referenceModel: string // Model for image generation with reference
-  referenceSize: '512x512' | '1024x1024' | '2048x2048' // Reference image size
+  referenceSize: string // Reference image size
 
   // General story image settings
   styleId: string // Selected image style template
@@ -523,7 +523,7 @@ export interface ImageGenerationServiceSettings {
   portraitProfileId: string | null // API profile for generating character portraits
   portraitModel: string // Model for generating character portraits
   portraitStyleId: string // Selected character portrait style template
-  portraitSize: '512x512' | '1024x1024' | '2048x2048' // Portrait image size
+  portraitSize: string // Portrait image size
 
   // Scene analysis model settings (for identifying imageable scenes)
   promptProfileId: string | null // API profile for scene analysis
@@ -536,7 +536,7 @@ export interface ImageGenerationServiceSettings {
   // Background image settings
   backgroundProfileId: string | null // API profile for background image generation
   backgroundModel: string // Model for background image generation
-  backgroundSize: '1280x720' | '720x1280' // Background image size (default: '1280x720')
+  backgroundSize: string // Background image size (default: '1280x720')
   backgroundBlur: number // Background blur amount in pixels (default: 0)
 }
 
