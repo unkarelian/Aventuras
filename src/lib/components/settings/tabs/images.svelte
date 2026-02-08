@@ -17,19 +17,14 @@
     ChevronRight,
     Check,
   } from 'lucide-svelte'
-  import {
-    listImageModels,
-    listImageModelsByProvider,
-    clearModelsCache,
-    supportsImageGeneration,
-    type ImageModelInfo,
-  } from '$lib/services/ai/image'
+  import { listImageModels, clearModelsCache, type ImageModelInfo } from '$lib/services/ai/image'
   import ImageModelSelect from '$lib/components/settings/ImageModelSelect.svelte'
   import type { ImageProfile, ImageProviderType, APIProfile } from '$lib/types'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as Alert from '$lib/components/ui/alert'
   import { Card, CardContent } from '$lib/components/ui/card'
   import * as Collapsible from '$lib/components/ui/collapsible'
+  import { SvelteSet } from 'svelte/reactivity'
 
   const imageStyles = [
     { value: 'image-style-soft-anime', label: 'Soft Anime' },
@@ -305,7 +300,7 @@
   let profileBaseUrl = $state('')
   let showApiKey = $state(false)
   let showCopyDropdown = $state(false)
-  let openProfileIds = $state<Set<string>>(new Set())
+  let openProfileIds = new SvelteSet<string>()
 
   function startNewProfile() {
     editingProfileId = crypto.randomUUID()
@@ -328,7 +323,7 @@
     showApiKey = false
     showCopyDropdown = false
     openProfileIds.add(profile.id)
-    openProfileIds = new Set(openProfileIds)
+    openProfileIds = new SvelteSet(openProfileIds)
   }
 
   function cancelEdit() {
@@ -375,7 +370,7 @@
       startEditProfile(profile)
     } else {
       openProfileIds.delete(profile.id)
-      openProfileIds = new Set(openProfileIds)
+      openProfileIds = new SvelteSet(openProfileIds)
       if (editingProfileId === profile.id) {
         cancelEdit()
       }

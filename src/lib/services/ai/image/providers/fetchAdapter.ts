@@ -8,9 +8,6 @@
 
 import { fetch as tauriHttpFetch } from '@tauri-apps/plugin-http'
 import { ui } from '$lib/stores/ui.svelte'
-import { createLogger } from '../../core/config'
-
-const log = createLogger('ImageFetch')
 
 const DEFAULT_IMAGE_TIMEOUT = 5 * 60 * 1000 // 5 minutes
 
