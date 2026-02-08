@@ -1,0 +1,114 @@
+import { emitBackgroundImageAnalysisFailed } from '$lib/services/events'
+import { type PromptContext, promptService } from '$lib/services/prompts'
+import { settings } from '$lib/stores/settings.svelte'
+import type { StoryEntry } from '$lib/types'
+import { createLogger } from '../core/config'
+import {
+  backgroundImageAnalysisResultSchema,
+  generateStructured,
+  type BackgroundImageAnalysisResult,
+} from '../sdk'
+import { generateImage } from '../sdk/generate'
+
+const log = createLogger('BackgroundImageService')
+
+export class BackgroundImageService {
+  private analysisPresetId: string
+  private imageSettings: typeof settings.systemServicesSettings.imageGeneration
+
+  constructor(
+    analysisPresetId: string = 'bgImageGeneration',
+    imageSettings: typeof settings.systemServicesSettings.imageGeneration,
+  ) {
+    this.analysisPresetId = analysisPresetId
+    this.imageSettings = imageSettings
+  }
+
+  async analyzeReponsesForBackgroundImage(
+    visibleEntries: StoryEntry[],
+  ): Promise<BackgroundImageAnalysisResult> {
+    log('analyzeReponsesForBackgroundImage called', {
+      visibleEntriesCount: visibleEntries.length,
+    })
+
+    const narrationEntries = visibleEntries.filter((e) => e.type === 'narration')
+
+    if (narrationEntries.length === 0) {
+      log('No entries, skipping')
+      return {
+        changeNecessary: false,
+        prompt: '',
+      }
+    }
+
+    const previousResponse = narrationEntries[narrationEntries.length - 2]?.content
+    const currentResponse = narrationEntries[narrationEntries.length - 1]?.content
+
+    const promptContext: PromptContext = {
+      mode: 'adventure',
+      pov: 'second',
+      tense: 'present',
+      protagonistName: '',
+    }
+
+    const system = promptService.renderPrompt('background-image-prompt-analysis', promptContext)
+    const prompt = promptService.renderUserPrompt(
+      'background-image-prompt-analysis',
+      promptContext,
+      {
+        previousResponse,
+        currentResponse,
+      },
+    )
+
+    try {
+      const result = await generateStructured(
+        {
+          presetId: this.analysisPresetId,
+          schema: backgroundImageAnalysisResultSchema,
+          system,
+          prompt,
+        },
+        'background-image-prompt-analysis',
+      )
+
+      return result
+    } catch (error) {
+      emitBackgroundImageAnalysisFailed()
+      log('Query generation failed:', error)
+      return {
+        changeNecessary: false,
+        prompt: '',
+      }
+    }
+  }
+
+  async generateBackgroundImage(prompt: string): Promise<string> {
+    log('generateBackgroundImage called', { prompt })
+    const profileId = this.imageSettings.backgroundProfileId
+
+    if (!profileId) {
+      throw new Error('No background image generation profile selected')
+    }
+
+    try {
+      const result = await generateImage({
+        profileId,
+        model: this.imageSettings.backgroundModel,
+        prompt,
+        size: this.imageSettings.backgroundSize,
+      })
+
+      if (!result.base64) {
+        throw new Error('No image data returned')
+      }
+
+      log('Background image generated successfully')
+
+      return result.base64
+    } catch (error) {
+      log('Background image generation failed:', error)
+      return ''
+    }
+  }
+}

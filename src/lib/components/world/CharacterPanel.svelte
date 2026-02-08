@@ -321,9 +321,8 @@
 
     log('Starting portrait generation', {
       characterName: character.name,
-      portraitMode: imageSettings.portraitMode,
-      model: imageSettings.portraitMode ? imageSettings.portraitModel : imageSettings.model,
-      styleId: imageSettings.styleId,
+      model: imageSettings.portraitModel,
+      styleId: imageSettings.portraitStyleId,
     })
 
     // Validate credentials
@@ -351,7 +350,8 @@
 
     try {
       // Get the style prompt
-      const styleId = imageSettings.styleId
+      const styleId = imageSettings.portraitStyleId
+
       let stylePrompt = ''
       try {
         const promptContext = {
@@ -384,7 +384,6 @@
       )
 
       log('Sending portrait generation request', {
-        portraitMode: imageSettings.portraitMode,
         promptLength: portraitPrompt.length,
         descriptorCount: descriptors.length,
       })

@@ -147,10 +147,26 @@ pub fn run() {
             description: "simplify_character_vault",
             sql: include_str!("../migrations/023_simplify_character_vault.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 24,
+            description: "story_bg_image",
+            sql: include_str!("../migrations/024_background_images.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 
-    tauri::Builder::default()
+    #[cfg(debug_assertions)] // only enable instrumentation in development builds
+    let devtools = tauri_plugin_devtools::init();
+
+    let mut builder = tauri::Builder::default();    
+
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.plugin(devtools);
+    }
+
+    builder
         .manage(sync::SyncState::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(

@@ -21,6 +21,7 @@ import { emitImageQueued, emitImageReady } from '$lib/services/events'
 import { normalizeImageDataUrl } from '$lib/utils/image'
 import { extractPicTags, type ParsedPicTag } from '$lib/utils/inlineImageParser'
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants'
+import { parseImageSize } from './imageUtils'
 import { createLogger } from '../core/config'
 
 const log = createLogger('InlineImageGen')
@@ -30,6 +31,7 @@ export interface InlineImageContext {
   entryId: string
   narrativeContent: string
   presentCharacters: Character[]
+  referenceMode: boolean
 }
 
 export class InlineImageGenerationService {
@@ -39,7 +41,6 @@ export class InlineImageGenerationService {
    */
   static isEnabled(): boolean {
     const imageSettings = settings.systemServicesSettings.imageGeneration
-    if (!imageSettings?.enabled) return false
 
     // Check if we have a valid profile for image generation
     const profileId = imageSettings.profileId
@@ -60,11 +61,6 @@ export class InlineImageGenerationService {
    */
   async processNarrativeForInlineImages(context: InlineImageContext): Promise<void> {
     const imageSettings = settings.systemServicesSettings.imageGeneration
-
-    if (!imageSettings?.enabled) {
-      log('Image generation disabled')
-      return
-    }
 
     // Extract all <pic> tags from the narrative
     const picTags = extractPicTags(context.narrativeContent)
@@ -116,10 +112,11 @@ export class InlineImageGenerationService {
     // Determine which profile and model to use
     let profileId = imageSettings.profileId
     let modelToUse = imageSettings.model
+    let sizeToUse = imageSettings.size
     let referenceImageUrls: string[] | undefined
 
     // If portrait mode is enabled and tag specifies characters, look for their portraits
-    if (imageSettings.portraitMode && tag.characters.length > 0) {
+    if (context.referenceMode && tag.characters.length > 0) {
       const portraitUrls: string[] = []
       const charactersWithPortraits: string[] = []
       const charactersWithoutPortraits: string[] = []
@@ -140,8 +137,9 @@ export class InlineImageGenerationService {
 
       if (portraitUrls.length > 0) {
         // Use reference profile and model for img2img
-        profileId = imageSettings.referenceProfileId || imageSettings.profileId
-        modelToUse = imageSettings.referenceModel || imageSettings.model
+        profileId = imageSettings.referenceProfileId
+        modelToUse = imageSettings.referenceModel
+        sizeToUse = imageSettings.referenceSize
         referenceImageUrls = portraitUrls
         log('Using character portraits as reference', {
           characters: charactersWithPortraits,
@@ -169,6 +167,8 @@ export class InlineImageGenerationService {
     const stylePrompt = this.getStylePrompt(imageSettings.styleId)
     const fullPrompt = `${tag.prompt}. ${stylePrompt}`
 
+    const { width, height } = parseImageSize(sizeToUse)
+
     // Create pending record in database
     const embeddedImage: Omit<EmbeddedImage, 'createdAt'> = {
       id: imageId,
@@ -179,10 +179,8 @@ export class InlineImageGenerationService {
       styleId: imageSettings.styleId,
       model: modelToUse,
       imageData: '',
-      width:
-        imageSettings.size === '1024x1024' ? 1024 : imageSettings.size === '2048x2048' ? 2048 : 512,
-      height:
-        imageSettings.size === '1024x1024' ? 1024 : imageSettings.size === '2048x2048' ? 2048 : 512,
+      width,
+      height,
       status: 'pending',
       generationMode: 'inline',
     }
@@ -204,7 +202,7 @@ export class InlineImageGenerationService {
       fullPrompt,
       profileId,
       modelToUse,
-      imageSettings.size,
+      sizeToUse,
       context.entryId,
       referenceImageUrls,
     ).catch((error) => {

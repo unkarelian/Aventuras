@@ -555,7 +555,6 @@ export function getReasoningExtraction(
   return PROVIDERS[providerType].capabilities.reasoningExtraction
 }
 
-
 /**
  * Check if a model supports reasoning controls (slider).
  * For 'fetched' providers (e.g., NanoGPT), check the profile's reasoningModels list.
@@ -573,4 +572,3 @@ export function modelSupportsReasoning(
   }
   return true
 }
-

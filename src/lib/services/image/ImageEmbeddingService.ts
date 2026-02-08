@@ -31,9 +31,9 @@ function buildMarkers(content: string, images: EmbeddedImage[]): ImageMarker[] {
   const markers: ImageMarker[] = []
 
   for (const img of sortedImages) {
-    const regex = new RegExp(escapeRegex(img.sourceText), 'gi')
+    const regex = new RegExp(escapeRegex(img.sourceText.replaceAll('’', "'")), 'gi')
     let match
-    while ((match = regex.exec(content)) !== null) {
+    while ((match = regex.exec(content.replaceAll('’', "'"))) !== null) {
       const start = match.index
       const end = start + match[0].length
       const overlaps = markers.some(

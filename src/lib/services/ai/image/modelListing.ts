@@ -150,6 +150,7 @@ async function listNanoGPTModels(): Promise<ImageModelInfo[]> {
       cost?: Record<string, number>
       resolutions?: Array<{ value: string; comment?: string }>
       tags?: string[]
+      supportsMultipleImg2Img?: boolean
     }>
 
     if (modelEntries.length === 0) {
@@ -163,7 +164,10 @@ async function listNanoGPTModels(): Promise<ImageModelInfo[]> {
       ]
 
       const supportsImg2Img =
-        model.tags?.includes('image-to-image') || model.tags?.includes('image-edit') || false
+        model.tags?.includes('image-to-image') ||
+        model.tags?.includes('image-edit') ||
+        model.supportsMultipleImg2Img ||
+        false
 
       let costPerImage: number | undefined
       if (model.cost && typeof model.cost === 'object') {

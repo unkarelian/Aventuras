@@ -14,12 +14,16 @@
     tone: string
     visualProseMode: boolean
     imageGenerationEnabled: boolean
-    imageGenerationMode: 'none' | 'auto' | 'inline'
+    imageGenerationMode: 'none' | 'agentic' | 'inline'
+    backgroundImagesEnabled: boolean
+    referenceMode: boolean
     onPOVChange: (v: POV) => void
     onTenseChange: (v: Tense) => void
     onToneChange: (v: string) => void
     onVisualProseModeChange: (v: boolean) => void
-    onImageGenerationModeChange: (v: 'none' | 'auto' | 'inline') => void
+    onImageGenerationModeChange: (v: 'none' | 'agentic' | 'inline') => void
+    onBackgroundImagesEnabledChange: (v: boolean) => void
+    onReferenceModeChange: (v: boolean) => void
   }
 
   let {
@@ -29,11 +33,15 @@
     visualProseMode,
     imageGenerationEnabled,
     imageGenerationMode,
+    backgroundImagesEnabled,
+    referenceMode,
     onPOVChange,
     onTenseChange,
     onToneChange,
     onVisualProseModeChange,
     onImageGenerationModeChange,
+    onBackgroundImagesEnabledChange,
+    onReferenceModeChange,
   }: Props = $props()
 
   // Force "none" mode when image generation is disabled
@@ -151,7 +159,7 @@
 
           <RadioGroup.Root
             value={imageGenerationMode}
-            onValueChange={(v) => onImageGenerationModeChange(v as 'none' | 'auto' | 'inline')}
+            onValueChange={(v) => onImageGenerationModeChange(v as 'none' | 'agentic' | 'inline')}
             class="grid grid-cols-1 gap-4 md:grid-cols-3"
           >
             <!-- No Images -->
@@ -178,7 +186,7 @@
               >
                 <div class="mb-2 flex w-full items-start justify-between">
                   <span class="font-semibold">Agent Mode</span>
-                  <RadioGroup.Item value="auto" id="img-auto" class="sr-only" />
+                  <RadioGroup.Item value="agentic" id="img-auto" class="sr-only" />
                 </div>
                 <div class="text-muted-foreground text-xs font-normal">
                   AI decides when to generate images based on the story.
@@ -202,6 +210,37 @@
               </Label>
             </div>
           </RadioGroup.Root>
+
+          <!-- Extra Image Toggles -->
+          <div class="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
+            <div class="flex items-center space-x-2">
+              <Switch
+                id="bg-images"
+                checked={backgroundImagesEnabled}
+                onCheckedChange={onBackgroundImagesEnabledChange}
+              />
+              <div class="grid gap-1.5 leading-none">
+                <Label for="bg-images">Background Images</Label>
+                <p class="text-muted-foreground text-xs">
+                  Generate immersive background images for scenes.
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <Switch
+                id="reference-mode"
+                checked={referenceMode}
+                onCheckedChange={onReferenceModeChange}
+              />
+              <div class="grid gap-1.5 leading-none">
+                <Label for="reference-mode">Portrait Reference Mode</Label>
+                <p class="text-muted-foreground text-xs">
+                  Use character portraits as visual references.
+                </p>
+              </div>
+            </div>
+          </div>
         </section>
       {/if}
 

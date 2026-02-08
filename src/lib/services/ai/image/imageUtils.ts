@@ -9,6 +9,7 @@ import { generateImage } from '$lib/services/ai/sdk/generate'
 import { PROVIDERS } from '$lib/services/ai/sdk/providers/config'
 import { database } from '$lib/services/database'
 import { settings } from '$lib/stores/settings.svelte'
+import type { StorySettings } from '$lib/types'
 import { emitImageReady, emitImageAnalysisFailed } from '$lib/services/events'
 import { createLogger } from '../core/config'
 
@@ -18,11 +19,30 @@ const log = createLogger('ImageUtils')
  * Check if image generation is enabled and has valid configuration.
  * Returns true if a valid image-capable profile is selected.
  */
-export function isImageGenerationEnabled(): boolean {
+export function isImageGenerationEnabled(
+  storySettings?: StorySettings,
+  type: 'standard' | 'background' | 'portrait' | 'reference' = 'standard',
+): boolean {
   const imageSettings = settings.systemServicesSettings.imageGeneration
-  if (!imageSettings?.enabled) return false
 
-  const profileId = imageSettings.profileId
+  // If story settings are provided, use them to check if generation is enabled for this story
+  if (storySettings) {
+    // Only 'none' mode blocks standard/reference/portrait images.
+    // Background images have their own toggle (backgroundImagesEnabled).
+    if (type !== 'background' && storySettings.imageGenerationMode === 'none') return false
+  } else {
+    // Falls back to global enabled if no story context (e.g. initial setup or legacy check)
+    // NOTE: User wants overall toggle to not exist, so we might want to default this to true
+    // if a profile is configured.
+    if (!imageSettings?.profileId) return false
+  }
+
+  // Determine which profileId to check based on type
+  let profileId: string | null = imageSettings.profileId
+  if (type === 'background') profileId = imageSettings.backgroundProfileId
+  if (type === 'portrait') profileId = imageSettings.portraitProfileId
+  if (type === 'reference') profileId = imageSettings.referenceProfileId
+
   if (!profileId) return false
 
   const profile = settings.getProfile(profileId)
@@ -79,6 +99,31 @@ export function getProviderDisplayName(): string {
 }
 
 /**
+ * Parse an image size string (e.g., "1024x1024" or "800x600") into width and height.
+ * Falls back to 1024x1024 if the format is invalid.
+ */
+export function parseImageSize(size: string): { width: number; height: number } {
+  try {
+    const parts = size.toLowerCase().split('x')
+    if (parts.length === 2) {
+      const width = parseInt(parts[0], 10)
+      const height = parseInt(parts[1], 10)
+      if (!isNaN(width) && !isNaN(height)) {
+        return { width, height }
+      }
+    }
+  } catch (e) {
+    log('Failed to parse image size', { size, error: e })
+  }
+
+  // Common fallbacks for simple literals if parsing fails
+  if (size === '512x512') return { width: 512, height: 512 }
+  if (size === '2048x2048') return { width: 2048, height: 2048 }
+
+  return { width: 1024, height: 1024 }
+}
+
+/**
  * Retry image generation for a failed/existing image using current settings.
  * This regenerates an image with the given prompt using the current profile configuration.
  */
@@ -104,6 +149,7 @@ export async function retryImageGeneration(imageId: string, prompt: string): Pro
 
   const model = imageSettings.model
   const size = imageSettings.size
+  const { width, height } = parseImageSize(size)
 
   // Update image status to generating and save the new prompt
   await database.updateEmbeddedImage(imageId, {
@@ -111,8 +157,8 @@ export async function retryImageGeneration(imageId: string, prompt: string): Pro
     model,
     status: 'generating',
     errorMessage: undefined,
-    width: size === '2048x2048' ? 2048 : size === '1024x1024' ? 1024 : 512,
-    height: size === '2048x2048' ? 2048 : size === '1024x1024' ? 1024 : 512,
+    width,
+    height,
   })
 
   log('Retrying image generation', {
@@ -159,33 +205,23 @@ export async function retryImageGeneration(imageId: string, prompt: string): Pro
  * Generate a portrait image for a character.
  * Returns the base64 image data on success.
  */
-export async function generatePortrait(
-  prompt: string,
-  options?: {
-    profileId?: string
-    model?: string
-    size?: string
-  },
-): Promise<string> {
+export async function generatePortrait(prompt: string): Promise<string> {
   const imageSettings = settings.systemServicesSettings.imageGeneration
 
   // Determine which profile/model to use
-  const profileId = options?.profileId || imageSettings.portraitProfileId || imageSettings.profileId
+  const profileId = imageSettings.portraitProfileId
 
   if (!profileId) {
     throw new Error('No image generation profile configured')
   }
 
-  const model =
-    options?.model ||
-    (imageSettings.portraitMode ? imageSettings.portraitModel : imageSettings.model) ||
-    imageSettings.model
+  const model = imageSettings.portraitModel
 
   if (!model) {
     throw new Error('No image model configured')
   }
 
-  const size = options?.size || '1024x1024'
+  const size = imageSettings.portraitSize || '1024x1024'
 
   log('Generating portrait', {
     profileId,

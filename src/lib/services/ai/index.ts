@@ -52,7 +52,7 @@ import {
 import {
   inlineImageService,
   type InlineImageContext,
-  isImageGenerationEnabled,
+  isImageGenerationEnabled as isImageGenerationEnabledUtil,
   type ImageAnalysisContext,
 } from './image'
 import {
@@ -61,6 +61,11 @@ import {
   emitImageAnalysisFailed,
   emitImageQueued,
   emitImageReady,
+  emitBackgroundImageAnalysisStarted,
+  emitBackgroundImageAnalysisComplete,
+  emitBackgroundImageAnalysisFailed,
+  emitBackgroundImageQueued,
+  emitBackgroundImageReady,
 } from '$lib/services/events'
 import { database } from '$lib/services/database'
 import { generateImage as sdkGenerateImage } from './sdk/generate'
@@ -80,6 +85,7 @@ export interface ImageGenerationContext {
   lorebookContext?: string
   translatedNarrative?: string
   translationLanguage?: string
+  referenceMode: boolean
 }
 import type { TranslationResult, UITranslationItem } from './utils/TranslationService'
 import type { StreamChunk } from './core/types'
@@ -96,6 +102,7 @@ import type {
   LoreManagementResult,
   LoreChange,
   TimeTracker,
+  StorySettings,
 } from '$lib/types'
 import { createLogger } from './core/config'
 import { serviceFactory } from './core/factory'
@@ -767,10 +774,13 @@ class AIService {
   }
 
   /**
-   * Check if image generation is enabled and configured.
+   * Check if image generation is enabled for a story.
    */
-  isImageGenerationEnabled(): boolean {
-    return isImageGenerationEnabled()
+  isImageGenerationEnabled(
+    storySettings?: StorySettings,
+    type: 'standard' | 'background' | 'portrait' | 'reference' = 'standard',
+  ): boolean {
+    return isImageGenerationEnabledUtil(storySettings, type)
   }
 
   /**
@@ -788,14 +798,13 @@ class AIService {
       translationLanguage: context.translationLanguage,
     })
 
-    if (!this.isImageGenerationEnabled()) {
+    if (!this.isImageGenerationEnabled(undefined, 'standard')) {
       log('Image generation not enabled or not configured')
       return
     }
 
     // Check if inline image mode is enabled for this story
-    const inlineImageMode = story.currentStory?.settings?.inlineImageMode ?? false
-
+    const inlineImageMode = story.currentStory?.settings?.imageGenerationMode === 'inline'
     try {
       if (inlineImageMode) {
         // Use inline image generation (process <pic> tags from AI response)
@@ -808,6 +817,7 @@ class AIService {
           entryId: context.entryId,
           narrativeContent: narrativeToProcess,
           presentCharacters: context.presentCharacters,
+          referenceMode: context.referenceMode,
         }
         await inlineImageService.processNarrativeForInlineImages(inlineContext)
       } else {
@@ -827,7 +837,7 @@ class AIService {
    */
   private async runAnalyzedImageGeneration(context: ImageGenerationContext): Promise<void> {
     const imageSettings = settings.systemServicesSettings.imageGeneration
-    const portraitMode = imageSettings.portraitMode ?? false
+    const referenceMode = context.referenceMode ?? false
 
     // Get characters with/without portraits
     const presentCharacterNames = context.presentCharacters.map((c) => c.name.toLowerCase())
@@ -848,6 +858,7 @@ class AIService {
       presentCharacters: context.presentCharacters.map((c) => ({
         name: c.name,
         visualDescriptors: c.visualDescriptors,
+        isProtagonist: c.relationship === 'self',
       })),
       currentLocation: context.currentLocation,
       stylePrompt,
@@ -856,7 +867,7 @@ class AIService {
       lorebookContext: context.lorebookContext,
       charactersWithPortraits,
       charactersWithoutPortraits,
-      portraitMode,
+      referenceMode,
       translatedNarrative: context.translatedNarrative,
       translationLanguage: context.translationLanguage,
     }
@@ -914,15 +925,17 @@ class AIService {
     presentCharacters: Character[],
   ): Promise<void> {
     const imageId = crypto.randomUUID()
-    const portraitMode = imageSettings.portraitMode ?? false
+    const referenceMode = story.currentStory?.settings?.referenceMode ?? false
 
     // Determine profile and model
     let profileId = imageSettings.profileId
     let modelToUse = imageSettings.model
+    let sizeToUse = imageSettings.size
     let referenceImageUrls: string[] | undefined
+    let styleId: string | undefined = imageSettings.styleId
 
-    // If portrait mode and scene has characters, look for reference images
-    if (portraitMode && scene.characters.length > 0 && !scene.generatePortrait) {
+    // If reference mode and scene has characters, look for reference images
+    if (referenceMode && scene.characters.length > 0 && !scene.generatePortrait) {
       const portraitUrls: string[] = []
 
       for (const charName of scene.characters.slice(0, 3)) {
@@ -936,10 +949,16 @@ class AIService {
       }
 
       if (portraitUrls.length > 0) {
+        if (!this.isImageGenerationEnabled(undefined, 'reference')) {
+          log('Reference image generation not configured')
+          return
+        }
         // Use reference profile and model for img2img
-        profileId = imageSettings.referenceProfileId || imageSettings.profileId
-        modelToUse = imageSettings.referenceModel || imageSettings.model
+        profileId = imageSettings.referenceProfileId
+        modelToUse = imageSettings.referenceModel
+        sizeToUse = imageSettings.referenceSize
         referenceImageUrls = portraitUrls
+        styleId = imageSettings.styleId
         log('Using character portraits as reference', {
           characters: scene.characters,
           count: portraitUrls.length,
@@ -949,8 +968,14 @@ class AIService {
 
     // For portrait generation, use portrait-specific settings
     if (scene.generatePortrait) {
-      profileId = imageSettings.portraitProfileId || imageSettings.profileId
-      modelToUse = imageSettings.portraitModel || imageSettings.model
+      if (!this.isImageGenerationEnabled(undefined, 'portrait')) {
+        log('Portrait image generation not configured')
+        return
+      }
+      profileId = imageSettings.portraitProfileId
+      modelToUse = imageSettings.portraitModel
+      sizeToUse = imageSettings.portraitSize
+      styleId = imageSettings.portraitStyleId
     }
 
     if (!profileId) {
@@ -959,7 +984,7 @@ class AIService {
     }
 
     // Build full prompt with style
-    const stylePrompt = this.getStylePrompt(imageSettings.styleId)
+    const stylePrompt = this.getStylePrompt(styleId)
     const fullPrompt = `${scene.prompt}. ${stylePrompt}`
 
     // Create pending record in database
@@ -969,13 +994,11 @@ class AIService {
       entryId,
       sourceText: scene.sourceText,
       prompt: fullPrompt,
-      styleId: imageSettings.styleId,
+      styleId: styleId,
       model: modelToUse,
       imageData: '',
-      width:
-        imageSettings.size === '1024x1024' ? 1024 : imageSettings.size === '2048x2048' ? 2048 : 512,
-      height:
-        imageSettings.size === '1024x1024' ? 1024 : imageSettings.size === '2048x2048' ? 2048 : 512,
+      width: sizeToUse === '1024x1024' ? 1024 : sizeToUse === '2048x2048' ? 2048 : 512,
+      height: sizeToUse === '1024x1024' ? 1024 : sizeToUse === '2048x2048' ? 2048 : 512,
       status: 'pending',
       generationMode: 'analyzed',
     }
@@ -997,7 +1020,7 @@ class AIService {
       fullPrompt,
       profileId!,
       modelToUse!,
-      imageSettings.size,
+      sizeToUse,
       entryId,
       scene,
       presentCharacters,
@@ -1078,6 +1101,39 @@ class AIService {
       })
 
       emitImageReady(imageId, entryId, false)
+    }
+  }
+
+  /**
+   * Analyze the difference between two story responses and generate a new background image if needed.
+   * This is used to detect when the scene has changed enough to warrant a new background image and generate it.
+   */
+  async analyzeBackgroundChangeAndGenerateImage(
+    storyId: string,
+    visibleEntries: StoryEntry[],
+  ): Promise<void> {
+    try {
+      const service = serviceFactory.createBackgroundImageService()
+      emitBackgroundImageAnalysisStarted()
+      const result = await service.analyzeReponsesForBackgroundImage(visibleEntries)
+      emitBackgroundImageAnalysisComplete()
+      // Ai returns empty string or short response if no change, otherwise the image prompt
+      if (result.changeNecessary) {
+        log('Background change detected, prompt:', result.prompt)
+        emitBackgroundImageQueued()
+        const image = await service.generateBackgroundImage(result.prompt)
+
+        if (image) {
+          emitBackgroundImageReady()
+          log('Background image generated successfully', { image })
+          story.updateCurrentBackgroundImage(image)
+        } else {
+          log('Background image generation failed')
+        }
+      }
+    } catch (error) {
+      emitBackgroundImageAnalysisFailed()
+      log('Background image analysis failed', error)
     }
   }
 

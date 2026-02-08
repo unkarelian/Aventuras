@@ -28,6 +28,7 @@ export interface ImageAnalysisContext {
   presentCharacters: Array<{
     name: string
     visualDescriptors?: VisualDescriptors
+    isProtagonist: boolean
   }>
   /** Current location name */
   currentLocation?: string
@@ -43,12 +44,12 @@ export interface ImageAnalysisContext {
   charactersWithPortraits: string[]
   /** Names of characters that need portrait generation before appearing in scene images */
   charactersWithoutPortraits: string[]
-  /** Whether to use portrait reference mode */
-  portraitMode: boolean
   /** Translated narrative text - use this for sourceText extraction when available */
   translatedNarrative?: string
   /** Target language for translation */
   translationLanguage?: string
+  /** Generate images with character references */
+  referenceMode: boolean
 }
 
 /**
@@ -73,7 +74,7 @@ export class ImageAnalysisService {
     log('identifyScenes called', {
       narrativeLength: context.narrativeResponse.length,
       presentCharactersCount: context.presentCharacters.length,
-      portraitMode: context.portraitMode,
+      referenceMode: context.referenceMode,
       maxImages: context.maxImages,
       hasTranslation: !!context.translatedNarrative,
     })
@@ -107,7 +108,7 @@ ${context.translatedNarrative}`
     }
 
     // Select template based on portrait mode
-    const templateId = context.portraitMode
+    const templateId = context.referenceMode
       ? 'image-prompt-analysis-reference'
       : 'image-prompt-analysis'
 
@@ -159,7 +160,11 @@ ${context.translatedNarrative}`
    * Build a formatted string of character visual descriptors for the prompt.
    */
   private buildCharacterDescriptors(
-    characters: Array<{ name: string; visualDescriptors?: VisualDescriptors }>,
+    characters: Array<{
+      name: string
+      visualDescriptors?: VisualDescriptors
+      isProtagonist: boolean
+    }>,
   ): string {
     const withDescriptors = characters.filter((c) => c.visualDescriptors)
 
@@ -191,6 +196,7 @@ ${context.translatedNarrative}`
         if (vd.clothing) parts.push(`Clothing: ${vd.clothing}`)
         if (vd.accessories) parts.push(`Accessories: ${vd.accessories}`)
         if (vd.distinguishing) parts.push(`Distinguishing features: ${vd.distinguishing}`)
+        if (char.isProtagonist) parts.push(` (Protagonist)`)
 
         return parts.join('\n  ')
       })

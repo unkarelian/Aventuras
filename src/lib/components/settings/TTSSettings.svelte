@@ -453,62 +453,62 @@
       />
       <p class="text-muted-foreground mt-1 text-xs">Characters excluded from TTS narration.</p>
     </div>
-
-    <!-- Remove HTML tags Toggle -->
-    <div class="flex items-center justify-between">
-      <div>
-        <Label>Remove HTML tags</Label>
-        <p class="text-muted-foreground text-xs">
-          Remove HTML tags from narrated text before sending to TTS.
-        </p>
-      </div>
-      <Switch
-        checked={settings.systemServicesSettings.tts.removeHtmlTags}
-        onCheckedChange={(v) => {
-          settings.systemServicesSettings.tts.removeHtmlTags = v
-          settings.saveSystemServicesSettings()
-        }}
-      />
-    </div>
-
-    {#if settings.systemServicesSettings.tts.removeHtmlTags}
-      <!-- HTML tags to remove content from -->
-      <div>
-        <Label class="mb-2 block">HTML tags to remove content from</Label>
-        <Input
-          type="text"
-          class="w-full"
-          value={settings.systemServicesSettings.tts.htmlTagsToRemoveContent}
-          oninput={(e) => {
-            settings.systemServicesSettings.tts.htmlTagsToRemoveContent = e.currentTarget.value
-            settings.saveSystemServicesSettings()
-          }}
-          placeholder="Comma-separated HTML tags (e.g., div, span, font)"
-          disabled={settings.systemServicesSettings.tts.removeAllHtmlContent}
-        />
-        <p class="text-muted-foreground mt-1 text-xs">
-          Comma-separated list of HTML tags whose content should be removed before narration.
-        </p>
-      </div>
-
-      <!-- Remove all tag content Toggle -->
+    <div class="border-border bg-muted/20 space-y-4 rounded-lg border p-4">
+      <!-- Remove HTML tags Toggle -->
       <div class="flex items-center justify-between">
         <div>
-          <Label>Remove all tag content</Label>
+          <Label>Remove HTML tags</Label>
           <p class="text-muted-foreground text-xs">
-            Removes content inside any HTML tag before narration.
+            Remove HTML tags from narrated text before sending to TTS.
           </p>
         </div>
         <Switch
-          checked={settings.systemServicesSettings.tts.removeAllHtmlContent}
+          checked={settings.systemServicesSettings.tts.removeHtmlTags}
           onCheckedChange={(v) => {
-            settings.systemServicesSettings.tts.removeAllHtmlContent = v
+            settings.systemServicesSettings.tts.removeHtmlTags = v
             settings.saveSystemServicesSettings()
           }}
         />
       </div>
-    {/if}
 
+      {#if settings.systemServicesSettings.tts.removeHtmlTags}
+        <!-- HTML tags to remove content from -->
+        <div>
+          <Label class="mb-2 block">HTML tags to remove content from</Label>
+          <Input
+            type="text"
+            class="w-full"
+            value={settings.systemServicesSettings.tts.htmlTagsToRemoveContent}
+            oninput={(e) => {
+              settings.systemServicesSettings.tts.htmlTagsToRemoveContent = e.currentTarget.value
+              settings.saveSystemServicesSettings()
+            }}
+            placeholder="Comma-separated HTML tags (e.g., div, span, font)"
+            disabled={settings.systemServicesSettings.tts.removeAllHtmlContent}
+          />
+          <p class="text-muted-foreground mt-1 text-xs">
+            Comma-separated list of HTML tags whose content should be removed before narration.
+          </p>
+        </div>
+
+        <!-- Remove all tag content Toggle -->
+        <div class="flex items-center justify-between">
+          <div>
+            <Label>Remove all tag content</Label>
+            <p class="text-muted-foreground text-xs">
+              Removes content inside any HTML tag before narration.
+            </p>
+          </div>
+          <Switch
+            checked={settings.systemServicesSettings.tts.removeAllHtmlContent}
+            onCheckedChange={(v) => {
+              settings.systemServicesSettings.tts.removeAllHtmlContent = v
+              settings.saveSystemServicesSettings()
+            }}
+          />
+        </div>
+      {/if}
+    </div>
     <!-- Reset Button -->
     <Button variant="outline" size="sm" onclick={resetSettings}>
       <RefreshCw class="mr-1 h-3 w-3" />

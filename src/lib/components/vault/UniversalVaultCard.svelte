@@ -131,7 +131,7 @@
   {#snippet badges()}
     {#if asCharacter}
       {#if hasLinkedLorebook}
-        <Badge variant="secondary" class="max-w-32 h-4 gap-1 px-1.5 text-[10px] font-normal">
+        <Badge variant="secondary" class="h-4 max-w-32 gap-1 px-1.5 text-[10px] font-normal">
           <Link class="h-2.5 w-2.5 shrink-0" />
           <span class="truncate">{linkedLorebookName ?? 'Lorebook'}</span>
         </Badge>
@@ -152,7 +152,7 @@
       {/if}
     {:else if asScenario}
       {#if hasLinkedLorebook}
-        <Badge variant="secondary" class="max-w-32 h-4 gap-1 px-1.5 text-[10px] font-normal">
+        <Badge variant="secondary" class="h-4 max-w-32 gap-1 px-1.5 text-[10px] font-normal">
           <Link class="h-2.5 w-2.5 shrink-0" />
           <span class="truncate">{linkedLorebookName ?? 'Lorebook'}</span>
         </Badge>

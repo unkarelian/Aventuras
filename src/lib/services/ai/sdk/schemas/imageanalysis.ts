@@ -14,7 +14,7 @@ export const imageableSceneSchema = z.object({
   prompt: z
     .string()
     .describe(
-      'Detailed image generation prompt (500-800 chars for standard, shorter for reference mode)',
+      'Detailed image generation prompt (below 500 characters for standard, shorter for reference mode)',
     ),
   sourceText: z
     .string()
@@ -40,5 +40,11 @@ export const sceneAnalysisResultSchema = z.object({
   scenes: z.array(imageableSceneSchema).describe('Array of identified imageable scenes'),
 })
 
+export const backgroundImageAnalysisResultSchema = z.object({
+  changeNecessary: z.boolean().describe('Whether the background image needs to be changed'),
+  prompt: z.string().describe('Prompt for generating background image'),
+})
+
 export type ImageableScene = z.infer<typeof imageableSceneSchema>
 export type SceneAnalysisResult = z.infer<typeof sceneAnalysisResultSchema>
+export type BackgroundImageAnalysisResult = z.infer<typeof backgroundImageAnalysisResultSchema>

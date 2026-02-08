@@ -12,11 +12,10 @@
   } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button'
   import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates'
-  import * as Popover from '$lib/components/ui/popover'
-  import * as Command from '$lib/components/ui/command'
   import * as Select from '$lib/components/ui/select'
   import { Badge } from '$lib/components/ui/badge'
   import { Separator } from '$lib/components/ui/separator'
+  import { Autocomplete } from '$lib/components/ui/autocomplete'
   import { cn } from '$lib/utils/cn.js'
   import { SvelteMap } from 'svelte/reactivity'
 
@@ -164,86 +163,63 @@
   <div class="border-border bg-card/50 flex items-center justify-between border-b px-6 py-3">
     <div class="flex items-center gap-2">
       <Filter class="text-muted-foreground h-3.5 w-3.5" />
-      <Popover.Root>
-        <Popover.Trigger>
-          {#snippet child({ props })}
-            <Button
-              {...props}
-              variant="outline"
-              size="sm"
-              class="bg-muted/20 h-8 gap-2 border-dashed"
+      <Autocomplete
+        items={categories}
+        selected={selectedCategories}
+        onSelect={(val) => {
+          selectedCategories = val as string[]
+        }}
+        multiple
+        placeholder="Services"
+        class="bg-muted/20 h-8 w-48 shrink-0 border-dashed"
+        itemLabel={(c) => c}
+        itemValue={(c) => c}
+      >
+        {#snippet triggerSnippet()}
+          <div class="flex items-center gap-2">
+            <CirclePlus class="h-4 w-4 opacity-50" />
+            <span class="text-xs">Services</span>
+          </div>
+        {/snippet}
+        {#snippet itemSnippet(cat)}
+          {@const isSelected = selectedCategories.includes(cat)}
+          <div
+            class={cn(
+              'border-primary mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors',
+              isSelected ? 'bg-primary text-primary-foreground' : 'opacity-50 [&_svg]:invisible',
+            )}
+          >
+            <Check class="h-4 w-4" />
+          </div>
+          <span class="truncate text-xs">{cat}</span>
+        {/snippet}
+      </Autocomplete>
+
+      {#if selectedCategories.length > 0}
+        <Separator orientation="vertical" class="mx-1 h-4" />
+        <div class="flex flex-wrap items-center gap-1.5">
+          {#each selectedCategories as cat (cat)}
+            <Badge
+              variant="secondary"
+              class="hover:bg-secondary/80 flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] font-normal transition-colors"
+              onclick={() => {
+                selectedCategories = selectedCategories.filter((c) => c !== cat)
+              }}
             >
-              <CirclePlus class="h-4 w-4 opacity-50" />
-              <span class="text-xs">Services</span>
-              {#if selectedCategories.length > 0}
-                <Separator orientation="vertical" class="mx-1 h-4" />
-                <Badge variant="secondary" class="rounded-sm px-1 font-normal lg:hidden">
-                  {selectedCategories.length}
-                </Badge>
-                <div class="hidden space-x-1 lg:flex">
-                  {#if selectedCategories.length > 2}
-                    <Badge variant="secondary" class="rounded-sm px-1 font-normal">
-                      {selectedCategories.length} selected
-                    </Badge>
-                  {:else}
-                    {#each selectedCategories as cat, i (i)}
-                      <Badge variant="secondary" class="rounded-sm px-1 font-normal">
-                        {cat}
-                      </Badge>
-                    {/each}
-                  {/if}
-                </div>
-              {/if}
-            </Button>
-          {/snippet}
-        </Popover.Trigger>
-        <Popover.Content class="w-[240px] p-0" align="start">
-          <Command.Root>
-            <Command.Input placeholder="Filter services..." />
-            <Command.List>
-              <Command.Empty>No service found.</Command.Empty>
-              <Command.Group>
-                {#each categories as cat, i (i)}
-                  {@const isSelected = selectedCategories.includes(cat)}
-                  <Command.Item
-                    value={cat}
-                    onSelect={() => {
-                      if (isSelected) {
-                        selectedCategories = selectedCategories.filter((c) => c !== cat)
-                      } else {
-                        selectedCategories = [...selectedCategories, cat]
-                      }
-                    }}
-                  >
-                    <div
-                      class={cn(
-                        'border-primary mr-2 flex h-4 w-4 items-center justify-center rounded-sm border transition-colors',
-                        isSelected
-                          ? 'bg-primary text-primary-foreground'
-                          : 'opacity-50 [&_svg]:invisible',
-                      )}
-                    >
-                      <Check class="h-4 w-4" />
-                    </div>
-                    <span class="text-xs">{cat}</span>
-                  </Command.Item>
-                {/each}
-              </Command.Group>
-              {#if selectedCategories.length > 0}
-                <Command.Separator />
-                <Command.Group>
-                  <Command.Item
-                    onSelect={() => (selectedCategories = [])}
-                    class="justify-center text-center text-xs text-red-400 hover:text-red-300"
-                  >
-                    Clear filters
-                  </Command.Item>
-                </Command.Group>
-              {/if}
-            </Command.List>
-          </Command.Root>
-        </Popover.Content>
-      </Popover.Root>
+              {cat}
+              <Trash2 class="h-3 w-3 opacity-50 hover:opacity-100" />
+            </Badge>
+          {/each}
+          <Button
+            variant="ghost"
+            size="sm"
+            class="text-muted-foreground h-6 px-1.5 text-[10px] font-medium transition-colors hover:text-red-400"
+            onclick={() => (selectedCategories = [])}
+          >
+            Clear all
+          </Button>
+        </div>
+      {/if}
     </div>
 
     <div class="flex items-center gap-2">

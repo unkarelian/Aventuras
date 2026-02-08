@@ -32,6 +32,7 @@ import {
   type StoryCreatedEvent,
 } from '$lib/services/events'
 import { SvelteMap, SvelteSet } from 'svelte/reactivity'
+import { aiService } from '$lib/services/ai'
 
 const DEBUG = true
 
@@ -46,6 +47,7 @@ class StoryStore {
   // Current active story
   currentStory = $state<Story | null>(null)
   entries = $state<StoryEntry[]>([])
+  currentBgImage = $state<string | null>(null)
 
   // Lorebook entries (per design doc section 3.2)
   lorebookEntries = $state<Entry[]>([])
@@ -399,6 +401,7 @@ class StoryStore {
   closeStory(): void {
     this.currentStory = null
     this.entries = []
+    this.currentBgImage = null
     this.characters = []
     this.locations = []
     this.items = []
@@ -429,6 +432,7 @@ class StoryStore {
     await database.cleanupOrphanedEmbeddedImages()
 
     this.currentStory = story
+    this.currentBgImage = await database.getBackgroundForBranch(storyId, story.currentBranchId)
 
     // Load branch-independent data first
     const [characters, locations, items, storyBeats, checkpoints, lorebookEntries, branches] =
@@ -525,6 +529,7 @@ class StoryStore {
       styleReviewState: null,
       timeTracker: null,
       currentBranchId: null,
+      currentBgImage: null,
     })
 
     this.allStories = [storyData, ...this.allStories]
@@ -728,6 +733,29 @@ class StoryStore {
   }
 
   /**
+   * Update the current background image for the story and persist to database.
+   */
+  async updateCurrentBackgroundImage(imageData: string | null): Promise<void> {
+    if (!this.currentStory) return
+
+    log('Updating background image...', { hasData: !!imageData })
+    this.currentBgImage = imageData
+
+    // Keep the currentStory object in sync to prevent any potential inconsistency
+    if (this.currentStory) {
+      this.currentStory.currentBgImage = imageData
+    }
+
+    await database.saveBackground(
+      this.currentStory.id,
+      this.currentStory.currentBranchId,
+      null,
+      imageData,
+    )
+    log('Background image updated and persisted')
+  }
+
+  /**
    * Refresh world state (characters, locations, items, story beats) from the database.
    * Used when background processes update translations.
    */
@@ -798,8 +826,8 @@ class StoryStore {
     }
 
     // Now delete entries from database
-    for (const entry of entriesToDelete) {
-      await database.deleteStoryEntry(entry.id)
+    if (entriesToDelete.length > 0) {
+      await database.deleteStoryEntries(Array.from(entryIdsToDelete))
     }
 
     // Update in-memory state
@@ -1893,6 +1921,18 @@ class StoryStore {
 
     await database.createCheckpoint(checkpoint)
     this.checkpoints = [checkpoint, ...this.checkpoints]
+
+    // Save current background for this checkpoint
+    if (this.currentBgImage) {
+      log('Saving background for checkpoint:', name)
+      await database.saveBackground(
+        this.currentStory.id,
+        this.currentStory.currentBranchId,
+        checkpoint.id,
+        this.currentBgImage,
+      )
+    }
+
     log('Checkpoint created:', name)
 
     // Emit event
@@ -1997,6 +2037,16 @@ class StoryStore {
 
     await database.addBranch(branch)
     this.branches = [...this.branches, branch]
+
+    // Inherit background from checkpoint
+    const checkpointBg = await database.getBackgroundForCheckpoint(
+      this.currentStory.id,
+      checkpointId,
+    )
+    if (checkpointBg) {
+      log('Inheriting background from checkpoint for new branch:', branch.name)
+      await database.saveBackground(this.currentStory.id, branch.id, null, checkpointBg)
+    }
 
     // Copy world state from checkpoint into database with the new branch_id
     // This ensures the branch has its own copy of the world state at the fork point
@@ -2147,6 +2197,9 @@ class StoryStore {
     // Invalidate caches
     this.invalidateWordCountCache()
     this.invalidateChapterCache()
+
+    // Reload background from database for the branch
+    this.currentBgImage = await database.getBackgroundForBranch(this.currentStory.id, branchId)
 
     log('Switched to branch:', branchId ?? 'main')
   }
@@ -2435,6 +2488,7 @@ class StoryStore {
     lorebookEntries?: Entry[] // Optional - lorebook entries persist across retry operations
     embeddedImages: EmbeddedImage[]
     timeTracker?: TimeTracker | null
+    entryCountBeforeAction: number
   }): Promise<void> {
     if (!this.currentStory) throw new Error('No story loaded')
 
@@ -2457,22 +2511,25 @@ class StoryStore {
         backupCharDescriptors,
       })
 
+      // Determine entries to delete (those added since the backup)
+      const entriesToDelete = this.entries.slice(backup.entryCountBeforeAction)
+      const entryIdsToDelete = entriesToDelete.map((e) => e.id)
+
       log('Restoring from retry backup...', {
         entriesCount: backup.entries.length,
         currentEntriesCount: this.entries.length,
+        entriesToDelete: entryIdsToDelete.length,
         embeddedImagesCount: backup.embeddedImages.length,
       })
 
       // Restore to database
       await database.restoreRetryBackup(
-        this.entries[this.entries.length - 1].id,
+        entryIdsToDelete,
         this.currentStory.id,
-        backup.entries,
         backup.characters,
         backup.locations,
         backup.items,
         backup.storyBeats,
-        backup.embeddedImages,
       )
 
       // Reload from database to ensure a clean, fully restored state
@@ -2653,7 +2710,9 @@ class StoryStore {
       tone?: string
       themes?: string[]
       visualProseMode?: boolean
-      inlineImageMode?: boolean
+      imageGenerationMode?: 'none' | 'agentic' | 'inline'
+      backgroundImagesEnabled?: boolean
+      referenceMode?: boolean
     }
     protagonist: Partial<Character>
     startingLocation: Partial<Location>
@@ -2690,7 +2749,9 @@ class StoryStore {
       mode: data.mode,
       pov: data.settings.pov,
       visualProseMode: data.settings.visualProseMode,
-      inlineImageMode: data.settings.inlineImageMode,
+      imageGenerationMode: data.settings.imageGenerationMode,
+      backgroundImagesEnabled: data.settings.backgroundImagesEnabled,
+      referenceMode: data.settings.referenceMode,
     })
 
     // Create the base story with custom system prompt stored in settings
@@ -2709,13 +2770,16 @@ class StoryStore {
         // Don't store systemPromptOverride - use centralized prompt system instead
         // The centralized template uses story settings (pov, tense, genre, tone, themes) via macros
         visualProseMode: data.settings.visualProseMode,
-        inlineImageMode: data.settings.inlineImageMode,
+        imageGenerationMode: data.settings.imageGenerationMode,
+        backgroundImagesEnabled: data.settings.backgroundImagesEnabled,
+        referenceMode: data.settings.referenceMode,
       },
       memoryConfig: DEFAULT_MEMORY_CONFIG,
       retryState: null,
       styleReviewState: null,
       timeTracker: null,
       currentBranchId: null,
+      currentBgImage: null,
     })
 
     this.allStories = [storyData, ...this.allStories]
@@ -2831,10 +2895,11 @@ class StoryStore {
     }
 
     // Add opening scene as first narration entry
+    let openingEntry: StoryEntry | undefined = undefined
     if (data.openingScene) {
       const tokenCount = countTokens(data.openingScene)
       const baseTime = storyData.timeTracker ?? { years: 0, days: 0, hours: 0, minutes: 0 }
-      await database.addStoryEntry({
+      openingEntry = await database.addStoryEntry({
         id: crypto.randomUUID(),
         storyId,
         type: 'narration',
@@ -2868,6 +2933,12 @@ class StoryStore {
         await database.addEntry(entry)
       }
       log('Added imported entries:', data.importedEntries.length)
+    }
+
+    // Generate background image from opening scene
+    if (data.openingScene && openingEntry) {
+      aiService.analyzeBackgroundChangeAndGenerateImage(storyId, [openingEntry])
+      log('Generated background image')
     }
 
     // Emit event

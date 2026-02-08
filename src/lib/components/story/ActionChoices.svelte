@@ -56,7 +56,9 @@
   </div>
 {:else if ui.actionChoices.length > 0}
   <div
-    class="border-border border-l-muted-foreground/20 bg-card mt-3 space-y-2 rounded-lg border border-l-4 p-3 shadow-sm sm:mt-4 sm:p-4"
+    class="border-border border-l-muted-foreground/20 mt-3 space-y-2 rounded-lg border border-l-4 p-3 shadow-sm sm:mt-4 sm:p-4 {story.currentBgImage
+      ? 'bg-card/60 backdrop-blur-md'
+      : 'bg-card'}"
   >
     <div class="text-muted-foreground mb-2 flex items-center gap-2 text-xs tracking-wide uppercase">
       <span>What do you do?</span>

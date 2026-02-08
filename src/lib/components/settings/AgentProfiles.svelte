@@ -119,6 +119,12 @@
       icon: Wand2,
       description: 'Generates image prompts',
     },
+    {
+      id: 'bgImageGeneration',
+      label: 'BG Image generation analyzer',
+      icon: Wand2,
+      description: 'Generates background image prompts',
+    },
     // Agentic tasks
     {
       id: 'loreManagement',
@@ -248,6 +254,7 @@
     actionChoices: 'suggestions',
     styleReviewer: 'suggestions',
     imageGeneration: 'suggestions',
+    bgImageGeneration: 'suggestions',
     // Agentic
     loreManagement: 'agentic',
     agenticRetrieval: 'agentic',

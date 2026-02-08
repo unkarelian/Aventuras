@@ -71,7 +71,9 @@
         reasoningModels: result.reasoningModels,
       })
 
-      console.log(`[MainNarrative] Fetched ${result.models.length} models from ${profile.providerType}`)
+      console.log(
+        `[MainNarrative] Fetched ${result.models.length} models from ${profile.providerType}`,
+      )
     } catch (error) {
       console.error('[MainNarrative] Failed to fetch models:', error)
       modelError = error instanceof Error ? error.message : 'Failed to load models.'

@@ -17,15 +17,16 @@ import type { Character } from '$lib/types'
 /** Dependencies for image phase - injected to avoid tight coupling */
 export interface ImageDependencies {
   generateImagesForNarrative: (context: ImageGenerationContext) => Promise<void>
-  isImageGenerationEnabled: () => boolean
+  isImageGenerationEnabled: (
+    storySettings?: any,
+    type?: 'standard' | 'background' | 'portrait' | 'reference',
+  ) => boolean
 }
 
 /** Settings needed for image phase decision making */
 export interface ImageSettings {
-  enabled: boolean
-  autoGenerate: boolean
-  /** When true, inline images are handled during streaming, not in this phase */
-  inlineMode?: boolean
+  imageGenerationMode?: 'none' | 'agentic' | 'inline'
+  referenceMode?: boolean
 }
 
 /** Input for the image phase */
@@ -47,7 +48,7 @@ export interface ImageInput {
 /** Result from image phase */
 export interface ImageResult {
   started: boolean
-  skippedReason?: 'disabled' | 'auto_generate_off' | 'not_configured' | 'aborted' | 'inline_mode'
+  skippedReason?: 'disabled' | 'agentic_generate_off' | 'not_configured' | 'aborted' | 'inline_mode'
 }
 
 /** Coordinates image generation. Errors are non-fatal. */
@@ -74,28 +75,32 @@ export class ImagePhase {
     } = input
 
     // Check if inline mode is enabled - inline images are processed during streaming, not here
-    if (imageSettings.inlineMode) {
+    if (imageSettings.imageGenerationMode === 'inline') {
       const result: ImageResult = { started: false, skippedReason: 'inline_mode' }
       yield { type: 'phase_complete', phase: 'image', result } satisfies PhaseCompleteEvent
       return result
     }
 
-    // Check if image generation is disabled
-    if (!imageSettings.enabled) {
+    // Check if image generation is disabled for this story
+    if (imageSettings.imageGenerationMode === 'none') {
       const result: ImageResult = { started: false, skippedReason: 'disabled' }
       yield { type: 'phase_complete', phase: 'image', result } satisfies PhaseCompleteEvent
       return result
     }
 
     // Check if auto-generate is off (manual mode - context stored for later)
-    if (!imageSettings.autoGenerate) {
-      const result: ImageResult = { started: false, skippedReason: 'auto_generate_off' }
+    if (imageSettings.imageGenerationMode !== 'agentic') {
+      const result: ImageResult = { started: false, skippedReason: 'agentic_generate_off' }
       yield { type: 'phase_complete', phase: 'image', result } satisfies PhaseCompleteEvent
       return result
     }
 
     // Check if image generation is actually configured (profile exists)
-    if (!this.deps.isImageGenerationEnabled()) {
+    if (
+      !this.deps.isImageGenerationEnabled(imageSettings, 'standard') ||
+      (imageSettings.referenceMode &&
+        !this.deps.isImageGenerationEnabled(imageSettings, 'reference'))
+    ) {
       const result: ImageResult = { started: false, skippedReason: 'not_configured' }
       yield { type: 'phase_complete', phase: 'image', result } satisfies PhaseCompleteEvent
       return result
@@ -118,6 +123,7 @@ export class ImagePhase {
       lorebookContext,
       translatedNarrative,
       translationLanguage,
+      referenceMode: imageSettings.referenceMode || false,
     }
 
     try {

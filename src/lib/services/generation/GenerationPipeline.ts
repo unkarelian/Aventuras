@@ -37,11 +37,19 @@ import {
   type PromptContext,
   type ImageSettings,
 } from './phases'
+import {
+  BackgroundImagePhase,
+  type BackgroundImageDependencies,
+  type BackgroundImageResult,
+  type BackgroundImageSettings,
+} from './phases/BackgroundImagePhase'
+import { mergeGenerators } from '$lib/utils/async'
 
 export interface PipelineDependencies
   extends
     RetrievalDependencies,
     NarrativeDependencies,
+    BackgroundImageDependencies,
     ClassificationDependencies,
     TranslationDependencies,
     ImageDependencies,
@@ -59,7 +67,7 @@ export interface PipelineConfig {
   styleReview: StyleReviewResult | null
   activationTracker?: ActivationTracker
   translationSettings: TranslationSettings
-  imageSettings: ImageSettings
+  imageSettings: ImageSettings & BackgroundImageSettings
   promptContext: PromptContext
   disableSuggestions: boolean
   activeThreads: StoryBeat[]
@@ -68,6 +76,7 @@ export interface PipelineConfig {
 export interface PipelineResult {
   preGeneration: PreGenerationResult | null
   narrative: NarrativeResult | null
+  background: BackgroundImageResult | null
   classification: ClassificationPhaseResult | null
   translation: TranslationResult2 | null
   image: ImageResult | null
@@ -80,6 +89,7 @@ export class GenerationPipeline {
   private prePhase = new PreGenerationPhase()
   private retrievalPhase = new RetrievalPhase()
   private narrativePhase: NarrativePhase
+  private backgroundPhase: BackgroundImagePhase
   private classificationPhase: ClassificationPhase
   private translationPhase: TranslationPhase
   private imagePhase: ImagePhase
@@ -87,6 +97,7 @@ export class GenerationPipeline {
 
   constructor(private deps: PipelineDependencies) {
     this.narrativePhase = new NarrativePhase(deps)
+    this.backgroundPhase = new BackgroundImagePhase(deps)
     this.classificationPhase = new ClassificationPhase(deps)
     this.translationPhase = new TranslationPhase(deps)
     this.imagePhase = new ImagePhase(deps)
@@ -100,6 +111,7 @@ export class GenerationPipeline {
     const r: PipelineResult = {
       preGeneration: null,
       narrative: null,
+      background: null,
       classification: null,
       translation: null,
       image: null,
@@ -139,15 +151,27 @@ export class GenerationPipeline {
       })
       if (!r.narrative || ctx.abortSignal?.aborted) return { ...r, aborted: true }
 
-      r.classification = yield* this.classificationPhase.execute({
-        narrativeContent: r.narrative.content,
-        narrativeEntryId: ctx.userAction.entryId,
-        userActionContent: ctx.userAction.content,
-        worldState: ctx.worldState,
-        story: ctx.story,
-        visibleEntries: ctx.visibleEntries,
-        abortSignal: ctx.abortSignal,
+      const parallelPhases = yield* mergeGenerators({
+        background: this.backgroundPhase.execute({
+          storyId: ctx.story.id,
+          storyEntries: ctx.visibleEntries,
+          imageSettings: cfg.imageSettings,
+          abortSignal: ctx.abortSignal,
+        }),
+        classification: this.classificationPhase.execute({
+          narrativeContent: r.narrative.content,
+          narrativeEntryId: ctx.userAction.entryId,
+          userActionContent: ctx.userAction.content,
+          worldState: ctx.worldState,
+          story: ctx.story,
+          visibleEntries: ctx.visibleEntries,
+          abortSignal: ctx.abortSignal,
+        }),
       })
+
+      r.background = parallelPhases.background
+      r.classification = parallelPhases.classification
+      if (ctx.abortSignal?.aborted) return { ...r, aborted: true }
 
       r.translation = yield* this.translationPhase.execute({
         narrativeContent: r.narrative.content,
@@ -156,8 +180,10 @@ export class GenerationPipeline {
         translationSettings: cfg.translationSettings,
         abortSignal: ctx.abortSignal,
       })
+      if (ctx.abortSignal?.aborted) return { ...r, aborted: true }
 
       r.image = yield* this.imagePhase.execute(this.buildImageInput(ctx, cfg, r))
+      if (ctx.abortSignal?.aborted) return { ...r, aborted: true }
 
       r.postGeneration = yield* this.postPhase.execute({
         isCreativeMode: cfg.storyMode === 'creative-writing',
@@ -172,6 +198,7 @@ export class GenerationPipeline {
         translationSettings: cfg.translationSettings,
         abortSignal: ctx.abortSignal,
       })
+      if (ctx.abortSignal?.aborted) return { ...r, aborted: true }
 
       return r
     } catch (error) {
@@ -188,7 +215,7 @@ export class GenerationPipeline {
     )
     return {
       storyId: ctx.story.id,
-      entryId: ctx.userAction.entryId,
+      entryId: ctx.narrationEntryId || ctx.userAction.entryId,
       narrativeContent: r.narrative?.content ?? '',
       userAction: ctx.userAction.content,
       presentCharacters,

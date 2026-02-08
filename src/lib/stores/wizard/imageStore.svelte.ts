@@ -31,9 +31,8 @@ export class ImageStore {
 
     log('Starting protagonist portrait generation', {
       protagonistName: protagonist.name,
-      portraitMode: imageSettings.portraitMode,
-      model: imageSettings.portraitMode ? imageSettings.portraitModel : imageSettings.model,
-      styleId: imageSettings.styleId,
+      model: imageSettings.portraitModel,
+      styleId: imageSettings.portraitStyleId,
     })
 
     if (!hasRequiredCredentials()) {
@@ -86,7 +85,6 @@ export class ImageStore {
       )
 
       log('Sending protagonist portrait request', {
-        portraitMode: imageSettings.portraitMode,
         promptLength: portraitPrompt.length,
       })
 
@@ -120,9 +118,8 @@ export class ImageStore {
 
     log('Starting supporting character portrait generation', {
       characterName: charName,
-      portraitMode: imageSettings.portraitMode,
-      model: imageSettings.portraitMode ? imageSettings.portraitModel : imageSettings.model,
-      styleId: imageSettings.styleId,
+      model: imageSettings.portraitModel,
+      styleId: imageSettings.portraitStyleId,
     })
 
     if (!hasRequiredCredentials()) {
@@ -143,7 +140,7 @@ export class ImageStore {
     this.portraitError = null
 
     try {
-      const styleId = imageSettings.styleId
+      const styleId = imageSettings.portraitStyleId
       let stylePrompt = ''
       try {
         const promptContext = {
@@ -176,7 +173,6 @@ export class ImageStore {
 
       log('Sending supporting character portrait request', {
         characterName: charName,
-        portraitMode: imageSettings.portraitMode,
         promptLength: portraitPrompt.length,
       })
 

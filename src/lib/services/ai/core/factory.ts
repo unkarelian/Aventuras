@@ -23,6 +23,7 @@ import {
 } from '../retrieval/EntryRetrievalService'
 import { TranslationService } from '../utils/TranslationService'
 import { ImageAnalysisService } from '../image/ImageAnalysisService'
+import { BackgroundImageService } from '../image/BackgroundImageService'
 
 /**
  * Factory class for creating AI services.
@@ -153,6 +154,15 @@ export class ServiceFactory {
   createImageAnalysisService(): ImageAnalysisService {
     const presetId = settings.getServicePresetId('imageAnalysis')
     return new ImageAnalysisService(presetId)
+  }
+
+  /**
+   * Create a background image service instance.
+   */
+  createBackgroundImageService(): BackgroundImageService {
+    const presetId = settings.getServicePresetId('bgImageGeneration')
+    const imageSettings = settings.systemServicesSettings.imageGeneration
+    return new BackgroundImageService(presetId, imageSettings)
   }
 }
 

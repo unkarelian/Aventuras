@@ -32,6 +32,7 @@ export interface AventuraExport {
   checkpoints?: Checkpoint[] // Added in v1.6.0
   branches?: Branch[] // Added in v1.6.0
   chapters?: Chapter[] // Added in v1.7.0
+  currentBgImage?: string | null // Added in v1.8.0
 }
 
 // Version history for import compatibility
@@ -103,6 +104,11 @@ class ExportService {
         `[Import] File from v${importVersion} predates chapters (v1.7.0). Chapter summaries (memory) will not be restored.`,
       )
     }
+    if (this.compareVersions(importVersion, '1.8.0') < 0) {
+      console.warn(
+        `[Import] File from v${importVersion} predates current background image (v1.8.0). Current background image will not be restored.`,
+      )
+    }
   }
 
   // Export to Aventura format (.avt - JSON)
@@ -118,6 +124,7 @@ class ExportService {
     checkpoints: Checkpoint[] = [],
     branches: Branch[] = [],
     chapters: Chapter[] = [],
+    currentBgImage: string | null = null,
   ): Promise<boolean> {
     const exportData: AventuraExport = {
       version: this.VERSION,
@@ -134,6 +141,7 @@ class ExportService {
       checkpoints,
       branches,
       chapters,
+      currentBgImage,
     }
 
     const filePath = await save({
@@ -365,6 +373,7 @@ class ExportService {
         styleReviewState: data.styleReviewState ?? null, // Restore style review state from export (v1.2.0+)
         timeTracker: data.story.timeTracker ?? null, // Restore time tracker from export
         currentBranchId: null, // Set after branch import (if available)
+        currentBgImage: data.story.currentBgImage || null,
       }
 
       await database.createStory(importedStory)

@@ -37,6 +37,7 @@ export interface Story {
   styleReviewState: PersistentStyleReviewState | null
   timeTracker: TimeTracker | null
   currentBranchId: string | null // Active branch (null = main branch for legacy stories)
+  currentBgImage: string | null
 }
 
 // Persistent retry state - lightweight version saved to database
@@ -110,8 +111,9 @@ export interface StorySettings {
   tone?: string
   themes?: string[]
   visualProseMode?: boolean // Enable HTML/CSS visual output mode
-  inlineImageMode?: boolean // Enable <pic> tag inline image generation
-  imageGenerationMode?: 'none' | 'auto' | 'inline' // Image generation strategy
+  imageGenerationMode?: 'none' | 'agentic' | 'inline' // Image generation strategy
+  backgroundImagesEnabled?: boolean
+  referenceMode?: boolean
 }
 
 export interface StoryEntry {
@@ -771,9 +773,11 @@ export interface ImageGenerationSettings {
   profileId: string | null // API profile to use for image generation
   model: string // Image model (default: 'z-image-turbo')
   styleId: string // Selected image style template
-  size: ImageSize // Image size
+  portraitStyleId?: string // Character portrait style template
+  size: ImageSize // Regular image size
+  referenceSize?: ImageSize // Reference image size
+  portraitSize?: ImageSize // Portrait image size
   maxImagesPerMessage: number // Max images to generate per narrative (default: 2)
-  autoGenerate: boolean // Generate automatically after narration
 
   // Prompt analysis model settings (for identifying imageable scenes)
   promptProfileId: string | null // API profile for prompt analysis

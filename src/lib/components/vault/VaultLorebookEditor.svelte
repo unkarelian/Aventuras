@@ -461,8 +461,7 @@
                       >
                         <SelectTrigger id="entry-type">
                           {`${
-                            selectedEntry.type.charAt(0).toUpperCase() +
-                            selectedEntry.type.slice(1)
+                            selectedEntry.type.charAt(0).toUpperCase() + selectedEntry.type.slice(1)
                           }` || 'Select type'}
                         </SelectTrigger>
                         <SelectContent>

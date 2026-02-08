@@ -101,9 +101,7 @@
   // ============================================================================
 
   const canShowManualImageGen = $derived(
-    settings.systemServicesSettings.imageGeneration.enabled &&
-      !settings.systemServicesSettings.imageGeneration.autoGenerate &&
-      !!lastImageGenContext,
+    story.currentStory?.settings?.imageGenerationMode === 'none' && !!lastImageGenContext,
   )
 
   const manualImageGenDisabled = $derived.by(() => {
@@ -235,11 +233,14 @@
       classifyResponse: aiService.classifyResponse.bind(aiService),
       translateNarration: aiService.translateNarration.bind(aiService),
       generateImagesForNarrative: aiService.generateImagesForNarrative.bind(aiService),
-      isImageGenerationEnabled: aiService.isImageGenerationEnabled.bind(aiService),
+      isImageGenerationEnabled: (settings, type) =>
+        aiService.isImageGenerationEnabled(settings, type),
       generateSuggestions: aiService.generateSuggestions.bind(aiService),
       translateSuggestions: aiService.translateSuggestions.bind(aiService),
       generateActionChoices: aiService.generateActionChoices.bind(aiService),
       translateActionChoices: aiService.translateActionChoices.bind(aiService),
+      analyzeBackgroundChangeAndGenerateImage:
+        aiService.analyzeBackgroundChangeAndGenerateImage.bind(aiService),
     }
   }
 
@@ -351,7 +352,7 @@
     activeAbortController = new AbortController()
 
     const visualProseMode = story.currentStory.settings?.visualProseMode ?? false
-    const inlineImageMode = story.currentStory.settings?.inlineImageMode ?? false
+    const inlineImageMode = story.currentStory.settings?.imageGenerationMode === 'inline'
     const streamingEntryId = crypto.randomUUID()
     const narrationEntryId = crypto.randomUUID()
 
@@ -363,7 +364,7 @@
     const currentStoryRef = story.currentStory
 
     let inlineImageTracker: InlineImageTracker | null = null
-    if (inlineImageMode && settings.systemServicesSettings.imageGeneration.enabled) {
+    if (inlineImageMode) {
       inlineImageTracker = new InlineImageTracker(
         currentStoryRef.id,
         narrationEntryId,
@@ -398,6 +399,7 @@
           content: userActionContent,
           rawInput: userActionContent,
         },
+        narrationEntryId,
         abortSignal: activeAbortController.signal,
       }
 
@@ -414,9 +416,9 @@
         activationTracker,
         translationSettings: settings.translationSettings,
         imageSettings: {
-          enabled: settings.systemServicesSettings.imageGeneration.enabled,
-          autoGenerate: settings.systemServicesSettings.imageGeneration.autoGenerate,
-          inlineMode: inlineImageMode,
+          imageGenerationMode: currentStoryRef.settings?.imageGenerationMode ?? 'agentic',
+          backgroundImagesEnabled: currentStoryRef.settings?.backgroundImagesEnabled ?? false,
+          referenceMode: currentStoryRef.settings?.referenceMode ?? false,
         },
         promptContext: {
           mode: story.storyMode,
@@ -477,7 +479,11 @@
         if (event.type === 'narrative_chunk') {
           fullResponse += event.content
           if (event.reasoning) fullReasoning += event.reasoning
-          if (inlineImageTracker) inlineImageTracker.processChunk(fullResponse)
+          if (inlineImageTracker)
+            inlineImageTracker.processChunk(
+              fullResponse,
+              currentStoryRef.settings?.referenceMode ?? false,
+            )
         }
 
         if (event.type === 'phase_complete' && event.phase === 'narrative' && fullResponse.trim()) {
@@ -502,7 +508,7 @@
           await story.applyClassificationResult(event.result)
           await story.updateEntryTimeEnd(narrationEntry.id)
 
-          if (settings.systemServicesSettings.imageGeneration.enabled) {
+          if (currentStoryRef.settings?.imageGenerationMode !== 'none') {
             const presentCharacters = story.characters.filter(
               (c) =>
                 event.result.scene.presentCharacterNames.includes(c.name) ||
@@ -523,6 +529,7 @@
                 event.result.scene.currentLocationName ?? worldState.currentLocation?.name,
               chatHistory: imageGenChatHistory,
               lorebookContext: undefined,
+              referenceMode: currentStoryRef.settings?.referenceMode ?? false,
             }
           }
 
@@ -679,7 +686,8 @@
 
   async function handleManualImageGeneration() {
     if (!lastImageGenContext || manualImageGenDisabled) return
-    if (!settings.systemServicesSettings.imageGeneration.enabled) return
+    const storySettings = story.currentStory?.settings
+    if (!storySettings || storySettings.imageGenerationMode === 'none') return
     isManualImageGenRunning = true
     try {
       await aiService.generateImagesForNarrative(lastImageGenContext)

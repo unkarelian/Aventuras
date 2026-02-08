@@ -55,7 +55,7 @@ export const imagePromptAnalysisTemplate: PromptTemplate = {
   content: `You identify visually striking moments in narrative text for image generation.
 
 ## Your Task
-Analyze the narrative and identify up to {{maxImages}} key visual moments (0 = unlimited). Create DETAILED, descriptive image prompts (aim for 500-800 characters each). **Do NOT exceed 800 characters per prompt - prompts over 800 characters will cause an error and fail to generate.**
+Analyze the narrative and identify up to {{maxImages}} key visual moments (0 = unlimited). Create DETAILED, descriptive image prompts (aim for below 500 characters each). **Do NOT exceed 500 characters per prompt - prompts over 500 characters will cause an error and fail to generate.**
 
 ## Style (MUST include in every prompt)
 {{imageStylePrompt}}
@@ -66,7 +66,7 @@ Analyze the narrative and identify up to {{maxImages}} key visual moments (0 = u
 {{characterDescriptors}}
 
 ## Prompt Requirements
-- **Prompt length:** 500-800 characters MAX (prompts over 800 chars will ERROR and fail)
+- **Prompt length:** below 500 characters MAX (prompts over 500 characters will ERROR and fail)
 - **sourceText:** Exact phrase from narrative (3-15 words, VERBATIM with all punctuation and *markup*)
 - **sceneType:** action|item|character|environment
 - **priority:** 1-10
@@ -85,7 +85,7 @@ Analyze the narrative and identify up to {{maxImages}} key visual moments (0 = u
 1. **ONE CHARACTER PER IMAGE** - only depict a single character per prompt. Background details are fine, but no multiple characters. This ensures character consistency.
 2. **NEVER use character names** - the image model doesn't know who "Elena" is. Describe appearance only!
 3. **ALWAYS include the full style** - copy style keywords directly from the Style section
-4. **Stay under 800 characters** - prompts over 800 chars will ERROR and fail. Aim for 500-800.
+4. **Stay under 500 characters** - prompts over 500 characters will ERROR and fail. Aim for below 500.
 5. **sourceText** MUST be COPY-PASTED EXACTLY from the DISPLAY NARRATIVE - this is used for text matching and WILL FAIL if not exact.
    - If a "Display Narrative" is provided (translated text), copy sourceText from THAT version
    - Copy the EXACT characters, including punctuation and any *asterisks* or **markup**
@@ -170,7 +170,7 @@ Image models don't know who "Elena" or "Marcus" are. Character names are ONLY fo
 - **sourceText:** Exact phrase from narrative (3-15 words, VERBATIM)
 - **sceneType:** action|item|character|environment
 - **priority:** 1-10
-- **characters:** Array of character names (first character is primary)
+- **characters:** Array of character names (first character is primary). ALWAYS include the **exact** names of characters you were given.
 - **generatePortrait:** true for portrait generation, false otherwise
 
 ## Prompt Structure
@@ -308,6 +308,44 @@ export const imagePortraitGenerationTemplate: PromptTemplate = {
   userContent: '',
 }
 
+const backgroundImagePromptAnalysisTemplate: PromptTemplate = {
+  id: 'background-image-prompt-analysis',
+  name: 'Background Image Prompt Analysis and Generation',
+  category: 'service',
+  description: 'Analyzes current and previous messages to generate background image prompts',
+  content: `You are a Visual Director AI for a visual novel game. Your goal is to analyze the narrative flow and generate image prompts only when the visual background changes significantly.
+
+### Instructions
+
+1.  **Analyze the Inputs**: You will receive two sequential messages:
+    *   **Previous Message**: The last text shown to the player.
+    *   **Current Message**: The new text generated for the player.
+
+2.  **Determine Scene Change**:
+    *   Identify the primary location in the Previous Message.
+    *   Identify the primary location in the Current Message.
+    *   **Criteria for Change**: A location change warrants a new background only if the physical environment fundamentally shifts (e.g., moving from a classroom to a rooftop, entering a specific building, changing time of day drastically).
+    *   **Criteria for No Change**: Minor movements, dialogue, or changes in character focus do **not** warrant a new background.
+
+3.  **Generate Output**:
+    *   **If a background change is required**: Write a descriptive visual prompt optimized for AI image generation. Focus on the environment, atmosphere, and artistic style suitable for a visual novel background.
+    *   **If NO background change is required**: Do not return an image prompt
+
+### Visual Prompt Guidelines
+
+When generating a description, follow these standards:
+*   **Style**: Visual Novel / Anime Style. Keywords to use include "anime scenery," "2D," "digital art," "cell-shaded," and "highly detailed."
+*   **Artistic Reference**: Mimic the style of high-quality visual novel backgrounds (e.g., Key, Leaf, FAVORITE or 07th-expansion backgrounds).
+*   **Details**: Describe the environment with vibrant or atmospheric colors. Include elements like "soft lighting," "lens flare," or "depth of field" if applicable.
+*   **Composition**: Ensure the composition leaves negative space (usually the lower center or middle) for dialogue boxes and character sprites. Do not clutter the entire image; the edges should be detailed but the focal area should be relatively open.
+*   **Format**: A single, cohesive paragraph. 800 characters or less, any more **will break** the process.`,
+  userContent: `##Previous Message:
+{{previousResponse}}
+
+##Current Message:
+{{currentResponse}}`,
+}
+
 /**
  * Image templates array for registration
  */
@@ -318,4 +356,5 @@ export const imageTemplates: PromptTemplate[] = [
   imagePromptAnalysisTemplate,
   imagePromptAnalysisReferenceTemplate,
   imagePortraitGenerationTemplate,
+  backgroundImagePromptAnalysisTemplate,
 ]

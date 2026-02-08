@@ -60,9 +60,7 @@ export async function fetchModelsFromProvider(
   }
   if (Array.isArray(data)) {
     return {
-      models: data
-        .map((m: { id?: string; name?: string }) => m.id || m.name || '')
-        .filter(Boolean),
+      models: data.map((m: { id?: string; name?: string }) => m.id || m.name || '').filter(Boolean),
       reasoningModels: [],
     }
   }
@@ -187,7 +185,7 @@ async function fetchChutesModels(baseUrl?: string, apiKey?: string): Promise<str
   }
 
   const effectiveBaseUrl = baseUrl || PROVIDERS.chutes.baseUrl
-  const chutesUrl = effectiveBaseUrl.replace(/\/$/, '') + '/chutes'
+  const chutesUrl = effectiveBaseUrl.replace(/\/$/, '') + '/chutes/?include_public=true&limit=200'
 
   const fetchFn = createTimeoutFetch(30000, 'model-fetch')
   const response = await fetchFn(chutesUrl, {
@@ -200,13 +198,14 @@ async function fetchChutesModels(baseUrl?: string, apiKey?: string): Promise<str
   }
 
   const data = await response.json()
-  if (data.data && Array.isArray(data.data)) {
-    return data.data
-      .map((m: { id?: string; name?: string }) => m.id || m.name || '')
-      .filter(Boolean)
-  }
-  if (Array.isArray(data)) {
-    return data.map((m: { id?: string; name?: string }) => m.id || m.name || '').filter(Boolean)
+
+  if (data.items && Array.isArray(data.items)) {
+    return data.items
+      .filter(
+        (r: { standard_template?: string; user?: { username: string } }) =>
+          r.standard_template?.includes('llm') && r.user?.username === 'chutes',
+      )
+      .map(({ slug }: { slug?: string }) => slug || '')
   }
 
   throw new Error('Unexpected Chutes API response format')

@@ -3,6 +3,7 @@
   import { ui } from '$lib/stores/ui.svelte'
   import { settings } from '$lib/stores/settings.svelte'
   import { Loader2, BookOpen, ChevronDown } from 'lucide-svelte'
+  import { fade } from 'svelte/transition'
   import StoryEntry from './StoryEntry.svelte'
   import StreamingEntry from './StreamingEntry.svelte'
   import ActionInput from './ActionInput.svelte'
@@ -139,14 +140,40 @@
       scrollToBottom()
     }
   })
+
+  // Format background image URL (handling raw base64 vs data URL)
+  const bgImageUrl = $derived.by(() => {
+    const raw = story.currentBgImage
+    if (!raw) return null
+    if (raw.startsWith('data:')) return `url(${raw})`
+    return `url(data:image/png;base64,${raw})`
+  })
 </script>
 
-<div class="flex h-full flex-col">
+<div class="relative flex h-full flex-col overflow-hidden">
+  <!-- Background Image Layer -->
+  {#if story.currentBgImage}
+    {#key story.currentBgImage}
+      <div
+        class="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-all duration-300"
+        style="background-image: {bgImageUrl}; filter: blur({settings.systemServicesSettings
+          .imageGeneration.backgroundBlur}px); transform: scale({settings.systemServicesSettings
+          .imageGeneration.backgroundBlur > 0
+          ? 1.05
+          : 1});"
+        in:fade={{ duration: 800 }}
+        out:fade={{ duration: 800 }}
+      ></div>
+    {/key}
+    <!-- Overlay to improve readability -->
+    <div class="bg-background/40 pointer-events-none absolute inset-0 z-0"></div>
+  {/if}
+
   <!-- Story entries container -->
   <div
     bind:this={storyContainer}
     bind:clientHeight={containerHeight}
-    class="flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4"
+    class="relative z-10 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4"
     onscroll={handleScroll}
   >
     <div class="mx-auto max-w-3xl space-y-3 sm:space-y-4" bind:clientHeight={innerHeight}>
@@ -218,7 +245,11 @@
   </div>
 
   <!-- Action input area -->
-  <div class="border-border bg-card border-t px-3 pt-2 pb-1 sm:py-4 sm:pr-8 sm:pl-6">
+  <div
+    class="border-border relative z-10 border-t px-3 pt-2 pb-1 sm:py-4 sm:pr-8 sm:pl-6 {story.currentBgImage
+      ? 'bg-background/60 backdrop-blur-md'
+      : 'bg-card'}"
+  >
     <div class="mx-auto max-w-3xl">
       <ActionInput />
     </div>

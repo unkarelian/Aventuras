@@ -4,7 +4,13 @@
  * Imports lorebooks from various formats (primarily SillyTavern) into Aventura's Entry system.
  */
 
-import type { Entry, EntryType, EntryInjectionMode, EntryCreator, VaultLorebookEntry } from '$lib/types'
+import type {
+  Entry,
+  EntryType,
+  EntryInjectionMode,
+  EntryCreator,
+  VaultLorebookEntry,
+} from '$lib/types'
 import type { StoryMode } from '$lib/services/prompts'
 import { promptService, type PromptContext } from '$lib/services/prompts'
 import { generateStructured } from './ai/sdk/generate'

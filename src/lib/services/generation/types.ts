@@ -46,6 +46,7 @@ export interface GenerationContext {
   allEntries: StoryEntry[]
   worldState: WorldState
   userAction: { entryId: string; content: string; rawInput: string }
+  narrationEntryId?: string
   abortSignal?: AbortSignal
 }
 

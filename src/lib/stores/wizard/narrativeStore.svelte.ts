@@ -28,7 +28,9 @@ export class NarrativeStore {
   selectedTense = $state<Tense>('present')
   tone = $state('immersive and engaging')
   visualProseMode = $state(false)
-  imageGenerationMode = $state<'none' | 'auto' | 'inline'>('auto')
+  imageGenerationMode = $state<'none' | 'agentic' | 'inline'>('none')
+  backgroundImagesEnabled = $state(false)
+  referenceMode = $state(false)
 
   // Step 9: Opening
   storyTitle = $state('')

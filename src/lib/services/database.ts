@@ -227,6 +227,10 @@ class DatabaseService {
       setClauses.push('time_tracker = ?')
       values.push(updates.timeTracker ? JSON.stringify(updates.timeTracker) : null)
     }
+    if (updates.currentBgImage !== undefined) {
+      setClauses.push('current_background_image = ?')
+      values.push(updates.currentBgImage)
+    }
 
     values.push(id)
     await db.execute(`UPDATE stories SET ${setClauses.join(', ')} WHERE id = ?`, values)
@@ -526,6 +530,16 @@ class DatabaseService {
   async deleteStoryEntry(id: string): Promise<void> {
     const db = await this.getDb()
     await db.execute('DELETE FROM story_entries WHERE id = ?', [id])
+  }
+
+  /**
+   * Delete multiple story entries by ID.
+   */
+  async deleteStoryEntries(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    const db = await this.getDb()
+    const placeholders = ids.map(() => '?').join(',')
+    await db.execute(`DELETE FROM story_entries WHERE id IN (${placeholders})`, ids)
   }
 
   // Character operations
@@ -1225,27 +1239,26 @@ class DatabaseService {
    * Does NOT touch chapters or lorebook entries (those are more permanent).
    */
   async restoreRetryBackup(
-    lastEntryId: string,
+    entryIdsToDelete: string[],
     storyId: string,
-    entries: StoryEntry[],
     characters: Character[],
     locations: Location[],
     items: Item[],
     storyBeats: StoryBeat[],
-    embeddedImages: EmbeddedImage[] = [],
   ): Promise<void> {
     const db = await this.getDb()
 
     // Delete current state (except chapters and lorebook entries which are more permanent)
     // Note: embedded_images will be cascade-deleted when story_entries are deleted
-    // Only delete the last entry, not the entire story
-    await db.execute('DELETE FROM story_entries WHERE id = ?', [lastEntryId])
+    if (entryIdsToDelete.length > 0) {
+      await this.deleteStoryEntries(entryIdsToDelete)
+    }
     await db.execute('DELETE FROM characters WHERE story_id = ?', [storyId])
     await db.execute('DELETE FROM locations WHERE story_id = ?', [storyId])
     await db.execute('DELETE FROM items WHERE story_id = ?', [storyId])
     await db.execute('DELETE FROM story_beats WHERE story_id = ?', [storyId])
 
-    // Restore entries not necessary as we are only deleting the last entry
+    // Restore entries not necessary as we are only deleting redundant entries since backup
 
     // Restore characters
     for (const character of characters) {
@@ -1268,7 +1281,7 @@ class DatabaseService {
     }
 
     // Restore embedded images
-    for (const image of embeddedImages) {
+    /*     for (const image of embeddedImages) {
       await this.createEmbeddedImage({
         id: image.id,
         storyId: image.storyId,
@@ -1283,7 +1296,7 @@ class DatabaseService {
         status: image.status,
         errorMessage: image.errorMessage,
       })
-    }
+    } */
   }
 
   // ===== Branch Operations (for story branching/alternate timelines) =====
@@ -1664,6 +1677,84 @@ class DatabaseService {
   }
 
   /**
+   * Get the background image for a specific branch.
+   */
+  async getBackgroundForBranch(storyId: string, branchId: string | null): Promise<string | null> {
+    const db = await this.getDb()
+    const results = await db.select<{ image_data: string }[]>(
+      'SELECT image_data FROM background_images WHERE story_id = ? AND branch_id IS ? AND checkpoint_id IS NULL ORDER BY created_at DESC LIMIT 1',
+      [storyId, branchId],
+    )
+    return results.length > 0 ? results[0].image_data : null
+  }
+
+  /**
+   * Get the background image for a specific checkpoint.
+   */
+  async getBackgroundForCheckpoint(storyId: string, checkpointId: string): Promise<string | null> {
+    const db = await this.getDb()
+    const results = await db.select<{ image_data: string }[]>(
+      'SELECT image_data FROM background_images WHERE story_id = ? AND checkpoint_id = ? LIMIT 1',
+      [storyId, checkpointId],
+    )
+    return results.length > 0 ? results[0].image_data : null
+  }
+
+  /**
+   * Save a background image for a story/branch/checkpoint.
+   */
+  async saveBackground(
+    storyId: string,
+    branchId: string | null,
+    checkpointId: string | null,
+    imageData: string | null,
+  ): Promise<void> {
+    const db = await this.getDb()
+
+    if (!imageData) {
+      // If clearing, delete entries for this specific context
+      if (checkpointId) {
+        await db.execute('DELETE FROM background_images WHERE story_id = ? AND checkpoint_id = ?', [
+          storyId,
+          checkpointId,
+        ])
+      } else {
+        await db.execute(
+          'DELETE FROM background_images WHERE story_id = ? AND branch_id IS ? AND checkpoint_id IS NULL',
+          [storyId, branchId],
+        )
+      }
+      return
+    }
+
+    // Insert or update
+    const id = crypto.randomUUID()
+    const now = Date.now()
+
+    if (checkpointId) {
+      // Checkpoints always get a new entry or replace existing for that checkpoint
+      await db.execute(
+        'INSERT OR REPLACE INTO background_images (id, story_id, branch_id, checkpoint_id, image_data, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, storyId, branchId, checkpointId, imageData, now],
+      )
+    } else {
+      // For branches (including main), we update the single "current" record for that branch
+      const existing = await this.getBackgroundForBranch(storyId, branchId)
+      if (existing) {
+        await db.execute(
+          'UPDATE background_images SET image_data = ?, created_at = ? WHERE story_id = ? AND branch_id IS ? AND checkpoint_id IS NULL',
+          [imageData, now, storyId, branchId],
+        )
+      } else {
+        await db.execute(
+          'INSERT INTO background_images (id, story_id, branch_id, checkpoint_id, image_data, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+          [id, storyId, branchId, null, imageData, now],
+        )
+      }
+    }
+  }
+
+  /**
    * Clean up orphaned embedded_images that reference non-existent story_entries.
    * This can happen if data was created before foreign key constraints were enforced.
    * Returns the number of orphaned records deleted.
@@ -1735,6 +1826,7 @@ class DatabaseService {
       styleReviewState: row.style_review_state ? JSON.parse(row.style_review_state) : null,
       timeTracker: row.time_tracker ? JSON.parse(row.time_tracker) : null,
       currentBranchId: row.current_branch_id || null,
+      currentBgImage: null, // Loaded separately now
     }
   }
 

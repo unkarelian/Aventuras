@@ -505,22 +505,25 @@ export function getDefaultUpdateSettings(): UpdateSettings {
 
 // Image Generation settings (automatic image generation for narrative)
 export interface ImageGenerationServiceSettings {
-  enabled: boolean // Toggle for image generation (default: false)
-
   // Profile-based image generation (profiles must have supportsImageGeneration capability)
   profileId: string | null // API profile for standard image generation
   model: string // Image model for the selected profile
-  styleId: string // Selected image style template
-  size: '512x512' | '1024x1024' | '2048x2048' // Image size
-  maxImagesPerMessage: number // Max images per narrative (0 = unlimited, default: 3)
-  autoGenerate: boolean // Generate automatically after narration
+  size: string // Regular image size
 
-  // Portrait mode settings (character reference images)
-  portraitMode: boolean // Enable portrait reference mode (default: false)
-  portraitProfileId: string | null // API profile for generating character portraits
-  portraitModel: string // Model for generating character portraits
+  // Reference model settings (for image-to-image with portrait references)
   referenceProfileId: string | null // API profile for image-to-image with portrait references
   referenceModel: string // Model for image generation with reference
+  referenceSize: string // Reference image size
+
+  // General story image settings
+  styleId: string // Selected image style template
+  maxImagesPerMessage: number // Max images per narrative (0 = unlimited, default: 3)
+
+  // Portrait model settings (character reference images)
+  portraitProfileId: string | null // API profile for generating character portraits
+  portraitModel: string // Model for generating character portraits
+  portraitStyleId: string // Selected character portrait style template
+  portraitSize: string // Portrait image size
 
   // Scene analysis model settings (for identifying imageable scenes)
   promptProfileId: string | null // API profile for scene analysis
@@ -529,18 +532,24 @@ export interface ImageGenerationServiceSettings {
   promptMaxTokens: number
   reasoningEffort: ReasoningEffort
   manualBody: string
+
+  // Background image settings
+  backgroundProfileId: string | null // API profile for background image generation
+  backgroundModel: string // Model for background image generation
+  backgroundSize: string // Background image size (default: '1280x720')
+  backgroundBlur: number // Background blur amount in pixels (default: 0)
 }
 
 export function getDefaultImageGenerationSettings(): ImageGenerationServiceSettings {
   return {
-    enabled: false,
     profileId: null, // User must select an image-capable profile
     model: 'flux', // Common default across providers
     styleId: 'image-style-soft-anime',
+    portraitStyleId: 'image-style-soft-anime',
     size: '1024x1024',
+    referenceSize: '1024x1024',
+    portraitSize: '512x512',
     maxImagesPerMessage: 3,
-    autoGenerate: true,
-    portraitMode: false,
     portraitProfileId: null,
     portraitModel: 'flux',
     referenceProfileId: null,
@@ -551,6 +560,10 @@ export function getDefaultImageGenerationSettings(): ImageGenerationServiceSetti
     promptMaxTokens: 16384,
     reasoningEffort: 'high',
     manualBody: '',
+    backgroundProfileId: null,
+    backgroundModel: 'z-image-turbo',
+    backgroundSize: '1280x720',
+    backgroundBlur: 2, // Default blur for atmosphere
   }
 }
 
@@ -1142,6 +1155,7 @@ class SettingsStore {
     interactiveLorebook: 'agentic',
     imageGeneration: 'suggestions',
     imageAnalysis: 'suggestions',
+    bgImageGeneration: 'suggestions',
     'wizard:settingExpansion': 'wizard',
     'wizard:settingRefinement': 'wizard',
     'wizard:protagonistGeneration': 'wizard',
@@ -1795,6 +1809,9 @@ class SettingsStore {
       // Initialize the centralized prompt service with loaded settings
       promptService.init(this.promptSettings)
 
+      // Ensure default image generation profiles are set
+      await this.migrateImageProfileDefaults()
+
       this.initialized = true
     } catch (error) {
       console.error('Failed to load settings:', error)
@@ -2287,6 +2304,41 @@ class SettingsStore {
       console.log(
         '[Settings] Migrated wizard null/undefined profileIds to default OpenRouter profile',
       )
+    }
+  }
+
+  /**
+   * Ensure default image generation profiles are set for all categories.
+   * This runs automatically on app start via init().
+   */
+  async migrateImageProfileDefaults() {
+    const imgSettings = this.systemServicesSettings.imageGeneration
+    const profiles = this.apiSettings.profiles.filter(
+      (p) => PROVIDERS[p.providerType]?.capabilities.imageGeneration,
+    )
+
+    if (profiles.length > 0) {
+      let changed = false
+      const defaultProfileId = profiles[0].id
+
+      const profileFields: (keyof typeof imgSettings)[] = [
+        'profileId',
+        'portraitProfileId',
+        'referenceProfileId',
+        'backgroundProfileId',
+      ]
+
+      for (const field of profileFields) {
+        if (!imgSettings[field]) {
+          ;(imgSettings as any)[field] = defaultProfileId
+          changed = true
+        }
+      }
+
+      if (changed) {
+        await this.saveSystemServicesSettings()
+        console.log('[Settings] Automatically set default image generation profiles')
+      }
     }
   }
 

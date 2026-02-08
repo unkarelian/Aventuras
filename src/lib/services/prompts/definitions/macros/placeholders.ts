@@ -97,7 +97,20 @@ export const CONTEXT_PLACEHOLDERS: ContextPlaceholder[] = [
     category: 'story',
     description: 'Full untruncated chat history for comprehensive context',
   },
-
+  {
+    id: 'previous-response',
+    name: 'Previous Response',
+    token: 'previousResponse',
+    category: 'story',
+    description: 'The previous response from the AI',
+  },
+  {
+    id: 'current-response',
+    name: 'Current Response',
+    token: 'currentResponse',
+    category: 'story',
+    description: 'The current response from the AI',
+  },
   // ============================================================================
   // Entity tracking
   // ============================================================================

@@ -2,7 +2,11 @@ import type { VaultScenario, VaultScenarioNpc } from '$lib/types'
 import type { CardImportResult } from '$lib/services/characterCardImporter'
 import { database } from '$lib/services/database'
 import { discoveryService, type DiscoveryCard } from '$lib/services/discovery'
-import { readCharacterCardFile, convertCardToScenario, parseCharacterCard } from '$lib/services/characterCardImporter'
+import {
+  readCharacterCardFile,
+  convertCardToScenario,
+  parseCharacterCard,
+} from '$lib/services/characterCardImporter'
 import { extractEmbeddedLorebook } from '$lib/services/lorebookImporter'
 import { lorebookVault } from './lorebookVault.svelte'
 import type { Genre } from '$lib/services/ai/wizard/ScenarioService'

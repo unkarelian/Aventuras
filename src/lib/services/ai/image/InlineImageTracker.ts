@@ -23,6 +23,7 @@ import { settings } from '$lib/stores/settings.svelte'
 import { emitImageQueued, emitImageReady } from '$lib/services/events'
 import { normalizeImageDataUrl } from '$lib/utils/image'
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from './constants'
+import { parseImageSize } from './imageUtils'
 import { createLogger } from '../core/config'
 import type { Character, EmbeddedImage } from '$lib/types'
 
@@ -58,7 +59,7 @@ export class InlineImageTracker {
    * Process accumulated content for new complete <pic> tags.
    * Called on each streaming chunk with the full accumulated content.
    */
-  processChunk(accumulatedContent: string): void {
+  processChunk(accumulatedContent: string, referenceMode: boolean): void {
     const tags = extractPicTags(accumulatedContent)
 
     for (const tag of tags) {
@@ -73,7 +74,7 @@ export class InlineImageTracker {
         characters: tag.characters,
       })
 
-      this.startGeneration(tag)
+      this.startGeneration(tag, referenceMode)
     }
   }
 
@@ -81,9 +82,8 @@ export class InlineImageTracker {
    * Start image generation for a tag. The generation runs async and stores
    * the result in pendingImages for later DB persistence.
    */
-  private startGeneration(tag: ParsedPicTag): void {
+  private startGeneration(tag: ParsedPicTag, referenceMode: boolean): void {
     const imageSettings = settings.systemServicesSettings.imageGeneration
-    if (!imageSettings?.enabled) return
 
     const imageId = crypto.randomUUID()
 
@@ -93,7 +93,7 @@ export class InlineImageTracker {
     let referenceImageUrls: string[] | undefined
 
     // Check for portrait mode with character references
-    if (imageSettings.portraitMode && tag.characters.length > 0) {
+    if (referenceMode && tag.characters.length > 0) {
       const portraitUrls: string[] = []
       const characters = this.getCharacters()
 
@@ -106,8 +106,8 @@ export class InlineImageTracker {
       }
 
       if (portraitUrls.length > 0) {
-        profileId = imageSettings.referenceProfileId || imageSettings.profileId
-        modelToUse = imageSettings.referenceModel || imageSettings.model
+        profileId = imageSettings.referenceProfileId
+        modelToUse = imageSettings.referenceModel
         referenceImageUrls = portraitUrls
       }
     }
@@ -224,8 +224,7 @@ export class InlineImageTracker {
 
     for (const pending of this.pendingImages) {
       // Determine dimensions from size setting
-      const width = pending.size === '1024x1024' ? 1024 : pending.size === '2048x2048' ? 2048 : 512
-      const height = width
+      const { width, height } = parseImageSize(pending.size)
 
       // Create DB record immediately with 'generating' status
       const embeddedImage: Omit<EmbeddedImage, 'createdAt'> = {
