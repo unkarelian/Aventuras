@@ -2315,27 +2315,38 @@ class SettingsStore {
     if (this.imageProfiles.length > 0) return
 
     const imgSettings = this.systemServicesSettings.imageGeneration
-    const profileFields = [
-      'profileId',
-      'referenceProfileId',
-      'portraitProfileId',
-      'backgroundProfileId',
-    ] as const
-
-    // Collect unique API Profile IDs that are set in image settings
-    const apiProfileIds = new SvelteSet<string>()
-    for (const field of profileFields) {
-      const value = imgSettings[field]
-      if (value) apiProfileIds.add(value)
+    // Map each profile field to its corresponding old model field
+    // The old model fields (model, referenceModel, portraitModel, backgroundModel) have been
+    // removed from the type but may still exist in persisted user data
+    const profileFieldMap: Record<string, string> = {
+      profileId: 'model',
+      referenceProfileId: 'referenceModel',
+      portraitProfileId: 'portraitModel',
+      backgroundProfileId: 'backgroundModel',
     }
 
-    if (apiProfileIds.size === 0) return
-
-    // Map from old API Profile ID → new Image Profile ID
-    const idMap = new SvelteMap<string, string>()
+    // Map from "apiProfileId:model" → new Image Profile ID
+    const newProfileIds = new Map<string, string>()
     let changed = false
 
-    for (const apiProfileId of apiProfileIds) {
+    for (const [profileField, modelField] of Object.entries(profileFieldMap)) {
+      const apiProfileId = (imgSettings as unknown as Record<string, unknown>)[profileField] as
+        | string
+        | undefined
+      const model = (imgSettings as unknown as Record<string, unknown>)[modelField] as
+        | string
+        | undefined
+
+      if (!apiProfileId || !model) continue
+
+      const uniqueKey = `${apiProfileId}:${model}`
+      if (newProfileIds.has(uniqueKey)) {
+        ;(imgSettings as unknown as Record<string, unknown>)[profileField] =
+          newProfileIds.get(uniqueKey)!
+        changed = true
+        continue
+      }
+
       const apiProfile = this.getProfile(apiProfileId)
       if (!apiProfile) continue
 
@@ -2345,24 +2356,17 @@ class SettingsStore {
       if (!imageProviderTypes.includes(providerType)) continue
 
       const newProfile = await this.addImageProfile({
-        name: `${apiProfile.name} (Images)`,
+        name: `${apiProfile.name} (${model})`,
         providerType: providerType as ImageProviderType,
         apiKey: apiProfile.apiKey ?? '',
         baseUrl: apiProfile.baseUrl,
-        model: 'flux',
+        model: model,
         providerOptions: {},
       })
 
-      idMap.set(apiProfileId, newProfile.id)
-    }
-
-    // Update image settings to point to new Image Profile IDs
-    for (const field of profileFields) {
-      const oldId = imgSettings[field]
-      if (oldId && idMap.has(oldId)) {
-        ; (imgSettings as unknown as Record<string, unknown>)[field] = idMap.get(oldId)!
-        changed = true
-      }
+      newProfileIds.set(uniqueKey, newProfile.id)
+      ;(imgSettings as unknown as Record<string, unknown>)[profileField] = newProfile.id
+      changed = true
     }
 
     if (changed) {
