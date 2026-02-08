@@ -932,7 +932,7 @@
                 <div class="grid gap-2">
                   <Label class="text-muted-foreground text-xs">Models</Label>
                   <div class="flex flex-wrap gap-1">
-                    {#each [...profile.fetchedModels, ...profile.customModels] as model (model)}
+                    {#each [...new Set( [...profile.fetchedModels, ...profile.customModels], )] as model (model)}
                       <Badge variant="secondary" class="font-mono text-xs">
                         {model}
                       </Badge>

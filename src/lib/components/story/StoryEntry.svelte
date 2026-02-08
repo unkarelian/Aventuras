@@ -17,7 +17,9 @@
     GitBranch,
     Bookmark,
     Volume2,
+    Image as ImageIcon,
   } from 'lucide-svelte'
+  import { aiService } from '$lib/services/ai'
   import { aiTTSService } from '$lib/services/ai/utils/TTSService'
   import { parseMarkdown } from '$lib/utils/markdown'
   import { sanitizeTextForTTS } from '$lib/utils/htmlSanitize'
@@ -183,7 +185,9 @@
     const interval = setInterval(() => {
       now = Date.now()
     }, 1000)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+    }
   })
 
   // Helper to get which branch a checkpoint belongs to (by checking its last entry's branchId)
@@ -759,6 +763,30 @@
     }
   }
 
+  let isGeneratingStoryImages = $state(false)
+
+  async function handleGenerateStoryImages() {
+    if (!story.currentStory || isGeneratingStoryImages) return
+    isGeneratingStoryImages = true
+    try {
+      const context = {
+        storyId: story.currentStory.id,
+        entryId: entry.id,
+        narrativeResponse: entry.content,
+        userAction: '',
+        presentCharacters: story.characters,
+        referenceMode: story.currentStory.settings?.referenceMode ?? false,
+        translatedNarrative: entry.translatedContent ?? undefined,
+      }
+      await aiService.generateImagesForNarrative(context)
+    } catch (error) {
+      console.error('[StoryEntry] Image generation failed:', error)
+      ui.showToast('Image generation failed', 'error')
+    } finally {
+      isGeneratingStoryImages = false
+    }
+  }
+
   function cancelEdit() {
     isEditing = false
     editContent = ''
@@ -884,6 +912,22 @@
             <Volume2 class="h-4 w-4" />
           {/if}
         </Button>
+        {#if isLatestNarration}
+          <Button
+            variant="text"
+            size="icon"
+            onclick={handleGenerateStoryImages}
+            disabled={ui.isGenerating || isGeneratingStoryImages || embeddedImages.length > 0}
+            class="text-muted-foreground hover:text-foreground h-7 w-7"
+            title={embeddedImages.length > 0 ? 'Images already generated' : 'Generate story images'}
+          >
+            {#if isGeneratingStoryImages}
+              <Loader2 class="h-4 w-4 animate-spin" />
+            {:else}
+              <ImageIcon class="h-4 w-4" />
+            {/if}
+          </Button>
+        {/if}
         <Button
           variant="text"
           size="icon"

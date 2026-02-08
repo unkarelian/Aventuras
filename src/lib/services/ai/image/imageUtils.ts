@@ -70,7 +70,7 @@ export function hasRequiredCredentials(): boolean {
 
   // All profile-based providers have credentials if the profile exists
   // (API key is part of the profile)
-  return !!profile.apiKey || profile.providerType === 'pollinations'
+  return !!profile.apiKey
 }
 
 /**

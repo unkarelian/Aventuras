@@ -60,9 +60,9 @@ export class ImageAnalysisService {
 
   /**
    * Create a new ImageAnalysisService.
-   * @param presetId - The preset ID to use for generation settings (default: 'imageAnalysis')
+   * @param presetId - The preset ID to use for generation settings (default: 'imageGeneration')
    */
-  constructor(presetId: string = 'imageAnalysis') {
+  constructor(presetId: string = 'imageGeneration') {
     this.presetId = presetId
   }
 
