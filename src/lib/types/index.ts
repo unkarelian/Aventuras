@@ -131,6 +131,8 @@ export interface StoryEntry {
   translatedContent?: string | null // Translated text for display
   translationLanguage?: string | null // Language code of translation
   originalInput?: string | null // Original user input before translation (for user_action type)
+  // Phase 1: World state delta tracking
+  worldStateDelta?: WorldStateDelta | null // World state changes caused by this entry's classification
 }
 
 export interface EntryMetadata {
@@ -886,6 +888,95 @@ export interface ExperimentalFeatures {
   lightweightBranches: boolean
   /** Number of entries between automatic world state snapshots (for fast rollback) */
   autoSnapshotInterval: number
+}
+
+// ===== World State Delta Tracking (Phase 1) =====
+
+/** Snapshot of a character's mutable fields before a classification update */
+export interface CharacterBeforeState {
+  id: string
+  name: string
+  status: string
+  relationship: string | null
+  traits: string[]
+  visualDescriptors: VisualDescriptors
+}
+
+/** Snapshot of a location's mutable fields before a classification update */
+export interface LocationBeforeState {
+  id: string
+  name: string
+  visited: boolean
+  current: boolean
+  description: string | null
+}
+
+/** Snapshot of an item's mutable fields before a classification update */
+export interface ItemBeforeState {
+  id: string
+  name: string
+  quantity: number
+  equipped: boolean
+  location: string
+}
+
+/** Snapshot of a story beat's mutable fields before a classification update */
+export interface StoryBeatBeforeState {
+  id: string
+  title: string
+  status: string
+  description: string | null
+  resolvedAt: number | null
+}
+
+/**
+ * Records the complete world state change caused by a single classification.
+ * Stored as JSON on the story_entries.world_state_delta column.
+ * Contains enough information to fully undo the classification's effects.
+ */
+export interface WorldStateDelta {
+  /** The raw classification result that was applied (stored as-is for debugging/audit) */
+  classificationResult: Record<string, unknown>
+
+  /** Before-state of each entity that was UPDATED (for undo) */
+  previousState: {
+    characters: CharacterBeforeState[]
+    locations: LocationBeforeState[]
+    items: ItemBeforeState[]
+    storyBeats: StoryBeatBeforeState[]
+    /** ID of the location that was 'current' before this classification */
+    currentLocationId: string | null
+    /** Time tracker state before time progression was applied */
+    timeTracker: TimeTracker | null
+  }
+
+  /** IDs of entities CREATED by this classification (undo = delete these) */
+  createdEntities: {
+    characterIds: string[]
+    locationIds: string[]
+    itemIds: string[]
+    storyBeatIds: string[]
+  }
+}
+
+/**
+ * Periodic full snapshot of world state for fast rollback reconstruction.
+ * Instead of replaying all deltas from the start, rollback can start from the
+ * nearest snapshot and only replay/undo deltas from there.
+ */
+export interface WorldStateSnapshot {
+  id: string
+  storyId: string
+  branchId: string | null
+  entryId: string
+  entryPosition: number
+  charactersSnapshot: Character[]
+  locationsSnapshot: Location[]
+  itemsSnapshot: Item[]
+  storyBeatsSnapshot: StoryBeat[]
+  lorebookEntriesSnapshot?: Entry[]
+  timeTrackerSnapshot: TimeTracker | null
+  createdAt: number
 }
 
 export type VaultType = 'character' | 'lorebook' | 'scenario'

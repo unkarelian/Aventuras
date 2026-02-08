@@ -15,9 +15,16 @@ import type {
   TimeTracker,
   EmbeddedImage,
   PersistentCharacterSnapshot,
+  WorldStateDelta,
+  WorldStateSnapshot,
+  CharacterBeforeState,
+  LocationBeforeState,
+  ItemBeforeState,
+  StoryBeatBeforeState,
 } from '$lib/types'
 import { database } from '$lib/services/database'
 import { ui } from './ui.svelte'
+import { settings } from './settings.svelte'
 import type { ClassificationResult } from '$lib/services/ai/sdk/schemas/classifier'
 import { DEFAULT_MEMORY_CONFIG } from '$lib/services/ai/generation/MemoryService'
 import { convertToEntries, type ImportedEntry } from '$lib/services/lorebookImporter'
@@ -1274,7 +1281,10 @@ class StoryStore {
    * Apply classification results to update world state.
    * This is Phase 4 of the processing pipeline per design doc.
    */
-  async applyClassificationResult(result: ClassificationResult): Promise<void> {
+  async applyClassificationResult(
+    result: ClassificationResult,
+    entryId?: string,
+  ): Promise<void> {
     if (!this.currentStory) {
       log('applyClassificationResult: No story loaded, skipping')
       return
@@ -1293,6 +1303,110 @@ class StoryStore {
     })
 
     const storyId = this.currentStory.id
+    const trackingEnabled = settings.experimentalFeatures.stateTracking && !!entryId
+
+    // Phase 1: Capture before-state for entities that will be modified
+    const charactersBefore: CharacterBeforeState[] = []
+    const locationsBefore: LocationBeforeState[] = []
+    const itemsBefore: ItemBeforeState[] = []
+    const storyBeatsBefore: StoryBeatBeforeState[] = []
+    const createdCharacterIds: string[] = []
+    const createdLocationIds: string[] = []
+    const createdItemIds: string[] = []
+    const createdStoryBeatIds: string[] = []
+    let currentLocationIdBefore: string | null = null
+    let timeTrackerBefore: TimeTracker | null = null
+
+    if (trackingEnabled) {
+      // Snapshot current location
+      const currentLoc = this.locations.find((l) => l.current)
+      currentLocationIdBefore = currentLoc?.id ?? null
+
+      // Snapshot time tracker
+      timeTrackerBefore = this.currentStory.timeTracker
+        ? { ...this.currentStory.timeTracker }
+        : null
+
+      // Snapshot characters that will be updated
+      for (const update of result.entryUpdates.characterUpdates) {
+        const existing = this.characters.find(
+          (c) => c.name.toLowerCase() === update.name.toLowerCase(),
+        )
+        if (existing) {
+          charactersBefore.push({
+            id: existing.id,
+            name: existing.name,
+            status: existing.status,
+            relationship: existing.relationship,
+            traits: [...existing.traits],
+            visualDescriptors: { ...existing.visualDescriptors },
+          })
+        }
+      }
+
+      // Snapshot locations that will be updated
+      for (const update of result.entryUpdates.locationUpdates) {
+        const existing = this.locations.find(
+          (l) => l.name.toLowerCase() === update.name.toLowerCase(),
+        )
+        if (existing) {
+          locationsBefore.push({
+            id: existing.id,
+            name: existing.name,
+            visited: existing.visited,
+            current: existing.current,
+            description: existing.description,
+          })
+        }
+      }
+
+      // Snapshot items that will be updated
+      for (const update of result.entryUpdates.itemUpdates) {
+        const existing = this.items.find(
+          (i) => i.name.toLowerCase() === update.name.toLowerCase(),
+        )
+        if (existing) {
+          itemsBefore.push({
+            id: existing.id,
+            name: existing.name,
+            quantity: existing.quantity,
+            equipped: existing.equipped,
+            location: existing.location,
+          })
+        }
+      }
+
+      // Snapshot story beats that will be updated
+      for (const update of result.entryUpdates.storyBeatUpdates) {
+        const existing = this.storyBeats.find(
+          (b) => b.title.toLowerCase() === update.title.toLowerCase(),
+        )
+        if (existing) {
+          storyBeatsBefore.push({
+            id: existing.id,
+            title: existing.title,
+            status: existing.status,
+            description: existing.description,
+            resolvedAt: existing.resolvedAt ?? null,
+          })
+        }
+      }
+
+      // Also snapshot locations that might be affected by currentLocationName scene change
+      if (result.scene.currentLocationName) {
+        const locationName = result.scene.currentLocationName.toLowerCase()
+        const loc = this.locations.find((l) => l.name.toLowerCase() === locationName)
+        if (loc && !locationsBefore.some((lb) => lb.id === loc.id)) {
+          locationsBefore.push({
+            id: loc.id,
+            name: loc.name,
+            visited: loc.visited,
+            current: loc.current,
+            description: loc.description,
+          })
+        }
+      }
+    }
 
     // Apply character updates
     for (const update of result.entryUpdates.characterUpdates) {
@@ -1438,6 +1552,7 @@ class StoryStore {
         }
         await database.addCharacter(character)
         this.characters = [...this.characters, character]
+        if (trackingEnabled) createdCharacterIds.push(character.id)
       }
     }
 
@@ -1466,6 +1581,7 @@ class StoryStore {
         }
         await database.addLocation(location)
         this.locations = [...this.locations, location]
+        if (trackingEnabled) createdLocationIds.push(location.id)
       }
     }
 
@@ -1502,6 +1618,7 @@ class StoryStore {
         }
         await database.addItem(item)
         this.items = [...this.items, item]
+        if (trackingEnabled) createdItemIds.push(item.id)
       }
     }
 
@@ -1525,12 +1642,60 @@ class StoryStore {
         }
         await database.addStoryBeat(beat)
         this.storyBeats = [...this.storyBeats, beat]
+        if (trackingEnabled) createdStoryBeatIds.push(beat.id)
       }
     }
 
     // Apply time progression from scene data
     if (result.scene.timeProgression && result.scene.timeProgression !== 'none') {
       await this.applyTimeProgression(result.scene.timeProgression)
+    }
+
+    // Phase 1: Save world state delta on the entry
+    if (trackingEnabled && entryId) {
+      try {
+        const delta: WorldStateDelta = {
+          classificationResult: result as unknown as Record<string, unknown>,
+          previousState: {
+            characters: charactersBefore,
+            locations: locationsBefore,
+            items: itemsBefore,
+            storyBeats: storyBeatsBefore,
+            currentLocationId: currentLocationIdBefore,
+            timeTracker: timeTrackerBefore,
+          },
+          createdEntities: {
+            characterIds: createdCharacterIds,
+            locationIds: createdLocationIds,
+            itemIds: createdItemIds,
+            storyBeatIds: createdStoryBeatIds,
+          },
+        }
+
+        await database.updateStoryEntry(entryId, { worldStateDelta: delta })
+        // Update in-memory entry
+        this.entries = this.entries.map((e) =>
+          e.id === entryId ? { ...e, worldStateDelta: delta } : e,
+        )
+
+        log('World state delta saved for entry', {
+          entryId,
+          updatedCharacters: charactersBefore.length,
+          updatedLocations: locationsBefore.length,
+          updatedItems: itemsBefore.length,
+          updatedStoryBeats: storyBeatsBefore.length,
+          createdCharacters: createdCharacterIds.length,
+          createdLocations: createdLocationIds.length,
+          createdItems: createdItemIds.length,
+          createdStoryBeats: createdStoryBeatIds.length,
+        })
+
+        // Auto-snapshot if interval reached
+        await this.maybeCreateAutoSnapshot(entryId)
+      } catch (error) {
+        console.error('[StoryStore] Failed to save world state delta:', error)
+        // Non-fatal - don't break the main flow
+      }
     }
 
     log('applyClassificationResult complete', {
@@ -1823,6 +1988,51 @@ class StoryStore {
     await database.saveTimeTracker(this.currentStory.id, normalized)
     this.currentStory = { ...this.currentStory, timeTracker: normalized }
     log('Time tracker restored from snapshot:', normalized)
+  }
+
+  /**
+   * Phase 1: Maybe create an automatic world state snapshot.
+   * Called after saving a delta. Creates a snapshot every N entries (configured interval).
+   */
+  private async maybeCreateAutoSnapshot(entryId: string): Promise<void> {
+    if (!this.currentStory) return
+    if (!settings.experimentalFeatures.stateTracking) return
+
+    const entry = this.entries.find((e) => e.id === entryId)
+    if (!entry) return
+
+    const interval = settings.experimentalFeatures.autoSnapshotInterval
+    if (interval <= 0) return
+
+    // Only snapshot at interval boundaries
+    if (entry.position % interval !== 0) return
+
+    const branchId = this.currentStory.currentBranchId ?? null
+
+    try {
+      const snapshot: WorldStateSnapshot = {
+        id: crypto.randomUUID(),
+        storyId: this.currentStory.id,
+        branchId,
+        entryId,
+        entryPosition: entry.position,
+        charactersSnapshot: this.characters.map((c) => ({ ...c })),
+        locationsSnapshot: this.locations.map((l) => ({ ...l })),
+        itemsSnapshot: this.items.map((i) => ({ ...i })),
+        storyBeatsSnapshot: this.storyBeats.map((b) => ({ ...b })),
+        lorebookEntriesSnapshot: this.lorebookEntries.map((e) => ({ ...e })),
+        timeTrackerSnapshot: this.currentStory.timeTracker
+          ? { ...this.currentStory.timeTracker }
+          : null,
+        createdAt: Date.now(),
+      }
+
+      await database.createWorldStateSnapshot(snapshot)
+      log('Auto-snapshot created at position', entry.position)
+    } catch (error) {
+      console.error('[StoryStore] Failed to create auto-snapshot:', error)
+      // Non-fatal
+    }
   }
 
   // Create a manual chapter at a specific entry index

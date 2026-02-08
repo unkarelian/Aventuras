@@ -23,6 +23,7 @@ import type {
   VaultTag,
   VaultType,
   VisualDescriptors,
+  WorldStateSnapshot,
 } from '$lib/types'
 
 /**
@@ -147,7 +148,10 @@ class DatabaseService {
 
   async vacuumInto(destPath: string): Promise<void> {
     const db = await this.getDb()
-    await db.execute(`VACUUM INTO ?`, [destPath])
+    // VACUUM INTO doesn't support parameterized queries in most SQLite wrappers.
+    // Escape single quotes in the path to prevent SQL issues.
+    const escapedPath = destPath.replace(/'/g, "''")
+    await db.execute(`VACUUM INTO '${escapedPath}'`)
   }
 
   // Story operations
@@ -434,8 +438,8 @@ class DatabaseService {
     const db = await this.getDb()
     const now = Date.now()
     await db.execute(
-      `INSERT INTO story_entries (id, story_id, type, content, parent_id, position, created_at, metadata, branch_id, reasoning, translated_content, translation_language, original_input)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO story_entries (id, story_id, type, content, parent_id, position, created_at, metadata, branch_id, reasoning, translated_content, translation_language, original_input, world_state_delta)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         entry.id,
         entry.storyId,
@@ -450,6 +454,7 @@ class DatabaseService {
         entry.translatedContent || null,
         entry.translationLanguage || null,
         entry.originalInput || null,
+        entry.worldStateDelta ? JSON.stringify(entry.worldStateDelta) : null,
       ],
     )
     return { ...entry, createdAt: now }
@@ -537,6 +542,10 @@ class DatabaseService {
     if (updates.originalInput !== undefined) {
       setClauses.push('original_input = ?')
       values.push(updates.originalInput || null)
+    }
+    if (updates.worldStateDelta !== undefined) {
+      setClauses.push('world_state_delta = ?')
+      values.push(updates.worldStateDelta ? JSON.stringify(updates.worldStateDelta) : null)
     }
 
     if (setClauses.length === 0) return
@@ -1250,6 +1259,96 @@ class DatabaseService {
     }
   }
 
+  // ===== World State Snapshots (Phase 1) =====
+
+  async createWorldStateSnapshot(snapshot: WorldStateSnapshot): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO world_state_snapshots (
+        id, story_id, branch_id, entry_id, entry_position,
+        characters_snapshot, locations_snapshot, items_snapshot,
+        story_beats_snapshot, lorebook_entries_snapshot, time_tracker_snapshot,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        snapshot.id,
+        snapshot.storyId,
+        snapshot.branchId ?? null,
+        snapshot.entryId,
+        snapshot.entryPosition,
+        JSON.stringify(snapshot.charactersSnapshot),
+        JSON.stringify(snapshot.locationsSnapshot),
+        JSON.stringify(snapshot.itemsSnapshot),
+        JSON.stringify(snapshot.storyBeatsSnapshot),
+        snapshot.lorebookEntriesSnapshot
+          ? JSON.stringify(snapshot.lorebookEntriesSnapshot)
+          : null,
+        snapshot.timeTrackerSnapshot
+          ? JSON.stringify(snapshot.timeTrackerSnapshot)
+          : null,
+        snapshot.createdAt,
+      ],
+    )
+  }
+
+  async getWorldStateSnapshots(
+    storyId: string,
+    branchId: string | null,
+  ): Promise<WorldStateSnapshot[]> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>(
+      branchId === null
+        ? 'SELECT * FROM world_state_snapshots WHERE story_id = ? AND branch_id IS NULL ORDER BY entry_position ASC'
+        : 'SELECT * FROM world_state_snapshots WHERE story_id = ? AND branch_id = ? ORDER BY entry_position ASC',
+      branchId === null ? [storyId] : [storyId, branchId],
+    )
+    return results.map(this.mapWorldStateSnapshot)
+  }
+
+  async getLatestSnapshotBefore(
+    storyId: string,
+    branchId: string | null,
+    position: number,
+  ): Promise<WorldStateSnapshot | null> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>(
+      branchId === null
+        ? 'SELECT * FROM world_state_snapshots WHERE story_id = ? AND branch_id IS NULL AND entry_position <= ? ORDER BY entry_position DESC LIMIT 1'
+        : 'SELECT * FROM world_state_snapshots WHERE story_id = ? AND branch_id = ? AND entry_position <= ? ORDER BY entry_position DESC LIMIT 1',
+      branchId === null ? [storyId, position] : [storyId, branchId, position],
+    )
+    return results.length > 0 ? this.mapWorldStateSnapshot(results[0]) : null
+  }
+
+  async deleteWorldStateSnapshotsAfter(
+    storyId: string,
+    branchId: string | null,
+    position: number,
+  ): Promise<void> {
+    const db = await this.getDb()
+    if (branchId === null) {
+      await db.execute(
+        'DELETE FROM world_state_snapshots WHERE story_id = ? AND branch_id IS NULL AND entry_position > ?',
+        [storyId, position],
+      )
+    } else {
+      await db.execute(
+        'DELETE FROM world_state_snapshots WHERE story_id = ? AND branch_id = ? AND entry_position > ?',
+        [storyId, branchId, position],
+      )
+    }
+  }
+
+  async deleteWorldStateSnapshotsForBranch(branchId: string): Promise<void> {
+    const db = await this.getDb()
+    await db.execute('DELETE FROM world_state_snapshots WHERE branch_id = ?', [branchId])
+  }
+
+  async deleteWorldStateSnapshotsForStory(storyId: string): Promise<void> {
+    const db = await this.getDb()
+    await db.execute('DELETE FROM world_state_snapshots WHERE story_id = ?', [storyId])
+  }
+
   /**
    * Restore story state from a retry backup.
    * Similar to restoreCheckpoint but designed for the "retry last message" feature.
@@ -1863,6 +1962,8 @@ class DatabaseService {
       translatedContent: row.translated_content || null,
       translationLanguage: row.translation_language || null,
       originalInput: row.original_input || null,
+      // Phase 1: World state delta
+      worldStateDelta: row.world_state_delta ? JSON.parse(row.world_state_delta) : null,
     }
   }
 
@@ -1993,6 +2094,27 @@ class DatabaseService {
       lorebookEntriesSnapshot: row.lorebook_entries_snapshot
         ? JSON.parse(row.lorebook_entries_snapshot)
         : undefined,
+      createdAt: row.created_at,
+    }
+  }
+
+  private mapWorldStateSnapshot(row: any): WorldStateSnapshot {
+    return {
+      id: row.id,
+      storyId: row.story_id,
+      branchId: row.branch_id || null,
+      entryId: row.entry_id,
+      entryPosition: row.entry_position,
+      charactersSnapshot: row.characters_snapshot ? JSON.parse(row.characters_snapshot) : [],
+      locationsSnapshot: row.locations_snapshot ? JSON.parse(row.locations_snapshot) : [],
+      itemsSnapshot: row.items_snapshot ? JSON.parse(row.items_snapshot) : [],
+      storyBeatsSnapshot: row.story_beats_snapshot ? JSON.parse(row.story_beats_snapshot) : [],
+      lorebookEntriesSnapshot: row.lorebook_entries_snapshot
+        ? JSON.parse(row.lorebook_entries_snapshot)
+        : undefined,
+      timeTrackerSnapshot: row.time_tracker_snapshot
+        ? JSON.parse(row.time_tracker_snapshot)
+        : null,
       createdAt: row.created_at,
     }
   }

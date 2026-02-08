@@ -505,7 +505,7 @@
             messageId: narrationEntry.id,
             result: event.result,
           })
-          await story.applyClassificationResult(event.result)
+          await story.applyClassificationResult(event.result, narrationEntry.id)
           await story.updateEntryTimeEnd(narrationEntry.id)
 
           if (currentStoryRef.settings?.imageGenerationMode !== 'none') {

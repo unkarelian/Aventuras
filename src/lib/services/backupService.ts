@@ -59,10 +59,10 @@ class BackupService {
       }
     } catch (error) {
       console.warn('[Backup] VACUUM INTO failed, falling back to direct file copy:', error)
-      // Fallback: try reading the DB file directly from app config dir
+      // Fallback: try reading the DB file directly from app data dir
       try {
-        const appConfigDir = await path.appConfigDir()
-        const dbPath = await path.join(appConfigDir, 'aventura.db')
+        const appDataDir = await path.appDataDir()
+        const dbPath = await path.join(appDataDir, 'aventura.db')
         if (await exists(dbPath)) {
           dbBytes = await readFile(dbPath)
         }
