@@ -17,7 +17,7 @@
     ChevronRight,
     Check,
   } from 'lucide-svelte'
-  import { listImageModels, clearModelsCache, type ImageModelInfo } from '$lib/services/ai/image'
+  import { listImageModelsByProvider, type ImageModelInfo } from '$lib/services/ai/image'
   import ImageModelSelect from '$lib/components/settings/ImageModelSelect.svelte'
   import type { ImageProfile, ImageProviderType, APIProfile } from '$lib/types'
   import * as Tabs from '$lib/components/ui/tabs'
@@ -53,172 +53,10 @@
     { value: 'comfyui', label: 'ComfyUI' },
   ]
 
-  // Helper to get available sizes for a model
-  function getSizesForModel(
-    profileId: string | null,
-    modelId: string | null,
-    models: ImageModelInfo[],
-    defaults: ReadonlyArray<{ value: string; label: string }>,
-  ) {
-    if (!profileId || !modelId) return defaults
-
-    const profile = settings.getImageProfile(profileId)
-    if (profile?.providerType !== 'nanogpt') return defaults
-
-    const modelInfo = models.find((m) => m.id === modelId)
-    if (!modelInfo || !modelInfo.supportsSizes || modelInfo.supportsSizes.length === 0) {
-      return defaults
-    }
-
-    return modelInfo.supportsSizes.map((size) => ({
-      value: size,
-      label: size,
-    }))
-  }
-
   // Tab state
   let activeTab = $state<'profiles' | 'general' | 'characters' | 'backgrounds'>('profiles')
 
-  // Models state for each profile type
-  let standardModels = $state<ImageModelInfo[]>([])
-  let isLoadingStandardModels = $state(false)
-  let standardModelsError = $state<string | null>(null)
-
-  let portraitModels = $state<ImageModelInfo[]>([])
-  let isLoadingPortraitModels = $state(false)
-  let portraitModelsError = $state<string | null>(null)
-
-  let referenceModels = $state<ImageModelInfo[]>([])
-  let isLoadingReferenceModels = $state(false)
-  let referenceModelsError = $state<string | null>(null)
-
-  let backgroundModels = $state<ImageModelInfo[]>([])
-  let isLoadingBackgroundModels = $state(false)
-  let backgroundModelsError = $state<string | null>(null)
-
-  // Derived available sizes based on selected models
-  const availableStandardSizes = $derived(
-    getSizesForModel(
-      settings.systemServicesSettings.imageGeneration.profileId,
-      settings.systemServicesSettings.imageGeneration.model,
-      standardModels,
-      imageSizes,
-    ),
-  )
-
-  const availableReferenceSizes = $derived(
-    getSizesForModel(
-      settings.systemServicesSettings.imageGeneration.referenceProfileId ||
-        settings.systemServicesSettings.imageGeneration.profileId,
-      settings.systemServicesSettings.imageGeneration.referenceModel,
-      referenceModels.length > 0 ? referenceModels : standardModels,
-      imageSizes,
-    ),
-  )
-
-  const availablePortraitSizes = $derived(
-    getSizesForModel(
-      settings.systemServicesSettings.imageGeneration.portraitProfileId ||
-        settings.systemServicesSettings.imageGeneration.profileId,
-      settings.systemServicesSettings.imageGeneration.portraitModel,
-      portraitModels.length > 0 ? portraitModels : standardModels,
-      imageSizes,
-    ),
-  )
-
-  const availableBackgroundSizes = $derived(
-    getSizesForModel(
-      settings.systemServicesSettings.imageGeneration.backgroundProfileId ||
-        settings.systemServicesSettings.imageGeneration.profileId,
-      settings.systemServicesSettings.imageGeneration.backgroundModel,
-      backgroundModels.length > 0 ? backgroundModels : standardModels,
-      backgroundSizes,
-    ),
-  )
-
-  // Filtered models for img2img (reference)
-  const referenceImg2ImgModels = $derived(referenceModels.filter((m) => m.supportsImg2Img))
-
-  // Load models for an image profile
-  async function loadModelsForImageProfile(
-    profileId: string | null,
-    setModels: (models: ImageModelInfo[]) => void,
-    setLoading: (loading: boolean) => void,
-    setError: (error: string | null) => void,
-    forceRefresh = false,
-  ) {
-    if (!profileId) {
-      setModels([])
-      return
-    }
-
-    if (forceRefresh) {
-      clearModelsCache()
-    }
-
-    setLoading(true)
-    setError(null)
-
-    try {
-      const models = await listImageModels(profileId)
-      setModels(models)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to load models')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Load standard models when profile changes
-  $effect(() => {
-    const profileId = settings.systemServicesSettings.imageGeneration.profileId
-    if (profileId && standardModels.length === 0 && !isLoadingStandardModels) {
-      loadModelsForImageProfile(
-        profileId,
-        (m) => (standardModels = m),
-        (l) => (isLoadingStandardModels = l),
-        (e) => (standardModelsError = e),
-      )
-    }
-  })
-
-  $effect(() => {
-    const profileId = settings.systemServicesSettings.imageGeneration.portraitProfileId
-    if (profileId && portraitModels.length === 0 && !isLoadingPortraitModels) {
-      loadModelsForImageProfile(
-        profileId,
-        (m) => (portraitModels = m),
-        (l) => (isLoadingPortraitModels = l),
-        (e) => (portraitModelsError = e),
-      )
-    }
-  })
-
-  $effect(() => {
-    const profileId = settings.systemServicesSettings.imageGeneration.referenceProfileId
-    if (profileId && referenceModels.length === 0 && !isLoadingReferenceModels) {
-      loadModelsForImageProfile(
-        profileId,
-        (m) => (referenceModels = m),
-        (l) => (isLoadingReferenceModels = l),
-        (e) => (referenceModelsError = e),
-      )
-    }
-  })
-
-  $effect(() => {
-    const profileId = settings.systemServicesSettings.imageGeneration.backgroundProfileId
-    if (profileId && backgroundModels.length === 0 && !isLoadingBackgroundModels) {
-      loadModelsForImageProfile(
-        profileId,
-        (m) => (backgroundModels = m),
-        (l) => (isLoadingBackgroundModels = l),
-        (e) => (backgroundModelsError = e),
-      )
-    }
-  })
-
-  // Handle profile change - reload models
+  // Handle profile change
   function onProfileChange(
     profileId: string,
     type: 'standard' | 'portrait' | 'reference' | 'background',
@@ -226,43 +64,15 @@
     switch (type) {
       case 'standard':
         settings.systemServicesSettings.imageGeneration.profileId = profileId
-        standardModels = []
-        loadModelsForImageProfile(
-          profileId,
-          (m) => (standardModels = m),
-          (l) => (isLoadingStandardModels = l),
-          (e) => (standardModelsError = e),
-        )
         break
       case 'portrait':
         settings.systemServicesSettings.imageGeneration.portraitProfileId = profileId
-        portraitModels = []
-        loadModelsForImageProfile(
-          profileId,
-          (m) => (portraitModels = m),
-          (l) => (isLoadingPortraitModels = l),
-          (e) => (portraitModelsError = e),
-        )
         break
       case 'reference':
         settings.systemServicesSettings.imageGeneration.referenceProfileId = profileId
-        referenceModels = []
-        loadModelsForImageProfile(
-          profileId,
-          (m) => (referenceModels = m),
-          (l) => (isLoadingReferenceModels = l),
-          (e) => (referenceModelsError = e),
-        )
         break
       case 'background':
         settings.systemServicesSettings.imageGeneration.backgroundProfileId = profileId
-        backgroundModels = []
-        loadModelsForImageProfile(
-          profileId,
-          (m) => (backgroundModels = m),
-          (l) => (isLoadingBackgroundModels = l),
-          (e) => (backgroundModelsError = e),
-        )
         break
     }
 
@@ -302,6 +112,52 @@
   let showCopyDropdown = $state(false)
   let openProfileIds = new SvelteSet<string>()
 
+  // Profile form model state
+  let profileModel = $state('')
+  let profileModels = $state<ImageModelInfo[]>([])
+  let isLoadingProfileModels = $state(false)
+  let profileModelsError = $state<string | null>(null)
+
+  // Load models for the profile form when provider/apiKey change
+  async function loadProfileFormModels(providerType: ImageProviderType, apiKey: string) {
+    isLoadingProfileModels = true
+    profileModelsError = null
+    try {
+      const models = await listImageModelsByProvider(providerType, apiKey)
+      profileModels = models
+    } catch (error) {
+      profileModelsError = error instanceof Error ? error.message : 'Failed to load models'
+    } finally {
+      isLoadingProfileModels = false
+    }
+  }
+
+  // Reactively load models when provider or apiKey changes in profile form
+  $effect(() => {
+    if (editingProfileId && profileProviderType) {
+      loadProfileFormModels(profileProviderType, profileApiKey)
+    }
+  })
+
+  // Auto-save when editing an existing profile (not a new one)
+  $effect(() => {
+    if (!editingProfileId || isNewProfile) return
+    // Read all reactive fields to track them
+    const name = profileName
+    const provider = profileProviderType
+    const apiKey = profileApiKey
+    const baseUrl = profileBaseUrl
+    const model = profileModel
+    if (!name.trim()) return
+    settings.updateImageProfile(editingProfileId, {
+      name: name.trim(),
+      providerType: provider,
+      apiKey,
+      baseUrl: baseUrl || undefined,
+      model,
+    })
+  })
+
   function startNewProfile() {
     editingProfileId = crypto.randomUUID()
     isNewProfile = true
@@ -309,6 +165,8 @@
     profileProviderType = 'nanogpt'
     profileApiKey = ''
     profileBaseUrl = ''
+    profileModel = ''
+    profileModels = []
     showApiKey = false
     showCopyDropdown = false
   }
@@ -320,6 +178,8 @@
     profileProviderType = profile.providerType
     profileApiKey = profile.apiKey
     profileBaseUrl = profile.baseUrl || ''
+    profileModel = profile.model || ''
+    profileModels = []
     showApiKey = false
     showCopyDropdown = false
     openProfileIds.add(profile.id)
@@ -335,22 +195,14 @@
   async function handleSaveProfile() {
     if (!profileName.trim()) return
 
-    if (isNewProfile) {
-      await settings.addImageProfile({
-        name: profileName.trim(),
-        providerType: profileProviderType,
-        apiKey: profileApiKey,
-        baseUrl: profileBaseUrl || undefined,
-        providerOptions: {},
-      })
-    } else if (editingProfileId) {
-      await settings.updateImageProfile(editingProfileId, {
-        name: profileName.trim(),
-        providerType: profileProviderType,
-        apiKey: profileApiKey,
-        baseUrl: profileBaseUrl || undefined,
-      })
-    }
+    await settings.addImageProfile({
+      name: profileName.trim(),
+      providerType: profileProviderType,
+      apiKey: profileApiKey,
+      baseUrl: profileBaseUrl || undefined,
+      model: profileModel,
+      providerOptions: {},
+    })
 
     cancelEdit()
   }
@@ -456,6 +308,7 @@
                         <p class="text-muted-foreground text-xs">
                           {providerTypes.find((p) => p.value === profile.providerType)?.label ||
                             profile.providerType}
+                          {profile.model ? ` · ${profile.model}` : ''}
                           {profile.apiKey ? ' · Key configured' : ' · No API key'}
                         </p>
                       </div>
@@ -490,9 +343,6 @@
                     {#if editingProfileId === profile.id}
                       <div class="bg-muted/10 space-y-4 border-t p-4">
                         {@render profileForm()}
-                        <div class="flex justify-end gap-2 pt-2">
-                          <Button variant="outline" size="sm" onclick={cancelEdit}>Done</Button>
-                        </div>
                       </div>
                     {/if}
                   </Collapsible.Content>
@@ -510,18 +360,19 @@
             <div class="space-y-3">
               <Alert.Root>
                 <Info class="h-4 w-4" />
-                <Alert.Title>Story Image Model Selection</Alert.Title>
+                <Alert.Title>Story Image Profile Selection</Alert.Title>
                 <Alert.Description class="text-xs">
                   <ul class="mt-2 list-inside list-disc space-y-1">
                     <li>
-                      <strong>Reference Model</strong>: Used when "Portrait Mode" is enabled in your
+                      <strong>Reference Profile</strong>: Used when "Portrait Mode" is enabled in your
                       current story. Generates images based on the character portraits.
                     </li>
                     <li>
-                      <strong>Regular Image Model</strong>: Used when "Portrait Mode" is disabled in
+                      <strong>Regular Image Profile</strong>: Used when "Portrait Mode" is disabled in
                       your current story.
                     </li>
                   </ul>
+                  <p class="mt-2">Models are configured in each profile on the Profiles tab.</p>
                 </Alert.Description>
               </Alert.Root>
             </div>
@@ -536,7 +387,7 @@
                     selected={getSelectedImageProfile('standard')}
                     onSelect={(v) => onProfileChange((v as ImageProfile).id, 'standard')}
                     itemLabel={(p: ImageProfile) =>
-                      `${p.name} (${providerTypes.find((t) => t.value === p.providerType)?.label || p.providerType})`}
+                      `${p.name} (${providerTypes.find((t) => t.value === p.providerType)?.label || p.providerType}${p.model ? ` · ${p.model}` : ''})`}
                     itemValue={(p: ImageProfile) => p.id}
                     placeholder="Select an image profile"
                   />
@@ -544,35 +395,10 @@
 
                 {#if settings.systemServicesSettings.imageGeneration.profileId}
                   <div class="space-y-2">
-                    <Label>Regular Image Model</Label>
-                    <ImageModelSelect
-                      models={standardModels}
-                      selectedModelId={settings.systemServicesSettings.imageGeneration.model}
-                      onModelChange={(id) => {
-                        settings.systemServicesSettings.imageGeneration.model = id
-                        settings.saveSystemServicesSettings()
-                      }}
-                      showCost={true}
-                      showImg2ImgIndicator={true}
-                      showDescription={false}
-                      isLoading={isLoadingStandardModels}
-                      errorMessage={standardModelsError}
-                      showRefreshButton={true}
-                      onRefresh={() =>
-                        loadModelsForImageProfile(
-                          settings.systemServicesSettings.imageGeneration.profileId,
-                          (m) => (standardModels = m),
-                          (l) => (isLoadingStandardModels = l),
-                          (e) => (standardModelsError = e),
-                          true,
-                        )}
-                    />
-                  </div>
-                  <div class="space-y-2">
                     <Label>Regular Image Size</Label>
                     <Autocomplete
-                      items={availableStandardSizes}
-                      selected={availableStandardSizes.find(
+                      items={imageSizes}
+                      selected={imageSizes.find(
                         (s) => s.value === settings.systemServicesSettings.imageGeneration.size,
                       ) ||
                         (settings.systemServicesSettings.imageGeneration.size
@@ -609,7 +435,7 @@
                     selected={getSelectedImageProfile('reference')}
                     onSelect={(v) => onProfileChange((v as ImageProfile).id, 'reference')}
                     itemLabel={(p: ImageProfile) =>
-                      `${p.name} (${providerTypes.find((t) => t.value === p.providerType)?.label || p.providerType})`}
+                      `${p.name} (${providerTypes.find((t) => t.value === p.providerType)?.label || p.providerType}${p.model ? ` · ${p.model}` : ''})`}
                     itemValue={(p: ImageProfile) => p.id}
                     placeholder="Select an image profile"
                   />
@@ -617,43 +443,10 @@
 
                 {#if settings.systemServicesSettings.imageGeneration.referenceProfileId || settings.systemServicesSettings.imageGeneration.profileId}
                   <div class="space-y-2">
-                    <Label>Reference Model</Label>
-                    <ImageModelSelect
-                      models={referenceImg2ImgModels.length > 0
-                        ? referenceImg2ImgModels
-                        : referenceModels.length > 0
-                          ? referenceModels
-                          : standardModels.filter((m) => m.supportsImg2Img)}
-                      selectedModelId={settings.systemServicesSettings.imageGeneration
-                        .referenceModel}
-                      onModelChange={(id) => {
-                        settings.systemServicesSettings.imageGeneration.referenceModel = id
-                        settings.saveSystemServicesSettings()
-                      }}
-                      showCost={true}
-                      showImg2ImgIndicator={false}
-                      isLoading={isLoadingReferenceModels || isLoadingStandardModels}
-                      errorMessage={referenceModelsError || standardModelsError}
-                      showRefreshButton={true}
-                      onRefresh={() => {
-                        const profileId =
-                          settings.systemServicesSettings.imageGeneration.referenceProfileId ||
-                          settings.systemServicesSettings.imageGeneration.profileId
-                        loadModelsForImageProfile(
-                          profileId,
-                          (m) => (referenceModels = m),
-                          (l) => (isLoadingReferenceModels = l),
-                          (e) => (referenceModelsError = e),
-                          true,
-                        )
-                      }}
-                    />
-                  </div>
-                  <div class="space-y-2">
                     <Label>Reference Image Size</Label>
                     <Autocomplete
-                      items={availableReferenceSizes}
-                      selected={availableReferenceSizes.find(
+                      items={imageSizes}
+                      selected={imageSizes.find(
                         (s) =>
                           s.value === settings.systemServicesSettings.imageGeneration.referenceSize,
                       ) ||
@@ -740,52 +533,21 @@
               selected={getSelectedImageProfile('portrait')}
               onSelect={(v) => onProfileChange((v as ImageProfile).id, 'portrait')}
               itemLabel={(p: ImageProfile) =>
-                `${p.name} (${providerTypes.find((t) => t.value === p.providerType)?.label || p.providerType})`}
+                `${p.name} (${providerTypes.find((t) => t.value === p.providerType)?.label || p.providerType}${p.model ? ` · ${p.model}` : ''})`}
               itemValue={(p: ImageProfile) => p.id}
               placeholder="Select an image profile"
             />
             <p class="text-muted-foreground mt-1 text-xs">
-              Profile used for generating character portraits.
+              Profile used for generating character portraits. Model is configured in the profile.
             </p>
           </div>
 
           {#if settings.systemServicesSettings.imageGeneration.portraitProfileId || settings.systemServicesSettings.imageGeneration.profileId}
             <div class="space-y-2">
-              <Label>Character Portrait Model</Label>
-              <ImageModelSelect
-                models={portraitModels.length > 0 ? portraitModels : standardModels}
-                selectedModelId={settings.systemServicesSettings.imageGeneration.portraitModel}
-                onModelChange={(id) => {
-                  settings.systemServicesSettings.imageGeneration.portraitModel = id
-                  settings.saveSystemServicesSettings()
-                }}
-                showCost={true}
-                showImg2ImgIndicator={true}
-                isLoading={isLoadingPortraitModels || isLoadingStandardModels}
-                errorMessage={portraitModelsError || standardModelsError}
-                showRefreshButton={true}
-                onRefresh={() => {
-                  const profileId =
-                    settings.systemServicesSettings.imageGeneration.portraitProfileId ||
-                    settings.systemServicesSettings.imageGeneration.profileId
-                  loadModelsForImageProfile(
-                    profileId,
-                    (m) => (portraitModels = m),
-                    (l) => (isLoadingPortraitModels = l),
-                    (e) => (portraitModelsError = e),
-                    true,
-                  )
-                }}
-              />
-              <p class="text-muted-foreground mt-1 text-xs">
-                Model used when generating character portraits from visual descriptors.
-              </p>
-            </div>
-            <div class="space-y-2">
               <Label>Character Portrait Size</Label>
               <Autocomplete
-                items={availablePortraitSizes}
-                selected={availablePortraitSizes.find(
+                items={imageSizes}
+                selected={imageSizes.find(
                   (s) => s.value === settings.systemServicesSettings.imageGeneration.portraitSize,
                 ) ||
                   (settings.systemServicesSettings.imageGeneration.portraitSize
@@ -846,54 +608,20 @@
               selected={getSelectedImageProfile('background')}
               onSelect={(v) => onProfileChange((v as ImageProfile).id, 'background')}
               itemLabel={(p: ImageProfile) =>
-                `${p.name} (${providerTypes.find((t) => t.value === p.providerType)?.label || p.providerType})`}
+                `${p.name} (${providerTypes.find((t) => t.value === p.providerType)?.label || p.providerType}${p.model ? ` · ${p.model}` : ''})`}
               itemValue={(p: ImageProfile) => p.id}
               placeholder="Select an image profile"
             />
             <p class="text-muted-foreground mt-1 text-xs">
-              Profile used for generating background scenes.
+              Profile used for generating background scenes. Model is configured in the profile.
             </p>
           </div>
-
-          {#if settings.systemServicesSettings.imageGeneration.backgroundProfileId || settings.systemServicesSettings.imageGeneration.profileId}
-            <div class="space-y-2">
-              <Label>Background Model</Label>
-              <ImageModelSelect
-                models={backgroundModels.length > 0 ? backgroundModels : standardModels}
-                selectedModelId={settings.systemServicesSettings.imageGeneration.backgroundModel}
-                onModelChange={(id) => {
-                  settings.systemServicesSettings.imageGeneration.backgroundModel = id
-                  settings.saveSystemServicesSettings()
-                }}
-                showCost={true}
-                showImg2ImgIndicator={false}
-                isLoading={isLoadingBackgroundModels || isLoadingStandardModels}
-                errorMessage={backgroundModelsError || standardModelsError}
-                showRefreshButton={true}
-                onRefresh={() => {
-                  const profileId =
-                    settings.systemServicesSettings.imageGeneration.backgroundProfileId ||
-                    settings.systemServicesSettings.imageGeneration.profileId
-                  loadModelsForImageProfile(
-                    profileId,
-                    (m) => (backgroundModels = m),
-                    (l) => (isLoadingBackgroundModels = l),
-                    (e) => (backgroundModelsError = e),
-                    true,
-                  )
-                }}
-              />
-              <p class="text-muted-foreground mt-1 text-xs">
-                Model used for generating background scenes.
-              </p>
-            </div>
-          {/if}
 
           <div class="space-y-2">
             <Label>Background Size</Label>
             <Autocomplete
-              items={availableBackgroundSizes}
-              selected={availableBackgroundSizes.find(
+              items={backgroundSizes}
+              selected={backgroundSizes.find(
                 (s) => s.value === settings.systemServicesSettings.imageGeneration.backgroundSize,
               ) ||
                 (settings.systemServicesSettings.imageGeneration.backgroundSize
@@ -1019,5 +747,26 @@
         <Input bind:value={profileBaseUrl} placeholder="Custom base URL" />
       </div>
     {/if}
+
+    <div class="space-y-2">
+      <Label>Model</Label>
+      <ImageModelSelect
+        models={profileModels}
+        selectedModelId={profileModel}
+        onModelChange={(id) => {
+          profileModel = id
+        }}
+        showCost={true}
+        showImg2ImgIndicator={true}
+        showDescription={false}
+        isLoading={isLoadingProfileModels}
+        errorMessage={profileModelsError}
+        showRefreshButton={true}
+        onRefresh={() => loadProfileFormModels(profileProviderType, profileApiKey)}
+      />
+      <p class="text-muted-foreground mt-1 text-xs">
+        The image model this profile will use for generation.
+      </p>
+    </div>
   </div>
 {/snippet}

@@ -130,7 +130,8 @@ export async function retryImageGeneration(imageId: string, prompt: string): Pro
     return
   }
 
-  const model = imageSettings.model
+  const profile = settings.getImageProfile(profileId)
+  const model = profile?.model ?? ''
   const size = imageSettings.size
   const { width, height } = parseImageSize(size)
 
@@ -185,7 +186,8 @@ export async function generatePortrait(prompt: string): Promise<string> {
     throw new Error('No image generation profile configured')
   }
 
-  const model = imageSettings.portraitModel
+  const profile = settings.getImageProfile(profileId)
+  const model = profile?.model ?? ''
   if (!model) {
     throw new Error('No image model configured')
   }

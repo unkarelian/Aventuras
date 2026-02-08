@@ -739,6 +739,7 @@ export interface ImageProfile {
   providerType: ImageProviderType
   apiKey: string
   baseUrl?: string
+  model: string
   providerOptions: Record<string, unknown>
   createdAt: number
 }

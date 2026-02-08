@@ -509,12 +509,10 @@ export function getDefaultUpdateSettings(): UpdateSettings {
 export interface ImageGenerationServiceSettings {
   // Profile-based image generation (profiles must have supportsImageGeneration capability)
   profileId: string | null // API profile for standard image generation
-  model: string // Image model for the selected profile
   size: string // Regular image size
 
   // Reference model settings (for image-to-image with portrait references)
   referenceProfileId: string | null // API profile for image-to-image with portrait references
-  referenceModel: string // Model for image generation with reference
   referenceSize: string // Reference image size
 
   // General story image settings
@@ -523,7 +521,6 @@ export interface ImageGenerationServiceSettings {
 
   // Portrait model settings (character reference images)
   portraitProfileId: string | null // API profile for generating character portraits
-  portraitModel: string // Model for generating character portraits
   portraitStyleId: string // Selected character portrait style template
   portraitSize: string // Portrait image size
 
@@ -537,7 +534,6 @@ export interface ImageGenerationServiceSettings {
 
   // Background image settings
   backgroundProfileId: string | null // API profile for background image generation
-  backgroundModel: string // Model for background image generation
   backgroundSize: string // Background image size (default: '1280x720')
   backgroundBlur: number // Background blur amount in pixels (default: 0)
 }
@@ -545,7 +541,6 @@ export interface ImageGenerationServiceSettings {
 export function getDefaultImageGenerationSettings(): ImageGenerationServiceSettings {
   return {
     profileId: null, // User must select an image-capable profile
-    model: 'flux', // Common default across providers
     styleId: 'image-style-soft-anime',
     portraitStyleId: 'image-style-soft-anime',
     size: '1024x1024',
@@ -553,9 +548,7 @@ export function getDefaultImageGenerationSettings(): ImageGenerationServiceSetti
     portraitSize: '512x512',
     maxImagesPerMessage: 3,
     portraitProfileId: null,
-    portraitModel: 'flux',
     referenceProfileId: null,
-    referenceModel: 'kontext', // Common reference/editing model
     promptProfileId: null, // Use default profile for scene analysis
     promptModel: '', // Empty = use profile default
     promptTemperature: 0.3,
@@ -563,7 +556,6 @@ export function getDefaultImageGenerationSettings(): ImageGenerationServiceSetti
     reasoningEffort: 'high',
     manualBody: '',
     backgroundProfileId: null,
-    backgroundModel: 'z-image-turbo',
     backgroundSize: '1280x720',
     backgroundBlur: 2, // Default blur for atmosphere
   }
@@ -2358,6 +2350,7 @@ class SettingsStore {
         providerType: providerType as ImageProviderType,
         apiKey: apiProfile.apiKey ?? '',
         baseUrl: apiProfile.baseUrl,
+        model: 'flux',
         providerOptions: {},
       })
 
@@ -2378,6 +2371,20 @@ class SettingsStore {
       console.log(
         '[Settings] Auto-migrated image generation profiles from API Profiles to Image Profiles',
       )
+    }
+
+    // Ensure all existing image profiles have a model field
+    let profilesUpdated = false
+    for (const profile of this.imageProfiles) {
+      if (!profile.model) {
+        profile.model = 'flux'
+        profilesUpdated = true
+      }
+    }
+    if (profilesUpdated) {
+      this.imageProfiles = [...this.imageProfiles]
+      await this.saveImageProfiles()
+      console.log('[Settings] Migrated image profiles to include model field')
     }
   }
 

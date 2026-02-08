@@ -92,9 +92,10 @@ export class BackgroundImageService {
     }
 
     try {
+      const profile = settings.getImageProfile(profileId)
       const result = await generateImage({
         profileId,
-        model: this.imageSettings.backgroundModel,
+        model: profile?.model ?? '',
         prompt,
         size: this.imageSettings.backgroundSize,
       })

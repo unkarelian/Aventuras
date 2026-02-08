@@ -88,7 +88,7 @@ export class InlineImageTracker {
 
     // Determine profile and model
     let profileId = imageSettings.profileId
-    let modelToUse = imageSettings.model
+    let modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
     let referenceImageUrls: string[] | undefined
 
     // Check for portrait mode with character references
@@ -106,7 +106,7 @@ export class InlineImageTracker {
 
       if (portraitUrls.length > 0) {
         profileId = imageSettings.referenceProfileId
-        modelToUse = imageSettings.referenceModel
+        modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
         referenceImageUrls = portraitUrls
       }
     }

@@ -107,7 +107,7 @@ export class InlineImageGenerationService {
 
     // Determine which profile and model to use
     let profileId = imageSettings.profileId
-    let modelToUse = imageSettings.model
+    let modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
     let sizeToUse = imageSettings.size
     let referenceImageUrls: string[] | undefined
 
@@ -134,7 +134,7 @@ export class InlineImageGenerationService {
       if (portraitUrls.length > 0) {
         // Use reference profile and model for img2img
         profileId = imageSettings.referenceProfileId
-        modelToUse = imageSettings.referenceModel
+        modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
         sizeToUse = imageSettings.referenceSize
         referenceImageUrls = portraitUrls
         log('Using character portraits as reference', {
