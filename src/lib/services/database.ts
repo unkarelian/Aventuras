@@ -532,6 +532,16 @@ class DatabaseService {
     await db.execute('DELETE FROM story_entries WHERE id = ?', [id])
   }
 
+  /**
+   * Delete multiple story entries by ID.
+   */
+  async deleteStoryEntries(ids: string[]): Promise<void> {
+    if (ids.length === 0) return
+    const db = await this.getDb()
+    const placeholders = ids.map(() => '?').join(',')
+    await db.execute(`DELETE FROM story_entries WHERE id IN (${placeholders})`, ids)
+  }
+
   // Character operations
   async getCharacters(storyId: string): Promise<Character[]> {
     const db = await this.getDb()
@@ -1229,7 +1239,7 @@ class DatabaseService {
    * Does NOT touch chapters or lorebook entries (those are more permanent).
    */
   async restoreRetryBackup(
-    lastEntryId: string,
+    entryIdsToDelete: string[],
     storyId: string,
     characters: Character[],
     locations: Location[],
@@ -1240,14 +1250,15 @@ class DatabaseService {
 
     // Delete current state (except chapters and lorebook entries which are more permanent)
     // Note: embedded_images will be cascade-deleted when story_entries are deleted
-    // Only delete the last entry, not the entire story
-    await db.execute('DELETE FROM story_entries WHERE id = ?', [lastEntryId])
+    if (entryIdsToDelete.length > 0) {
+      await this.deleteStoryEntries(entryIdsToDelete)
+    }
     await db.execute('DELETE FROM characters WHERE story_id = ?', [storyId])
     await db.execute('DELETE FROM locations WHERE story_id = ?', [storyId])
     await db.execute('DELETE FROM items WHERE story_id = ?', [storyId])
     await db.execute('DELETE FROM story_beats WHERE story_id = ?', [storyId])
 
-    // Restore entries not necessary as we are only deleting the last entry
+    // Restore entries not necessary as we are only deleting redundant entries since backup
 
     // Restore characters
     for (const character of characters) {

@@ -66,6 +66,7 @@ export interface RetryStoreCallbacks {
     storyBeats: StoryBeat[]
     embeddedImages: EmbeddedImage[]
     timeTracker?: TimeTracker | null
+    entryCountBeforeAction: number
   }) => Promise<void>
   deleteEntriesFromPosition: (position: number) => Promise<void>
   deleteEntitiesCreatedAfterBackup: (savedIds: {
@@ -164,6 +165,7 @@ export class RetryService {
       storyBeats: backup.storyBeats,
       embeddedImages: backup.embeddedImages,
       timeTracker: backup.timeTracker,
+      entryCountBeforeAction: backup.entryCountBeforeAction,
     })
 
     log('Full state restore complete')

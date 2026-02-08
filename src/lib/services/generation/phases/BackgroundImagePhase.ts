@@ -49,6 +49,7 @@ export class BackgroundImagePhase {
   async *execute(
     input: BackgroundImageInput,
   ): AsyncGenerator<GenerationEvent, BackgroundImageResult> {
+    console.log('BackgroundImagePhase.execute')
     yield { type: 'phase_start', phase: 'image' } satisfies PhaseStartEvent
 
     const { storyId, storyEntries, imageSettings, abortSignal } = input
@@ -73,6 +74,7 @@ export class BackgroundImagePhase {
     }
 
     try {
+      console.log('BackgroundImagePhase.execute2')
       // Start image generation (runs in background via AIService)
       // Note: This is intentionally fire-and-forget within the pipeline
       // The AIService handles its own error logging

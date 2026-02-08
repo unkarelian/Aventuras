@@ -826,8 +826,8 @@ class StoryStore {
     }
 
     // Now delete entries from database
-    for (const entry of entriesToDelete) {
-      await database.deleteStoryEntry(entry.id)
+    if (entriesToDelete.length > 0) {
+      await database.deleteStoryEntries(Array.from(entryIdsToDelete))
     }
 
     // Update in-memory state
@@ -2488,6 +2488,7 @@ class StoryStore {
     lorebookEntries?: Entry[] // Optional - lorebook entries persist across retry operations
     embeddedImages: EmbeddedImage[]
     timeTracker?: TimeTracker | null
+    entryCountBeforeAction: number
   }): Promise<void> {
     if (!this.currentStory) throw new Error('No story loaded')
 
@@ -2510,15 +2511,20 @@ class StoryStore {
         backupCharDescriptors,
       })
 
+      // Determine entries to delete (those added since the backup)
+      const entriesToDelete = this.entries.slice(backup.entryCountBeforeAction)
+      const entryIdsToDelete = entriesToDelete.map((e) => e.id)
+
       log('Restoring from retry backup...', {
         entriesCount: backup.entries.length,
         currentEntriesCount: this.entries.length,
+        entriesToDelete: entryIdsToDelete.length,
         embeddedImagesCount: backup.embeddedImages.length,
       })
 
       // Restore to database
       await database.restoreRetryBackup(
-        this.entries[this.entries.length - 1].id,
+        entryIdsToDelete,
         this.currentStory.id,
         backup.characters,
         backup.locations,
