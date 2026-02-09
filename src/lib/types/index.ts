@@ -159,6 +159,7 @@ export interface Character {
   status: 'active' | 'inactive' | 'deceased'
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this character belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -318,6 +319,7 @@ export interface Location {
   connections: string[]
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this location belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -334,6 +336,7 @@ export interface Item {
   location: string
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this item belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -351,6 +354,7 @@ export interface StoryBeat {
   resolvedAt?: number | null
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this beat belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
   // Translation fields
   translatedTitle?: string | null
   translatedDescription?: string | null
@@ -475,6 +479,7 @@ export interface Entry {
 
   // Branch support
   branchId: string | null // Branch this entry belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
 }
 
 export interface EntryInjection {

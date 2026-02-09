@@ -1,3 +1,12 @@
+<script module lang="ts">
+  // Module-level state persists across component remounts (settings open/close)
+  let _sqlQuery = 'SELECT name FROM sqlite_master WHERE type=\'table\' ORDER BY name;'
+  let _queryResult: { columns: string[]; rows: Record<string, unknown>[] } | null = null
+  let _queryError: string | null = null
+  let _queryTime = 0
+  let _showSqlEditor = false
+</script>
+
 <script lang="ts">
   import { settings } from '$lib/stores/settings.svelte'
   import {
@@ -11,16 +20,66 @@
     GitBranch,
     Clock,
     ShieldCheck,
+    Terminal,
+    Play,
+    Copy,
   } from 'lucide-svelte'
   import { Switch } from '$lib/components/ui/switch'
   import { Label } from '$lib/components/ui/label'
   import { Button } from '$lib/components/ui/button'
   import { Slider } from '$lib/components/ui/slider'
   import { Separator } from '$lib/components/ui/separator'
+  import { database } from '$lib/services/database'
 
   let isBackingUp = $state(false)
   let backupResult = $state<{ success: boolean; message: string } | null>(null)
   let hasEverBackedUp = $state(false)
+
+  // SQL Query Box state — initialized from module-level persisted values
+  let sqlQuery = $state(_sqlQuery)
+  let queryResult = $state<{ columns: string[]; rows: Record<string, unknown>[] } | null>(_queryResult)
+  let queryError = $state<string | null>(_queryError)
+  let isQuerying = $state(false)
+  let queryTime = $state<number>(_queryTime)
+  let showSqlEditor = $state(_showSqlEditor)
+
+  // Sync state back to module-level on change
+  $effect(() => { _sqlQuery = sqlQuery })
+  $effect(() => { _queryResult = queryResult })
+  $effect(() => { _queryError = queryError })
+  $effect(() => { _queryTime = queryTime })
+  $effect(() => { _showSqlEditor = showSqlEditor })
+
+  async function handleRunQuery() {
+    if (!sqlQuery.trim()) return
+    isQuerying = true
+    queryError = null
+    queryResult = null
+    const start = performance.now()
+    try {
+      const result = await database.rawQuery(sqlQuery.trim())
+      queryTime = Math.round(performance.now() - start)
+      queryResult = result
+    } catch (error) {
+      queryTime = Math.round(performance.now() - start)
+      queryError = error instanceof Error ? error.message : String(error)
+    } finally {
+      isQuerying = false
+    }
+  }
+
+  function handleCopyResults() {
+    if (!queryResult) return
+    const text = JSON.stringify(queryResult.rows, null, 2)
+    navigator.clipboard.writeText(text)
+  }
+
+  function handleQueryKeydown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault()
+      handleRunQuery()
+    }
+  }
 
   async function handleBackup() {
     isBackingUp = true
@@ -269,4 +328,111 @@
       Reset
     </Button>
   </div>
+
+  <Separator />
+
+  <!-- SQL Query Console Toggle -->
+  <div class="flex flex-row items-center justify-between">
+    <div class="space-y-0.5">
+      <div class="flex items-center gap-2">
+        <Terminal class="text-muted-foreground h-4 w-4" />
+        <Label>SQL Query Console</Label>
+      </div>
+      <p class="text-muted-foreground text-xs">
+        Run raw SQL queries directly against the internal SQLite database.
+      </p>
+    </div>
+    <Switch
+      checked={showSqlEditor}
+      onCheckedChange={(v) => (showSqlEditor = v)}
+    />
+  </div>
+
+  {#if showSqlEditor}
+  <div class="space-y-3">
+    <div class="bg-destructive/10 border-destructive/30 flex items-start gap-3 rounded-lg border p-3">
+      <AlertTriangle class="text-destructive mt-0.5 h-4 w-4 shrink-0" />
+      <p class="text-destructive text-xs">
+        <strong>Danger zone.</strong> Write queries (INSERT, UPDATE, DELETE, DROP) can permanently
+        modify or corrupt your data. Always create a backup first.
+        Press <kbd class="bg-destructive/20 rounded px-1 py-0.5 text-[10px] font-mono">Ctrl+Enter</kbd> to run.
+      </p>
+    </div>
+
+    <!-- Query Input -->
+    <textarea
+      bind:value={sqlQuery}
+      onkeydown={handleQueryKeydown}
+      placeholder="SELECT * FROM stories LIMIT 10;"
+      spellcheck={false}
+      class="bg-surface-950 border-surface-700 text-foreground placeholder:text-muted-foreground w-full rounded-md border p-3 font-mono text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-amber-500/50"
+      rows={4}
+    ></textarea>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={handleRunQuery}
+        disabled={isQuerying || !sqlQuery.trim()}
+        class="gap-2"
+      >
+        {#if isQuerying}
+          <Loader2 class="h-4 w-4 animate-spin" />
+          Running...
+        {:else}
+          <Play class="h-4 w-4" />
+          Run Query
+        {/if}
+      </Button>
+      {#if queryResult}
+        <Button variant="ghost" size="sm" onclick={handleCopyResults} class="gap-2">
+          <Copy class="h-4 w-4" />
+          Copy JSON
+        </Button>
+        <span class="text-muted-foreground text-xs">
+          {queryResult.rows.length} row{queryResult.rows.length !== 1 ? 's' : ''} in {queryTime}ms
+        </span>
+      {/if}
+    </div>
+
+    <!-- Error -->
+    {#if queryError}
+      <div class="bg-destructive/10 border-destructive/30 rounded-md border p-3">
+        <p class="text-destructive font-mono text-xs whitespace-pre-wrap">{queryError}</p>
+      </div>
+    {/if}
+
+    <!-- Results Table -->
+    {#if queryResult && queryResult.rows.length > 0}
+      <div class="border-surface-700 max-h-72 overflow-auto rounded-md border">
+        <table class="w-full text-xs">
+          <thead class="bg-surface-800 sticky top-0">
+            <tr>
+              {#each queryResult.columns as col}
+                <th class="border-surface-700 text-muted-foreground border-b px-3 py-2 text-left font-medium">
+                  {col}
+                </th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each queryResult.rows as row, i}
+              <tr class="border-surface-700/50 hover:bg-surface-800/50 border-b last:border-b-0">
+                {#each queryResult.columns as col}
+                  <td class="text-foreground max-w-xs truncate px-3 py-1.5 font-mono" title={String(row[col] ?? '')}>
+                    {row[col] === null ? 'NULL' : row[col]}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {:else if queryResult && queryResult.rows.length === 0}
+      <p class="text-muted-foreground text-xs italic">Query returned no rows.</p>
+    {/if}
+  </div>
+  {/if}
 </div>

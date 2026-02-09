@@ -139,6 +139,16 @@ class RollbackService {
       console.error('[RollbackService] Failed to clean up snapshots:', error)
     }
 
+    // 6. Clean up no-op COW overrides (overrides whose data matches the original)
+    try {
+      const cleaned = await database.cleanupNoopOverrides(storyId, branchId)
+      if (cleaned > 0) {
+        log('Cleaned up', cleaned, 'no-op COW override(s)')
+      }
+    } catch (error) {
+      console.error('[RollbackService] Failed to clean up no-op overrides:', error)
+    }
+
     log('Rollback complete:', summary)
     return summary
   }

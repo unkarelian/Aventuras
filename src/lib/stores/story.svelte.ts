@@ -805,12 +805,39 @@ class StoryStore {
     if (!this.currentStory) return
 
     const storyId = this.currentStory.id
-    const [characters, locations, items, storyBeats] = await Promise.all([
-      database.getCharacters(storyId),
-      database.getLocations(storyId),
-      database.getItems(storyId),
-      database.getStoryBeats(storyId),
-    ])
+    const branchId = this.currentStory.currentBranchId
+
+    let characters: Character[]
+    let locations: Location[]
+    let items: Item[]
+    let storyBeats: StoryBeat[]
+
+    if (branchId && settings.experimentalFeatures.lightweightBranches) {
+      // COW: resolve through lineage
+      const lineage = this.buildBranchLineage(branchId)
+      ;[characters, locations, items, storyBeats] = await Promise.all([
+        database.getCharactersResolved(storyId, lineage),
+        database.getLocationsResolved(storyId, lineage),
+        database.getItemsResolved(storyId, lineage),
+        database.getStoryBeatsResolved(storyId, lineage),
+      ])
+    } else if (branchId) {
+      // Legacy branch: direct loading
+      ;[characters, locations, items, storyBeats] = await Promise.all([
+        database.getCharactersForBranch(storyId, branchId),
+        database.getLocationsForBranch(storyId, branchId),
+        database.getItemsForBranch(storyId, branchId),
+        database.getStoryBeatsForBranch(storyId, branchId),
+      ])
+    } else {
+      // Main branch
+      ;[characters, locations, items, storyBeats] = await Promise.all([
+        database.getCharacters(storyId),
+        database.getLocations(storyId),
+        database.getItems(storyId),
+        database.getStoryBeats(storyId),
+      ])
+    }
 
     this.characters = characters
     this.locations = locations
@@ -977,6 +1004,128 @@ class StoryStore {
     await database.updateStory(this.currentStory.id, {})
   }
 
+  // ===== COW (Copy-on-Write) Branch Helpers =====
+
+  /**
+   * Check if we're currently on a COW-enabled branch.
+   * Returns true if on a non-main branch with lightweightBranches enabled.
+   */
+  private isCowBranch(): boolean {
+    return (
+      !!this.currentStory?.currentBranchId &&
+      settings.experimentalFeatures.lightweightBranches
+    )
+  }
+
+  /**
+   * Ensure a character is owned by the current branch (COW).
+   * If the character is inherited from a parent branch, creates an override.
+   * Returns the owned character (either the original or the new override).
+   */
+  private async cowCharacter(entity: Character): Promise<{ entity: Character; wasCowed: boolean }> {
+    const branchId = this.currentStory?.currentBranchId
+    if (!branchId || entity.branchId === branchId || !settings.experimentalFeatures.lightweightBranches) {
+      return { entity, wasCowed: false }
+    }
+
+    const override: Character = {
+      ...entity,
+      id: crypto.randomUUID(),
+      branchId,
+      overridesId: entity.overridesId ?? entity.id,
+    }
+    await database.addCharacter(override)
+    this.characters = this.characters.map((c) => c.id === entity.id ? override : c)
+    log('COW: Created character override', override.name, override.id, '→ overrides', override.overridesId)
+    return { entity: override, wasCowed: true }
+  }
+
+  /**
+   * Ensure a location is owned by the current branch (COW).
+   */
+  private async cowLocation(entity: Location): Promise<{ entity: Location; wasCowed: boolean }> {
+    const branchId = this.currentStory?.currentBranchId
+    if (!branchId || entity.branchId === branchId || !settings.experimentalFeatures.lightweightBranches) {
+      return { entity, wasCowed: false }
+    }
+
+    const override: Location = {
+      ...entity,
+      id: crypto.randomUUID(),
+      branchId,
+      overridesId: entity.overridesId ?? entity.id,
+    }
+    await database.addLocation(override)
+    this.locations = this.locations.map((l) => l.id === entity.id ? override : l)
+    log('COW: Created location override', override.name, override.id, '→ overrides', override.overridesId)
+    return { entity: override, wasCowed: true }
+  }
+
+  /**
+   * Ensure an item is owned by the current branch (COW).
+   */
+  private async cowItem(entity: Item): Promise<{ entity: Item; wasCowed: boolean }> {
+    const branchId = this.currentStory?.currentBranchId
+    if (!branchId || entity.branchId === branchId || !settings.experimentalFeatures.lightweightBranches) {
+      return { entity, wasCowed: false }
+    }
+
+    const override: Item = {
+      ...entity,
+      id: crypto.randomUUID(),
+      branchId,
+      overridesId: entity.overridesId ?? entity.id,
+    }
+    await database.addItem(override)
+    this.items = this.items.map((i) => i.id === entity.id ? override : i)
+    log('COW: Created item override', override.name, override.id, '→ overrides', override.overridesId)
+    return { entity: override, wasCowed: true }
+  }
+
+  /**
+   * Ensure a story beat is owned by the current branch (COW).
+   */
+  private async cowStoryBeat(entity: StoryBeat): Promise<{ entity: StoryBeat; wasCowed: boolean }> {
+    const branchId = this.currentStory?.currentBranchId
+    if (!branchId || entity.branchId === branchId || !settings.experimentalFeatures.lightweightBranches) {
+      return { entity, wasCowed: false }
+    }
+
+    const override: StoryBeat = {
+      ...entity,
+      id: crypto.randomUUID(),
+      branchId,
+      overridesId: entity.overridesId ?? entity.id,
+    }
+    await database.addStoryBeat(override)
+    this.storyBeats = this.storyBeats.map((b) => b.id === entity.id ? override : b)
+    log('COW: Created story beat override', override.title, override.id, '→ overrides', override.overridesId)
+    return { entity: override, wasCowed: true }
+  }
+
+  /**
+   * Ensure a lorebook entry is owned by the current branch (COW).
+   */
+  private async cowLorebookEntry(entity: Entry): Promise<{ entity: Entry; wasCowed: boolean }> {
+    const branchId = this.currentStory?.currentBranchId
+    if (!branchId || entity.branchId === branchId || !settings.experimentalFeatures.lightweightBranches) {
+      return { entity, wasCowed: false }
+    }
+
+    const now = Date.now()
+    const override: Entry = {
+      ...entity,
+      id: crypto.randomUUID(),
+      branchId,
+      overridesId: entity.overridesId ?? entity.id,
+      updatedAt: now,
+    }
+    await database.addEntry(override)
+    this.lorebookEntries = this.lorebookEntries.map((e) => e.id === entity.id ? override : e)
+    log('COW: Created lorebook entry override', override.name, override.id, '→ overrides', override.overridesId)
+    return { entity: override, wasCowed: true }
+  }
+
   // Add a character
   async addCharacter(
     name: string,
@@ -1020,8 +1169,10 @@ class StoryStore {
       }
     }
 
-    await database.updateCharacter(id, updates)
-    this.characters = this.characters.map((c) => (c.id === id ? { ...c, ...updates } : c))
+    // COW: ensure entity is owned by current branch before updating
+    const { entity: owned } = await this.cowCharacter(existing)
+    await database.updateCharacter(owned.id, updates)
+    this.characters = this.characters.map((c) => (c.id === owned.id ? { ...c, ...updates } : c))
   }
 
   // Delete a character (protagonist cannot be deleted)
@@ -1072,16 +1223,33 @@ class StoryStore {
     const existing = this.locations.find((l) => l.id === id)
     if (!existing) throw new Error('Location not found')
 
+    // COW: ensure entity is owned by current branch before updating
+    const { entity: owned } = await this.cowLocation(existing)
+
     if (updates.current === true) {
-      await database.setCurrentLocation(this.currentStory.id, id)
-      this.locations = this.locations.map((l) => ({
-        ...l,
-        current: l.id === id,
-        visited: l.id === id ? true : l.visited,
-      }))
+      if (this.isCowBranch()) {
+        // COW-aware: targeted updates instead of blanket clear
+        const prevCurrent = this.locations.find((l) => l.current && l.id !== owned.id)
+        if (prevCurrent) {
+          const { entity: ownedPrev } = await this.cowLocation(prevCurrent)
+          await database.updateLocation(ownedPrev.id, { current: false })
+          this.locations = this.locations.map((l) => l.id === ownedPrev.id ? { ...l, current: false } : l)
+        }
+        await database.updateLocation(owned.id, { ...updates, visited: true })
+        this.locations = this.locations.map((l) =>
+          l.id === owned.id ? { ...l, ...updates, current: true, visited: true } : l,
+        )
+      } else {
+        await database.setCurrentLocation(this.currentStory.id, owned.id)
+        this.locations = this.locations.map((l) => ({
+          ...l,
+          current: l.id === owned.id,
+          visited: l.id === owned.id ? true : l.visited,
+        }))
+      }
     } else {
-      await database.updateLocation(id, updates)
-      this.locations = this.locations.map((l) => (l.id === id ? { ...l, ...updates } : l))
+      await database.updateLocation(owned.id, updates)
+      this.locations = this.locations.map((l) => (l.id === owned.id ? { ...l, ...updates } : l))
     }
   }
 
@@ -1089,12 +1257,33 @@ class StoryStore {
   async setCurrentLocation(locationId: string): Promise<void> {
     if (!this.currentStory) throw new Error('No story loaded')
 
-    await database.setCurrentLocation(this.currentStory.id, locationId)
-    this.locations = this.locations.map((l) => ({
-      ...l,
-      current: l.id === locationId,
-      visited: l.id === locationId ? true : l.visited,
-    }))
+    if (this.isCowBranch()) {
+      // COW-aware: targeted updates instead of blanket clear
+      const target = this.locations.find((l) => l.id === locationId)
+      const prevCurrent = this.locations.find((l) => l.current && l.id !== locationId)
+
+      if (target) {
+        const { entity: ownedTarget } = await this.cowLocation(target)
+        await database.updateLocation(ownedTarget.id, { current: true, visited: true })
+        this.locations = this.locations.map((l) =>
+          l.id === ownedTarget.id ? { ...l, current: true, visited: true } : l,
+        )
+      }
+      if (prevCurrent) {
+        const { entity: ownedPrev } = await this.cowLocation(prevCurrent)
+        await database.updateLocation(ownedPrev.id, { current: false })
+        this.locations = this.locations.map((l) =>
+          l.id === ownedPrev.id ? { ...l, current: false } : l,
+        )
+      }
+    } else {
+      await database.setCurrentLocation(this.currentStory.id, locationId)
+      this.locations = this.locations.map((l) => ({
+        ...l,
+        current: l.id === locationId,
+        visited: l.id === locationId ? true : l.visited,
+      }))
+    }
   }
 
   // Toggle location visited status
@@ -1152,8 +1341,10 @@ class StoryStore {
     const existing = this.items.find((i) => i.id === id)
     if (!existing) throw new Error('Item not found')
 
-    await database.updateItem(id, updates)
-    this.items = this.items.map((i) => (i.id === id ? { ...i, ...updates } : i))
+    // COW: ensure entity is owned by current branch before updating
+    const { entity: owned } = await this.cowItem(existing)
+    await database.updateItem(owned.id, updates)
+    this.items = this.items.map((i) => (i.id === owned.id ? { ...i, ...updates } : i))
   }
 
   // Delete an item
@@ -1211,8 +1402,10 @@ class StoryStore {
       }
     }
 
-    await database.updateStoryBeat(id, resolvedUpdates)
-    this.storyBeats = this.storyBeats.map((b) => (b.id === id ? { ...b, ...resolvedUpdates } : b))
+    // COW: ensure entity is owned by current branch before updating
+    const { entity: owned } = await this.cowStoryBeat(existing)
+    await database.updateStoryBeat(owned.id, resolvedUpdates)
+    this.storyBeats = this.storyBeats.map((b) => (b.id === owned.id ? { ...b, ...resolvedUpdates } : b))
   }
 
   // Delete a story beat
@@ -1242,16 +1435,23 @@ class StoryStore {
       if (!label || label.toLowerCase() === 'self') {
         throw new Error('Provide a relationship label for the previous protagonist')
       }
-      await database.updateCharacter(currentProtagonist.id, { relationship: label })
+      // COW: ensure old protagonist is owned by current branch
+      const { entity: ownedOld } = await this.cowCharacter(currentProtagonist)
+      await database.updateCharacter(ownedOld.id, { relationship: label })
     }
 
-    await database.updateCharacter(newCharacterId, { relationship: 'self' })
+    // COW: ensure new protagonist is owned by current branch
+    const newProtag = this.characters.find((c) => c.id === newCharacterId) ?? newProtagonist
+    const { entity: ownedNew } = await this.cowCharacter(newProtag)
+    await database.updateCharacter(ownedNew.id, { relationship: 'self' })
 
     this.characters = this.characters.map((c) => {
-      if (currentProtagonist && c.id === currentProtagonist.id) {
+      if (currentProtagonist && (c.overridesId === currentProtagonist.overridesId || c.overridesId === currentProtagonist.id || c.id === currentProtagonist.id)) {
+        // Find the current in-memory version that replaced the old protagonist
+        if (c.relationship !== 'self') return c
         return { ...c, relationship: label! }
       }
-      if (c.id === newCharacterId) {
+      if (c.id === ownedNew.id) {
         return { ...c, relationship: 'self' }
       }
       return c
@@ -1294,16 +1494,22 @@ class StoryStore {
   async updateLorebookEntry(id: string, updates: Partial<Entry>): Promise<void> {
     if (!this.currentStory) throw new Error('No story loaded')
 
+    const existing = this.lorebookEntries.find((e) => e.id === id)
+    if (!existing) throw new Error('Lorebook entry not found')
+
+    // COW: ensure entity is owned by current branch before updating
+    const { entity: owned } = await this.cowLorebookEntry(existing)
+
     const updatesWithTimestamp = {
       ...updates,
       updatedAt: Date.now(),
     }
 
-    await database.updateEntry(id, updatesWithTimestamp)
+    await database.updateEntry(owned.id, updatesWithTimestamp)
     this.lorebookEntries = this.lorebookEntries.map((e) =>
-      e.id === id ? { ...e, ...updatesWithTimestamp } : e,
+      e.id === owned.id ? { ...e, ...updatesWithTimestamp } : e,
     )
-    log('Lorebook entry updated:', id)
+    log('Lorebook entry updated:', owned.id)
   }
 
   /**
@@ -1503,10 +1709,18 @@ class StoryStore {
         ) {
           changes.visualDescriptors = update.changes.visualDescriptors
         }
-        await database.updateCharacter(existing.id, changes)
+        // COW: ensure entity is owned by current branch before updating
+        const { entity: ownedChar, wasCowed: charWasCowed } = await this.cowCharacter(existing)
+        await database.updateCharacter(ownedChar.id, changes)
         this.characters = this.characters.map((c) =>
-          c.id === existing.id ? { ...c, ...changes } : c,
+          c.id === ownedChar.id ? { ...c, ...changes } : c,
         )
+        // If COW'd, track override as created (rollback = delete override)
+        if (charWasCowed && trackingEnabled) {
+          createdCharacterIds.push(ownedChar.id)
+          const idx = charactersBefore.findIndex((cb) => cb.id === existing.id)
+          if (idx !== -1) charactersBefore.splice(idx, 1)
+        }
       }
     }
 
@@ -1528,27 +1742,67 @@ class StoryStore {
           }
         }
 
+        // COW: ensure entity is owned by current branch before updating
+        const { entity: ownedLoc, wasCowed: locWasCowed } = await this.cowLocation(existing)
+
         if (update.changes.current === true) {
           changes.visited = true
-          await database.setCurrentLocation(storyId, existing.id)
-          if (Object.keys(changes).length > 0) {
-            await database.updateLocation(existing.id, changes)
-          }
-          this.locations = this.locations.map((l) => {
-            if (l.id === existing.id) {
-              return { ...l, ...changes, current: true, visited: true }
+          if (this.isCowBranch()) {
+            // COW-aware: targeted updates instead of blanket clear
+            const prevCurrent = this.locations.find((l) => l.current && l.id !== ownedLoc.id)
+            if (prevCurrent) {
+              const { entity: ownedPrev, wasCowed: prevWasCowed } = await this.cowLocation(prevCurrent)
+              await database.updateLocation(ownedPrev.id, { current: false })
+              this.locations = this.locations.map((l) => l.id === ownedPrev.id ? { ...l, current: false } : l)
+              if (prevWasCowed && trackingEnabled) {
+                createdLocationIds.push(ownedPrev.id)
+                const prevIdx = locationsBefore.findIndex((lb) => lb.id === prevCurrent.id)
+                if (prevIdx !== -1) locationsBefore.splice(prevIdx, 1)
+              }
             }
-            return { ...l, current: false }
-          })
+            await database.updateLocation(ownedLoc.id, { ...changes, current: true })
+            this.locations = this.locations.map((l) =>
+              l.id === ownedLoc.id ? { ...l, ...changes, current: true, visited: true } : l,
+            )
+          } else {
+            await database.setCurrentLocation(storyId, ownedLoc.id)
+            if (Object.keys(changes).length > 0) {
+              await database.updateLocation(ownedLoc.id, changes)
+            }
+            this.locations = this.locations.map((l) => {
+              if (l.id === ownedLoc.id) {
+                return { ...l, ...changes, current: true, visited: true }
+              }
+              return { ...l, current: false }
+            })
+          }
+          if (locWasCowed && trackingEnabled) {
+            createdLocationIds.push(ownedLoc.id)
+            const idx = locationsBefore.findIndex((lb) => lb.id === existing.id)
+            if (idx !== -1) locationsBefore.splice(idx, 1)
+          }
           continue
         }
 
         if (update.changes.current === false) changes.current = false
-        if (Object.keys(changes).length === 0) continue
-        await database.updateLocation(existing.id, changes)
+        if (Object.keys(changes).length === 0) {
+          // Even if no changes, track COW if it happened
+          if (locWasCowed && trackingEnabled) {
+            createdLocationIds.push(ownedLoc.id)
+            const idx = locationsBefore.findIndex((lb) => lb.id === existing.id)
+            if (idx !== -1) locationsBefore.splice(idx, 1)
+          }
+          continue
+        }
+        await database.updateLocation(ownedLoc.id, changes)
         this.locations = this.locations.map((l) =>
-          l.id === existing.id ? { ...l, ...changes } : l,
+          l.id === ownedLoc.id ? { ...l, ...changes } : l,
         )
+        if (locWasCowed && trackingEnabled) {
+          createdLocationIds.push(ownedLoc.id)
+          const idx = locationsBefore.findIndex((lb) => lb.id === existing.id)
+          if (idx !== -1) locationsBefore.splice(idx, 1)
+        }
       }
     }
 
@@ -1561,8 +1815,15 @@ class StoryStore {
         if (update.changes.quantity !== undefined) changes.quantity = update.changes.quantity
         if (update.changes.equipped !== undefined) changes.equipped = update.changes.equipped
         if (update.changes.location) changes.location = update.changes.location
-        await database.updateItem(existing.id, changes)
-        this.items = this.items.map((i) => (i.id === existing.id ? { ...i, ...changes } : i))
+        // COW: ensure entity is owned by current branch before updating
+        const { entity: ownedItem, wasCowed: itemWasCowed } = await this.cowItem(existing)
+        await database.updateItem(ownedItem.id, changes)
+        this.items = this.items.map((i) => (i.id === ownedItem.id ? { ...i, ...changes } : i))
+        if (itemWasCowed && trackingEnabled) {
+          createdItemIds.push(ownedItem.id)
+          const idx = itemsBefore.findIndex((ib) => ib.id === existing.id)
+          if (idx !== -1) itemsBefore.splice(idx, 1)
+        }
       }
     }
 
@@ -1582,10 +1843,17 @@ class StoryStore {
           }
         }
         if (update.changes.description) changes.description = update.changes.description
-        await database.updateStoryBeat(existing.id, changes)
+        // COW: ensure entity is owned by current branch before updating
+        const { entity: ownedBeat, wasCowed: beatWasCowed } = await this.cowStoryBeat(existing)
+        await database.updateStoryBeat(ownedBeat.id, changes)
         this.storyBeats = this.storyBeats.map((b) =>
-          b.id === existing.id ? { ...b, ...changes } : b,
+          b.id === ownedBeat.id ? { ...b, ...changes } : b,
         )
+        if (beatWasCowed && trackingEnabled) {
+          createdStoryBeatIds.push(ownedBeat.id)
+          const idx = storyBeatsBefore.findIndex((sb) => sb.id === existing.id)
+          if (idx !== -1) storyBeatsBefore.splice(idx, 1)
+        }
       }
     }
 
@@ -1622,9 +1890,19 @@ class StoryStore {
         log('Adding new location:', newLoc.name)
         // If this is the current location, unset others first
         if (newLoc.current) {
-          this.locations = this.locations.map((l) => ({ ...l, current: false }))
-          for (const l of this.locations) {
-            await database.updateLocation(l.id, { current: false })
+          if (this.isCowBranch()) {
+            // COW-aware: targeted unset of previous current
+            const prevCurrent = this.locations.find((l) => l.current)
+            if (prevCurrent) {
+              const { entity: ownedPrev } = await this.cowLocation(prevCurrent)
+              await database.updateLocation(ownedPrev.id, { current: false })
+              this.locations = this.locations.map((l) => l.id === ownedPrev.id ? { ...l, current: false } : l)
+            }
+          } else {
+            this.locations = this.locations.map((l) => ({ ...l, current: false }))
+            for (const l of this.locations) {
+              await database.updateLocation(l.id, { current: false })
+            }
           }
         }
         const location: Location = {
@@ -1650,12 +1928,37 @@ class StoryStore {
       const currentLoc = this.locations.find((l) => l.name.toLowerCase() === locationName)
       if (currentLoc && !currentLoc.current) {
         log('Setting current location from scene:', currentLoc.name)
-        await database.setCurrentLocation(storyId, currentLoc.id)
-        this.locations = this.locations.map((l) => ({
-          ...l,
-          current: l.id === currentLoc.id,
-          visited: l.id === currentLoc.id ? true : l.visited,
-        }))
+        if (this.isCowBranch()) {
+          // COW-aware: targeted updates
+          const { entity: ownedTarget, wasCowed: targetWasCowed } = await this.cowLocation(currentLoc)
+          const prevCurrent = this.locations.find((l) => l.current && l.id !== ownedTarget.id)
+          if (prevCurrent) {
+            const { entity: ownedPrev, wasCowed: prevWasCowed } = await this.cowLocation(prevCurrent)
+            await database.updateLocation(ownedPrev.id, { current: false })
+            this.locations = this.locations.map((l) => l.id === ownedPrev.id ? { ...l, current: false } : l)
+            if (prevWasCowed && trackingEnabled) {
+              createdLocationIds.push(ownedPrev.id)
+              const idx = locationsBefore.findIndex((lb) => lb.id === prevCurrent.id)
+              if (idx !== -1) locationsBefore.splice(idx, 1)
+            }
+          }
+          await database.updateLocation(ownedTarget.id, { current: true, visited: true })
+          this.locations = this.locations.map((l) =>
+            l.id === ownedTarget.id ? { ...l, current: true, visited: true } : l,
+          )
+          if (targetWasCowed && trackingEnabled) {
+            createdLocationIds.push(ownedTarget.id)
+            const idx = locationsBefore.findIndex((lb) => lb.id === currentLoc.id)
+            if (idx !== -1) locationsBefore.splice(idx, 1)
+          }
+        } else {
+          await database.setCurrentLocation(storyId, currentLoc.id)
+          this.locations = this.locations.map((l) => ({
+            ...l,
+            current: l.id === currentLoc.id,
+            visited: l.id === currentLoc.id ? true : l.visited,
+          }))
+        }
       }
     }
 
@@ -2319,58 +2622,88 @@ class StoryStore {
 
     // Copy world state from checkpoint into database with the new branch_id
     // This ensures the branch has its own copy of the world state at the fork point
-    log('Copying world state from checkpoint to branch:', branch.name)
+    if (settings.experimentalFeatures.lightweightBranches) {
+      // COW path: skip entity copy entirely — entities are resolved through lineage at load time
+      log('COW branch: skipping entity copy, entities will be inherited from lineage')
 
-    // Copy characters
-    for (const char of checkpoint.charactersSnapshot) {
-      const branchChar: Character = { ...char, id: crypto.randomUUID(), branchId: branch.id }
-      await database.addCharacter(branchChar)
-    }
-
-    // Copy locations - need to remap connection IDs to new location IDs
-    const locationIdMap = new SvelteMap<string, string>() // old ID -> new ID
-    for (const loc of checkpoint.locationsSnapshot) {
-      const newId = crypto.randomUUID()
-      locationIdMap.set(loc.id, newId)
-    }
-    for (const loc of checkpoint.locationsSnapshot) {
-      const newId = locationIdMap.get(loc.id)!
-      const branchLoc: Location = {
-        ...loc,
-        id: newId,
-        branchId: branch.id,
-        // Remap connections to use new location IDs
-        connections: loc.connections.map((connId) => locationIdMap.get(connId) ?? connId),
+      // Create a world state snapshot at the fork point for rollback support
+      if (settings.experimentalFeatures.stateTracking) {
+        try {
+          const snapshot: WorldStateSnapshot = {
+            id: crypto.randomUUID(),
+            storyId: this.currentStory.id,
+            branchId: branch.id,
+            entryId: forkEntryId,
+            entryPosition: dbEntry.position,
+            charactersSnapshot: checkpoint.charactersSnapshot,
+            locationsSnapshot: checkpoint.locationsSnapshot,
+            itemsSnapshot: checkpoint.itemsSnapshot,
+            storyBeatsSnapshot: checkpoint.storyBeatsSnapshot,
+            lorebookEntriesSnapshot: checkpoint.lorebookEntriesSnapshot,
+            timeTrackerSnapshot: checkpoint.timeTrackerSnapshot ?? null,
+            createdAt: Date.now(),
+          }
+          await database.createWorldStateSnapshot(snapshot)
+          log('COW branch: created fork-point snapshot')
+        } catch (error) {
+          console.error('[StoryStore] Failed to create fork-point snapshot:', error)
+        }
       }
-      await database.addLocation(branchLoc)
-    }
+    } else {
+      // Legacy path: full copy of all entities from checkpoint
+      log('Copying world state from checkpoint to branch:', branch.name)
 
-    // Copy items (remap location IDs to the new branch's locations)
-    for (const item of checkpoint.itemsSnapshot) {
-      const remappedLocation =
-        item.location === 'inventory'
-          ? 'inventory'
-          : (locationIdMap.get(item.location) ?? item.location)
-      const branchItem: Item = {
-        ...item,
-        id: crypto.randomUUID(),
-        branchId: branch.id,
-        location: remappedLocation,
+      // Copy characters
+      for (const char of checkpoint.charactersSnapshot) {
+        const branchChar: Character = { ...char, id: crypto.randomUUID(), branchId: branch.id }
+        await database.addCharacter(branchChar)
       }
-      await database.addItem(branchItem)
-    }
 
-    // Copy story beats
-    for (const beat of checkpoint.storyBeatsSnapshot) {
-      const branchBeat: StoryBeat = { ...beat, id: crypto.randomUUID(), branchId: branch.id }
-      await database.addStoryBeat(branchBeat)
-    }
+      // Copy locations - need to remap connection IDs to new location IDs
+      const locationIdMap = new SvelteMap<string, string>() // old ID -> new ID
+      for (const loc of checkpoint.locationsSnapshot) {
+        const newId = crypto.randomUUID()
+        locationIdMap.set(loc.id, newId)
+      }
+      for (const loc of checkpoint.locationsSnapshot) {
+        const newId = locationIdMap.get(loc.id)!
+        const branchLoc: Location = {
+          ...loc,
+          id: newId,
+          branchId: branch.id,
+          // Remap connections to use new location IDs
+          connections: loc.connections.map((connId) => locationIdMap.get(connId) ?? connId),
+        }
+        await database.addLocation(branchLoc)
+      }
 
-    // Copy lorebook entries (if snapshot exists)
-    if (checkpoint.lorebookEntriesSnapshot) {
-      for (const entry of checkpoint.lorebookEntriesSnapshot) {
-        const branchEntry: Entry = { ...entry, id: crypto.randomUUID(), branchId: branch.id }
-        await database.addEntry(branchEntry)
+      // Copy items (remap location IDs to the new branch's locations)
+      for (const item of checkpoint.itemsSnapshot) {
+        const remappedLocation =
+          item.location === 'inventory'
+            ? 'inventory'
+            : (locationIdMap.get(item.location) ?? item.location)
+        const branchItem: Item = {
+          ...item,
+          id: crypto.randomUUID(),
+          branchId: branch.id,
+          location: remappedLocation,
+        }
+        await database.addItem(branchItem)
+      }
+
+      // Copy story beats
+      for (const beat of checkpoint.storyBeatsSnapshot) {
+        const branchBeat: StoryBeat = { ...beat, id: crypto.randomUUID(), branchId: branch.id }
+        await database.addStoryBeat(branchBeat)
+      }
+
+      // Copy lorebook entries (if snapshot exists)
+      if (checkpoint.lorebookEntriesSnapshot) {
+        for (const entry of checkpoint.lorebookEntriesSnapshot) {
+          const branchEntry: Entry = { ...entry, id: crypto.randomUUID(), branchId: branch.id }
+          await database.addEntry(branchEntry)
+        }
       }
     }
 
@@ -2570,15 +2903,41 @@ class StoryStore {
 
       this.chapters = chapters.sort((a, b) => a.number - b.number)
 
-      // Load world state from database (branch-specific snapshots)
-      // World state is persisted per-branch via branch_id columns
-      const [characters, locations, items, storyBeats, lorebookEntries] = await Promise.all([
-        database.getCharactersForBranch(this.currentStory.id, branchId),
-        database.getLocationsForBranch(this.currentStory.id, branchId),
-        database.getItemsForBranch(this.currentStory.id, branchId),
-        database.getStoryBeatsForBranch(this.currentStory.id, branchId),
-        database.getEntriesForBranch(this.currentStory.id, branchId),
-      ])
+      // Load world state from database
+      // COW branches use resolved loading (walks lineage), legacy branches use direct loading
+      let characters: Character[]
+      let locations: Location[]
+      let items: Item[]
+      let storyBeats: StoryBeat[]
+      let lorebookEntries: Entry[]
+
+      if (settings.experimentalFeatures.lightweightBranches) {
+        // COW path: resolve entities through lineage
+        ;[characters, locations, items, storyBeats, lorebookEntries] = await Promise.all([
+          database.getCharactersResolved(this.currentStory.id, lineage),
+          database.getLocationsResolved(this.currentStory.id, lineage),
+          database.getItemsResolved(this.currentStory.id, lineage),
+          database.getStoryBeatsResolved(this.currentStory.id, lineage),
+          database.getLorebookEntriesResolved(this.currentStory.id, lineage),
+        ])
+        log('COW: Resolved world state through lineage for branch:', branchId, {
+          lineageDepth: lineage.length,
+          characters: characters.length,
+          locations: locations.length,
+          items: items.length,
+          storyBeats: storyBeats.length,
+          lorebookEntries: lorebookEntries.length,
+        })
+      } else {
+        // Legacy path: direct branch loading (entities were fully copied at branch creation)
+        ;[characters, locations, items, storyBeats, lorebookEntries] = await Promise.all([
+          database.getCharactersForBranch(this.currentStory.id, branchId),
+          database.getLocationsForBranch(this.currentStory.id, branchId),
+          database.getItemsForBranch(this.currentStory.id, branchId),
+          database.getStoryBeatsForBranch(this.currentStory.id, branchId),
+          database.getEntriesForBranch(this.currentStory.id, branchId),
+        ])
+      }
 
       this.characters = characters
       this.locations = locations

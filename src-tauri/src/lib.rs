@@ -159,6 +159,12 @@ pub fn run() {
             description: "world_state_deltas",
             sql: include_str!("../migrations/025_world_state_deltas.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 26,
+            description: "cow_branches",
+            sql: include_str!("../migrations/026_cow_branches.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 
