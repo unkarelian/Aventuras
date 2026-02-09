@@ -5,6 +5,7 @@ This file contains guidelines for agentic coding assistants working on the Avent
 ## Build/Lint/Test Commands
 
 ### Development & Build
+
 ```bash
 npm run dev              # Start dev server (Vite)
 npm run build            # Build for production
@@ -13,6 +14,7 @@ npm run tauri dev        # Start Tauri development window
 ```
 
 ### Type Checking
+
 ```bash
 npm run check           # Run svelte-check (type checking)
 npm run check:watch     # Watch mode type checking
@@ -20,9 +22,11 @@ npx svelte-check --tsconfig ./tsconfig.json    # Direct type check
 ```
 
 ### Testing
+
 **Current Status**: No test suite is currently configured in `package.json`.
 
 If/when tests are added (e.g., using Vitest), the standard commands would be:
+
 ```bash
 npm test                # Run all tests
 npm test -- -t "test name" # Run a single test (if using Vitest/Jest)
@@ -40,15 +44,18 @@ npm test -- -t "test name" # Run a single test (if using Vitest/Jest)
 ## UI Design & Component System
 
 ### Component Library
+
 - **Library**: [shadcn-svelte](https://www.shadcn-svelte.com/)
 - **Location**: `src/lib/components/ui/`
 - **Installation**: Use `npx shadcn-svelte@latest add [component]` to add new components.
 - **Icons**: [Lucide Svelte](https://lucide.dev/icons/) (`lucide-svelte`)
 
 ### Theming System
+
 The application uses a sophisticated CSS variable-based theming system defined in `src/app.css`. It supports multiple distinct visual themes that override standard Tailwind/Shadcn tokens.
 
 **Available Themes**:
+
 - **Default (Dark)**: Modern slate/blue dark mode.
 - **Light (Paper)**: Warm, high-contrast, paper-like aesthetic.
 - **Light (Solarized)**: Classic solarized light palette.
@@ -56,6 +63,7 @@ The application uses a sophisticated CSS variable-based theming system defined i
 - **Fallen Down**: Undertale/Deltarune inspired high-contrast pixel art aesthetic (black/white/yellow).
 
 ### CSS Variables & Tokens
+
 - **Shadcn Tokens**: Standard tokens (`--background`, `--foreground`, `--primary`, `--muted`, etc.) are mapped to theme-specific colors in `app.css`.
 - **Surface System**: Custom `surface-*` (50-950) and `accent-*` (50-950) scales are used for fine-grained control across themes.
 - **Typography**:
@@ -63,6 +71,7 @@ The application uses a sophisticated CSS variable-based theming system defined i
   - Story Text: Configurable via `--font-story` (Serif for default, Monospace for Retro/Fallen Down).
 
 ### Usage Guidelines
+
 1. **Prefer Shadcn Components**: Use components from `$lib/components/ui` whenever possible (e.g., `Button`, `Input`, `Card`).
 2. **Tailwind Classes**: Use standard Tailwind classes. They will automatically adapt to the active theme via the CSS variables.
 3. **Custom Styling**: If custom CSS is needed, use the CSS variables defined in `app.css` to ensure theme compatibility (e.g., `var(--bg-secondary)` instead of hardcoded hex).
@@ -73,10 +82,13 @@ The application uses a sophisticated CSS variable-based theming system defined i
 **Status**: In Progress - Phase 3 (AgentProfiles UI) Complete
 
 ### Overview
+
 Implementing preset-based service configuration to fix bugs where services have `presetId` fields but don't actually use them at runtime. This addresses the issue where Story Wizard categories don't populate in Agent Profiles UI at first.
 
 ### Completed (Phase 1: Service Updates)
+
 Services updated to accept `presetId` and use `settings.getPresetConfig(presetId)`:
+
 1. MemoryService ✅
 2. ClassifierService ✅
 3. SuggestionsService ✅
@@ -90,6 +102,7 @@ Services updated to accept `presetId` and use `settings.getPresetConfig(presetId
 11. InteractiveLorebookService ✅
 
 ### Completed (Phase 2: Service-Specific Settings)
+
 - Added `serviceSpecificSettings` state property to SettingsStore
 - Implemented default functions for all 15 service-specific interfaces:
   - ClassifierSpecificSettings
@@ -111,6 +124,7 @@ Services updated to accept `presetId` and use `settings.getPresetConfig(presetId
 - Added helper methods: `saveServiceSpecificSettings()`, `resetServiceSpecificSettings()`
 
 ### Completed (Phase 3: AgentProfiles UI)
+
 - Updated `getServiceSettings()` to use `settings.servicePresetAssignments` instead of `systemServicesSettings`/`wizardSettings`
 - Updated `getServicesForProfile()` to use `settings.servicePresetAssignments`
 - Updated `handleSavePreset()` to only save the preset (no longer propagates to services)
@@ -120,16 +134,19 @@ Services updated to accept `presetId` and use `settings.getPresetConfig(presetId
 - Added `imageGeneration` to `systemServices` list and `defaultAssignments`
 
 ### Remaining Work
+
 **Phase 4**: Add migration logic for existing users
 **Phase 5**: Testing and verification
 
 ### Key Architecture Changes
+
 - Services now accept `presetId` parameter in constructor
 - Services use `settings.getPresetConfig(presetId)` for generation config
 - Service-specific fields (like `chatHistoryTruncation`) remain separate
 - Default preset assignments in `servicePresetAssignments` state
 
 ### Notes
+
 - TTSService is a separate audio generation service (not LLM text generation), so it doesn't use generation presets
 - CharacterCardImport service doesn't exist (only defined in settings interfaces)
 
@@ -138,6 +155,7 @@ Services updated to accept `presetId` and use `settings.getPresetConfig(presetId
 ## Code Style Guidelines
 
 ### File Organization
+
 ```
 src/
 ├── routes/           # SvelteKit pages (+page.svelte, +layout.svelte)
@@ -150,6 +168,7 @@ src/
 ```
 
 ### Naming Conventions
+
 - **Components**: `PascalCase.svelte` (e.g., `StoryView.svelte`)
 - **Services**: `PascalCase.ts` (classes) or `camelCase.ts` (modules)
 - **Functions/Vars**: `camelCase` (e.g., `generateResponse`, `isLoading`)
@@ -158,14 +177,17 @@ src/
 - **Handlers**: `handle<Action>` (e.g., `handleSubmit`)
 
 ### Imports
+
 - Use `$lib` alias.
 - Use `type` keyword for type-only imports.
+
 ```typescript
-import type { Story } from '$lib/types';
-import { settings } from '$lib/stores/settings.svelte';
+import type { Story } from '$lib/types'
+import { settings } from '$lib/stores/settings.svelte'
 ```
 
 ### Svelte Component Patterns (Svelte 5)
+
 Use Runes (`$state`, `$derived`, `$props`). Avoid `export let`.
 
 ```typescript
@@ -197,6 +219,7 @@ Use Runes (`$state`, `$derived`, `$props`). Avoid `export let`.
 ```
 
 ### TypeScript Patterns
+
 - **Strict Mode**: No `any`.
 - **Async/Await**: Always handle errors with `try/catch` in top-level or service methods.
 - **Null Safety**: Use `?.` and `??`.
@@ -204,51 +227,54 @@ Use Runes (`$state`, `$derived`, `$props`). Avoid `export let`.
 ```typescript
 async function loadStory(id: string): Promise<void> {
   try {
-    const story = await database.getStory(id);
-    if (!story) throw new Error(`Story not found: ${id}`);
-    this.currentStory = story;
+    const story = await database.getStory(id)
+    if (!story) throw new Error(`Story not found: ${id}`)
+    this.currentStory = story
   } catch (error) {
-    console.error('[StoryStore] Failed to load:', error);
-    throw error;
+    console.error('[StoryStore] Failed to load:', error)
+    throw error
   }
 }
 ```
 
 ### State Management (Runes)
+
 Use `.svelte.ts` files for global state.
 
 ```typescript
 class StoryStore {
-  currentStory = $state<Story | null>(null);
-  entries = $state<StoryEntry[]>([]);
+  currentStory = $state<Story | null>(null)
+  entries = $state<StoryEntry[]>([])
 
   // Computed
   get activeCharacters() {
-    return this.characters.filter(c => c.status === 'active');
+    return this.characters.filter((c) => c.status === 'active')
   }
 
   // Action
   async addEntry(content: string) {
-    const entry = await database.addEntry({ content });
-    this.entries = [...this.entries, entry]; // Immutable update
+    const entry = await database.addEntry({ content })
+    this.entries = [...this.entries, entry] // Immutable update
   }
 }
-export const story = new StoryStore();
+export const story = new StoryStore()
 ```
 
 ### Tailwind CSS
+
 - Use utility classes directly.
 - Dark mode: `surface-*` colors.
 - Responsive: `sm:`, `md:`, `lg:`.
 - Layout: `flex` or `grid`.
 
 ```html
-<div class="flex h-full flex-col bg-surface-900 p-4 sm:p-6">
+<div class="bg-surface-900 flex h-full flex-col p-4 sm:p-6">
   <!-- Content -->
 </div>
 ```
 
 ### AI Integration
+
 - Use abstract providers in `src/lib/services/ai`.
 - Handle streaming with async generators.
 
@@ -262,10 +288,12 @@ async *streamResponse(context: Context): AsyncIterable<StreamChunk> {
 ```
 
 ### Database
+
 - Use `src/lib/services/database.ts`.
 - Parameterize all SQL queries.
 
 ## When in Doubt
+
 1. **Search**: Use `grep`/`glob` to find existing patterns.
 2. **Type Check**: Run `npm run check`.
 3. **Consistency**: Mimic surrounding code.
