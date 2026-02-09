@@ -25,7 +25,7 @@ import { settings } from '$lib/stores/settings.svelte'
 import { story } from '$lib/stores/story.svelte'
 import { database } from '$lib/services/database'
 import type { StoryMode, POV, Tense } from '$lib/types'
-import type { PromptContext } from '$lib/services/prompts'
+import type { PromptContext } from '../generation/phases/PostGenerationPhase'
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from './image/constants'
 import { type ClassificationContext } from './generation/ClassifierService'
 import type { ClassificationResult } from './sdk/schemas/classifier'
@@ -103,7 +103,7 @@ import type {
 import { createLogger } from './core/config'
 import { serviceFactory } from './core/factory'
 import { NarrativeService } from './generation/NarrativeService'
-import type { WorldStateContext } from './prompts/systemBuilder'
+import type { WorldStateContext } from './generation/NarrativeService'
 import { parseImageSize } from './image/imageUtils'
 
 const log = createLogger('AIService')

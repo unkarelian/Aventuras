@@ -8,7 +8,6 @@ import type {
 } from '$lib/types'
 import { settings } from '$lib/stores/settings.svelte'
 import type { GenerationPreset } from '$lib/types'
-import { promptService } from '$lib/services/prompts'
 
 const EXPORT_VERSION = '1.0.0'
 const APP_VERSION = '1.9.0'
@@ -161,7 +160,7 @@ class PromptExportService {
     settings.servicePresetAssignments = { ...importData.servicePresetAssignments }
     await settings.saveServicePresetAssignments()
 
-    promptService.init(settings.promptSettings)
+    // Prompt settings applied -- promptService removed, settings persist directly
   }
 
   private formatDate(): string {

@@ -12,19 +12,27 @@
  */
 
 import { streamNarrative, generateNarrative } from '../sdk/generate'
-import {
-  buildChapterSummariesBlock,
-  type WorldStateContext,
-} from '../prompts/systemBuilder'
 import { ContextBuilder } from '$lib/services/context'
 import { StyleReviewerService } from './StyleReviewerService'
 import { createLogger } from '../core/config'
 import type { StreamChunk } from '../core/types'
-import type { Story, StoryEntry, Entry } from '$lib/types'
+import type { Story, StoryEntry, Entry, Character, Location, Item, StoryBeat, Chapter, TimeTracker } from '$lib/types'
 import type { StyleReviewResult } from './StyleReviewerService'
 import type { TimelineFillResult } from '../retrieval/TimelineFillService'
 
 const log = createLogger('Narrative')
+
+/**
+ * World state context for prompt building
+ */
+export interface WorldStateContext {
+  characters: Character[]
+  locations: Location[]
+  items: Item[]
+  storyBeats: StoryBeat[]
+  currentLocation?: Location
+  chapters?: Chapter[]
+}
 
 /**
  * World state context for narrative generation.
@@ -32,6 +40,88 @@ const log = createLogger('Narrative')
  */
 export interface NarrativeWorldState extends WorldStateContext {
   lorebookEntries?: Entry[]
+}
+
+/**
+ * Format a TimeTracker into a human-readable string for the narrative prompt.
+ * Always returns a value, defaulting to Year 1, Day 1, 0 hours 0 minutes if null.
+ */
+export function formatStoryTime(time: TimeTracker | null | undefined): string {
+  const t = time ?? { years: 0, days: 0, hours: 0, minutes: 0 }
+  const year = t.years + 1
+  const day = t.days + 1
+  return `Year ${year}, Day ${day}, ${t.hours} hours ${t.minutes} minutes`
+}
+
+/**
+ * Build a block containing chapter summaries for injection into the system prompt.
+ * Per design doc: summarized entries are excluded from direct context,
+ * but their summaries provide narrative continuity.
+ */
+export function buildChapterSummariesBlock(
+  chapters: Chapter[],
+  timelineFillResult?: TimelineFillResult | null,
+): string {
+  if (chapters.length === 0) return ''
+
+  let block = '\n\n<story_history>\n'
+  block += '## Previous Chapters\n'
+  block +=
+    'The following chapters have occurred earlier in the story. Use them for continuity and context.\n\n'
+
+  for (const chapter of chapters) {
+    block += `### Chapter ${chapter.number}`
+    if (chapter.title) {
+      block += `: ${chapter.title}`
+    }
+    block += '\n'
+
+    const startTime = formatStoryTime(chapter.startTime)
+    const endTime = formatStoryTime(chapter.endTime)
+    if (startTime && endTime) {
+      block += `*Time: ${startTime} \u2192 ${endTime}*\n`
+    } else if (startTime) {
+      block += `*Time: ${startTime}*\n`
+    }
+
+    block += chapter.summary
+    block += '\n'
+
+    const metadata: string[] = []
+    if (chapter.characters.length > 0) {
+      metadata.push(`Characters: ${chapter.characters.join(', ')}`)
+    }
+    if (chapter.locations.length > 0) {
+      metadata.push(`Locations: ${chapter.locations.join(', ')}`)
+    }
+    if (chapter.emotionalTone) {
+      metadata.push(`Tone: ${chapter.emotionalTone}`)
+    }
+    if (metadata.length > 0) {
+      block += `*${metadata.join(' | ')}*\n`
+    }
+    block += '\n'
+  }
+
+  if (timelineFillResult && timelineFillResult.responses.length > 0) {
+    block += '## Retrieved Context\n'
+    block +=
+      'The following information was retrieved from past chapters and is relevant to the current scene:\n\n'
+
+    for (const response of timelineFillResult.responses) {
+      const chapterLabel =
+        response.chapterNumbers.length === 1
+          ? `Chapter ${response.chapterNumbers[0]}`
+          : `Chapters ${response.chapterNumbers.join(', ')}`
+
+      block += `**${chapterLabel}**\n`
+      block += `Q: ${response.query}\n`
+      block += `A: ${response.answer}\n\n`
+    }
+  }
+
+  block += '</story_history>'
+  return block
 }
 
 /**

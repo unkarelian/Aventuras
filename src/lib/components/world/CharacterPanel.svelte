@@ -25,7 +25,8 @@
     getProviderDisplayName,
     generatePortrait as sdkGeneratePortrait,
   } from '$lib/services/ai/image'
-  import { promptService } from '$lib/services/prompts'
+  import { database } from '$lib/services/database'
+  import { ContextBuilder } from '$lib/services/context'
   import { normalizeImageDataUrl } from '$lib/utils/image'
   import { createLogger } from '$lib/services/ai/core/config'
 
@@ -349,39 +350,29 @@
     portraitError = null
 
     try {
-      // Get the style prompt
+      // Get the style prompt from database (external template)
       const styleId = imageSettings.portraitStyleId
 
       let stylePrompt = ''
       try {
-        const promptContext = {
-          mode: 'adventure' as const,
-          pov: 'second' as const,
-          tense: 'present' as const,
-          protagonistName: '',
-        }
-        stylePrompt = promptService.getPrompt(styleId, promptContext) || ''
+        const template = await database.getPackTemplate('default-pack', styleId)
+        stylePrompt = template?.content || ''
       } catch {
         stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT
       }
 
-      // Build the portrait generation prompt using the template
-      const promptContext = {
-        mode: 'adventure' as const,
-        pov: 'second' as const,
-        tense: 'present' as const,
+      // Build the portrait generation prompt using ContextBuilder
+      const ctx = new ContextBuilder()
+      ctx.add({
+        mode: 'adventure',
+        pov: 'second',
+        tense: 'present',
         protagonistName: '',
-      }
-
-      const portraitPrompt = promptService.renderPrompt(
-        'image-portrait-generation',
-        promptContext,
-        {
-          imageStylePrompt: stylePrompt,
-          visualDescriptors: descriptors.join(', '),
-          characterName: editName || character.name,
-        },
-      )
+        imageStylePrompt: stylePrompt,
+        visualDescriptors: descriptors.join(', '),
+        characterName: editName || character.name,
+      })
+      const { system: portraitPrompt } = await ctx.render('image-portrait-generation')
 
       log('Sending portrait generation request', {
         promptLength: portraitPrompt.length,

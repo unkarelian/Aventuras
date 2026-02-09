@@ -1,7 +1,6 @@
 <script lang="ts">
   import { Code, Eye, Plus, RotateCcw, Info } from 'lucide-svelte'
   import {
-    promptService,
     type Macro,
     type PromptTemplate,
     type MacroOverride,
@@ -90,8 +89,8 @@
   let viewingPlaceholder = $state<ContextPlaceholder | null>(null)
   let showPlaceholderInfo = $state(false)
 
-  // Get all available macros
-  const allMacros = $derived(promptService.getAllMacros())
+  // Macros have been removed -- return empty array for UI compatibility
+  const allMacros: Macro[] = []
 
   // Parse content into segments (text, macros, and placeholders)
   let segments = $derived.by(() => {

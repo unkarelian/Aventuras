@@ -16,7 +16,7 @@ import {
   getDefaultAdvancedSettingsForProvider,
 } from '$lib/services/ai/wizard/ScenarioService'
 import { PROVIDERS } from '$lib/services/ai/sdk/providers/config'
-import { promptService, type PromptSettings, getDefaultPromptSettings } from '$lib/services/prompts'
+import { type PromptSettings, getDefaultPromptSettings } from '$lib/services/prompts'
 import type { ReasoningEffort } from '$lib/types'
 import { ui } from '$lib/stores/ui.svelte'
 import { getTheme } from '../../themes/themes'
@@ -1805,9 +1805,6 @@ class SettingsStore {
         await database.setSetting('prompt_settings', JSON.stringify(this.promptSettings))
       }
 
-      // Initialize the centralized prompt service with loaded settings
-      promptService.init(this.promptSettings)
-
       // Ensure default image generation profiles are set
       await this.migrateImageProfileDefaults()
 
@@ -2761,8 +2758,6 @@ class SettingsStore {
   // Prompt settings methods
   async savePromptSettings() {
     await database.setSetting('prompt_settings', JSON.stringify(this.promptSettings))
-    // Re-initialize the prompt service with updated settings
-    promptService.init(this.promptSettings)
   }
 
   async resetPromptSettings() {
