@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 
 ## Current Position
 
-Phase: 3 of 6 (Context System & Service Integration)
-Plan: 6 of 6 in current phase
-Status: Ready to execute
-Last activity: 2026-02-09 — Completed plan 03-05 (Wizard, translation, and image service migration)
+Phase: 3 of 6 (Context System & Service Integration) -- COMPLETE
+Plan: 6 of 6 in current phase -- COMPLETE
+Status: Phase 3 complete, ready for Phase 4
+Last activity: 2026-02-09 -- Completed plan 03-06 (Old prompt system cleanup)
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
-- Average duration: 11.2 minutes
-- Total execution time: 1.83 hours
+- Total plans completed: 11
+- Average duration: 11.4 minutes
+- Total execution time: 1.98 hours
 
 **By Phase:**
 
@@ -29,12 +29,13 @@ Progress: [███████░░░] 71%
 |-------|-------|-------|----------|
 | 01 | 2 | 436s | 218s |
 | 02 | 3 | 525s | 175s |
-| 03 | 5 | 8979s | 1796s |
+| 03 | 6 | 9885s | 1648s |
 
 **Recent Executions:**
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
+| 03 | 06 | 906s | 2 | 27 |
 | 03 | 05 | 420s | 2 | 8 |
 | 03 | 04 | 3498s | 2 | 9 |
 | 03 | 03 | 3554s | 2 | 5 |
@@ -87,6 +88,10 @@ Recent decisions affecting current work:
 - TranslationService uses ContextBuilder without story context -- translation settings are global runtime variables
 - External image style templates fetched from database.getPackTemplate not ContextBuilder -- raw text without Liquid variables
 - prepareStoryData made async because buildSystemPrompt now uses async ContextBuilder.render()
+- Legacy macro type stubs preserved in prompts/types.ts for UI component compilation -- remove in Phase 4
+- WorldStateContext, formatStoryTime, buildChapterSummariesBlock moved from systemBuilder to NarrativeService
+- PromptSettings keeps deprecated customMacros/macroOverrides fields for saved data backward compatibility
+- All prompt rendering in codebase now goes through ContextBuilder + LiquidJS -- no alternative path
 
 ### Pending Todos
 
@@ -109,5 +114,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-09 (phase execution)
-Stopped at: Completed 03-05-PLAN.md (Wizard, translation, and image service migration)
-Resume file: .planning/phases/03-context-system-service-integration/03-05-SUMMARY.md
+Stopped at: Completed 03-06-PLAN.md (Old prompt system cleanup) -- Phase 3 complete
+Resume file: .planning/phases/03-context-system-service-integration/03-06-SUMMARY.md
