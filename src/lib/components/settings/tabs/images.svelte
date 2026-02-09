@@ -110,7 +110,7 @@
   let profileBaseUrl = $state('')
   let showApiKey = $state(false)
   let showCopyDropdown = $state(false)
-  let openProfileIds = new SvelteSet<string>()
+  let openProfileIds = $state(new SvelteSet<string>())
 
   // Profile form model state
   let profileModel = $state('')
@@ -176,7 +176,6 @@
     showApiKey = false
     showCopyDropdown = false
     openProfileIds.add(profile.id)
-    openProfileIds = new SvelteSet(openProfileIds)
   }
 
   function resetEditState() {
@@ -219,7 +218,6 @@
         resetEditState()
       }
       openProfileIds.delete(profile.id)
-      openProfileIds = new SvelteSet(openProfileIds)
     }
   }
 </script>
@@ -260,11 +258,7 @@
               {@render profileForm()}
               <div class="flex gap-2 pt-4">
                 <Button variant="outline" onclick={resetEditState} class="flex-1">Cancel</Button>
-                <Button
-                  onclick={handleSaveProfile}
-                  disabled={!profileName.trim()}
-                  class="flex-1"
-                >
+                <Button onclick={handleSaveProfile} disabled={!profileName.trim()} class="flex-1">
                   <Check class="h-4 w-4" />
                   Create Profile
                 </Button>
@@ -278,8 +272,8 @@
             <Info class="h-4 w-4" />
             <Alert.Title>No Image Profiles</Alert.Title>
             <Alert.Description class="text-xs">
-              Create an image profile to start generating images. You can have multiple profiles
-              for different providers or use cases (e.g., portraits vs backgrounds).
+              Create an image profile to start generating images. You can have multiple profiles for
+              different providers or use cases (e.g., portraits vs backgrounds).
             </Alert.Description>
           </Alert.Root>
         {:else}
@@ -358,12 +352,12 @@
                 <Alert.Description class="text-xs">
                   <ul class="mt-2 list-inside list-disc space-y-1">
                     <li>
-                      <strong>Reference Profile</strong>: Used when "Portrait Mode" is enabled in your
-                      current story. Generates images based on the character portraits.
+                      <strong>Reference Profile</strong>: Used when "Portrait Mode" is enabled in
+                      your current story. Generates images based on the character portraits.
                     </li>
                     <li>
-                      <strong>Regular Image Profile</strong>: Used when "Portrait Mode" is disabled in
-                      your current story.
+                      <strong>Regular Image Profile</strong>: Used when "Portrait Mode" is disabled
+                      in your current story.
                     </li>
                   </ul>
                   <p class="mt-2">Models are configured in each profile on the Profiles tab.</p>
