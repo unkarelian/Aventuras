@@ -23,17 +23,22 @@
     Terminal,
     Play,
     Copy,
+    Upload,
   } from 'lucide-svelte'
   import { Switch } from '$lib/components/ui/switch'
   import { Label } from '$lib/components/ui/label'
   import { Button } from '$lib/components/ui/button'
   import { Slider } from '$lib/components/ui/slider'
   import { Separator } from '$lib/components/ui/separator'
+  import * as Dialog from '$lib/components/ui/dialog'
   import { database } from '$lib/services/database'
 
   let isBackingUp = $state(false)
   let backupResult = $state<{ success: boolean; message: string } | null>(null)
   let hasEverBackedUp = $state(false)
+  let isRestoring = $state(false)
+  let restoreError = $state<string | null>(null)
+  let showRestoreConfirm = $state(false)
 
   // SQL Query Box state — initialized from module-level persisted values
   let sqlQuery = $state(_sqlQuery)
@@ -104,6 +109,37 @@
     }
   }
 
+  async function handleRestore() {
+    showRestoreConfirm = true
+  }
+
+  async function handleRestoreConfirmed() {
+    showRestoreConfirm = false
+
+    // Open file picker AFTER confirmation
+    const { open } = await import('@tauri-apps/plugin-dialog')
+    const selected = await open({
+      title: 'Select Aventura Backup to Restore',
+      filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+      multiple: false,
+      directory: false,
+    })
+    if (!selected) return
+
+    isRestoring = true
+    restoreError = null
+    try {
+      const { backupService } = await import('$lib/services/backupService')
+      await backupService.restoreFromBackup(selected as string)
+      // App will exit — we won't reach here
+    } catch (error) {
+      console.error('[ExperimentalSettings] Restore failed:', error)
+      restoreError = error instanceof Error ? error.message : String(error)
+    } finally {
+      isRestoring = false
+    }
+  }
+
   async function handleStateTrackingToggle(checked: boolean) {
     if (checked && !hasEverBackedUp) {
       // Recommend backup before enabling
@@ -153,14 +189,15 @@
     </div>
     <p class="text-muted-foreground text-xs">
       Download a full backup of your database and all stories as a ZIP archive. Includes the raw
-      SQLite database and individual story exports (.avt) for maximum safety.
+      SQLite database and individual story exports (.avt) for maximum safety. You can restore from
+      a backup to revert to a previous state.
     </p>
     <div class="flex items-center gap-3">
       <Button
         variant="outline"
         size="sm"
         onclick={handleBackup}
-        disabled={isBackingUp}
+        disabled={isBackingUp || isRestoring}
         class="gap-2"
       >
         {#if isBackingUp}
@@ -168,7 +205,22 @@
           Creating Backup...
         {:else}
           <Download class="h-4 w-4" />
-          Download Full Backup
+          Download Backup
+        {/if}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onclick={handleRestore}
+        disabled={isBackingUp || isRestoring}
+        class="gap-2"
+      >
+        {#if isRestoring}
+          <Loader2 class="h-4 w-4 animate-spin" />
+          Restoring...
+        {:else}
+          <Upload class="h-4 w-4" />
+          Restore from Backup
         {/if}
       </Button>
       {#if backupResult}
@@ -181,6 +233,11 @@
         </p>
       {/if}
     </div>
+    {#if restoreError}
+      <div class="bg-destructive/10 border-destructive/30 rounded-md border p-3">
+        <p class="text-destructive text-xs">{restoreError}</p>
+      </div>
+    {/if}
   </div>
 
   <Separator />
@@ -436,3 +493,36 @@
   </div>
   {/if}
 </div>
+
+<!-- Restore Confirmation Dialog -->
+<Dialog.Root bind:open={showRestoreConfirm}>
+  <Dialog.Content class="sm:max-w-md">
+    <Dialog.Header>
+      <Dialog.Title class="flex items-center gap-2">
+        <AlertTriangle class="h-5 w-5 text-amber-500" />
+        Restore from Backup
+      </Dialog.Title>
+      <Dialog.Description class="space-y-3 pt-2">
+        <p>
+          This will <strong class="text-destructive">replace your entire database</strong> with the one from the backup ZIP.
+        </p>
+        <p>
+          A safety copy of your current database will be saved as
+          <span class="font-mono text-xs">aventura-pre-restore.db</span> in the app data folder.
+        </p>
+        <p class="text-amber-500 font-medium">
+          The application will close after restoring. You will need to reopen it manually.
+        </p>
+      </Dialog.Description>
+    </Dialog.Header>
+    <Dialog.Footer class="gap-2 sm:gap-0">
+      <Button variant="outline" onclick={() => (showRestoreConfirm = false)}>
+        Cancel
+      </Button>
+      <Button variant="destructive" onclick={handleRestoreConfirmed} class="gap-2">
+        <Upload class="h-4 w-4" />
+        Restore & Close App
+      </Button>
+    </Dialog.Footer>
+  </Dialog.Content>
+</Dialog.Root>

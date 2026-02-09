@@ -18,6 +18,15 @@ import type { AventuraExport } from './export'
 
 const EXPORT_VERSION = '1.7.0'
 
+interface BackupMetadata {
+  version: number
+  createdAt: string
+  appVersion: string
+  storyCount: number
+  hasDatabaseSnapshot: boolean
+  databaseSizeBytes: number
+}
+
 class BackupService {
   /**
    * Create a full backup ZIP containing the database, all stories, and settings.
@@ -171,6 +180,89 @@ class BackupService {
     console.log(`[Backup] Saved to ${savePath} (${(zipData.length / 1024 / 1024).toFixed(2)} MB)`)
 
     return true
+  }
+
+  /**
+   * Restore the application from a backup ZIP file.
+   * Replaces the current database with the one from the backup, then exits.
+   * The user must manually restart the app so migrations run on the restored DB.
+   * @param zipPath Path to the backup ZIP file (from a file picker dialog)
+   */
+  async restoreFromBackup(zipPath: string): Promise<void> {
+    console.log('[Restore] Loading backup from', zipPath)
+
+    // 1. Read and parse the ZIP
+    const zipBytes = await readFile(zipPath)
+    const { default: JSZip } = await import('jszip')
+    const zip = await JSZip.loadAsync(zipBytes)
+
+    // 2. Validate — must contain aventura.db
+    const metadataFile = zip.file('metadata.json')
+    if (metadataFile) {
+      try {
+        const meta: BackupMetadata = JSON.parse(await metadataFile.async('text'))
+        console.log('[Restore] Backup metadata:', meta)
+        if (!meta.hasDatabaseSnapshot) {
+          throw new Error('Backup does not contain a database snapshot.')
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message.includes('database snapshot')) throw e
+        console.warn('[Restore] Could not parse metadata, continuing anyway')
+      }
+    }
+
+    const dbFile = zip.file('aventura.db')
+    if (!dbFile) {
+      throw new Error('Invalid backup: missing aventura.db in the ZIP archive.')
+    }
+
+    // 3. Extract the database bytes
+    const dbBytes = await dbFile.async('uint8array')
+    console.log(`[Restore] Database snapshot: ${(dbBytes.length / 1024 / 1024).toFixed(2)} MB`)
+
+    // 4. Close the current DB connection
+    console.log('[Restore] Closing database connection...')
+    await database.close()
+
+    // 5. Overwrite the database file
+    const appDataDir = await path.appDataDir()
+    const dbPath = await path.join(appDataDir, 'aventura.db')
+
+    // Write a safety copy of the current DB first
+    const safetyPath = await path.join(appDataDir, 'aventura-pre-restore.db')
+    try {
+      if (await exists(dbPath)) {
+        const currentDb = await readFile(dbPath)
+        await writeFile(safetyPath, currentDb)
+        console.log('[Restore] Safety copy saved to aventura-pre-restore.db')
+      }
+    } catch (error) {
+      console.warn('[Restore] Could not create safety copy:', error)
+    }
+
+    // Write the restored DB
+    await writeFile(dbPath, dbBytes)
+    console.log('[Restore] Database file replaced.')
+
+    // Also clean up WAL/SHM files that could conflict with the restored DB
+    for (const suffix of ['-wal', '-shm']) {
+      try {
+        const walPath = await path.join(appDataDir, `aventura.db${suffix}`)
+        if (await exists(walPath)) {
+          await remove(walPath)
+          console.log(`[Restore] Removed ${suffix} file`)
+        }
+      } catch {
+        // Non-critical
+      }
+    }
+
+    // 6. Exit the app — user must reopen so migrations run on the restored DB.
+    //    Using exit() instead of relaunch() to avoid Windows webview2 crash
+    //    (Chrome_WidgetWin_0 unregister error).
+    console.log('[Restore] Exiting application. Please restart manually.')
+    const { exit } = await import('@tauri-apps/plugin-process')
+    await exit(0)
   }
 
   private sanitizeFilename(name: string): string {

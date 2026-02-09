@@ -107,6 +107,17 @@ class DatabaseService {
     this.db = await Database.load('sqlite:aventura.db')
   }
 
+  /**
+   * Close the database connection. After calling this, the next
+   * getDb() / init() call will re-open the connection.
+   */
+  async close(): Promise<void> {
+    if (this.db) {
+      await this.db.close()
+      this.db = null
+    }
+  }
+
   private async getDb(): Promise<Database> {
     if (!this.db) {
       await this.init()
