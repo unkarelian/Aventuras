@@ -142,11 +142,7 @@ export async function imageGetFetch(
   headers?: Record<string, string>,
   options?: { signal?: AbortSignal; timeoutMs?: number; serviceId?: string },
 ): Promise<Response> {
-  const {
-    signal,
-    timeoutMs = DEFAULT_IMAGE_TIMEOUT,
-    serviceId = 'image-gen',
-  } = options ?? {}
+  const { signal, timeoutMs = DEFAULT_IMAGE_TIMEOUT, serviceId = 'image-gen' } = options ?? {}
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)

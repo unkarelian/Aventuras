@@ -65,10 +65,14 @@ export async function fetchModelsFromProvider(
     const entries = data as { id?: string; name?: string; reasoning?: boolean }[]
     return {
       models: [...new Set(entries.map((m) => m.id || m.name || '').filter(Boolean))],
-      reasoningModels: [...new Set(entries
-        .filter((m) => m.reasoning)
-        .map((m) => m.id || m.name || '')
-        .filter(Boolean))],
+      reasoningModels: [
+        ...new Set(
+          entries
+            .filter((m) => m.reasoning)
+            .map((m) => m.id || m.name || '')
+            .filter(Boolean),
+        ),
+      ],
     }
   }
 

@@ -110,7 +110,7 @@
   let profileBaseUrl = $state('')
   let showApiKey = $state(false)
   let showCopyDropdown = $state(false)
-  let openProfileIds = $state(new SvelteSet<string>())
+  let openProfileIds = new SvelteSet<string>()
 
   // Profile form model state
   let profileModel = $state('')
@@ -162,6 +162,7 @@
     profileModels = []
     showApiKey = false
     showCopyDropdown = false
+    openProfileIds.clear()
   }
 
   function startEditProfile(profile: ImageProfile) {
@@ -679,55 +680,59 @@
       />
     </div>
 
-    <div class="space-y-2">
-      <Label>API Key</Label>
-      <div class="flex gap-2">
-        <div class="relative flex-1">
-          <Input
-            type={showApiKey ? 'text' : 'password'}
-            bind:value={profileApiKey}
-            placeholder="Enter API key"
-          />
-          <button
-            type="button"
-            class="absolute inset-y-0 right-0 flex items-center pr-3"
-            onclick={() => (showApiKey = !showApiKey)}
-          >
-            {#if showApiKey}
-              <EyeOff class="text-muted-foreground h-4 w-4" />
-            {:else}
-              <Eye class="text-muted-foreground h-4 w-4" />
+    <!-- comfy doesnt use API keys -->
+    {#if profileProviderType !== 'comfyui'}
+      <div class="space-y-2">
+        <Label>API Key</Label>
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <Input
+              type={showApiKey ? 'text' : 'password'}
+              bind:value={profileApiKey}
+              placeholder="Enter API key"
+            />
+            <button
+              type="button"
+              class="absolute inset-y-0 right-0 flex items-center pr-3"
+              onclick={() => (showApiKey = !showApiKey)}
+            >
+              {#if showApiKey}
+                <EyeOff class="text-muted-foreground h-4 w-4" />
+              {:else}
+                <Eye class="text-muted-foreground h-4 w-4" />
+              {/if}
+            </button>
+          </div>
+        </div>
+
+        {#if settings.apiSettings.profiles.length > 0}
+          <div class="relative">
+            <Button
+              variant="outline"
+              size="sm"
+              onclick={() => (showCopyDropdown = !showCopyDropdown)}
+            >
+              <Copy class="mr-1 h-3 w-3" />
+              Copy from API Profile
+            </Button>
+            {#if showCopyDropdown}
+              <div class="bg-popover absolute z-10 mt-1 w-64 rounded-md border shadow-md">
+                {#each settings.apiSettings.profiles as apiProfile (apiProfile.id)}
+                  <button
+                    type="button"
+                    class="hover:bg-accent w-full px-3 py-2 text-left text-sm"
+                    onclick={() => copyApiKeyFromProfile(apiProfile)}
+                  >
+                    {apiProfile.name}
+                    <span class="text-muted-foreground text-xs">({apiProfile.providerType})</span>
+                  </button>
+                {/each}
+              </div>
             {/if}
-          </button>
-        </div>
+          </div>
+        {/if}
       </div>
-      {#if settings.apiSettings.profiles.length > 0}
-        <div class="relative">
-          <Button
-            variant="outline"
-            size="sm"
-            onclick={() => (showCopyDropdown = !showCopyDropdown)}
-          >
-            <Copy class="mr-1 h-3 w-3" />
-            Copy from API Profile
-          </Button>
-          {#if showCopyDropdown}
-            <div class="bg-popover absolute z-10 mt-1 w-64 rounded-md border shadow-md">
-              {#each settings.apiSettings.profiles as apiProfile (apiProfile.id)}
-                <button
-                  type="button"
-                  class="hover:bg-accent w-full px-3 py-2 text-left text-sm"
-                  onclick={() => copyApiKeyFromProfile(apiProfile)}
-                >
-                  {apiProfile.name}
-                  <span class="text-muted-foreground text-xs">({apiProfile.providerType})</span>
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      {/if}
-    </div>
+    {/if}
 
     {#if profileProviderType === 'comfyui' || profileProviderType === 'openai' || profileProviderType === 'zhipu'}
       <div class="space-y-2">

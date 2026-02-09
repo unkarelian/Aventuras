@@ -12,7 +12,10 @@
  */
 
 import type { Character, EmbeddedImage } from '$lib/types'
-import { generateImage as registryGenerateImage, supportsImageGeneration } from './providers/registry'
+import {
+  generateImage as registryGenerateImage,
+  supportsImageGeneration,
+} from './providers/registry'
 import { database } from '$lib/services/database'
 import { promptService } from '$lib/services/prompts'
 import { settings } from '$lib/stores/settings.svelte'

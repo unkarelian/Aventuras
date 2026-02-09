@@ -684,29 +684,29 @@ export interface LorebookClassifierSpecificSettings {
 // Linter doesnt like empty objects interfaces, but keeping them for potential future use.
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface SuggestionsSpecificSettings { }
+export interface SuggestionsSpecificSettings {}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface ActionChoicesSpecificSettings { }
+export interface ActionChoicesSpecificSettings {}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface StyleReviewerSpecificSettings { }
+export interface StyleReviewerSpecificSettings {}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface LoreManagementSpecificSettings { }
+export interface LoreManagementSpecificSettings {}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface InteractiveLorebookSpecificSettings { }
+export interface InteractiveLorebookSpecificSettings {}
 
 export interface AgenticRetrievalSpecificSettings {
   maxIterations: number
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface TimelineFillSpecificSettings { }
+export interface TimelineFillSpecificSettings {}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface ChapterQuerySpecificSettings { }
+export interface ChapterQuerySpecificSettings {}
 
 // Global context configuration - controls how much context is included in AI operations
 export interface ContextWindowSettings {
@@ -2293,7 +2293,7 @@ class SettingsStore {
     let wizardNeedsSave = false
     for (const [key, process] of Object.entries(this.wizardSettings)) {
       if (needsMigration(process.profileId)) {
-        ; (this.wizardSettings as any)[key].profileId = DEFAULT_OPENROUTER_PROFILE_ID
+        ;(this.wizardSettings as any)[key].profileId = DEFAULT_OPENROUTER_PROFILE_ID
         wizardNeedsSave = true
       }
     }

@@ -6,7 +6,13 @@
  * - img2img: Not supported
  */
 
-import type { ImageProvider, ImageProviderConfig, ImageGenerateOptions, ImageGenerateResult, ImageModelInfo } from './types'
+import type {
+  ImageProvider,
+  ImageProviderConfig,
+  ImageGenerateOptions,
+  ImageGenerateResult,
+  ImageModelInfo,
+} from './types'
 import { imageFetch } from './fetchAdapter'
 
 const DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'

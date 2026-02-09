@@ -6,7 +6,13 @@
  * - img2img: POST /images/edits (FormData)
  */
 
-import type { ImageProvider, ImageProviderConfig, ImageGenerateOptions, ImageGenerateResult, ImageModelInfo } from './types'
+import type {
+  ImageProvider,
+  ImageProviderConfig,
+  ImageGenerateOptions,
+  ImageGenerateResult,
+  ImageModelInfo,
+} from './types'
 import { imageFetch } from './fetchAdapter'
 
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1'
@@ -22,7 +28,15 @@ export function createOpenAIProvider(config: ImageProviderConfig): ImageProvider
       const { model, prompt, size, referenceImages, signal } = options
 
       if (referenceImages?.length) {
-        return generateWithEdits(baseUrl, config.apiKey, model, prompt, size, referenceImages, signal)
+        return generateWithEdits(
+          baseUrl,
+          config.apiKey,
+          model,
+          prompt,
+          size,
+          referenceImages,
+          signal,
+        )
       }
 
       const body = {

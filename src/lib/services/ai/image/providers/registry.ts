@@ -23,6 +23,7 @@ import { createChutesProvider } from './chutes'
 import { createPollinationsProvider } from './pollinations'
 import { createGoogleProvider } from './google'
 import { createZhipuProvider } from './zhipu'
+import { createComfyProvider } from './comfy'
 
 const log = createLogger('ImageRegistry')
 
@@ -39,9 +40,7 @@ const PROVIDER_FACTORIES: Record<ImageProviderType, ProviderFactory> = {
   pollinations: createPollinationsProvider,
   google: createGoogleProvider,
   zhipu: createZhipuProvider,
-  comfyui: () => {
-    throw new Error('ComfyUI provider not yet implemented')
-  },
+  comfyui: createComfyProvider,
 }
 
 // ============================================================================

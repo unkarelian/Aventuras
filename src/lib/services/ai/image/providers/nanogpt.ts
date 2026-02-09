@@ -6,7 +6,13 @@
  * - img2img: Same endpoint + imageDataUrl in body
  */
 
-import type { ImageProvider, ImageProviderConfig, ImageGenerateOptions, ImageGenerateResult, ImageModelInfo } from './types'
+import type {
+  ImageProvider,
+  ImageProviderConfig,
+  ImageGenerateOptions,
+  ImageGenerateResult,
+  ImageModelInfo,
+} from './types'
 import { imageFetch } from './fetchAdapter'
 
 const DEFAULT_BASE_URL = 'https://nano-gpt.com/api/v1'
@@ -87,7 +93,10 @@ export function createNanoGPTProvider(config: ImageProviderConfig): ImageProvide
         if (entries.length === 0) return getFallbackModels()
 
         return entries.map((m) => {
-          const supportsSizes = m.resolutions?.map((r) => r.value.replace('*', 'x')) || ['512x512', '1024x1024']
+          const supportsSizes = m.resolutions?.map((r) => r.value.replace('*', 'x')) || [
+            '512x512',
+            '1024x1024',
+          ]
           const supportsImg2Img =
             m.tags?.some((t) => IMG2IMG_TAGS.has(t)) || m.supportsMultipleImg2Img || false
 

@@ -450,4 +450,3 @@ export async function generateNarrative(options: NarrativeGenerateOptions): Prom
 
   return text
 }
-

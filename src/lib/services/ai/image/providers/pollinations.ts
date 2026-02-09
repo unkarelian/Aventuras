@@ -6,7 +6,13 @@
  * - img2img: ?image= param for kontext model
  */
 
-import type { ImageProvider, ImageProviderConfig, ImageGenerateOptions, ImageGenerateResult, ImageModelInfo } from './types'
+import type {
+  ImageProvider,
+  ImageProviderConfig,
+  ImageGenerateOptions,
+  ImageGenerateResult,
+  ImageModelInfo,
+} from './types'
 import { imageGetFetch } from './fetchAdapter'
 
 const DEFAULT_MODEL = 'zimage'
