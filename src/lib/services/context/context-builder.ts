@@ -1,26 +1,17 @@
 /**
  * ContextBuilder
  *
- * Simple flat variable store + template renderer. Services add variables
- * via .add(), then render templates via .render(). No distinction between
- * variable types -- everything lives in one flat namespace.
+ * Flat variable store + template renderer. Services add variables
+ * via .add(), then render templates via .render(). Variables accumulate
+ * across services -- all templates can access all variables.
  *
- * Usage:
- *   // With story (auto-loads story data + pack custom vars)
- *   const ctx = await ContextBuilder.forStory(storyId)
- *   ctx.add({ recentContent, activeQuests })
- *   const { system, user } = await ctx.render('suggestions')
- *
- *   // Without story (wizard, standalone)
- *   const ctx = new ContextBuilder(packId)
- *   ctx.add({ genre, mode, seed })
- *   const { system, user } = await ctx.render('setting-expansion')
+ * External templates (image styles, lorebook tools) don't use ContextBuilder.
+ * Services fetch those directly from the pack and inject data programmatically.
  */
 
 import { database } from '$lib/services/database'
 import { templateEngine } from '$lib/services/templates/engine'
 import { createLogger } from '$lib/services/ai/core/config'
-import { EXTERNAL_TEMPLATE_IDS } from './types'
 import type { RenderResult } from './types'
 
 const log = createLogger('ContextBuilder')
@@ -95,17 +86,10 @@ export class ContextBuilder {
   }
 
   /**
-   * Render a template from the active pack.
-   * Loads system + user content, renders both through LiquidJS.
-   * External templates bypass Liquid and return raw content.
+   * Render a template from the active pack through LiquidJS.
    */
   async render(templateId: string): Promise<RenderResult> {
     log('render', { templateId, packId: this.packId })
-
-    if ((EXTERNAL_TEMPLATE_IDS as readonly string[]).includes(templateId)) {
-      const template = await database.getPackTemplate(this.packId, templateId)
-      return { system: template?.content || '', user: '' }
-    }
 
     const systemTemplate = await database.getPackTemplate(this.packId, templateId)
     const userTemplate = await database.getPackTemplate(this.packId, `${templateId}-user`)
