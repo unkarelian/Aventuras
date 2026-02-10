@@ -11,12 +11,11 @@
  */
 
 import type { WorldStateDelta, StoryEntry, TimeTracker } from '$lib/types'
+import { settings } from '$lib/stores/settings.svelte'
 import { database } from './database'
 
-const DEBUG = true
-
 function log(...args: unknown[]) {
-  if (DEBUG) {
+  if (settings.uiSettings.debugMode) {
     console.log('[RollbackService]', ...args)
   }
 }
