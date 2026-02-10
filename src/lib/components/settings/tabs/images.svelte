@@ -18,6 +18,7 @@
   } from 'lucide-svelte'
   import { Textarea } from '$lib/components/ui/textarea'
   import {
+    listImageModels,
     listImageModelsByProvider,
     getComfySamplerInfo,
     listLoras,
@@ -32,6 +33,7 @@
   import { Card, CardContent } from '$lib/components/ui/card'
   import * as Collapsible from '$lib/components/ui/collapsible'
   import { SvelteSet } from 'svelte/reactivity'
+  import IconRow from '$lib/components/ui/icon-row.svelte'
 
   const imageStyles = [
     { value: 'image-style-soft-anime', label: 'Soft Anime' },
@@ -147,9 +149,83 @@
   let availableLoras = $state<string[]>([])
   let saveTimeout: ReturnType<typeof setTimeout> | null = null
 
+  // Model info cache for active profiles
+  let activeProfilesModelInfo = $state<Record<string, ImageModelInfo[]>>({})
+
+  // Load models for active profiles to get resolution info
+  async function loadModelsForProfile(profileId: string) {
+    if (activeProfilesModelInfo[profileId]) return
+    const models = await listImageModels(profileId)
+    activeProfilesModelInfo[profileId] = models
+  }
+
+  // Effect to load models for all selected profiles
+  $effect(() => {
+    const profilesToLoad = [
+      settings.systemServicesSettings.imageGeneration.profileId,
+      settings.systemServicesSettings.imageGeneration.portraitProfileId,
+      settings.systemServicesSettings.imageGeneration.referenceProfileId,
+      settings.systemServicesSettings.imageGeneration.backgroundProfileId,
+    ].filter(Boolean) as string[]
+
+    for (const id of profilesToLoad) {
+      loadModelsForProfile(id)
+    }
+  })
+
+  /**
+   * Get supported sizes for a specific profile type/ID
+   */
+  function getSupportedSizes(
+    type: 'standard' | 'portrait' | 'reference' | 'background' | 'testing',
+  ) {
+    let profileId: string | null = null
+    switch (type) {
+      case 'standard':
+        profileId = settings.systemServicesSettings.imageGeneration.profileId
+        break
+      case 'portrait':
+        profileId = settings.systemServicesSettings.imageGeneration.portraitProfileId
+        break
+      case 'reference':
+        profileId = settings.systemServicesSettings.imageGeneration.referenceProfileId
+        break
+      case 'background':
+        profileId = settings.systemServicesSettings.imageGeneration.backgroundProfileId
+        break
+      case 'testing':
+        profileId = testProfileId
+        break
+    }
+
+    if (!profileId) return type === 'background' ? backgroundSizes : imageSizes
+
+    const profile = settings.getImageProfile(profileId)
+    if (!profile) return type === 'background' ? backgroundSizes : imageSizes
+
+    const models = activeProfilesModelInfo[profileId] || []
+    const modelInfo = models.find((m) => m.id === profile.model)
+
+    if (modelInfo?.supportsSizes?.length) {
+      // Safety: Filter for valid WIDTHxHEIGHT format
+      const validSizes = modelInfo.supportsSizes.filter((size) => /^\d+x\d+$/.test(size))
+
+      if (validSizes.length > 0) {
+        return validSizes.map((size) => {
+          // Try to match with existing labels for better UX
+          const existing = [...imageSizes, ...backgroundSizes].find((s) => s.value === size)
+          return { value: size, label: existing?.label || size }
+        })
+      }
+    }
+
+    return type === 'background' ? backgroundSizes : imageSizes
+  }
+
   // Testing state
   let testProfileId = $state<string | null>(null)
   let testPrompt = $state('')
+  let testSize = $state('1024x1024')
   let isGeneratingTestImage = $state(false)
   let testImageResult = $state<string | null>(null)
   let testError = $state<string | null>(null)
@@ -203,7 +279,7 @@
       const result = await generateImage({
         prompt: testPrompt.trim(),
         model: profile.model || '',
-        size: '1024x1024', // Default for testing
+        size: testSize,
         profileId: profile.id,
       })
 
@@ -499,16 +575,8 @@
                         </p>
                       </div>
                     </Collapsible.Trigger>
-                    <div class="flex shrink-0 gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        class="h-7 w-7 hover:text-red-500"
-                        onclick={() => deleteProfile(profile.id)}
-                        title="Delete profile"
-                      >
-                        <Trash2 class="h-3 w-3" />
-                      </Button>
+                    <div class="flex shrink-0 items-center gap-1">
+                      <IconRow onDelete={() => deleteProfile(profile.id)} size="icon" />
                     </div>
                   </div>
 
@@ -570,8 +638,8 @@
                   <div class="space-y-2">
                     <Label>Regular Image Size</Label>
                     <Autocomplete
-                      items={imageSizes}
-                      selected={imageSizes.find(
+                      items={getSupportedSizes('standard')}
+                      selected={getSupportedSizes('standard').find(
                         (s) => s.value === settings.systemServicesSettings.imageGeneration.size,
                       ) ||
                         (settings.systemServicesSettings.imageGeneration.size
@@ -618,8 +686,8 @@
                   <div class="space-y-2">
                     <Label>Reference Image Size</Label>
                     <Autocomplete
-                      items={imageSizes}
-                      selected={imageSizes.find(
+                      items={getSupportedSizes('reference')}
+                      selected={getSupportedSizes('reference').find(
                         (s) =>
                           s.value === settings.systemServicesSettings.imageGeneration.referenceSize,
                       ) ||
@@ -719,8 +787,8 @@
             <div class="space-y-2">
               <Label>Character Portrait Size</Label>
               <Autocomplete
-                items={imageSizes}
-                selected={imageSizes.find(
+                items={getSupportedSizes('portrait')}
+                selected={getSupportedSizes('portrait').find(
                   (s) => s.value === settings.systemServicesSettings.imageGeneration.portraitSize,
                 ) ||
                   (settings.systemServicesSettings.imageGeneration.portraitSize
@@ -793,8 +861,8 @@
           <div class="space-y-2">
             <Label>Background Size</Label>
             <Autocomplete
-              items={backgroundSizes}
-              selected={backgroundSizes.find(
+              items={getSupportedSizes('background')}
+              selected={getSupportedSizes('background').find(
                 (s) => s.value === settings.systemServicesSettings.imageGeneration.backgroundSize,
               ) ||
                 (settings.systemServicesSettings.imageGeneration.backgroundSize
@@ -859,6 +927,23 @@
             <div class="space-y-2">
               <Label>Prompt</Label>
               <Textarea bind:value={testPrompt} placeholder="Enter a test prompt..." rows={4} />
+            </div>
+
+            <div class="space-y-2">
+              <Label>Size</Label>
+              <Autocomplete
+                items={getSupportedSizes('testing')}
+                selected={getSupportedSizes('testing').find((s) => s.value === testSize) || {
+                  value: testSize,
+                  label: testSize,
+                }}
+                onSelect={(v) => (testSize = (v as { value: string }).value)}
+                allowCustom={true}
+                onCustomSelect={(v) => (testSize = v)}
+                itemLabel={(s: { label: string }) => s.label}
+                itemValue={(s: { value: string }) => s.value}
+                placeholder="Select size"
+              />
             </div>
 
             <Button
