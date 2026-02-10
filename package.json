@@ -44,11 +44,13 @@
     "html5-qrcode": "^2.3.8",
     "jsonrepair": "^3.13.2",
     "jszip": "^3.10.1",
+    "liquidjs": "^10.24.0",
     "lucide-svelte": "^0.468.0",
     "marked": "^17.0.1",
     "ollama-ai-provider": "^1.2.0",
     "tailwind-merge": "^3.4.0",
-    "zhipu-ai-provider": "^0.2.2"
+    "zhipu-ai-provider": "^0.2.2",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@lucide/svelte": "^0.482.0",

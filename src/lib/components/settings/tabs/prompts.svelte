@@ -1,7 +1,7 @@
 <script lang="ts">
   import { settings } from '$lib/stores/settings.svelte'
   import {
-    promptService,
+    PROMPT_TEMPLATES,
     type MacroOverride,
     type Macro,
     type MacroVariant,
@@ -34,12 +34,13 @@
   let confirmingMacroReset = $state(false)
 
   // Get all templates grouped by category
-  const allTemplates = $derived(promptService.getAllTemplates())
+  const allTemplates = PROMPT_TEMPLATES
   const storyTemplates = $derived(allTemplates.filter((t) => t.category === 'story'))
   const serviceTemplates = $derived(allTemplates.filter((t) => t.category === 'service'))
   const wizardTemplates = $derived(allTemplates.filter((t) => t.category === 'wizard'))
   const imageStyleTemplates = $derived(allTemplates.filter((t) => t.category === 'image-style'))
-  const allMacros = $derived(promptService.getAllMacros())
+  // Macro library is empty -- macro system has been removed
+  const allMacros: Macro[] = []
 
   // Get templates for current category
   function getTemplatesForCategory() {

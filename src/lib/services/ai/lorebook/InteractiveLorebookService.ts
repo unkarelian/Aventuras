@@ -18,7 +18,7 @@ import {
   type FandomToolContext,
 } from '../sdk/tools'
 import type { PendingChangeSchema } from '../sdk/schemas/lorebook'
-import { promptService } from '$lib/services/prompts'
+import { database } from '$lib/services/database'
 import { streamText } from 'ai'
 
 const log = createLogger('InteractiveLorebook')
@@ -117,25 +117,16 @@ export class InteractiveLorebookService {
   /**
    * Initialize the conversation.
    */
-  initialize(lorebookName: string, entryCount: number): void {
+  async initialize(lorebookName: string, entryCount: number): Promise<void> {
     this.conversationHistory = []
 
-    // Get system prompt from prompt service
-    // Service prompts don't use narrative context, so pass minimal required values
-    // and use placeholders for service-specific variables
-    this.systemPrompt = promptService.renderPrompt(
-      'interactive-lorebook',
-      {
-        mode: 'adventure',
-        pov: 'second',
-        tense: 'present',
-        protagonistName: '',
-      },
-      {
-        lorebookName,
-        entryCount,
-      },
-    )
+    // interactive-lorebook is an external template -- fetch raw and inject data programmatically
+    const template = await database.getPackTemplate('default-pack', 'interactive-lorebook')
+    let content = template?.content ?? ''
+    content = content
+      .replace(/\{\{\s*lorebookName\s*\}\}/g, lorebookName)
+      .replace(/\{\{\s*entryCount\s*\}\}/g, String(entryCount))
+    this.systemPrompt = content
 
     this.initialized = true
     log('Initialized conversation', { lorebookName, entryCount, model: this.preset.model })
@@ -491,8 +482,8 @@ export class InteractiveLorebookService {
   /**
    * Reset the conversation.
    */
-  reset(lorebookName: string, entryCount: number): void {
-    this.initialize(lorebookName, entryCount)
+  async reset(lorebookName: string, entryCount: number): Promise<void> {
+    await this.initialize(lorebookName, entryCount)
   }
 
   /**

@@ -75,12 +75,12 @@
     }
   })
 
-  function initializeService() {
+  async function initializeService() {
     try {
       const presetId = settings.getServicePresetId('interactiveLorebook')
 
       service = new InteractiveLorebookService(presetId)
-      service.initialize(lorebookName || 'New Lorebook', entries.length)
+      await service.initialize(lorebookName || 'New Lorebook', entries.length)
 
       // Add initial greeting message (display-only, not sent to API)
       // Note: The actual AI functionality is stubbed during SDK migration

@@ -231,9 +231,9 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
 
   pollinations: {
     name: 'Pollinations',
-    description: 'Free text and image generation (no API key needed)',
-    baseUrl: 'https://text.pollinations.ai/openai',
-    requiresApiKey: false,
+    description: 'Free text and image generation',
+    baseUrl: 'https://gen.pollinations.ai/v1',
+    requiresApiKey: true,
     capabilities: {
       textGeneration: true,
       imageGeneration: true,

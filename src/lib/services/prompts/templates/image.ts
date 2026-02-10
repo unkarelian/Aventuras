@@ -3,12 +3,18 @@
  *
  * Templates for image generation including style presets,
  * scene analysis, and portrait generation.
+ *
+ * Templates use Liquid syntax:
+ * - {{ variable }} for direct substitution
+ *
+ * External templates (image-style-*) are raw text -- no variable
+ * syntax, used as-is by image generation services.
  */
 
 import type { PromptTemplate } from '../types'
 
 /**
- * Soft Anime style template
+ * Soft Anime style template (EXTERNAL - raw text)
  * Soft cel-shading, muted pastels, dreamy atmosphere
  */
 export const softAnimeStyleTemplate: PromptTemplate = {
@@ -20,7 +26,7 @@ export const softAnimeStyleTemplate: PromptTemplate = {
 }
 
 /**
- * Semi-realistic Anime style template
+ * Semi-realistic Anime style template (EXTERNAL - raw text)
  * Polished, cinematic, detailed rendering
  */
 export const semiRealisticAnimeStyleTemplate: PromptTemplate = {
@@ -32,7 +38,7 @@ export const semiRealisticAnimeStyleTemplate: PromptTemplate = {
 }
 
 /**
- * Photorealistic style template
+ * Photorealistic style template (EXTERNAL - raw text)
  * True-to-life rendering with natural lighting
  */
 export const photorealisticStyleTemplate: PromptTemplate = {
@@ -55,15 +61,15 @@ export const imagePromptAnalysisTemplate: PromptTemplate = {
   content: `You identify visually striking moments in narrative text for image generation.
 
 ## Your Task
-Analyze the narrative and identify up to {{maxImages}} key visual moments (0 = unlimited). Create DETAILED, descriptive image prompts (aim for below 500 characters each). **Do NOT exceed 500 characters per prompt - prompts over 500 characters will cause an error and fail to generate.**
+Analyze the narrative and identify up to {{ maxImages }} key visual moments (0 = unlimited). Create DETAILED, descriptive image prompts (aim for below 500 characters each). **Do NOT exceed 500 characters per prompt - prompts over 500 characters will cause an error and fail to generate.**
 
 ## Style (MUST include in every prompt)
-{{imageStylePrompt}}
+{{ imageStylePrompt }}
 
 **You MUST incorporate this full style description into every prompt.** Include multiple style keywords and rendering details.
 
 ## Character Reference
-{{characterDescriptors}}
+{{ characterDescriptors }}
 
 ## Prompt Requirements
 - **Prompt length:** below 500 characters MAX (prompts over 500 characters will ERROR and fail)
@@ -104,17 +110,17 @@ Analyze the narrative and identify up to {{maxImages}} key visual moments (0 = u
 - 5-7: Character introductions, emotions
 - 3-5: Environmental shots, atmosphere`,
   userContent: `## Story Context
-{{chatHistory}}
+{{ chatHistory }}
 
-{{lorebookContext}}
+{{ lorebookContext }}
 
 ## User Action
-{{userAction}}
+{{ userAction }}
 
 ## English Narrative (use for understanding context)
-{{narrativeResponse}}
+{{ narrativeResponse }}
 
-{{translatedNarrativeBlock}}
+{{ translatedNarrativeBlock }}
 
 Identify the most visually striking moments and return the JSON array. Remember: sourceText must come from the Display Narrative (translated if provided), but prompts must ALWAYS be in English.`,
 }
@@ -131,7 +137,7 @@ export const imagePromptAnalysisReferenceTemplate: PromptTemplate = {
   content: `You identify visually striking moments in narrative text for image generation WITH REFERENCE IMAGES.
 
 ## Your Task
-Analyze the narrative and identify up to {{maxImages}} scene images (0 = unlimited). Portrait generations do NOT count towards this limit - generate portraits freely as needed. Create concise image prompts.
+Analyze the narrative and identify up to {{ maxImages }} scene images (0 = unlimited). Portrait generations do NOT count towards this limit - generate portraits freely as needed. Create concise image prompts.
 
 **Prompt length targets:**
 - Single character: 200-350 characters
@@ -148,16 +154,16 @@ Analyze the narrative and identify up to {{maxImages}} scene images (0 = unlimit
 - Think of portraits as "unlocking" a character for visual representation - no portrait = character cannot exist in images.
 
 ## Style Keywords (pick 2-3 relevant ones per prompt)
-{{imageStylePrompt}}
+{{ imageStylePrompt }}
 
 ## Characters With Portraits (can appear in scene images)
-{{charactersWithPortraits}}
+{{ charactersWithPortraits }}
 
 ## Characters Without Portraits (need portrait generation first)
-{{charactersWithoutPortraits}}
+{{ charactersWithoutPortraits }}
 
 ## Character Visual Descriptors
-{{characterDescriptors}}
+{{ characterDescriptors }}
 
 ## CRITICAL: Never Use Character Names in Prompts
 Image models don't know who "Elena" or "Marcus" are. Character names are ONLY for the JSON fields, NEVER in the prompt text itself.
@@ -280,17 +286,17 @@ Match the angle to the emotional tone: action scenes benefit from low/dutch angl
 - 5-7: Emotional moments, reveals
 - 3-5: Environmental atmosphere`,
   userContent: `## Story Context
-{{chatHistory}}
+{{ chatHistory }}
 
-{{lorebookContext}}
+{{ lorebookContext }}
 
 ## User Action
-{{userAction}}
+{{ userAction }}
 
 ## English Narrative (use for understanding context)
-{{narrativeResponse}}
+{{ narrativeResponse }}
 
-{{translatedNarrativeBlock}}
+{{ translatedNarrativeBlock }}
 
 Identify visually striking moments. Return JSON array. Remember: NEVER use character names in prompts - describe by visual traits only. Keep prompts concise. sourceText must come from the Display Narrative (translated if provided), but prompts must ALWAYS be in English.`,
 }
@@ -304,7 +310,7 @@ export const imagePortraitGenerationTemplate: PromptTemplate = {
   name: 'Portrait Generation',
   category: 'service',
   description: 'Direct image prompt template for character portraits',
-  content: `Full body portrait of a character: {{visualDescriptors}}. Standing in a relaxed natural pose, facing the viewer, full body visible from head to feet. Neutral expression or slight smile. Plain solid color gradient background only, no objects, no environment, no scenery. Portrait composition, centered framing, professional lighting. {{imageStylePrompt}}`,
+  content: `Full body portrait of a character: {{ visualDescriptors }}. Standing in a relaxed natural pose, facing the viewer, full body visible from head to feet. Neutral expression or slight smile. Plain solid color gradient background only, no objects, no environment, no scenery. Portrait composition, centered framing, professional lighting. {{ imageStylePrompt }}`,
   userContent: '',
 }
 
@@ -340,10 +346,10 @@ When generating a description, follow these standards:
 *   **Composition**: Ensure the composition leaves negative space (usually the lower center or middle) for dialogue boxes and character sprites. Do not clutter the entire image; the edges should be detailed but the focal area should be relatively open.
 *   **Format**: A single, cohesive paragraph. 800 characters or less, any more **will break** the process.`,
   userContent: `##Previous Message:
-{{previousResponse}}
+{{ previousResponse }}
 
 ##Current Message:
-{{currentResponse}}`,
+{{ currentResponse }}`,
 }
 
 /**

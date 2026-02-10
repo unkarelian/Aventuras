@@ -6,7 +6,7 @@
 
 import type { Chapter, StoryEntry } from '$lib/types'
 import { generateStructured } from '../sdk/generate'
-import { promptService, type PromptContext } from '$lib/services/prompts'
+import { ContextBuilder } from '$lib/services/context'
 import {
   chapterAnalysisSchema,
   chapterSummaryResultSchema,
@@ -60,13 +60,6 @@ export class MemoryService {
       previousChaptersCount: previousChapters?.length ?? 0,
     })
 
-    const promptContext: PromptContext = {
-      mode: mode as any,
-      pov: pov as any,
-      tense: tense as any,
-      protagonistName: '',
-    }
-
     const entriesText = entries.map((e) => `[${e.type}]: ${e.content}`).join('\n\n')
 
     const previousChaptersContext =
@@ -74,11 +67,9 @@ export class MemoryService {
         ? `Previous chapters:\n${previousChapters.map((c) => `Chapter ${c.number}: ${c.summary}`).join('\n\n')}`
         : ''
 
-    const system = promptService.renderPrompt('chapter-summarization', promptContext)
-    const prompt = promptService.renderUserPrompt('chapter-summarization', promptContext, {
-      chapterContent: entriesText,
-      previousContext: previousChaptersContext,
-    })
+    const ctx = new ContextBuilder()
+    ctx.add({ mode, pov, tense, chapterContent: entriesText, previousContext: previousChaptersContext })
+    const { system, user: prompt } = await ctx.render('chapter-summarization')
 
     const result = await generateStructured(
       {
@@ -112,21 +103,16 @@ export class MemoryService {
   ): Promise<ChapterAnalysis> {
     log('analyzeForChapter', { entryCount: entries.length, tokensOutsideBuffer })
 
-    const promptContext: PromptContext = {
-      mode: mode as any,
-      pov: pov as any,
-      tense: tense as any,
-      protagonistName: '',
-    }
-
     const entriesText = entries.map((e) => `[${e.type}]: ${e.content}`).join('\n\n')
 
-    const system = promptService.renderPrompt('chapter-analysis', promptContext)
-    const prompt = promptService.renderUserPrompt('chapter-analysis', promptContext, {
+    const ctx = new ContextBuilder()
+    ctx.add({
+      mode, pov, tense,
       messagesInRange: entriesText,
       firstValidId: (lastChapterEndIndex + 1).toString(),
       lastValidId: (lastChapterEndIndex + entries.length).toString(),
     })
+    const { system, user: prompt } = await ctx.render('chapter-analysis')
 
     const result = await generateStructured(
       {
@@ -162,24 +148,19 @@ export class MemoryService {
       return { shouldRetrieve: false, relevantChapterIds: [] }
     }
 
-    const promptContext: PromptContext = {
-      mode: mode as any,
-      pov: pov as any,
-      tense: tense as any,
-      protagonistName: '',
-    }
-
     const chapterSummaries = context.availableChapters
       .map((c) => `Chapter ${c.number}: ${c.summary}`)
       .join('\n\n')
 
-    const system = promptService.renderPrompt('retrieval-decision', promptContext)
-    const prompt = promptService.renderUserPrompt('retrieval-decision', promptContext, {
+    const ctx = new ContextBuilder()
+    ctx.add({
+      mode, pov, tense,
       userInput: context.userInput,
       recentContext: context.recentNarrative,
       chapterSummaries,
       maxChaptersPerRetrieval: DEFAULT_MEMORY_CONFIG.maxChaptersPerRetrieval.toString(),
     })
+    const { system, user: prompt } = await ctx.render('retrieval-decision')
 
     const result = await generateStructured(
       {

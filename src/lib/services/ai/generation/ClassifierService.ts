@@ -6,6 +6,8 @@
  *
  * NOTE: For classifier output types (CharacterUpdate, NewCharacter, etc.),
  * import directly from '$lib/services/ai/sdk/schemas/classifier'.
+ *
+ * Prompt generation flows through ContextBuilder + Liquid templates.
  */
 
 import type {
@@ -17,7 +19,7 @@ import type {
   StoryBeat,
   TimeTracker,
 } from '$lib/types'
-import { promptService, type PromptContext } from '$lib/services/prompts'
+import { ContextBuilder } from '$lib/services/context'
 import { createLogger } from '../core/config'
 import { generateStructured } from '../sdk/generate'
 import { classificationResultSchema, type ClassificationResult } from '../sdk/schemas/classifier'
@@ -67,18 +69,6 @@ export class ClassifierService {
     })
 
     const mode = context.story.mode ?? 'adventure'
-    const pov = context.story.settings?.pov ?? 'second'
-    const tense = context.story.settings?.tense ?? 'present'
-    const protagonist = context.existingCharacters.find((c) => c.relationship === 'self')
-
-    // Build prompt context
-    const promptContext: PromptContext = {
-      mode,
-      pov,
-      tense,
-      protagonistName: protagonist?.name ?? 'the protagonist',
-      genre: context.story.genre ?? undefined,
-    }
 
     // Format existing entities for the prompt
     const existingCharacters = this.formatExistingCharacters(context.existingCharacters)
@@ -96,9 +86,11 @@ export class ClassifierService {
       ? `Current story time: Year ${currentStoryTime.years}, Day ${currentStoryTime.days}, ${String(currentStoryTime.hours).padStart(2, '0')}:${String(currentStoryTime.minutes).padStart(2, '0')}`
       : ''
 
-    // Get prompts
-    const system = promptService.renderPrompt('classifier', promptContext)
-    const prompt = promptService.renderUserPrompt('classifier', promptContext, {
+    // Create ContextBuilder from story -- auto-populates mode, pov, tense, genre, etc.
+    const ctx = await ContextBuilder.forStory(context.storyId)
+
+    // Add all 16 runtime variables explicitly via ctx.add()
+    ctx.add({
       genre: context.story.genre ? `Genre: ${context.story.genre}` : '',
       mode,
       entityCounts: `${context.existingCharacters.length} characters, ${context.existingLocations.length} locations, ${context.existingItems.length} items`,
@@ -116,6 +108,9 @@ export class ClassifierService {
       defaultItemLocation: 'inventory',
       sceneLocationDesc: 'Name of current location if identifiable, null otherwise',
     })
+
+    // Render through the classifier template
+    const { system, user: prompt } = await ctx.render('classifier')
 
     try {
       const result = await generateStructured(

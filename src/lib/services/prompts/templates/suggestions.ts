@@ -3,6 +3,9 @@
  *
  * Generates story direction suggestions for creative writing mode.
  * Extracted from definitions.ts as part of the modular prompt reorganization.
+ *
+ * Templates use Liquid syntax:
+ * - {{ variable }} for direct substitution
  */
 
 import type { PromptTemplate } from '../types'
@@ -26,13 +29,13 @@ These should read like instructions an author gives to guide the next part of th
 
 ## Recent Story Content
 """
-{{recentContent}}
+{{ recentContent }}
 """
 
 ## Active Story Threads
-{{activeThreads}}
+{{ activeThreads }}
 
-{{genre}}{{lorebookContext}}
+{{ genre }}{{ lorebookContext }}
 
 ## Your Task
 Generate 3 STORY DIRECTION suggestions. These should be plot developments, scene ideas, or narrative beats—NOT singular character actions.

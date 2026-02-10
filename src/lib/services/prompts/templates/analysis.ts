@@ -3,6 +3,13 @@
  *
  * Templates for analysis and classification services including
  * world state extraction, style review, and lorebook classification.
+ *
+ * Templates use Liquid syntax:
+ * - {{ variable }} for direct substitution
+ * - {% if/elsif/else/endif %} for conditional logic
+ *
+ * External templates (lorebook-classifier) are raw text -- services
+ * inject data programmatically, not through LiquidJS.
  */
 
 import type { PromptTemplate } from '../types'
@@ -141,26 +148,26 @@ Determine how much narrative time elapsed during this passage. Consider what act
   userContent: `Analyze this narrative passage and extract world state changes.
 
 ## Context
-{{genre}}
-Mode: {{mode}}
-Already tracking: {{entityCounts}}
-{{currentTimeInfo}}
-{{chatHistoryBlock}}
-## {{inputLabel}}
-"{{userAction}}"
+{{ genre }}
+Mode: {{ mode }}
+Already tracking: {{ entityCounts }}
+{{ currentTimeInfo }}
+{{ chatHistoryBlock }}
+## {{ inputLabel }}
+"{{ userAction }}"
 
 ## The Narrative Response (to classify)
 """
-{{narrativeResponse}}
+{{ narrativeResponse }}
 """
 
 ## Already Known Entities (check before adding duplicates)
-Characters: {{existingCharacters}}
-Locations: {{existingLocations}}
-Items: {{existingItems}}
+Characters: {{ existingCharacters }}
+Locations: {{ existingLocations }}
+Items: {{ existingItems }}
 
 ## Active Story Beats (update these when resolved!)
-{{existingBeats}}
+{{ existingBeats }}
 
 ## Your Task
 1. Check if any EXISTING entities need updates (status change, new info learned, etc.)
@@ -211,14 +218,15 @@ Identify overused phrases, sentence patterns, structural repetition, and stylist
 - For structural issues, describe the pattern clearly (e.g., "5 of 7 passages begin with ambient sound descriptions")
 - Provide context-appropriate alternatives
 - Focus on actionable improvements`,
-  userContent: `Analyze these {{passageCount}} passages for repetitive phrases, structural patterns, and style issues. Each passage is a separate AI-generated narrative response.
+  userContent: `Analyze these {{ passageCount }} passages for repetitive phrases, structural patterns, and style issues. Each passage is a separate AI-generated narrative response.
 
-{{passages}}`,
+{{ passages }}`,
 }
 
 /**
- * Lorebook Classifier prompt template
- * Classifies lorebook entries into appropriate categories
+ * Lorebook Classifier prompt template (EXTERNAL)
+ * Classifies lorebook entries into appropriate categories.
+ * This is an external template -- services inject data programmatically.
  */
 export const lorebookClassifierPromptTemplate: PromptTemplate = {
   id: 'lorebook-classifier',
@@ -262,13 +270,13 @@ Consider:
 
 Only include entries that have a clear connection to the current scene or user's intended action. Do not include entries just because they exist in the world.`,
   userContent: `# Current Scene
-{{recentContent}}
+{{ recentContent }}
 
 # User's Input
-"{{userInput}}"
+"{{ userInput }}"
 
 # Available Entries
-{{entrySummaries}}
+{{ entrySummaries }}
 
 Which entries (by number) are relevant to the current scene and user input?`,
 }

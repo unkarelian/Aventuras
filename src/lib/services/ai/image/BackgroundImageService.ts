@@ -1,5 +1,5 @@
 import { emitBackgroundImageAnalysisFailed } from '$lib/services/events'
-import { type PromptContext, promptService } from '$lib/services/prompts'
+import { ContextBuilder } from '$lib/services/context'
 import { settings } from '$lib/stores/settings.svelte'
 import type { StoryEntry } from '$lib/types'
 import { createLogger } from '../core/config'
@@ -44,22 +44,9 @@ export class BackgroundImageService {
     const previousResponse = narrationEntries[narrationEntries.length - 2]?.content
     const currentResponse = narrationEntries[narrationEntries.length - 1]?.content
 
-    const promptContext: PromptContext = {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: '',
-    }
-
-    const system = promptService.renderPrompt('background-image-prompt-analysis', promptContext)
-    const prompt = promptService.renderUserPrompt(
-      'background-image-prompt-analysis',
-      promptContext,
-      {
-        previousResponse,
-        currentResponse,
-      },
-    )
+    const ctx = new ContextBuilder()
+    ctx.add({ previousResponse, currentResponse })
+    const { system, user: prompt } = await ctx.render('background-image-prompt-analysis')
 
     try {
       const result = await generateStructured(

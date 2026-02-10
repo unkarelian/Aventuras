@@ -56,13 +56,13 @@ export function createProviderFromProfile(profile: APIProfile, presetId: string,
       })
 
     case 'chutes':
-      return createChutes({ apiKey: profile.apiKey })
+      return createChutes({ apiKey: profile.apiKey, fetch })
 
     case 'pollinations':
-      return createPollinations({ apiKey: profile.apiKey || undefined })
+      return createPollinations({ apiKey: profile.apiKey || undefined, fetch })
 
     case 'ollama':
-      return createOllama({ baseURL: baseURL ?? PROVIDERS.ollama.baseUrl })
+      return createOllama({ baseURL: baseURL ?? PROVIDERS.ollama.baseUrl, fetch })
 
     case 'lmstudio':
       return createOpenAI({

@@ -17,7 +17,9 @@
     GitBranch,
     Bookmark,
     Volume2,
+    Image as ImageIcon,
   } from 'lucide-svelte'
+  import { aiService } from '$lib/services/ai'
   import { aiTTSService } from '$lib/services/ai/utils/TTSService'
   import { parseMarkdown } from '$lib/utils/markdown'
   import { sanitizeTextForTTS } from '$lib/utils/htmlSanitize'
@@ -27,7 +29,6 @@
     processContentWithInlineImages,
     processVisualProseWithInlineImages,
   } from '$lib/services/image'
-  import { database } from '$lib/services/database'
   import {
     eventBus,
     type ImageReadyEvent,
@@ -36,7 +37,7 @@
     type TTSQueuedEvent,
   } from '$lib/services/events'
   import { inlineImageService, retryImageGeneration } from '$lib/services/ai/image'
-  import { promptService } from '$lib/services/prompts'
+  import { database } from '$lib/services/database'
   import { onMount } from 'svelte'
   import ReasoningBlock from './ReasoningBlock.svelte'
   import { countTokens } from '$lib/services/tokenizer'
@@ -183,7 +184,9 @@
     const interval = setInterval(() => {
       now = Date.now()
     }, 1000)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+    }
   })
 
   // Helper to get which branch a checkpoint belongs to (by checking its last entry's branchId)
@@ -405,13 +408,8 @@
         const styleId = imageSettings.styleId
         let stylePrompt = ''
         try {
-          const promptContext = {
-            mode: 'adventure' as const,
-            pov: 'second' as const,
-            tense: 'present' as const,
-            protagonistName: '',
-          }
-          stylePrompt = promptService.getPrompt(styleId, promptContext) || ''
+          const template = await database.getPackTemplate('default-pack', styleId)
+          stylePrompt = template?.content || ''
         } catch {
           stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT
         }
@@ -448,13 +446,8 @@
     const styleId = imageSettings.styleId
     let stylePrompt = ''
     try {
-      const promptContext = {
-        mode: 'adventure' as const,
-        pov: 'second' as const,
-        tense: 'present' as const,
-        protagonistName: '',
-      }
-      stylePrompt = promptService.getPrompt(styleId, promptContext) || ''
+      const template = await database.getPackTemplate('default-pack', styleId)
+      stylePrompt = template?.content || ''
     } catch {
       stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT
     }
@@ -759,6 +752,30 @@
     }
   }
 
+  let isGeneratingStoryImages = $state(false)
+
+  async function handleGenerateStoryImages() {
+    if (!story.currentStory || isGeneratingStoryImages) return
+    isGeneratingStoryImages = true
+    try {
+      const context = {
+        storyId: story.currentStory.id,
+        entryId: entry.id,
+        narrativeResponse: entry.content,
+        userAction: '',
+        presentCharacters: story.characters,
+        referenceMode: story.currentStory.settings?.referenceMode ?? false,
+        translatedNarrative: entry.translatedContent ?? undefined,
+      }
+      await aiService.generateImagesForNarrative(context)
+    } catch (error) {
+      console.error('[StoryEntry] Image generation failed:', error)
+      ui.showToast('Image generation failed', 'error')
+    } finally {
+      isGeneratingStoryImages = false
+    }
+  }
+
   function cancelEdit() {
     isEditing = false
     editContent = ''
@@ -884,6 +901,22 @@
             <Volume2 class="h-4 w-4" />
           {/if}
         </Button>
+        {#if isLatestNarration}
+          <Button
+            variant="text"
+            size="icon"
+            onclick={handleGenerateStoryImages}
+            disabled={ui.isGenerating || isGeneratingStoryImages || embeddedImages.length > 0}
+            class="text-muted-foreground hover:text-foreground h-7 w-7"
+            title={embeddedImages.length > 0 ? 'Images already generated' : 'Generate story images'}
+          >
+            {#if isGeneratingStoryImages}
+              <Loader2 class="h-4 w-4 animate-spin" />
+            {:else}
+              <ImageIcon class="h-4 w-4" />
+            {/if}
+          </Button>
+        {/if}
         <Button
           variant="text"
           size="icon"

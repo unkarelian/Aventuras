@@ -3,6 +3,12 @@
  *
  * Templates for the memory and retrieval system including
  * chapter analysis, summarization, and context retrieval.
+ *
+ * Templates use Liquid syntax:
+ * - {{ variable }} for direct substitution
+ *
+ * External templates (interactive-lorebook) are raw text -- services
+ * inject data programmatically, not through LiquidJS.
  */
 
 import type { PromptTemplate } from '../types'
@@ -28,11 +34,11 @@ Select the message ID that represents the longest self-contained narrative arc w
 - Choose the point that creates the most complete, self-contained chapter
 - Prefer later messages that still complete the arc (avoid cutting mid-beat)`,
   userContent: `# Message Range for Auto-Summarize
-First valid message ID: {{firstValidId}}
-Last valid message ID: {{lastValidId}}
+First valid message ID: {{ firstValidId }}
+Last valid message ID: {{ lastValidId }}
 
 # Messages in Range:
-{{messagesInRange}}
+{{ messagesInRange }}
 
 Select the single best chapter endpoint from this range.`,
 }
@@ -64,11 +70,11 @@ For each chapter, create a concise summary that includes ONLY:
 - Dialogue excerpts (unless pivotal)
 - Stylistic or thematic analysis
 - Personal interpretations or opinions`,
-  userContent: `{{previousContext}}Summarize this story chapter and extract metadata.
+  userContent: `{{ previousContext }}Summarize this story chapter and extract metadata.
 
 CHAPTER CONTENT:
 """
-{{chapterContent}}
+{{ chapterContent }}
 """`,
 }
 
@@ -90,21 +96,21 @@ Guidelines:
   userContent: `Based on the user's input and current scene, decide which past chapters are relevant.
 
 USER INPUT:
-"{{userInput}}"
+"{{ userInput }}"
 
 CURRENT SCENE (last few messages):
 """
-{{recentContext}}
+{{ recentContext }}
 """
 
 CHAPTER SUMMARIES:
-{{chapterSummaries}}
+{{ chapterSummaries }}
 
 
 Guidelines:
 - Only include chapters that are ACTUALLY relevant to the current context
 - Often, no chapters need to be queried - return empty arrays if nothing is relevant
-- Maximum {{maxChaptersPerRetrieval}} chapters per query
+- Maximum {{ maxChaptersPerRetrieval }} chapters per query
 - Consider: characters mentioned, locations being revisited, plot threads referenced`,
 }
 
@@ -136,9 +142,9 @@ Guidelines:
 
 Use your tools to review the story and make necessary changes. When finished, call finish_lore_management with a summary.`,
   userContent: `# Current Lorebook Entries
-{{entrySummary}}
-{{recentStorySection}}# Chapter Summaries
-{{chapterSummary}}
+{{ entrySummary }}
+{{ recentStorySection }}# Chapter Summaries
+{{ chapterSummary }}
 
 Please review the story content and identify:
 1. Important elements that should have entries but don't
@@ -149,8 +155,9 @@ Use the available tools to make necessary changes, then call finish_lore_managem
 }
 
 /**
- * Interactive Lorebook prompt template
- * AI-assisted lorebook creation and organization in the vault
+ * Interactive Lorebook prompt template (EXTERNAL)
+ * AI-assisted lorebook creation and organization in the vault.
+ * This is an external template -- services inject data programmatically.
  */
 export const interactiveLorebookPromptTemplate: PromptTemplate = {
   id: 'interactive-lorebook',
@@ -228,16 +235,16 @@ The chapterSummary is crucial - it's how information from past chapters reaches 
   userContent: `# Current Situation
 
 USER INPUT:
-"{{userInput}}"
+"{{ userInput }}"
 
 RECENT SCENE:
-{{recentContext}}
+{{ recentContext }}
 
-# Available Chapters: {{chaptersCount}}
-{{chapterList}}
+# Available Chapters: {{ chaptersCount }}
+{{ chapterList }}
 
-# Lorebook Entries: {{entriesCount}}
-{{entryList}}
+# Lorebook Entries: {{ entriesCount }}
+{{ entryList }}
 
 Please gather relevant context from past chapters that will help respond to this situation. Focus on information that is actually needed - often, no retrieval is necessary for simple actions.`,
 }

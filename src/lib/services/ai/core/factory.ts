@@ -152,7 +152,7 @@ export class ServiceFactory {
    * Used for "analyzed" mode where LLM identifies imageable scenes in narrative.
    */
   createImageAnalysisService(): ImageAnalysisService {
-    const presetId = settings.getServicePresetId('imageAnalysis')
+    const presetId = settings.getServicePresetId('imageGeneration')
     return new ImageAnalysisService(presetId)
   }
 

@@ -12,7 +12,7 @@ import type { Character, Location, Item, StoryBeat, StoryEntry, Chapter } from '
 import { createLogger } from '../core/config'
 import { generateStructured } from '../sdk/generate'
 import { entitySelectionSchema } from '../sdk/schemas/context'
-import { promptService } from '$lib/services/prompts'
+import { ContextBuilder as ContextPipeline } from '$lib/services/context'
 
 const log = createLogger('ContextBuilder')
 
@@ -376,27 +376,9 @@ export class ContextBuilder {
       .map((e) => e.content)
       .join('\n\n')
 
-    const system = promptService.renderPrompt('tier3-entry-selection', {
-      mode: 'adventure',
-      pov: 'second',
-      tense: 'present',
-      protagonistName: '',
-    })
-
-    const prompt = promptService.renderUserPrompt(
-      'tier3-entry-selection',
-      {
-        mode: 'adventure',
-        pov: 'second',
-        tense: 'present',
-        protagonistName: '',
-      },
-      {
-        recentContent,
-        userInput,
-        entrySummaries,
-      },
-    )
+    const ctx = new ContextPipeline()
+    ctx.add({ recentContent, userInput, entrySummaries })
+    const { system, user: prompt } = await ctx.render('tier3-entry-selection')
 
     try {
       const result = await generateStructured(

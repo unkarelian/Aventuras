@@ -18,7 +18,6 @@ import { extractPicTags, type ParsedPicTag } from '$lib/utils/inlineImageParser'
 import { generateImage as sdkGenerateImage } from '$lib/services/ai/sdk/generate'
 import { PROVIDERS } from '$lib/services/ai/sdk/providers/config'
 import { database } from '$lib/services/database'
-import { promptService } from '$lib/services/prompts'
 import { settings } from '$lib/stores/settings.svelte'
 import { emitImageQueued, emitImageReady } from '$lib/services/events'
 import { normalizeImageDataUrl } from '$lib/utils/image'
@@ -74,7 +73,10 @@ export class InlineImageTracker {
         characters: tag.characters,
       })
 
-      this.startGeneration(tag, referenceMode)
+      // Fire-and-forget: style prompt fetch + generation start is async
+      this.startGeneration(tag, referenceMode).catch((error) => {
+        log('startGeneration failed', { error })
+      })
     }
   }
 
@@ -82,7 +84,7 @@ export class InlineImageTracker {
    * Start image generation for a tag. The generation runs async and stores
    * the result in pendingImages for later DB persistence.
    */
-  private startGeneration(tag: ParsedPicTag, referenceMode: boolean): void {
+  private async startGeneration(tag: ParsedPicTag, referenceMode: boolean): Promise<void> {
     const imageSettings = settings.systemServicesSettings.imageGeneration
 
     const imageId = crypto.randomUUID()
@@ -124,7 +126,7 @@ export class InlineImageTracker {
     if (!capabilities?.imageGeneration) return
 
     // Build full prompt with style
-    const stylePrompt = this.getStylePrompt(imageSettings.styleId)
+    const stylePrompt = await this.getStylePrompt(imageSettings.styleId)
     const fullPrompt = `${tag.prompt}. ${stylePrompt}`
 
     log('Starting async image generation', {
@@ -188,18 +190,13 @@ export class InlineImageTracker {
   }
 
   /**
-   * Get the style prompt for the selected style ID
+   * Get the style prompt for the selected style ID.
+   * Image style templates are external (raw text) -- fetched directly from the database.
    */
-  private getStylePrompt(styleId: string): string {
+  private async getStylePrompt(styleId: string): Promise<string> {
     try {
-      const promptContext = {
-        mode: 'adventure' as const,
-        pov: 'second' as const,
-        tense: 'present' as const,
-        protagonistName: '',
-      }
-      const customized = promptService.getPrompt(styleId, promptContext)
-      if (customized) return customized
+      const template = await database.getPackTemplate('default-pack', styleId)
+      if (template?.content) return template.content
     } catch {
       // Template not found
     }

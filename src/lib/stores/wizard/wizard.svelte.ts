@@ -374,7 +374,7 @@ export class WizardStore {
           : undefined,
     }
 
-    const storyData = scenarioService.prepareStoryData(wizardData, processedOpening)
+    const storyData = await scenarioService.prepareStoryData(wizardData, processedOpening)
 
     if (storyData.protagonist) {
       storyData.protagonist.portrait = this.image.protagonistPortrait ?? undefined

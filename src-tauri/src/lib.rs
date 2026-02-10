@@ -153,7 +153,13 @@ pub fn run() {
             description: "story_bg_image",
             sql: include_str!("../migrations/024_background_images.sql"),
             kind: MigrationKind::Up,
-        }
+        },
+        Migration {
+            version: 25,
+            description: "preset_packs",
+            sql: include_str!("../migrations/025_preset_packs.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     #[cfg(debug_assertions)] // only enable instrumentation in development builds

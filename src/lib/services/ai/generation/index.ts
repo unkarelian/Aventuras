@@ -20,6 +20,9 @@ export {
   NarrativeService,
   type NarrativeWorldState,
   type NarrativeOptions,
+  type WorldStateContext,
+  buildChapterSummariesBlock,
+  formatStoryTime,
 } from './NarrativeService'
 
 // Classification
