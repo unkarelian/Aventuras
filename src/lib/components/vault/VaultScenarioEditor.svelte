@@ -43,6 +43,8 @@
   let alternateGreetings = $derived<string[]>([...scenario.alternateGreetings])
   let tags = $derived<string[]>([...scenario.tags])
 
+  const isCreating = $derived(scenario.name === '' && scenario.settingSeed === '')
+
   let saving = $state(false)
   let error = $state<string | null>(null)
 
@@ -146,8 +148,12 @@
           <MapPin class="text-primary h-5 w-5" />
         </div>
         <div>
-          <h2 class="text-lg font-semibold">Edit Scenario</h2>
-          <p class="text-muted-foreground text-sm">Modify your scenario settings and characters.</p>
+          <h2 class="text-lg font-semibold">{isCreating ? 'New Scenario' : 'Edit Scenario'}</h2>
+          <p class="text-muted-foreground text-sm">
+            {isCreating
+              ? 'Fill in the details to create your scenario.'
+              : 'Modify your scenario settings and characters.'}
+          </p>
         </div>
       </div>
     </ResponsiveModal.Header>
@@ -421,7 +427,7 @@
           {:else}
             <Save class=" h-4 w-4" />
           {/if}
-          Save Changes
+          {isCreating ? 'Create Scenario' : 'Save Changes'}
         </Button>
       </div>
     </ResponsiveModal.Footer>

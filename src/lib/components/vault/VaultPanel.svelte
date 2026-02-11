@@ -16,8 +16,10 @@
     Globe,
     MapPin,
     Tags,
+    Bot,
   } from 'lucide-svelte'
   import UniversalVaultCard from './UniversalVaultCard.svelte'
+  import InteractiveVaultAssistant from './InteractiveVaultAssistant.svelte'
   import VaultCharacterForm from './VaultCharacterForm.svelte'
   import VaultLorebookEditor from './VaultLorebookEditor.svelte'
   import VaultScenarioEditor from './VaultScenarioEditor.svelte'
@@ -61,6 +63,7 @@
 
   let showDiscoveryModal = $state(false)
   let discoveryMode = $state<VaultType>('character')
+  let showVaultAssistant = $state(false)
 
   // Configuration
   interface VaultSectionConfig {
@@ -120,7 +123,8 @@
       emptyIcon: MapPin,
       emptyTitle: 'No scenarios in vault yet',
       emptyDesc: 'Import character cards to extract scenario settings.',
-      // No create action for scenarios currently
+      createLabel: 'New Scenario',
+      createAction: handleCreateScenario,
       importLabel: 'Import Card',
       importAction: handleImportScenario,
     },
@@ -236,6 +240,24 @@
     editingLorebook = newLorebook
   }
 
+  async function handleCreateScenario() {
+    const newScenario = await scenarioVault.add({
+      name: '',
+      description: null,
+      settingSeed: '',
+      npcs: [],
+      primaryCharacterName: '',
+      firstMessage: null,
+      alternateGreetings: [],
+      tags: [],
+      favorite: false,
+      source: 'manual',
+      originalFilename: null,
+      metadata: null,
+    })
+    editingScenario = newScenario
+  }
+
   function handleImportScenario(event: Event) {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
@@ -292,6 +314,15 @@
 
       <!-- Right Side Actions -->
       <div class="flex items-center gap-2">
+        <Button
+          icon={Bot}
+          label="Vault Assistant"
+          variant="outline"
+          size="sm"
+          class="h-9"
+          onclick={() => (showVaultAssistant = true)}
+        />
+
         <Button
           icon={Tags}
           label="Tags"
@@ -500,4 +531,9 @@
 <!-- Tag Manager Modal -->
 {#if showTagManager}
   <TagManager open={showTagManager} onOpenChange={(v) => (showTagManager = v)} />
+{/if}
+
+<!-- Vault Assistant Overlay -->
+{#if showVaultAssistant}
+  <InteractiveVaultAssistant onClose={() => (showVaultAssistant = false)} />
 {/if}

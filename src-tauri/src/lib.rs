@@ -153,6 +153,12 @@ pub fn run() {
             description: "story_bg_image",
             sql: include_str!("../migrations/024_background_images.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 25,
+            description: "vault_assistant_conversations",
+            sql: include_str!("../migrations/025_vault_assistant_conversations.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 

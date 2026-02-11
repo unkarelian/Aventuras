@@ -250,57 +250,59 @@
           >
             {#each tabs as tab (tab.id)}
               <TabsContent value={tab.id} class="mt-0">
-                <div
-                  class={activeTab === tab.id && slideDirection === 'left'
-                    ? 'slide-in-right'
-                    : activeTab === tab.id && slideDirection === 'right'
-                      ? 'slide-in-left'
-                      : ''}
-                >
-                  {#if tab.id === 'api'}
-                    <ApiConnectionTab />
-                  {:else if tab.id === 'generation'}
-                    <GenerationTab onOpenManualBodyEditor={openManualBodyEditor} />
-                  {:else if tab.id === 'interface'}
-                    <InterfaceTab />
-                  {:else if tab.id === 'prompts'}
-                    <PromptsTab openImportModal={() => (promptImportModalOpen = true)} />
-                  {:else if tab.id === 'images'}
-                    <ImagesTab />
-                  {:else if tab.id === 'tts'}
-                    <TTSSettings />
-                  {:else if tab.id === 'advanced'}
-                    <div class="space-y-6">
-                      <AdvancedSettings />
+                {#if activeTab === tab.id}
+                  <div
+                    class={slideDirection === 'left'
+                      ? 'slide-in-right'
+                      : slideDirection === 'right'
+                        ? 'slide-in-left'
+                        : ''}
+                  >
+                    {#if tab.id === 'api'}
+                      <ApiConnectionTab />
+                    {:else if tab.id === 'generation'}
+                      <GenerationTab onOpenManualBodyEditor={openManualBodyEditor} />
+                    {:else if tab.id === 'interface'}
+                      <InterfaceTab />
+                    {:else if tab.id === 'prompts'}
+                      <PromptsTab openImportModal={() => (promptImportModalOpen = true)} />
+                    {:else if tab.id === 'images'}
+                      <ImagesTab />
+                    {:else if tab.id === 'tts'}
+                      <TTSSettings />
+                    {:else if tab.id === 'advanced'}
+                      <div class="space-y-6">
+                        <AdvancedSettings />
 
-                      <div
-                        class="border-destructive/50 flex items-center justify-between rounded-lg border p-4"
-                      >
-                        <div class="space-y-0.5">
-                          <p class="text-destructive font-medium">Reset All Settings</p>
-                          <p class="text-muted-foreground text-xs">
-                            Resets all settings to defaults. API key is preserved.
-                          </p>
-                        </div>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onclick={handleResetAll}
-                          disabled={isResettingSettings}
+                        <div
+                          class="border-destructive/50 flex items-center justify-between rounded-lg border p-4"
                         >
-                          {#if isResettingSettings}
-                            <Loader2 class="mr-2 h-4 w-4 animate-spin" />
-                            Resetting...
-                          {:else}
-                            <RotateCcw class="mr-2 h-4 w-4" />
-                            Reset
-                          {/if}
-                        </Button>
+                          <div class="space-y-0.5">
+                            <p class="text-destructive font-medium">Reset All Settings</p>
+                            <p class="text-muted-foreground text-xs">
+                              Resets all settings to defaults. API key is preserved.
+                            </p>
+                          </div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onclick={handleResetAll}
+                            disabled={isResettingSettings}
+                          >
+                            {#if isResettingSettings}
+                              <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+                              Resetting...
+                            {:else}
+                              <RotateCcw class="mr-2 h-4 w-4" />
+                              Reset
+                            {/if}
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  {/if}
-                </div></TabsContent
-              >
+                    {/if}
+                  </div>
+                {/if}
+              </TabsContent>
             {/each}
           </Tabs>
         </div>

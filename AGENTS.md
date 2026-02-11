@@ -87,7 +87,7 @@ Services updated to accept `presetId` and use `settings.getPresetConfig(presetId
 8. AgenticRetrievalService ✅
 9. EntryRetrievalService ✅
 10. ImageGenerationService ✅
-11. InteractiveLorebookService ✅
+11. InteractiveVaultService ✅
 
 ### Completed (Phase 2: Service-Specific Settings)
 - Added `serviceSpecificSettings` state property to SettingsStore

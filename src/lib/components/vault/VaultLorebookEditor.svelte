@@ -15,13 +15,11 @@
     Brain,
     Calendar,
     EyeOff,
-    Bot,
     Settings,
     List,
     Maximize2,
     Minimize2,
   } from 'lucide-svelte'
-  import InteractiveLorebookChat from './InteractiveLorebookChat.svelte'
   import TagInput from '$lib/components/tags/TagInput.svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
@@ -53,7 +51,6 @@
   let saving = $state(false)
   let error = $state<string | null>(null)
   let activeTab = $state('editor')
-  let showInteractiveChat = $state(false)
   let isMaximized = $state(false)
 
   // Filtered entries
@@ -262,26 +259,6 @@
             Settings
           </Tabs.Trigger>
         </Tabs.List>
-
-        <div class="flex items-center gap-2 pr-2">
-          {#if name.trim()}
-            <Button
-              variant={showInteractiveChat ? 'secondary' : 'ghost'}
-              size="sm"
-              class="gap-2"
-              onclick={() => (showInteractiveChat = !showInteractiveChat)}
-            >
-              {#if showInteractiveChat}
-                <X class="h-4 w-4" />
-              {:else}
-                <Bot class="h-4 w-4" />
-              {/if}
-              <span class="hidden sm:inline"
-                >{showInteractiveChat ? 'Close Chat' : 'AI Assistant'}</span
-              >
-            </Button>
-          {/if}
-        </div>
       </div>
 
       <!-- Main Content Area -->
@@ -563,26 +540,6 @@
             </div>
           </Tabs.Content>
         </div>
-
-        <!-- Interactive Chat Sidebar -->
-        {#if showInteractiveChat && name.trim()}
-          <div
-            class={cn(
-              'bg-background md:border-border absolute inset-0 z-50  flex flex-col transition-all duration-200 md:static md:border-l',
-              isMaximized ? 'md:w-[50%]' : 'md:w-[400px]',
-            )}
-          >
-            <InteractiveLorebookChat
-              {entries}
-              lorebookName={name}
-              onEntriesChange={(newEntries) => {
-                entries = newEntries
-              }}
-              onClose={() => (showInteractiveChat = false)}
-              onSave={handleSilentSave}
-            />
-          </div>
-        {/if}
       </div>
     </Tabs.Root>
 

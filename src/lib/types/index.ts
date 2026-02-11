@@ -884,3 +884,11 @@ export interface VaultTag {
   color: string
   createdAt: number
 }
+
+export interface VaultConversation {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messages: string // JSON blob — parsed by the service layer into ModelMessage[]
+}

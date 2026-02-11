@@ -1,5 +1,6 @@
 <script lang="ts">
   import { settings } from '$lib/stores/settings.svelte'
+  import { database } from '$lib/services/database'
   import { THEMES } from '../../../../themes/themes'
   import { Switch } from '$lib/components/ui/switch'
   import { Label } from '$lib/components/ui/label'
@@ -96,6 +97,7 @@
       checked={settings.uiSettings.showWordCount}
       onCheckedChange={(v) => {
         settings.uiSettings.showWordCount = v
+        database.setSetting('show_word_count', v.toString())
       }}
     />
   </div>

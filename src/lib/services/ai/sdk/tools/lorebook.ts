@@ -2,12 +2,12 @@
  * Lorebook CRUD Tools
  *
  * Tool definitions for lorebook entry management.
- * These tools are used by LoreManagementService and InteractiveLorebookService.
+ * These tools are used by LoreManagementService and InteractiveVaultService.
  */
 
 import { tool } from 'ai'
 import { z } from 'zod'
-import type { VaultLorebookEntry } from '$lib/types'
+import type { VaultLorebook, VaultLorebookEntry } from '$lib/types'
 import {
   entryTypeSchema,
   injectionModeSchema,
@@ -450,3 +450,98 @@ export function createLorebookTools(context: LorebookToolContext) {
 }
 
 export type LorebookTools = ReturnType<typeof createLorebookTools>
+
+// ============================================================================
+// Vault-Level Lorebook Browsing Tools
+// ============================================================================
+
+/**
+ * Context for vault-level lorebook browsing tools.
+ * Provides access to all lorebooks in the vault (not entries within one).
+ */
+export interface VaultLorebookBrowsingContext {
+  /** Getter for all vault lorebooks (live, not snapshot) */
+  lorebooks: () => VaultLorebook[]
+}
+
+/**
+ * Create vault-level lorebook browsing tools.
+ * These complement the existing entry-level tools by providing
+ * cross-lorebook visibility.
+ */
+export function createLorebookBrowsingTools(context: VaultLorebookBrowsingContext) {
+  const { lorebooks } = context
+
+  return {
+    /**
+     * List all vault lorebooks with summaries.
+     */
+    list_lorebooks: tool({
+      description:
+        'List all lorebooks in the vault with summaries including name, entry count, type breakdown, and tags.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const all = lorebooks()
+        return {
+          lorebooks: all.map((lb) => {
+            const entryBreakdown: Record<string, number> = {}
+            for (const entry of lb.entries) {
+              entryBreakdown[entry.type] = (entryBreakdown[entry.type] ?? 0) + 1
+            }
+
+            return {
+              id: lb.id,
+              name: lb.name,
+              description: lb.description?.slice(0, 200) ?? null,
+              entryCount: lb.entries.length,
+              entryBreakdown,
+              tags: lb.tags,
+              favorite: lb.favorite,
+            }
+          }),
+          total: all.length,
+        }
+      },
+    }),
+
+    /**
+     * Read a lorebook's metadata and entry list without full descriptions.
+     */
+    read_lorebook_summary: tool({
+      description:
+        "Read a lorebook's metadata and entry list. Returns entry names, types, and keywords without full descriptions. Use read_entry for full details.",
+      inputSchema: z.object({
+        lorebookId: z.string().describe('The ID of the lorebook to read'),
+      }),
+      execute: async ({ lorebookId }: { lorebookId: string }) => {
+        const lorebook = lorebooks().find((lb) => lb.id === lorebookId)
+
+        if (!lorebook) {
+          return { found: false, error: `Lorebook with ID "${lorebookId}" not found` }
+        }
+
+        return {
+          found: true,
+          lorebook: {
+            id: lorebook.id,
+            name: lorebook.name,
+            description: lorebook.description,
+            tags: lorebook.tags,
+            favorite: lorebook.favorite,
+            source: lorebook.source,
+            entryCount: lorebook.entries.length,
+            entries: lorebook.entries.map((e, index) => ({
+              index,
+              name: e.name,
+              type: e.type,
+              keywords: e.keywords,
+              injectionMode: e.injectionMode,
+            })),
+          },
+        }
+      },
+    }),
+  }
+}
+
+export type LorebookBrowsingTools = ReturnType<typeof createLorebookBrowsingTools>

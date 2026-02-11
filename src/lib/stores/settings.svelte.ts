@@ -312,9 +312,9 @@ export function getDefaultLoreManagementSettingsForProvider(
   }
 }
 
-// Interactive Lorebook service settings (AI-assisted lorebook creation in vault)
-// Note: System prompt is managed via the Prompts tab (template id: 'interactive-lorebook')
-export interface InteractiveLorebookSettings {
+// Interactive Vault service settings (AI-assisted vault management)
+// Note: System prompt is managed via the Prompts tab (template id: 'interactive-vault')
+export interface InteractiveVaultSettings {
   presetId?: string
   profileId: string | null // API profile to use (null = use main narrative profile)
   model: string
@@ -323,13 +323,13 @@ export interface InteractiveLorebookSettings {
   manualBody: string
 }
 
-export function getDefaultInteractiveLorebookSettings(): InteractiveLorebookSettings {
-  return getDefaultInteractiveLorebookSettingsForProvider('openrouter')
+export function getDefaultInteractiveVaultSettings(): InteractiveVaultSettings {
+  return getDefaultInteractiveVaultSettingsForProvider('openrouter')
 }
 
-export function getDefaultInteractiveLorebookSettingsForProvider(
+export function getDefaultInteractiveVaultSettingsForProvider(
   provider: ProviderType,
-): InteractiveLorebookSettings {
+): InteractiveVaultSettings {
   const preset = getPresetDefaults(provider, 'agentic')
   return {
     presetId: 'agentic',
@@ -702,7 +702,7 @@ export interface StyleReviewerSpecificSettings {}
 export interface LoreManagementSpecificSettings {}
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface InteractiveLorebookSpecificSettings {}
+export interface InteractiveVaultSpecificSettings {}
 
 export interface AgenticRetrievalSpecificSettings {
   maxIterations: number
@@ -780,7 +780,7 @@ export interface ServiceSpecificSettings {
   actionChoices: ActionChoicesSpecificSettings
   styleReviewer: StyleReviewerSpecificSettings
   loreManagement: LoreManagementSpecificSettings
-  interactiveLorebook: InteractiveLorebookSpecificSettings
+  interactiveVault: InteractiveVaultSpecificSettings
   agenticRetrieval: AgenticRetrievalSpecificSettings
   timelineFill: TimelineFillSpecificSettings
   chapterQuery: ChapterQuerySpecificSettings
@@ -801,7 +801,7 @@ export function getDefaultServiceSpecificSettings(): ServiceSpecificSettings {
     actionChoices: getDefaultActionChoicesSpecificSettings(),
     styleReviewer: getDefaultStyleReviewerSpecificSettings(),
     loreManagement: getDefaultLoreManagementSpecificSettings(),
-    interactiveLorebook: getDefaultInteractiveLorebookSpecificSettings(),
+    interactiveVault: getDefaultInteractiveVaultSpecificSettings(),
     agenticRetrieval: getDefaultAgenticRetrievalSpecificSettings(),
     timelineFill: getDefaultTimelineFillSpecificSettings(),
     chapterQuery: getDefaultChapterQuerySpecificSettings(),
@@ -843,7 +843,7 @@ export function getDefaultLoreManagementSpecificSettings(): LoreManagementSpecif
   return {}
 }
 
-export function getDefaultInteractiveLorebookSpecificSettings(): InteractiveLorebookSpecificSettings {
+export function getDefaultInteractiveVaultSpecificSettings(): InteractiveVaultSpecificSettings {
   return {}
 }
 
@@ -925,7 +925,7 @@ export interface SystemServicesSettings {
   actionChoices: ActionChoicesSettings
   styleReviewer: StyleReviewerSettings
   loreManagement: LoreManagementSettings
-  interactiveLorebook: InteractiveLorebookSettings
+  interactiveVault: InteractiveVaultSettings
   agenticRetrieval: AgenticRetrievalSettings
   timelineFill: TimelineFillSettings
   chapterQuery: ChapterQuerySettings
@@ -944,7 +944,7 @@ export function getDefaultSystemServicesSettings(): SystemServicesSettings {
     actionChoices: getDefaultActionChoicesSettings(),
     styleReviewer: getDefaultStyleReviewerSettings(),
     loreManagement: getDefaultLoreManagementSettings(),
-    interactiveLorebook: getDefaultInteractiveLorebookSettings(),
+    interactiveVault: getDefaultInteractiveVaultSettings(),
     agenticRetrieval: getDefaultAgenticRetrievalSettings(),
     timelineFill: getDefaultTimelineFillSettings(),
     chapterQuery: getDefaultChapterQuerySettings(),
@@ -966,7 +966,7 @@ export function getDefaultSystemServicesSettingsForProvider(
     actionChoices: getDefaultActionChoicesSettingsForProvider(provider),
     styleReviewer: getDefaultStyleReviewerSettingsForProvider(provider),
     loreManagement: getDefaultLoreManagementSettingsForProvider(provider),
-    interactiveLorebook: getDefaultInteractiveLorebookSettingsForProvider(provider),
+    interactiveVault: getDefaultInteractiveVaultSettingsForProvider(provider),
     agenticRetrieval: getDefaultAgenticRetrievalSettingsForProvider(provider),
     timelineFill: getDefaultTimelineFillSettingsForProvider(provider),
     chapterQuery: getDefaultChapterQuerySettingsForProvider(provider),
@@ -1152,7 +1152,7 @@ class SettingsStore {
     styleReviewer: 'suggestions',
     loreManagement: 'agentic',
     agenticRetrieval: 'agentic',
-    interactiveLorebook: 'agentic',
+    interactiveVault: 'agentic',
     imageGeneration: 'suggestions',
     imageAnalysis: 'suggestions',
     bgImageGeneration: 'suggestions',
@@ -1527,7 +1527,7 @@ class SettingsStore {
             actionChoices: getDefaultActionChoicesSpecificSettings(),
             styleReviewer: getDefaultStyleReviewerSpecificSettings(),
             loreManagement: getDefaultLoreManagementSpecificSettings(),
-            interactiveLorebook: getDefaultInteractiveLorebookSpecificSettings(),
+            interactiveVault: getDefaultInteractiveVaultSpecificSettings(),
             agenticRetrieval: {
               ...getDefaultAgenticRetrievalSpecificSettings(),
               ...loaded.agenticRetrieval,
@@ -1575,7 +1575,10 @@ class SettingsStore {
             imageGeneration: { ...defaults.imageGeneration, ...loaded.imageGeneration },
             tts: { ...defaults.tts, ...loaded.tts },
             characterCardImport: { ...defaults.characterCardImport, ...loaded.characterCardImport },
-            interactiveLorebook: { ...defaults.interactiveLorebook, ...loaded.interactiveLorebook },
+            interactiveVault: {
+              ...defaults.interactiveVault,
+              ...(loaded.interactiveVault ?? loaded.interactiveLorebook),
+            },
           }
 
           const isMissingProfileId = (profileId: string | null | undefined): boolean => {
@@ -2657,9 +2660,10 @@ class SettingsStore {
     await this.saveSystemServicesSettings()
   }
 
-  async resetInteractiveLorebookSettings() {
-    this.systemServicesSettings.interactiveLorebook =
-      getDefaultInteractiveLorebookSettingsForProvider(this.providerPreset)
+  async resetInteractiveVaultSettings() {
+    this.systemServicesSettings.interactiveVault = getDefaultInteractiveVaultSettingsForProvider(
+      this.providerPreset,
+    )
     await this.saveSystemServicesSettings()
   }
 
@@ -3151,10 +3155,7 @@ class SettingsStore {
       settingsMatch(this.systemServicesSettings.chapterQuery, defaults.chapterQuery) &&
       settingsMatch(this.systemServicesSettings.entryRetrieval, defaults.entryRetrieval) &&
       settingsMatch(this.systemServicesSettings.lorebookClassifier, defaults.lorebookClassifier) &&
-      settingsMatch(
-        this.systemServicesSettings.interactiveLorebook,
-        defaults.interactiveLorebook,
-      ) &&
+      settingsMatch(this.systemServicesSettings.interactiveVault, defaults.interactiveVault) &&
       settingsMatch(this.systemServicesSettings.characterCardImport, defaults.characterCardImport)
     )
   }

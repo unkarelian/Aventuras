@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteMap } from 'svelte/reactivity'
   import { settings } from '$lib/stores/settings.svelte'
   import type { GenerationPreset } from '$lib/types'
   import { ask } from '@tauri-apps/plugin-dialog'
@@ -139,10 +140,10 @@
       description: 'Active context search',
     },
     {
-      id: 'interactiveLorebook',
-      label: 'Interactive Lore',
+      id: 'interactiveVault',
+      label: 'Vault Assistant',
       icon: BookOpen,
-      description: 'Assists creating entries',
+      description: 'AI vault assistant',
     },
     // Wizard tasks
     {
@@ -258,7 +259,7 @@
     // Agentic
     loreManagement: 'agentic',
     agenticRetrieval: 'agentic',
-    interactiveLorebook: 'agentic',
+    interactiveVault: 'agentic',
     // Wizard
     'wizard:settingExpansion': 'wizard',
     'wizard:settingRefinement': 'wizard',
@@ -287,14 +288,23 @@
     return reasoningLevels[clamped]
   }
 
-  function getServicesForProfile(profileId: string | 'custom') {
-    return systemServices.filter((service) => {
-      const assignedPresetId = settings.servicePresetAssignments[service.id]
-      if (profileId === 'custom') {
-        return !assignedPresetId
+  // Memoized: compute service-to-profile mapping once per reactive update
+  let servicesByProfile = $derived.by(() => {
+    const map = new SvelteMap<string, (typeof systemServices)[number][]>()
+    for (const service of systemServices) {
+      const key = settings.servicePresetAssignments[service.id] || 'custom'
+      let arr = map.get(key)
+      if (!arr) {
+        arr = []
+        map.set(key, arr)
       }
-      return assignedPresetId === profileId
-    })
+      arr.push(service)
+    }
+    return map
+  })
+
+  function getServicesForProfile(profileId: string | 'custom') {
+    return servicesByProfile.get(profileId) ?? []
   }
 
   function createNewPreset() {

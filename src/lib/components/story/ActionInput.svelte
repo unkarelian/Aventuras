@@ -584,7 +584,10 @@
           }
         }
 
-        if (event.type === 'error' && event.fatal) break
+        if (event.type === 'error' && event.fatal) {
+          console.error('[ActionInput] Fatal pipeline error:', event.error)
+          break
+        }
       }
 
       ui.updateActivationData(activationTracker, currentStoryRef.id)
@@ -618,6 +621,7 @@
         .catch((err) => log('Background tasks failed (non-fatal)', err))
     } catch (error) {
       if (stopRequested || (error instanceof Error && error.name === 'AbortError')) return
+      console.error('[ActionInput] Generation error:', error)
       const errorMessage =
         error instanceof Error ? error.message : 'Failed to generate response. Please try again.'
       const errorEntry = await story.addEntry('system', `Generation failed: ${errorMessage}`)
