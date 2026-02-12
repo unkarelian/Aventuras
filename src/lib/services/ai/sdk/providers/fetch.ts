@@ -54,7 +54,14 @@ export function createTimeoutFetch(
 
     init?.signal?.addEventListener('abort', () => controller.abort())
     const startTime = Date.now()
-    const parsedBody = JSON.parse(init?.body?.toString() || '{}')
+    let parsedBody: unknown = {}
+    if (typeof init?.body === 'string') {
+      try {
+        parsedBody = JSON.parse(init.body)
+      } catch {
+        parsedBody = { raw: init.body.slice(0, 200) }
+      }
+    }
     const debugId = ui.addDebugRequest(
       serviceId,
       {
@@ -90,7 +97,7 @@ export function createTimeoutFetch(
 
       const text = await response.text()
 
-      if (!parsedBody.stream) {
+      if (!(parsedBody as Record<string, unknown>).stream) {
         let responsePayload
         try {
           responsePayload = JSON.parse(text)

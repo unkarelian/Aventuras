@@ -12,8 +12,10 @@
  */
 
 import type { Character, EmbeddedImage } from '$lib/types'
-import { generateImage as sdkGenerateImage } from '$lib/services/ai/sdk/generate'
-import { PROVIDERS } from '$lib/services/ai/sdk/providers/config'
+import {
+  generateImage as registryGenerateImage,
+  supportsImageGeneration,
+} from './providers/registry'
 import { database } from '$lib/services/database'
 import { promptService } from '$lib/services/prompts'
 import { settings } from '$lib/stores/settings.svelte'
@@ -42,16 +44,13 @@ export class InlineImageGenerationService {
   static isEnabled(): boolean {
     const imageSettings = settings.systemServicesSettings.imageGeneration
 
-    // Check if we have a valid profile for image generation
     const profileId = imageSettings.profileId
     if (!profileId) return false
 
-    const profile = settings.getProfile(profileId)
+    const profile = settings.getImageProfile(profileId)
     if (!profile) return false
 
-    // Check if provider supports image generation
-    const capabilities = PROVIDERS[profile.providerType].capabilities
-    return capabilities?.imageGeneration ?? false
+    return supportsImageGeneration(profile.providerType)
   }
 
   /**
@@ -111,7 +110,7 @@ export class InlineImageGenerationService {
 
     // Determine which profile and model to use
     let profileId = imageSettings.profileId
-    let modelToUse = imageSettings.model
+    let modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
     let sizeToUse = imageSettings.size
     let referenceImageUrls: string[] | undefined
 
@@ -138,7 +137,7 @@ export class InlineImageGenerationService {
       if (portraitUrls.length > 0) {
         // Use reference profile and model for img2img
         profileId = imageSettings.referenceProfileId
-        modelToUse = imageSettings.referenceModel
+        modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
         sizeToUse = imageSettings.referenceSize
         referenceImageUrls = portraitUrls
         log('Using character portraits as reference', {
@@ -264,7 +263,7 @@ export class InlineImageGenerationService {
       })
 
       // Generate image using SDK
-      const result = await sdkGenerateImage({
+      const result = await registryGenerateImage({
         profileId,
         model,
         prompt,

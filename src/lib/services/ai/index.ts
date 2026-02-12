@@ -68,7 +68,7 @@ import {
   emitBackgroundImageReady,
 } from '$lib/services/events'
 import { database } from '$lib/services/database'
-import { generateImage as sdkGenerateImage } from './sdk/generate'
+import { generateImage as registryGenerateImage } from './image/providers/registry'
 import { normalizeImageDataUrl } from '$lib/utils/image'
 import type { ImageableScene } from './sdk/schemas/imageanalysis'
 import type { EmbeddedImage } from '$lib/types'
@@ -930,7 +930,7 @@ class AIService {
 
     // Determine profile and model
     let profileId = imageSettings.profileId
-    let modelToUse = imageSettings.model
+    let modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
     let sizeToUse = imageSettings.size
     let referenceImageUrls: string[] | undefined
     let styleId: string | undefined = imageSettings.styleId
@@ -956,7 +956,7 @@ class AIService {
         }
         // Use reference profile and model for img2img
         profileId = imageSettings.referenceProfileId
-        modelToUse = imageSettings.referenceModel
+        modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
         sizeToUse = imageSettings.referenceSize
         referenceImageUrls = portraitUrls
         styleId = imageSettings.styleId
@@ -974,7 +974,7 @@ class AIService {
         return
       }
       profileId = imageSettings.portraitProfileId
-      modelToUse = imageSettings.portraitModel
+      modelToUse = settings.getImageProfile(profileId ?? '')?.model ?? ''
       sizeToUse = imageSettings.portraitSize
       styleId = imageSettings.portraitStyleId
     }
@@ -1059,7 +1059,7 @@ class AIService {
       })
 
       // Generate image using SDK
-      const result = await sdkGenerateImage({
+      const result = await registryGenerateImage({
         profileId,
         model,
         prompt,

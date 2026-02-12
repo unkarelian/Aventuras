@@ -321,7 +321,7 @@
 
     log('Starting portrait generation', {
       characterName: character.name,
-      model: imageSettings.portraitModel,
+      model: settings.getImageProfile(imageSettings.portraitProfileId ?? '')?.model ?? '',
       styleId: imageSettings.portraitStyleId,
     })
 

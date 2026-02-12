@@ -8,6 +8,8 @@ import type {
   GenerationPreset,
   TranslationSettings,
   ProviderType,
+  ImageProfile,
+  ImageProviderType,
 } from '$lib/types'
 import { database } from '$lib/services/database'
 import {
@@ -21,7 +23,7 @@ import type { ReasoningEffort } from '$lib/types'
 import { ui } from '$lib/stores/ui.svelte'
 import { getTheme } from '../../themes/themes'
 import { LLM_TIMEOUT_DEFAULT, LLM_TIMEOUT_MIN, LLM_TIMEOUT_MAX } from '$lib/constants/timeout'
-import { SvelteSet } from 'svelte/reactivity'
+import { SvelteSet, SvelteMap } from 'svelte/reactivity'
 
 // Provider preset type (used by WelcomeScreen)
 export type ProviderPreset = 'openrouter' | 'nanogpt' | 'openai-compatible'
@@ -507,12 +509,10 @@ export function getDefaultUpdateSettings(): UpdateSettings {
 export interface ImageGenerationServiceSettings {
   // Profile-based image generation (profiles must have supportsImageGeneration capability)
   profileId: string | null // API profile for standard image generation
-  model: string // Image model for the selected profile
   size: string // Regular image size
 
   // Reference model settings (for image-to-image with portrait references)
   referenceProfileId: string | null // API profile for image-to-image with portrait references
-  referenceModel: string // Model for image generation with reference
   referenceSize: string // Reference image size
 
   // General story image settings
@@ -521,7 +521,6 @@ export interface ImageGenerationServiceSettings {
 
   // Portrait model settings (character reference images)
   portraitProfileId: string | null // API profile for generating character portraits
-  portraitModel: string // Model for generating character portraits
   portraitStyleId: string // Selected character portrait style template
   portraitSize: string // Portrait image size
 
@@ -535,7 +534,6 @@ export interface ImageGenerationServiceSettings {
 
   // Background image settings
   backgroundProfileId: string | null // API profile for background image generation
-  backgroundModel: string // Model for background image generation
   backgroundSize: string // Background image size (default: '1280x720')
   backgroundBlur: number // Background blur amount in pixels (default: 0)
 }
@@ -543,7 +541,6 @@ export interface ImageGenerationServiceSettings {
 export function getDefaultImageGenerationSettings(): ImageGenerationServiceSettings {
   return {
     profileId: null, // User must select an image-capable profile
-    model: 'flux', // Common default across providers
     styleId: 'image-style-soft-anime',
     portraitStyleId: 'image-style-soft-anime',
     size: '1024x1024',
@@ -551,9 +548,7 @@ export function getDefaultImageGenerationSettings(): ImageGenerationServiceSetti
     portraitSize: '512x512',
     maxImagesPerMessage: 3,
     portraitProfileId: null,
-    portraitModel: 'flux',
     referenceProfileId: null,
-    referenceModel: 'kontext', // Common reference/editing model
     promptProfileId: null, // Use default profile for scene analysis
     promptModel: '', // Empty = use profile default
     promptTemperature: 0.3,
@@ -561,7 +556,6 @@ export function getDefaultImageGenerationSettings(): ImageGenerationServiceSetti
     reasoningEffort: 'high',
     manualBody: '',
     backgroundProfileId: null,
-    backgroundModel: 'z-image-turbo',
     backgroundSize: '1280x720',
     backgroundBlur: 2, // Default blur for atmosphere
   }
@@ -1138,6 +1132,9 @@ class SettingsStore {
   // Translation settings
   translationSettings = $state<TranslationSettings>(getDefaultTranslationSettings())
 
+  // Image profiles (dedicated image provider configurations)
+  imageProfiles = $state<ImageProfile[]>([])
+
   // Service preset assignments - which preset each service uses
   servicePresetAssignments = $state<Record<string, string>>({
     classifier: 'classification',
@@ -1669,6 +1666,9 @@ class SettingsStore {
           this.translationSettings = getDefaultTranslationSettings()
         }
       }
+
+      // Load image profiles
+      await this.loadImageProfiles()
 
       // Load prompt settings and initialize the prompt service
       const promptSettingsJson = await database.getSetting('prompt_settings')
@@ -2307,37 +2307,87 @@ class SettingsStore {
   }
 
   /**
-   * Ensure default image generation profiles are set for all categories.
-   * This runs automatically on app start via init().
+   * Auto-migrate existing API Profile references to Image Profiles.
+   * On first load after the rework, if imageProfiles is empty but imageGeneration
+   * settings have API profile IDs, create Image Profiles from those API Profiles.
    */
   async migrateImageProfileDefaults() {
+    if (this.imageProfiles.length > 0) return
+
     const imgSettings = this.systemServicesSettings.imageGeneration
-    const profiles = this.apiSettings.profiles.filter(
-      (p) => PROVIDERS[p.providerType]?.capabilities.imageGeneration,
-    )
+    // Map each profile field to its corresponding old model field
+    // The old model fields (model, referenceModel, portraitModel, backgroundModel) have been
+    // removed from the type but may still exist in persisted user data
+    const profileFieldMap: Record<string, string> = {
+      profileId: 'model',
+      referenceProfileId: 'referenceModel',
+      portraitProfileId: 'portraitModel',
+      backgroundProfileId: 'backgroundModel',
+    }
 
-    if (profiles.length > 0) {
-      let changed = false
-      const defaultProfileId = profiles[0].id
+    // Map from "apiProfileId:model" → new Image Profile ID
+    const newProfileIds = new SvelteMap<string, string>()
+    let changed = false
 
-      const profileFields: (keyof typeof imgSettings)[] = [
-        'profileId',
-        'portraitProfileId',
-        'referenceProfileId',
-        'backgroundProfileId',
-      ]
+    for (const [profileField, modelField] of Object.entries(profileFieldMap)) {
+      const apiProfileId = (imgSettings as unknown as Record<string, unknown>)[profileField] as
+        | string
+        | undefined
+      const model = (imgSettings as unknown as Record<string, unknown>)[modelField] as
+        | string
+        | undefined
 
-      for (const field of profileFields) {
-        if (!imgSettings[field]) {
-          ;(imgSettings as any)[field] = defaultProfileId
-          changed = true
-        }
+      if (!apiProfileId || !model) continue
+
+      const uniqueKey = `${apiProfileId}:${model}`
+      if (newProfileIds.has(uniqueKey)) {
+        ;(imgSettings as unknown as Record<string, unknown>)[profileField] =
+          newProfileIds.get(uniqueKey)!
+        changed = true
+        continue
       }
 
-      if (changed) {
-        await this.saveSystemServicesSettings()
-        console.log('[Settings] Automatically set default image generation profiles')
+      const apiProfile = this.getProfile(apiProfileId)
+      if (!apiProfile) continue
+
+      // Map ProviderType to ImageProviderType (only for image-capable providers)
+      const providerType = apiProfile.providerType as string
+      const imageProviderTypes = ['nanogpt', 'openai', 'chutes', 'pollinations', 'google', 'zhipu']
+      if (!imageProviderTypes.includes(providerType)) continue
+
+      const newProfile = await this.addImageProfile({
+        name: `${apiProfile.name} (${model})`,
+        providerType: providerType as ImageProviderType,
+        apiKey: apiProfile.apiKey ?? '',
+        baseUrl: apiProfile.baseUrl,
+        model: model,
+        providerOptions: {},
+      })
+
+      newProfileIds.set(uniqueKey, newProfile.id)
+      ;(imgSettings as unknown as Record<string, unknown>)[profileField] = newProfile.id
+      changed = true
+    }
+
+    if (changed) {
+      await this.saveSystemServicesSettings()
+      console.log(
+        '[Settings] Auto-migrated image generation profiles from API Profiles to Image Profiles',
+      )
+    }
+
+    // Ensure all existing image profiles have a model field
+    let profilesUpdated = false
+    for (const profile of this.imageProfiles) {
+      if (!profile.model) {
+        profile.model = 'flux'
+        profilesUpdated = true
       }
+    }
+    if (profilesUpdated) {
+      this.imageProfiles = [...this.imageProfiles]
+      await this.saveImageProfiles()
+      console.log('[Settings] Migrated image profiles to include model field')
     }
   }
 
@@ -2608,6 +2658,56 @@ class SettingsStore {
   async resetTranslationSettings() {
     this.translationSettings = getDefaultTranslationSettings()
     await this.saveTranslationSettings()
+  }
+
+  // ===== Image Profile Management =====
+
+  async saveImageProfiles() {
+    await database.setSetting('image_profiles', JSON.stringify(this.imageProfiles))
+  }
+
+  async loadImageProfiles() {
+    const json = await database.getSetting('image_profiles')
+    if (json) {
+      try {
+        const parsed = JSON.parse(json) as ImageProfile[]
+        this.imageProfiles = parsed.map((p) => ({
+          ...p,
+          providerOptions: p.providerOptions ?? {},
+        }))
+      } catch {
+        this.imageProfiles = []
+      }
+    }
+  }
+
+  async addImageProfile(profile: Omit<ImageProfile, 'id' | 'createdAt'>): Promise<ImageProfile> {
+    const newProfile: ImageProfile = {
+      ...profile,
+      id: crypto.randomUUID(),
+      createdAt: Date.now(),
+    }
+    this.imageProfiles = [...this.imageProfiles, newProfile]
+    await this.saveImageProfiles()
+    return newProfile
+  }
+
+  async updateImageProfile(id: string, updates: Partial<Omit<ImageProfile, 'id' | 'createdAt'>>) {
+    const index = this.imageProfiles.findIndex((p) => p.id === id)
+    if (index === -1) return
+    this.imageProfiles[index] = { ...this.imageProfiles[index], ...updates }
+    this.imageProfiles = [...this.imageProfiles]
+    await this.saveImageProfiles()
+  }
+
+  async deleteImageProfile(id: string): Promise<boolean> {
+    this.imageProfiles = this.imageProfiles.filter((p) => p.id !== id)
+    await this.saveImageProfiles()
+    return true
+  }
+
+  getImageProfile(id: string): ImageProfile | undefined {
+    return this.imageProfiles.find((p) => p.id === id)
   }
 
   async resetClassifierSettings() {

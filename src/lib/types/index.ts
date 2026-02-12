@@ -725,6 +725,28 @@ export interface UpdateSettings {
   lastChecked: number | null // Timestamp of last check
 }
 
+// ===== Image Provider & Profile System =====
+
+export type ImageProviderType =
+  | 'nanogpt'
+  | 'openai'
+  | 'chutes'
+  | 'pollinations'
+  | 'google'
+  | 'zhipu'
+  | 'comfyui'
+
+export interface ImageProfile {
+  id: string
+  name: string
+  providerType: ImageProviderType
+  apiKey: string
+  baseUrl?: string
+  model: string
+  providerOptions: Record<string, unknown>
+  createdAt: number
+}
+
 // ===== Image Generation System =====
 
 export type EmbeddedImageStatus = 'pending' | 'generating' | 'complete' | 'failed'
