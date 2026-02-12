@@ -92,7 +92,13 @@ export class ContextBuilder {
     log('render', { templateId, packId: this.packId })
 
     const systemTemplate = await database.getPackTemplate(this.packId, templateId)
+    if (!systemTemplate) {
+      log('WARNING: system template not found', { templateId, packId: this.packId })
+    }
     const userTemplate = await database.getPackTemplate(this.packId, `${templateId}-user`)
+    if (!userTemplate) {
+      log('WARNING: user template not found', { templateId: `${templateId}-user`, packId: this.packId })
+    }
 
     const system = systemTemplate?.content ? templateEngine.render(systemTemplate.content, this.context) : ''
     const user = userTemplate?.content ? templateEngine.render(userTemplate.content, this.context) : ''
