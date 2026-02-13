@@ -1537,8 +1537,7 @@ class StoryStore {
     }
 
     // COW: ensure new protagonist is owned by current branch
-    const newProtag = this.characters.find((c) => c.id === newCharacterId) ?? newProtagonist
-    const { entity: ownedNew } = await this.cowCharacter(newProtag)
+    const { entity: ownedNew } = await this.cowCharacter(newProtagonist)
     await database.updateCharacter(ownedNew.id, { relationship: 'self' })
 
     this.characters = this.characters.map((c) => {
