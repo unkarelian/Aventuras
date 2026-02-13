@@ -29,6 +29,7 @@
   import { tagStore } from '$lib/stores/tags.svelte'
   import { fade } from 'svelte/transition'
   import PromptPackList from './prompts/PromptPackList.svelte'
+  import PromptPackEditor from './prompts/PromptPackEditor.svelte'
 
   // Shared Components
   import EmptyState from '$lib/components/ui/empty-state/empty-state.svelte'
@@ -57,6 +58,10 @@
   let filterLogic = $state<'AND' | 'OR'>('OR')
   let showTagManager = $state(false)
   let showCreatePackDialog = $state(false)
+
+  // Prompts tab view state
+  type PromptsViewState = { mode: 'browsing' } | { mode: 'editing'; packId: string }
+  let promptsViewState = $state<PromptsViewState>({ mode: 'browsing' })
 
   // Modal States
   let showCharForm = $state(false)
@@ -270,9 +275,15 @@
   }
 
   function handleOpenPack(packId: string) {
-    // Will be implemented in Plan 03 (editor view state)
-    console.log('Open pack:', packId)
+    promptsViewState = { mode: 'editing', packId }
   }
+
+  // Reset prompts view when switching away from Prompts tab
+  $effect(() => {
+    if (activeTab !== 'prompts') {
+      promptsViewState = { mode: 'browsing' }
+    }
+  })
 </script>
 
 <Tabs
@@ -302,7 +313,7 @@
 
       <!-- Right Side Actions -->
       <div class="flex items-center gap-2">
-        {#if activeTab === 'prompts'}
+        {#if activeTab === 'prompts' && promptsViewState.mode === 'browsing'}
           <Tooltip.Root>
             <Tooltip.Trigger>
               <Button
@@ -326,7 +337,7 @@
             class="h-9"
             onclick={() => (showCreatePackDialog = true)}
           />
-        {:else}
+        {:else if activeTab !== 'prompts'}
           <Button
             icon={Tags}
             label="Tags"
@@ -514,11 +525,23 @@
     value="prompts"
     class="m-0 flex-1 overflow-hidden p-0 outline-none data-[state=inactive]:hidden"
   >
-    <ScrollArea class="h-full">
-      <div class="flex min-h-full flex-col px-4 pb-36 sm:pb-16">
-        <PromptPackList onOpenPack={handleOpenPack} bind:showCreateDialog={showCreatePackDialog} />
-      </div>
-    </ScrollArea>
+    {#if promptsViewState.mode === 'browsing'}
+      <ScrollArea class="h-full">
+        <div class="flex min-h-full flex-col px-4 pb-36 sm:pb-16">
+          <PromptPackList
+            onOpenPack={handleOpenPack}
+            bind:showCreateDialog={showCreatePackDialog}
+          />
+        </div>
+      </ScrollArea>
+    {:else}
+      <PromptPackEditor
+        packId={promptsViewState.packId}
+        onClose={() => {
+          promptsViewState = { mode: 'browsing' }
+        }}
+      />
+    {/if}
   </TabsContent>
 </Tabs>
 
