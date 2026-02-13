@@ -32,7 +32,7 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { type UnlistenFn } from '@tauri-apps/api/event'
 import { settings } from './settings.svelte'
 
-export type VaultTab = 'characters' | 'lorebooks' | 'scenarios'
+export type VaultTab = 'characters' | 'lorebooks' | 'scenarios' | 'prompts'
 
 // Debug log entry for request/response logging
 export interface DebugLogEntry {

@@ -40,7 +40,7 @@
   import { cn } from '$lib/utils/cn'
 
   // Types
-  type VaultTab = 'characters' | 'lorebooks' | 'scenarios'
+  import type { VaultTab } from '$lib/stores/ui.svelte'
   type VaultType = 'character' | 'lorebook' | 'scenario'
 
   type AnyVaultItem = VaultCharacter | VaultLorebook | VaultScenario

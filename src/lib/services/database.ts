@@ -2644,6 +2644,15 @@ class DatabaseService {
     return results[0].count === 0
   }
 
+  async getPackUsageCount(packId: string): Promise<number> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>(
+      'SELECT COUNT(*) as count FROM stories WHERE pack_id = ?',
+      [packId],
+    )
+    return results[0].count
+  }
+
   // ===== Pack Template Operations =====
 
   async getPackTemplates(packId: string): Promise<PackTemplate[]> {
