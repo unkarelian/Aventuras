@@ -8,6 +8,7 @@ import type {
   GenerationPreset,
   TranslationSettings,
   ProviderType,
+  ExperimentalFeatures,
 } from '$lib/types'
 import { database } from '$lib/services/database'
 import {
@@ -793,6 +794,15 @@ export interface ServiceSpecificSettings {
   lorebookLimits: LorebookLimitsSettings
 }
 
+export function getDefaultExperimentalFeatures(): ExperimentalFeatures {
+  return {
+    stateTracking: false,
+    rollbackOnDelete: false,
+    lightweightBranches: false,
+    autoSnapshotInterval: 20,
+  }
+}
+
 export function getDefaultServiceSpecificSettings(): ServiceSpecificSettings {
   return {
     classifier: getDefaultClassifierSpecificSettings(),
@@ -1173,6 +1183,8 @@ class SettingsStore {
 
   serviceSpecificSettings = $state<ServiceSpecificSettings>(getDefaultServiceSpecificSettings())
 
+  experimentalFeatures = $state<ExperimentalFeatures>(getDefaultExperimentalFeatures())
+
   // Generation Presets (Profiles)
   generationPresets = $state<GenerationPreset[]>([
     {
@@ -1545,6 +1557,20 @@ class SettingsStore {
             characterCardImport: getDefaultCharacterCardImportSpecificSettings(),
             contextWindow: { ...getDefaultContextWindowSettings(), ...loaded.contextWindow },
             lorebookLimits: { ...getDefaultLorebookLimitsSettings(), ...loaded.lorebookLimits },
+          }
+        } catch {
+          // Keep defaults
+        }
+      }
+
+      // Load experimental features
+      const experimentalJson = await database.getSetting('experimental_features')
+      if (experimentalJson) {
+        try {
+          const loaded = JSON.parse(experimentalJson)
+          this.experimentalFeatures = {
+            ...getDefaultExperimentalFeatures(),
+            ...loaded,
           }
         } catch {
           // Keep defaults
@@ -2593,6 +2619,42 @@ class SettingsStore {
   async resetServiceSpecificSettings() {
     this.serviceSpecificSettings = getDefaultServiceSpecificSettings()
     await this.saveServiceSpecificSettings()
+  }
+
+  // Experimental features methods
+  async saveExperimentalFeatures() {
+    await database.setSetting('experimental_features', JSON.stringify(this.experimentalFeatures))
+  }
+
+  async updateExperimentalFeatures(updates: Partial<ExperimentalFeatures>) {
+    // Enforce dependencies: rollbackOnDelete requires stateTracking
+    if (
+      updates.rollbackOnDelete &&
+      !this.experimentalFeatures.stateTracking &&
+      !updates.stateTracking
+    ) {
+      updates.rollbackOnDelete = false
+    }
+    // lightweightBranches requires stateTracking
+    if (
+      updates.lightweightBranches &&
+      !this.experimentalFeatures.stateTracking &&
+      !updates.stateTracking
+    ) {
+      updates.lightweightBranches = false
+    }
+    // Disabling stateTracking cascades
+    if (updates.stateTracking === false) {
+      updates.rollbackOnDelete = false
+      updates.lightweightBranches = false
+    }
+    this.experimentalFeatures = { ...this.experimentalFeatures, ...updates }
+    await this.saveExperimentalFeatures()
+  }
+
+  async resetExperimentalFeatures() {
+    this.experimentalFeatures = getDefaultExperimentalFeatures()
+    await this.saveExperimentalFeatures()
   }
 
   // Translation settings methods

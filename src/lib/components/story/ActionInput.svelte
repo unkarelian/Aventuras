@@ -215,6 +215,14 @@
     }
   })
 
+  // Auto-regenerate suggestions/actions after time-travel delete when no saved actions found
+  $effect(() => {
+    if (ui.suggestionsRegenerationNeeded && !ui.isGenerating && story.entries.length > 0) {
+      ui.suggestionsRegenerationNeeded = false
+      regenerateActionsAfterDelete()
+    }
+  })
+
   // ============================================================================
   // Builder Functions
   // ============================================================================
@@ -453,6 +461,18 @@
           storyId: currentStoryRef.id,
         }
 
+        const persistSuggestedActions = (actions: unknown[], type: 'suggestions' | 'choices') => {
+          if (narrationEntry && actions.length > 0) {
+            database
+              .updateStoryEntry(narrationEntry.id, {
+                suggestedActions: JSON.stringify(actions),
+              })
+              .catch((err) =>
+                console.warn(`[ActionInput] Failed to save suggested ${type} to entry:`, err),
+              )
+          }
+        }
+
         const eventCallbacks: PipelineUICallbacks = {
           startStreaming: ui.startStreaming.bind(ui),
           appendStreamContent: ui.appendStreamContent.bind(ui),
@@ -460,8 +480,14 @@
           setGenerationStatus: ui.setGenerationStatus.bind(ui),
           setSuggestionsLoading: ui.setSuggestionsLoading.bind(ui),
           setActionChoicesLoading: ui.setActionChoicesLoading.bind(ui),
-          setSuggestions: ui.setSuggestions.bind(ui),
-          setActionChoices: ui.setActionChoices.bind(ui),
+          setSuggestions: (suggestions, storyId) => {
+            ui.setSuggestions(suggestions, storyId)
+            persistSuggestedActions(suggestions, 'suggestions')
+          },
+          setActionChoices: (choices, storyId) => {
+            ui.setActionChoices(choices, storyId)
+            persistSuggestedActions(choices, 'choices')
+          },
           emitResponseStreaming: (chunk, accumulated) => {
             eventBus.emit<ResponseStreamingEvent>({
               type: 'ResponseStreaming',
@@ -505,7 +531,7 @@
             messageId: narrationEntry.id,
             result: event.result,
           })
-          await story.applyClassificationResult(event.result)
+          await story.applyClassificationResult(event.result, narrationEntry.id)
           await story.updateEntryTimeEnd(narrationEntry.id)
 
           if (currentStoryRef.settings?.imageGenerationMode !== 'none') {
@@ -644,6 +670,79 @@
   // Event Handlers
   // ============================================================================
 
+  /**
+   * Regenerate suggestions or action choices after a time-travel delete
+   * when no previously saved actions were found on the restored entry.
+   */
+  async function regenerateActionsAfterDelete() {
+    if (!story.currentStory || story.entries.length === 0) return
+
+    const storyMode = story.storyMode
+
+    if (storyMode === 'creative-writing') {
+      // For creative-writing mode, use the existing refresh mechanism
+      await refreshSuggestions()
+    } else if (storyMode === 'adventure') {
+      // For adventure mode, generate new action choices
+      if (settings.uiSettings.disableSuggestions) return
+
+      ui.setActionChoicesLoading(true)
+      try {
+        const lastNarration = [...story.entries].reverse().find((e) => e.type === 'narration')
+        if (!lastNarration) {
+          ui.setActionChoicesLoading(false)
+          return
+        }
+
+        const protagonist = story.characters.find((c) => c.relationship === 'self')
+        const promptContext: import('$lib/services/generation/phases/PostGenerationPhase').PromptContext =
+          {
+            mode: 'adventure',
+            pov: story.pov,
+            tense: story.tense,
+            protagonistName: protagonist?.name || 'the protagonist',
+            genre: story.currentStory.genre ?? undefined,
+            settingDescription: story.currentStory.description ?? undefined,
+            tone: story.currentStory.settings?.tone ?? undefined,
+            themes: story.currentStory.settings?.themes ?? undefined,
+          }
+
+        const worldState = {
+          characters: story.characters,
+          locations: story.locations,
+          items: story.items,
+          storyBeats: story.storyBeats,
+        }
+
+        const lorebookEntries = story.lorebookEntries
+        const result = await aiService.generateActionChoices(
+          story.entries,
+          worldState,
+          lastNarration.content,
+          lorebookEntries,
+          promptContext,
+          story.pov,
+        )
+
+        if (result.choices.length > 0) {
+          ui.setActionChoices(result.choices, story.currentStory!.id)
+          // Also save to the last narration entry for future time-travel
+          database
+            .updateStoryEntry(lastNarration.id, {
+              suggestedActions: JSON.stringify(result.choices),
+            })
+            .catch((err) =>
+              console.warn('[ActionInput] Failed to save regenerated action choices:', err),
+            )
+        }
+      } catch (error) {
+        console.warn('[ActionInput] Failed to regenerate action choices after delete:', error)
+      } finally {
+        ui.setActionChoicesLoading(false)
+      }
+    }
+  }
+
   async function refreshSuggestions() {
     if (!story.currentStory) return
 
@@ -675,6 +774,17 @@
       })
       ui.setSuggestions(result.suggestions, story.currentStory.id)
       emitSuggestionsReady(result.suggestions.map((s) => ({ text: s.text, type: s.type })))
+      // Persist refreshed suggestions to the latest narration entry for time-travel restore
+      const lastNarration = [...story.entries].reverse().find((e) => e.type === 'narration')
+      if (lastNarration && result.suggestions.length > 0) {
+        database
+          .updateStoryEntry(lastNarration.id, {
+            suggestedActions: JSON.stringify(result.suggestions),
+          })
+          .catch((err) =>
+            console.warn('[ActionInput] Failed to save refreshed suggestions to entry:', err),
+          )
+      }
     } catch (error) {
       log('Failed to generate suggestions:', error)
       ui.clearSuggestions(story.currentStory.id)
