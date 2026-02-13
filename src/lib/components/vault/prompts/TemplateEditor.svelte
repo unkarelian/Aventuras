@@ -15,7 +15,9 @@
   import { Button } from '$lib/components/ui/button'
   import { Badge } from '$lib/components/ui/badge'
   import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates'
-  import { Save, Undo2, RotateCcw, AlertTriangle, CircleCheck } from 'lucide-svelte'
+  import { Save, Undo2, RotateCcw, AlertTriangle, CircleCheck, Eye, Pencil } from 'lucide-svelte'
+  import TemplatePreview from './TemplatePreview.svelte'
+  import { createIsMobile } from '$lib/hooks/is-mobile.svelte'
 
   interface Props {
     packId: string
@@ -36,6 +38,10 @@
   let validationErrors = $state<ValidationError[]>([])
   let editorView = $state<EditorView | null>(null)
   let loading = $state(true)
+
+  // Mobile detection and preview toggle
+  const isMobile = createIsMobile()
+  let mobileView = $state<'editor' | 'preview'>('editor')
 
   // Dirty tracking
   let isSystemDirty = $derived(systemContent !== originalSystem)
@@ -265,6 +271,29 @@
       {/if}
 
       <div class="ml-auto flex items-center gap-1">
+        {#if isMobile.current}
+          <div class="flex items-center rounded-md border">
+            <Button
+              variant={mobileView === 'editor' ? 'secondary' : 'ghost'}
+              size="sm"
+              class="h-7 rounded-r-none text-xs"
+              onclick={() => (mobileView = 'editor')}
+            >
+              <Pencil class="mr-1 h-3 w-3" />
+              Editor
+            </Button>
+            <Button
+              variant={mobileView === 'preview' ? 'secondary' : 'ghost'}
+              size="sm"
+              class="h-7 rounded-l-none text-xs"
+              onclick={() => (mobileView = 'preview')}
+            >
+              <Eye class="mr-1 h-3 w-3" />
+              Preview
+            </Button>
+          </div>
+        {/if}
+
         <VariablePalette {customVariables} onInsert={handleInsertVariable} />
 
         <Button
@@ -296,46 +325,63 @@
       </div>
     </div>
 
-    <!-- CodeMirror Editor -->
-    <div class="flex-1 overflow-hidden">
-      {#key `${templateId}-${activeTab}`}
-        <CodeMirror
-          value={currentContent}
-          onchange={handleContentChange}
-          lang={liquidLang}
-          theme={editorTheme}
-          lineWrapping
-          lineNumbers
-          onready={handleEditorReady}
-          styles={{
-            '&': { height: '100%' },
-          }}
-        />
-      {/key}
-    </div>
+    <!-- Editor + Preview content area -->
+    <div class="flex min-h-0 flex-1 {isMobile.current ? 'flex-col' : 'flex-row'}">
+      <!-- Editor column (CodeMirror + validation bar) -->
+      <div
+        class="flex min-h-0 flex-col overflow-hidden {isMobile.current ? 'flex-1' : 'flex-1'}"
+        class:hidden={isMobile.current && mobileView === 'preview'}
+      >
+        <!-- CodeMirror Editor -->
+        <div class="flex-1 overflow-hidden">
+          {#key `${templateId}-${activeTab}`}
+            <CodeMirror
+              value={currentContent}
+              onchange={handleContentChange}
+              lang={liquidLang}
+              theme={editorTheme}
+              lineWrapping
+              lineNumbers
+              onready={handleEditorReady}
+              styles={{
+                '&': { height: '100%' },
+              }}
+            />
+          {/key}
+        </div>
 
-    <!-- Validation bar -->
-    <div class="border-t px-4 py-2">
-      {#if validationErrors.length > 0}
-        <div class="flex flex-col gap-1">
-          {#each validationErrors as error (error.message)}
-            <div class="flex items-start gap-2 text-xs">
-              <AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-500" />
-              <span class="text-muted-foreground">
-                {error.message}
-                {#if error.line}
-                  <span class="text-muted-foreground/70">(line {error.line})</span>
-                {/if}
-              </span>
+        <!-- Validation bar -->
+        <div class="border-t px-4 py-2">
+          {#if validationErrors.length > 0}
+            <div class="flex flex-col gap-1">
+              {#each validationErrors as error (error.message)}
+                <div class="flex items-start gap-2 text-xs">
+                  <AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-500" />
+                  <span class="text-muted-foreground">
+                    {error.message}
+                    {#if error.line}
+                      <span class="text-muted-foreground/70">(line {error.line})</span>
+                    {/if}
+                  </span>
+                </div>
+              {/each}
             </div>
-          {/each}
+          {:else}
+            <div class="flex items-center gap-2 text-xs">
+              <CircleCheck class="h-3.5 w-3.5 text-green-500" />
+              <span class="text-muted-foreground">Template is valid</span>
+            </div>
+          {/if}
         </div>
-      {:else}
-        <div class="flex items-center gap-2 text-xs">
-          <CircleCheck class="h-3.5 w-3.5 text-green-500" />
-          <span class="text-muted-foreground">Template is valid</span>
-        </div>
-      {/if}
+      </div>
+
+      <!-- Preview column -->
+      <div
+        class="min-h-0 overflow-hidden {isMobile.current ? 'flex-1' : 'w-[45%] border-l'}"
+        class:hidden={isMobile.current && mobileView === 'editor'}
+      >
+        <TemplatePreview content={currentContent} {customVariables} />
+      </div>
     </div>
   </div>
 {/if}
