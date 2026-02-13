@@ -153,6 +153,24 @@ pub fn run() {
             description: "story_bg_image",
             sql: include_str!("../migrations/024_background_images.sql"),
             kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 25,
+            description: "world_state_deltas",
+            sql: include_str!("../migrations/025_world_state_deltas.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 26,
+            description: "cow_branches",
+            sql: include_str!("../migrations/026_cow_branches.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 27,
+            description: "entry_suggested_actions",
+            sql: include_str!("../migrations/027_entry_suggested_actions.sql"),
+            kind: MigrationKind::Up,
         }
     ];
 

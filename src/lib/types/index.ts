@@ -134,6 +134,10 @@ export interface StoryEntry {
   translatedContent?: string | null // Translated text for display
   translationLanguage?: string | null // Language code of translation
   originalInput?: string | null // Original user input before translation (for user_action type)
+  // Phase 1: World state delta tracking
+  worldStateDelta?: WorldStateDelta | null // World state changes caused by this entry's classification
+  // Persisted action suggestions/choices for time-travel restore
+  suggestedActions?: string | null // JSON blob: ActionChoice[] or Suggestion[] depending on story mode
 }
 
 export interface EntryMetadata {
@@ -160,6 +164,7 @@ export interface Character {
   status: 'active' | 'inactive' | 'deceased'
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this character belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -319,6 +324,7 @@ export interface Location {
   connections: string[]
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this location belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -335,6 +341,7 @@ export interface Item {
   location: string
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this item belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -352,6 +359,7 @@ export interface StoryBeat {
   resolvedAt?: number | null
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this beat belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
   // Translation fields
   translatedTitle?: string | null
   translatedDescription?: string | null
@@ -476,6 +484,7 @@ export interface Entry {
 
   // Branch support
   branchId: string | null // Branch this entry belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
 }
 
 export interface EntryInjection {
@@ -876,6 +885,108 @@ export interface TranslationSettings {
   translateNarration: boolean // Translate AI responses after generation
   translateUserInput: boolean // Translate user input to English for prompts
   translateWorldState: boolean // Translate world state UI elements
+}
+
+// ===== Experimental Features =====
+
+export interface ExperimentalFeatures {
+  /** Phase 1: Record world state deltas on story entries after classification */
+  stateTracking: boolean
+  /** Phase 2: Undo world state changes when deleting entries (cascade rollback) */
+  rollbackOnDelete: boolean
+  /** Phase 3: Copy-on-write branches instead of full entity duplication */
+  lightweightBranches: boolean
+  /** Number of entries between automatic world state snapshots (for fast rollback) */
+  autoSnapshotInterval: number
+}
+
+// ===== World State Delta Tracking (Phase 1) =====
+
+/** Snapshot of a character's mutable fields before a classification update */
+export interface CharacterBeforeState {
+  id: string
+  name: string
+  status: string
+  relationship: string | null
+  traits: string[]
+  visualDescriptors: VisualDescriptors
+}
+
+/** Snapshot of a location's mutable fields before a classification update */
+export interface LocationBeforeState {
+  id: string
+  name: string
+  visited: boolean
+  current: boolean
+  description: string | null
+}
+
+/** Snapshot of an item's mutable fields before a classification update */
+export interface ItemBeforeState {
+  id: string
+  name: string
+  quantity: number
+  equipped: boolean
+  location: string
+}
+
+/** Snapshot of a story beat's mutable fields before a classification update */
+export interface StoryBeatBeforeState {
+  id: string
+  title: string
+  status: string
+  description: string | null
+  resolvedAt: number | null
+}
+
+/**
+ * Records the complete world state change caused by a single classification.
+ * Stored as JSON on the story_entries.world_state_delta column.
+ * Contains enough information to fully undo the classification's effects.
+ */
+export interface WorldStateDelta {
+  /** The raw classification result that was applied (stored as-is for debugging/audit) */
+  classificationResult: Record<string, unknown>
+
+  /** Before-state of each entity that was UPDATED (for undo) */
+  previousState: {
+    characters: CharacterBeforeState[]
+    locations: LocationBeforeState[]
+    items: ItemBeforeState[]
+    storyBeats: StoryBeatBeforeState[]
+    /** ID of the location that was 'current' before this classification */
+    currentLocationId: string | null
+    /** Time tracker state before time progression was applied */
+    timeTracker: TimeTracker | null
+  }
+
+  /** IDs of entities CREATED by this classification (undo = delete these) */
+  createdEntities: {
+    characterIds: string[]
+    locationIds: string[]
+    itemIds: string[]
+    storyBeatIds: string[]
+  }
+}
+
+/**
+ * Periodic full snapshot of world state for fast rollback reconstruction.
+ * Instead of replaying all deltas from the start, rollback can start from the
+ * nearest snapshot and only replay/undo deltas from there.
+ */
+export interface WorldStateSnapshot {
+  id: string
+  storyId: string
+  branchId: string | null
+  entryId: string
+  entryPosition: number
+  charactersSnapshot: Character[]
+  locationsSnapshot: Location[]
+  itemsSnapshot: Item[]
+  storyBeatsSnapshot: StoryBeat[]
+  lorebookEntriesSnapshot?: Entry[]
+  timeTrackerSnapshot: TimeTracker | null
+  createdAt: number
 }
 
 export type VaultType = 'character' | 'lorebook' | 'scenario'

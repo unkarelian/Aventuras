@@ -23,6 +23,7 @@ import type {
   VaultTag,
   VaultType,
   VisualDescriptors,
+  WorldStateSnapshot,
 } from '$lib/types'
 
 /**
@@ -106,11 +107,49 @@ class DatabaseService {
     this.db = await Database.load('sqlite:aventura.db')
   }
 
+  /**
+   * Close the database connection. After calling this, the next
+   * getDb() / init() call will re-open the connection.
+   */
+  async close(): Promise<void> {
+    if (this.db) {
+      await this.db.close()
+      this.db = null
+    }
+  }
+
   private async getDb(): Promise<Database> {
     if (!this.db) {
       await this.init()
     }
     return this.db!
+  }
+
+  /**
+   * Execute a raw SQL query for debugging purposes.
+   * SELECT queries return rows; other queries return affected row count.
+   */
+  async rawQuery(
+    sql: string,
+  ): Promise<{ columns: string[]; rows: Record<string, unknown>[]; rowsAffected?: number }> {
+    const db = await this.getDb()
+    const trimmed = sql.trim().toUpperCase()
+    if (
+      trimmed.startsWith('SELECT') ||
+      trimmed.startsWith('PRAGMA') ||
+      trimmed.startsWith('EXPLAIN')
+    ) {
+      const rows = await db.select<Record<string, unknown>[]>(sql)
+      const columns = rows.length > 0 ? Object.keys(rows[0]) : []
+      return { columns, rows }
+    } else {
+      const result = await db.execute(sql)
+      return {
+        columns: ['rowsAffected'],
+        rows: [{ rowsAffected: result.rowsAffected }],
+        rowsAffected: result.rowsAffected,
+      }
+    }
   }
 
   // Settings operations
@@ -131,6 +170,26 @@ class DatabaseService {
   async deleteSetting(key: string): Promise<void> {
     const db = await this.getDb()
     await db.execute('DELETE FROM settings WHERE key = ?', [key])
+  }
+
+  async getAllSettings(): Promise<Record<string, string>> {
+    const db = await this.getDb()
+    const results = await db.select<{ key: string; value: string }[]>(
+      'SELECT key, value FROM settings',
+    )
+    const settings: Record<string, string> = {}
+    for (const row of results) {
+      settings[row.key] = row.value
+    }
+    return settings
+  }
+
+  async vacuumInto(destPath: string): Promise<void> {
+    const db = await this.getDb()
+    // VACUUM INTO doesn't support parameterized queries in most SQLite wrappers.
+    // Escape single quotes in the path to prevent SQL issues.
+    const escapedPath = destPath.replace(/'/g, "''")
+    await db.execute(`VACUUM INTO '${escapedPath}'`)
   }
 
   // Story operations
@@ -417,8 +476,8 @@ class DatabaseService {
     const db = await this.getDb()
     const now = Date.now()
     await db.execute(
-      `INSERT INTO story_entries (id, story_id, type, content, parent_id, position, created_at, metadata, branch_id, reasoning, translated_content, translation_language, original_input)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO story_entries (id, story_id, type, content, parent_id, position, created_at, metadata, branch_id, reasoning, translated_content, translation_language, original_input, world_state_delta, suggested_actions)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         entry.id,
         entry.storyId,
@@ -433,6 +492,8 @@ class DatabaseService {
         entry.translatedContent || null,
         entry.translationLanguage || null,
         entry.originalInput || null,
+        entry.worldStateDelta ? JSON.stringify(entry.worldStateDelta) : null,
+        entry.suggestedActions || null,
       ],
     )
     return { ...entry, createdAt: now }
@@ -521,6 +582,14 @@ class DatabaseService {
       setClauses.push('original_input = ?')
       values.push(updates.originalInput || null)
     }
+    if (updates.worldStateDelta !== undefined) {
+      setClauses.push('world_state_delta = ?')
+      values.push(updates.worldStateDelta ? JSON.stringify(updates.worldStateDelta) : null)
+    }
+    if (updates.suggestedActions !== undefined) {
+      setClauses.push('suggested_actions = ?')
+      values.push(updates.suggestedActions || null)
+    }
 
     if (setClauses.length === 0) return
     values.push(id)
@@ -567,8 +636,8 @@ class DatabaseService {
   async addCharacter(character: Character): Promise<void> {
     const db = await this.getDb()
     await db.execute(
-      `INSERT INTO characters (id, story_id, name, description, relationship, traits, visual_descriptors, portrait, status, metadata, branch_id, translated_name, translated_description, translated_relationship, translated_traits, translated_visual_descriptors, translation_language)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO characters (id, story_id, name, description, relationship, traits, visual_descriptors, portrait, status, metadata, branch_id, overrides_id, translated_name, translated_description, translated_relationship, translated_traits, translated_visual_descriptors, translation_language)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         character.id,
         character.storyId,
@@ -581,6 +650,7 @@ class DatabaseService {
         character.status,
         character.metadata ? JSON.stringify(character.metadata) : null,
         character.branchId || null,
+        character.overridesId || null,
         character.translatedName || null,
         character.translatedDescription || null,
         character.translatedRelationship || null,
@@ -695,8 +765,8 @@ class DatabaseService {
   async addLocation(location: Location): Promise<void> {
     const db = await this.getDb()
     await db.execute(
-      `INSERT INTO locations (id, story_id, name, description, visited, current, connections, metadata, branch_id, translated_name, translated_description, translation_language)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO locations (id, story_id, name, description, visited, current, connections, metadata, branch_id, overrides_id, translated_name, translated_description, translation_language)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         location.id,
         location.storyId,
@@ -707,6 +777,7 @@ class DatabaseService {
         JSON.stringify(location.connections),
         location.metadata ? JSON.stringify(location.metadata) : null,
         location.branchId || null,
+        location.overridesId || null,
         location.translatedName || null,
         location.translatedDescription || null,
         location.translationLanguage || null,
@@ -798,8 +869,8 @@ class DatabaseService {
   async addItem(item: Item): Promise<void> {
     const db = await this.getDb()
     await db.execute(
-      `INSERT INTO items (id, story_id, name, description, quantity, equipped, location, metadata, branch_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO items (id, story_id, name, description, quantity, equipped, location, metadata, branch_id, overrides_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         item.id,
         item.storyId,
@@ -810,6 +881,7 @@ class DatabaseService {
         item.location,
         item.metadata ? JSON.stringify(item.metadata) : null,
         item.branchId || null,
+        item.overridesId || null,
       ],
     )
   }
@@ -946,8 +1018,8 @@ class DatabaseService {
   async addStoryBeat(beat: StoryBeat): Promise<void> {
     const db = await this.getDb()
     await db.execute(
-      `INSERT INTO story_beats (id, story_id, title, description, type, status, triggered_at, resolved_at, metadata, branch_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO story_beats (id, story_id, title, description, type, status, triggered_at, resolved_at, metadata, branch_id, overrides_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         beat.id,
         beat.storyId,
@@ -959,6 +1031,7 @@ class DatabaseService {
         beat.resolvedAt ?? null,
         beat.metadata ? JSON.stringify(beat.metadata) : null,
         beat.branchId || null,
+        beat.overridesId || null,
       ],
     )
   }
@@ -1233,6 +1306,92 @@ class DatabaseService {
     }
   }
 
+  // ===== World State Snapshots (Phase 1) =====
+
+  async createWorldStateSnapshot(snapshot: WorldStateSnapshot): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      `INSERT INTO world_state_snapshots (
+        id, story_id, branch_id, entry_id, entry_position,
+        characters_snapshot, locations_snapshot, items_snapshot,
+        story_beats_snapshot, lorebook_entries_snapshot, time_tracker_snapshot,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        snapshot.id,
+        snapshot.storyId,
+        snapshot.branchId ?? null,
+        snapshot.entryId,
+        snapshot.entryPosition,
+        JSON.stringify(snapshot.charactersSnapshot),
+        JSON.stringify(snapshot.locationsSnapshot),
+        JSON.stringify(snapshot.itemsSnapshot),
+        JSON.stringify(snapshot.storyBeatsSnapshot),
+        snapshot.lorebookEntriesSnapshot ? JSON.stringify(snapshot.lorebookEntriesSnapshot) : null,
+        snapshot.timeTrackerSnapshot ? JSON.stringify(snapshot.timeTrackerSnapshot) : null,
+        snapshot.createdAt,
+      ],
+    )
+  }
+
+  async getWorldStateSnapshots(
+    storyId: string,
+    branchId: string | null,
+  ): Promise<WorldStateSnapshot[]> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>(
+      branchId === null
+        ? 'SELECT * FROM world_state_snapshots WHERE story_id = ? AND branch_id IS NULL ORDER BY entry_position ASC'
+        : 'SELECT * FROM world_state_snapshots WHERE story_id = ? AND branch_id = ? ORDER BY entry_position ASC',
+      branchId === null ? [storyId] : [storyId, branchId],
+    )
+    return results.map(this.mapWorldStateSnapshot)
+  }
+
+  async getLatestSnapshotBefore(
+    storyId: string,
+    branchId: string | null,
+    position: number,
+  ): Promise<WorldStateSnapshot | null> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>(
+      branchId === null
+        ? 'SELECT * FROM world_state_snapshots WHERE story_id = ? AND branch_id IS NULL AND entry_position <= ? ORDER BY entry_position DESC LIMIT 1'
+        : 'SELECT * FROM world_state_snapshots WHERE story_id = ? AND branch_id = ? AND entry_position <= ? ORDER BY entry_position DESC LIMIT 1',
+      branchId === null ? [storyId, position] : [storyId, branchId, position],
+    )
+    return results.length > 0 ? this.mapWorldStateSnapshot(results[0]) : null
+  }
+
+  async deleteWorldStateSnapshotsAfter(
+    storyId: string,
+    branchId: string | null,
+    position: number,
+  ): Promise<void> {
+    const db = await this.getDb()
+    if (branchId === null) {
+      await db.execute(
+        'DELETE FROM world_state_snapshots WHERE story_id = ? AND branch_id IS NULL AND entry_position > ?',
+        [storyId, position],
+      )
+    } else {
+      await db.execute(
+        'DELETE FROM world_state_snapshots WHERE story_id = ? AND branch_id = ? AND entry_position > ?',
+        [storyId, branchId, position],
+      )
+    }
+  }
+
+  async deleteWorldStateSnapshotsForBranch(branchId: string): Promise<void> {
+    const db = await this.getDb()
+    await db.execute('DELETE FROM world_state_snapshots WHERE branch_id = ?', [branchId])
+  }
+
+  async deleteWorldStateSnapshotsForStory(storyId: string): Promise<void> {
+    const db = await this.getDb()
+    await db.execute('DELETE FROM world_state_snapshots WHERE story_id = ?', [storyId])
+  }
+
   /**
    * Restore story state from a retry backup.
    * Similar to restoreCheckpoint but designed for the "retry last message" feature.
@@ -1422,6 +1581,222 @@ class DatabaseService {
     return results.map(this.mapEntry)
   }
 
+  // ===== COW Branch Resolution Methods =====
+
+  /**
+   * Resolve characters for a COW branch using lineage.
+   * Walks main entities → each ancestor branch → current branch,
+   * merging by canonical ID (overridesId ?? id). Later entries override earlier.
+   */
+  async getCharactersResolved(
+    storyId: string,
+    branchLineage: { id: string }[],
+  ): Promise<Character[]> {
+    const resolved = new Map<string, Character>()
+
+    // Load main entities
+    const mainEntities = await this.getCharactersForBranch(storyId, null)
+    for (const entity of mainEntities) {
+      resolved.set(entity.overridesId ?? entity.id, entity)
+    }
+
+    // Overlay each branch in lineage order (root → current)
+    for (const branch of branchLineage) {
+      const branchEntities = await this.getCharactersForBranch(storyId, branch.id)
+      for (const entity of branchEntities) {
+        resolved.set(entity.overridesId ?? entity.id, entity)
+      }
+    }
+
+    return Array.from(resolved.values())
+  }
+
+  /**
+   * Resolve locations for a COW branch using lineage.
+   */
+  async getLocationsResolved(
+    storyId: string,
+    branchLineage: { id: string }[],
+  ): Promise<Location[]> {
+    const resolved = new Map<string, Location>()
+
+    const mainEntities = await this.getLocationsForBranch(storyId, null)
+    for (const entity of mainEntities) {
+      resolved.set(entity.overridesId ?? entity.id, entity)
+    }
+
+    for (const branch of branchLineage) {
+      const branchEntities = await this.getLocationsForBranch(storyId, branch.id)
+      for (const entity of branchEntities) {
+        resolved.set(entity.overridesId ?? entity.id, entity)
+      }
+    }
+
+    return Array.from(resolved.values())
+  }
+
+  /**
+   * Resolve items for a COW branch using lineage.
+   */
+  async getItemsResolved(storyId: string, branchLineage: { id: string }[]): Promise<Item[]> {
+    const resolved = new Map<string, Item>()
+
+    const mainEntities = await this.getItemsForBranch(storyId, null)
+    for (const entity of mainEntities) {
+      resolved.set(entity.overridesId ?? entity.id, entity)
+    }
+
+    for (const branch of branchLineage) {
+      const branchEntities = await this.getItemsForBranch(storyId, branch.id)
+      for (const entity of branchEntities) {
+        resolved.set(entity.overridesId ?? entity.id, entity)
+      }
+    }
+
+    return Array.from(resolved.values())
+  }
+
+  /**
+   * Resolve story beats for a COW branch using lineage.
+   */
+  async getStoryBeatsResolved(
+    storyId: string,
+    branchLineage: { id: string }[],
+  ): Promise<StoryBeat[]> {
+    const resolved = new Map<string, StoryBeat>()
+
+    const mainEntities = await this.getStoryBeatsForBranch(storyId, null)
+    for (const entity of mainEntities) {
+      resolved.set(entity.overridesId ?? entity.id, entity)
+    }
+
+    for (const branch of branchLineage) {
+      const branchEntities = await this.getStoryBeatsForBranch(storyId, branch.id)
+      for (const entity of branchEntities) {
+        resolved.set(entity.overridesId ?? entity.id, entity)
+      }
+    }
+
+    return Array.from(resolved.values())
+  }
+
+  /**
+   * Resolve lorebook entries for a COW branch using lineage.
+   */
+  async getLorebookEntriesResolved(
+    storyId: string,
+    branchLineage: { id: string }[],
+  ): Promise<Entry[]> {
+    const resolved = new Map<string, Entry>()
+
+    const mainEntities = await this.getEntriesForBranch(storyId, null)
+    for (const entity of mainEntities) {
+      resolved.set(entity.overridesId ?? entity.id, entity)
+    }
+
+    for (const branch of branchLineage) {
+      const branchEntities = await this.getEntriesForBranch(storyId, branch.id)
+      for (const entity of branchEntities) {
+        resolved.set(entity.overridesId ?? entity.id, entity)
+      }
+    }
+
+    return Array.from(resolved.values())
+  }
+
+  /**
+   * Remove no-op COW overrides — override rows whose data columns
+   * are identical to the original they point to. Called after rollback
+   * to clean up redundant rows.
+   */
+  async cleanupNoopOverrides(storyId: string, branchId: string | null): Promise<number> {
+    const db = await this.getDb()
+    let totalDeleted = 0
+
+    // Characters: compare all data columns
+    const charResult = await db.execute(
+      `DELETE FROM characters WHERE id IN (
+        SELECT o.id FROM characters o
+        JOIN characters orig ON o.overrides_id = orig.id
+        WHERE o.story_id = ? AND o.branch_id ${branchId === null ? 'IS NULL' : '= ?'}
+          AND o.overrides_id IS NOT NULL
+          AND IFNULL(o.name,'') = IFNULL(orig.name,'')
+          AND IFNULL(o.description,'') = IFNULL(orig.description,'')
+          AND IFNULL(o.relationship,'') = IFNULL(orig.relationship,'')
+          AND IFNULL(o.traits,'') = IFNULL(orig.traits,'')
+          AND IFNULL(o.status,'') = IFNULL(orig.status,'')
+          AND IFNULL(o.metadata,'') = IFNULL(orig.metadata,'')
+          AND IFNULL(o.visual_descriptors,'') = IFNULL(orig.visual_descriptors,'')
+          AND IFNULL(o.portrait,'') = IFNULL(orig.portrait,'')
+      )`,
+      branchId === null ? [storyId] : [storyId, branchId],
+    )
+    totalDeleted += charResult.rowsAffected
+
+    // Locations: compare all data columns
+    const locResult = await db.execute(
+      `DELETE FROM locations WHERE id IN (
+        SELECT o.id FROM locations o
+        JOIN locations orig ON o.overrides_id = orig.id
+        WHERE o.story_id = ? AND o.branch_id ${branchId === null ? 'IS NULL' : '= ?'}
+          AND o.overrides_id IS NOT NULL
+          AND IFNULL(o.name,'') = IFNULL(orig.name,'')
+          AND IFNULL(o.description,'') = IFNULL(orig.description,'')
+          AND o.visited = orig.visited
+          AND o.current = orig.current
+          AND IFNULL(o.connections,'') = IFNULL(orig.connections,'')
+          AND IFNULL(o.metadata,'') = IFNULL(orig.metadata,'')
+      )`,
+      branchId === null ? [storyId] : [storyId, branchId],
+    )
+    totalDeleted += locResult.rowsAffected
+
+    // Items: compare all data columns
+    const itemResult = await db.execute(
+      `DELETE FROM items WHERE id IN (
+        SELECT o.id FROM items o
+        JOIN items orig ON o.overrides_id = orig.id
+        WHERE o.story_id = ? AND o.branch_id ${branchId === null ? 'IS NULL' : '= ?'}
+          AND o.overrides_id IS NOT NULL
+          AND IFNULL(o.name,'') = IFNULL(orig.name,'')
+          AND IFNULL(o.description,'') = IFNULL(orig.description,'')
+          AND o.quantity = orig.quantity
+          AND o.equipped = orig.equipped
+          AND IFNULL(o.location,'') = IFNULL(orig.location,'')
+          AND IFNULL(o.metadata,'') = IFNULL(orig.metadata,'')
+      )`,
+      branchId === null ? [storyId] : [storyId, branchId],
+    )
+    totalDeleted += itemResult.rowsAffected
+
+    // Story Beats: compare all data columns
+    const beatResult = await db.execute(
+      `DELETE FROM story_beats WHERE id IN (
+        SELECT o.id FROM story_beats o
+        JOIN story_beats orig ON o.overrides_id = orig.id
+        WHERE o.story_id = ? AND o.branch_id ${branchId === null ? 'IS NULL' : '= ?'}
+          AND o.overrides_id IS NOT NULL
+          AND IFNULL(o.title,'') = IFNULL(orig.title,'')
+          AND IFNULL(o.description,'') = IFNULL(orig.description,'')
+          AND IFNULL(o.type,'') = IFNULL(orig.type,'')
+          AND IFNULL(o.status,'') = IFNULL(orig.status,'')
+          AND IFNULL(o.triggered_at,0) = IFNULL(orig.triggered_at,0)
+          AND IFNULL(o.resolved_at,0) = IFNULL(orig.resolved_at,0)
+          AND IFNULL(o.metadata,'') = IFNULL(orig.metadata,'')
+      )`,
+      branchId === null ? [storyId] : [storyId, branchId],
+    )
+    totalDeleted += beatResult.rowsAffected
+
+    if (totalDeleted > 0) {
+      console.log(
+        `[DatabaseService] Cleaned up ${totalDeleted} no-op COW override(s) for story ${storyId}`,
+      )
+    }
+
+    return totalDeleted
+  }
+
   async getEntriesByType(storyId: string, type: EntryType): Promise<Entry[]> {
     const db = await this.getDb()
     const results = await db.select<any[]>(
@@ -1459,8 +1834,8 @@ class DatabaseService {
         id, story_id, name, type, description, hidden_info, aliases,
         state, adventure_state, creative_state, injection,
         first_mentioned, last_mentioned, mention_count, created_by,
-        created_at, updated_at, lore_management_blacklisted, branch_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        created_at, updated_at, lore_management_blacklisted, branch_id, overrides_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         entry.id,
         entry.storyId,
@@ -1481,6 +1856,7 @@ class DatabaseService {
         entry.updatedAt,
         entry.loreManagementBlacklisted ? 1 : 0,
         entry.branchId || null,
+        entry.overridesId || null,
       ],
     )
   }
@@ -1854,6 +2230,10 @@ class DatabaseService {
       translatedContent: row.translated_content || null,
       translationLanguage: row.translation_language || null,
       originalInput: row.original_input || null,
+      // Phase 1: World state delta
+      worldStateDelta: row.world_state_delta ? JSON.parse(row.world_state_delta) : null,
+      // Persisted action suggestions for time-travel
+      suggestedActions: row.suggested_actions || null,
     }
   }
 
@@ -1875,6 +2255,7 @@ class DatabaseService {
       status: row.status,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
       branchId: row.branch_id || null,
+      overridesId: row.overrides_id || null,
       // Translation fields
       translatedName: row.translated_name || null,
       translatedDescription: row.translated_description || null,
@@ -1898,6 +2279,7 @@ class DatabaseService {
       connections: row.connections ? JSON.parse(row.connections) : [],
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
       branchId: row.branch_id || null,
+      overridesId: row.overrides_id || null,
       // Translation fields
       translatedName: row.translated_name || null,
       translatedDescription: row.translated_description || null,
@@ -1916,6 +2298,7 @@ class DatabaseService {
       location: row.location,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
       branchId: row.branch_id || null,
+      overridesId: row.overrides_id || null,
       // Translation fields
       translatedName: row.translated_name || null,
       translatedDescription: row.translated_description || null,
@@ -1935,6 +2318,7 @@ class DatabaseService {
       resolvedAt: row.resolved_at ?? null,
       metadata: row.metadata ? JSON.parse(row.metadata) : null,
       branchId: row.branch_id || null,
+      overridesId: row.overrides_id || null,
       // Translation fields
       translatedTitle: row.translated_title || null,
       translatedDescription: row.translated_description || null,
@@ -1988,6 +2372,25 @@ class DatabaseService {
     }
   }
 
+  private mapWorldStateSnapshot(row: any): WorldStateSnapshot {
+    return {
+      id: row.id,
+      storyId: row.story_id,
+      branchId: row.branch_id || null,
+      entryId: row.entry_id,
+      entryPosition: row.entry_position,
+      charactersSnapshot: row.characters_snapshot ? JSON.parse(row.characters_snapshot) : [],
+      locationsSnapshot: row.locations_snapshot ? JSON.parse(row.locations_snapshot) : [],
+      itemsSnapshot: row.items_snapshot ? JSON.parse(row.items_snapshot) : [],
+      storyBeatsSnapshot: row.story_beats_snapshot ? JSON.parse(row.story_beats_snapshot) : [],
+      lorebookEntriesSnapshot: row.lorebook_entries_snapshot
+        ? JSON.parse(row.lorebook_entries_snapshot)
+        : undefined,
+      timeTrackerSnapshot: row.time_tracker_snapshot ? JSON.parse(row.time_tracker_snapshot) : null,
+      createdAt: row.created_at,
+    }
+  }
+
   private mapEntry(row: any): Entry {
     return {
       id: row.id,
@@ -2011,6 +2414,7 @@ class DatabaseService {
       updatedAt: row.updated_at,
       loreManagementBlacklisted: row.lore_management_blacklisted === 1,
       branchId: row.branch_id || null,
+      overridesId: row.overrides_id || null,
     }
   }
 

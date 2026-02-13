@@ -14,6 +14,7 @@
     Image,
     Volume2,
     Settings as SettingsIcon,
+    FlaskConical,
   } from 'lucide-svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
@@ -33,6 +34,7 @@
   import PromptsTab from './tabs/prompts.svelte'
   import TTSSettings from './TTSSettings.svelte'
   import AdvancedSettings from './AdvancedSettings.svelte'
+  import ExperimentalSettings from './ExperimentalSettings.svelte'
   import PromptImportModal from './PromptImportModal.svelte'
 
   const tabs = [
@@ -43,9 +45,18 @@
     { id: 'images', label: 'Images', icon: Image },
     { id: 'tts', label: 'TTS', icon: Volume2 },
     { id: 'advanced', label: 'Advanced', icon: SettingsIcon },
+    { id: 'experimental', label: 'Labs', icon: FlaskConical },
   ] as const
 
-  type SettingsTab = 'api' | 'generation' | 'interface' | 'prompts' | 'images' | 'tts' | 'advanced'
+  type SettingsTab =
+    | 'api'
+    | 'generation'
+    | 'interface'
+    | 'prompts'
+    | 'images'
+    | 'tts'
+    | 'advanced'
+    | 'experimental'
 
   // Use the tab from UI store (allows navigation from outside, e.g., profile warning banner)
   let activeTab = $state<SettingsTab>(ui.settingsTab as SettingsTab)
@@ -299,6 +310,8 @@
                           </Button>
                         </div>
                       </div>
+                    {:else if tab.id === 'experimental'}
+                      <ExperimentalSettings />
                     {/if}
                   </div>
                 {/if}
