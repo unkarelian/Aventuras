@@ -13,6 +13,10 @@ export default defineConfig(async () => ({
   // 1. prevent Vite from obscuring rust errors
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
+  // Exclude CodeMirror from Vite pre-bundling to avoid issues
+  optimizeDeps: {
+    exclude: ['codemirror', '@codemirror/lang-liquid'],
+  },
   server: {
     port: 1420,
     strictPort: true,
