@@ -16,6 +16,8 @@
     Globe,
     MapPin,
     Tags,
+    FileCode,
+    Download,
   } from 'lucide-svelte'
   import UniversalVaultCard from './UniversalVaultCard.svelte'
   import VaultCharacterForm from './VaultCharacterForm.svelte'
@@ -26,6 +28,7 @@
   import TagManager from '$lib/components/tags/TagManager.svelte'
   import { tagStore } from '$lib/stores/tags.svelte'
   import { fade } from 'svelte/transition'
+  import PromptPackList from './prompts/PromptPackList.svelte'
 
   // Shared Components
   import EmptyState from '$lib/components/ui/empty-state/empty-state.svelte'
@@ -37,6 +40,7 @@
   import { Badge } from '$lib/components/ui/badge'
   import { Skeleton } from '$lib/components/ui/skeleton'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
+  import * as Tooltip from '$lib/components/ui/tooltip'
   import { cn } from '$lib/utils/cn'
 
   // Types
@@ -52,6 +56,7 @@
   let selectedTags = $state<string[]>([])
   let filterLogic = $state<'AND' | 'OR'>('OR')
   let showTagManager = $state(false)
+  let showCreatePackDialog = $state(false)
 
   // Modal States
   let showCharForm = $state(false)
@@ -263,6 +268,11 @@
   async function handleToggleFavorite(id: string, store: any) {
     await store.toggleFavorite(id)
   }
+
+  function handleOpenPack(packId: string) {
+    // Will be implemented in Plan 03 (editor view state)
+    console.log('Open pack:', packId)
+  }
 </script>
 
 <Tabs
@@ -292,59 +302,85 @@
 
       <!-- Right Side Actions -->
       <div class="flex items-center gap-2">
-        <Button
-          icon={Tags}
-          label="Tags"
-          variant="outline"
-          size="sm"
-          class="h-9"
-          onclick={() => (showTagManager = true)}
-        />
-
-        {#each sections as section (section.id)}
-          {#if activeTab === section.id}
-            <Button
-              icon={Globe}
-              label="Browse Online"
-              variant="outline"
-              size="sm"
-              class="h-9"
-              onclick={() => openBrowseOnline(section.type)}
-            />
-
-            <div class="relative">
+        {#if activeTab === 'prompts'}
+          <Tooltip.Root>
+            <Tooltip.Trigger>
               <Button
-                icon={Upload}
-                label={section.importLabel}
+                icon={Download}
+                label="Import"
                 variant="outline"
                 size="sm"
-                class="h-9 cursor-pointer"
+                class="h-9"
+                disabled
               />
-              <input
-                type="file"
-                accept={section.id === 'lorebooks' ? '.json,application/json' : '.json,.png'}
-                class="absolute inset-0 cursor-pointer opacity-0"
-                onchange={section.importAction}
-              />
-            </div>
+            </Tooltip.Trigger>
+            <Tooltip.Content>
+              <p>Available in Phase 5</p>
+            </Tooltip.Content>
+          </Tooltip.Root>
 
-            {#if section.createAction}
+          <Button
+            icon={Plus}
+            label="New Pack"
+            size="sm"
+            class="h-9"
+            onclick={() => (showCreatePackDialog = true)}
+          />
+        {:else}
+          <Button
+            icon={Tags}
+            label="Tags"
+            variant="outline"
+            size="sm"
+            class="h-9"
+            onclick={() => (showTagManager = true)}
+          />
+
+          {#each sections as section (section.id)}
+            {#if activeTab === section.id}
               <Button
-                icon={Plus}
-                label={section.createLabel!}
+                icon={Globe}
+                label="Browse Online"
+                variant="outline"
                 size="sm"
                 class="h-9"
-                onclick={section.createAction}
+                onclick={() => openBrowseOnline(section.type)}
               />
+
+              <div class="relative">
+                <Button
+                  icon={Upload}
+                  label={section.importLabel}
+                  variant="outline"
+                  size="sm"
+                  class="h-9 cursor-pointer"
+                />
+                <input
+                  type="file"
+                  accept={section.id === 'lorebooks' ? '.json,application/json' : '.json,.png'}
+                  class="absolute inset-0 cursor-pointer opacity-0"
+                  onchange={section.importAction}
+                />
+              </div>
+
+              {#if section.createAction}
+                <Button
+                  icon={Plus}
+                  label={section.createLabel!}
+                  size="sm"
+                  class="h-9"
+                  onclick={section.createAction}
+                />
+              {/if}
             {/if}
-          {/if}
-        {/each}
+          {/each}
+        {/if}
       </div>
     </div>
 
     <!-- Tab Bar -->
     <div class="px-4 pb-2">
-      <TabsList class="bg-muted/50 grid w-full max-w-md grid-cols-3">
+      <TabsList class="bg-muted/50 grid w-full max-w-lg grid-cols-4">
         {#each sections as section (section.id)}
           <TabsTrigger value={section.id} class="flex items-center gap-2">
             <section.icon class="h-4 w-4" />
@@ -354,13 +390,18 @@
             </Badge>
           </TabsTrigger>
         {/each}
+        <TabsTrigger value="prompts" class="flex items-center gap-2">
+          <FileCode class="h-4 w-4" />
+          <span class="hidden sm:inline">Prompts</span>
+        </TabsTrigger>
       </TabsList>
     </div>
   </div>
 
-  <!-- Search and Filters -->
+  <!-- Search and Filters (hidden for Prompts tab) -->
   <div
     class="bg-background/95 supports-[backdrop-filter]:bg-background/60 flex flex-col gap-3 p-4 backdrop-blur"
+    class:hidden={activeTab === 'prompts'}
   >
     <div class="flex items-center gap-2">
       <Input
@@ -467,6 +508,18 @@
       </ScrollArea>
     </TabsContent>
   {/each}
+
+  <!-- Prompts Tab Content -->
+  <TabsContent
+    value="prompts"
+    class="m-0 flex-1 overflow-hidden p-0 outline-none data-[state=inactive]:hidden"
+  >
+    <ScrollArea class="h-full">
+      <div class="flex min-h-full flex-col px-4 pb-36 sm:pb-16">
+        <PromptPackList onOpenPack={handleOpenPack} bind:showCreateDialog={showCreatePackDialog} />
+      </div>
+    </ScrollArea>
+  </TabsContent>
 </Tabs>
 
 <!-- Character Form Modal -->
