@@ -42,10 +42,3 @@ export function hasUserContent(template: PromptTemplate): boolean {
   return template.userContent !== undefined && template.userContent.length > 0
 }
 
-/**
- * @deprecated Macro system removed. Returns undefined.
- * Stub for UI component compatibility.
- */
-export function getPlaceholderByToken(_token: string): undefined {
-  return undefined
-}

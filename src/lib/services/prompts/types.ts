@@ -54,19 +54,15 @@ export interface PromptOverride {
 /**
  * Settings for the prompt system (stored in settings store)
  *
- * Legacy fields (customMacros, macroOverrides) are preserved for backward
- * compatibility with existing saved settings. They are ignored at runtime
- * since the macro system has been removed.
+ * Legacy fields (customMacros, macroOverrides) are preserved as any[] for
+ * backward compatibility with existing saved settings JSON. They are ignored
+ * at runtime since the macro system has been removed.
  */
 export interface PromptSettings {
-  /**
-   * @deprecated Macro system removed. Kept for saved settings compatibility.
-   */
-  customMacros: Macro[]
-  /**
-   * @deprecated Macro system removed. Kept for saved settings compatibility.
-   */
-  macroOverrides: MacroOverride[]
+  /** @deprecated Macro system removed. Kept as any[] for saved settings backward compatibility. */
+  customMacros: unknown[]
+  /** @deprecated Macro system removed. Kept as any[] for saved settings backward compatibility. */
+  macroOverrides: unknown[]
   /**
    * Overrides for prompt templates
    */
@@ -86,93 +82,4 @@ export function getDefaultPromptSettings(): PromptSettings {
     macroOverrides: [],
     templateOverrides: [],
   }
-}
-
-// ===========================================================================
-// LEGACY TYPE STUBS
-//
-// These types are preserved as stubs so existing UI components (PromptEditor,
-// MacroEditor, ComplexMacroEditor, MacroChip, etc.) continue to compile.
-// The macro system has been removed -- these types are no longer used at runtime.
-// They will be removed when the UI is rewritten in Phase 4.
-// ===========================================================================
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export type MacroType = 'simple' | 'complex'
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export interface VariantKey {
-  mode?: 'adventure' | 'creative-writing'
-  pov?: 'first' | 'second' | 'third'
-  tense?: 'past' | 'present'
-}
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export interface MacroVariant {
-  key: VariantKey
-  content: string
-}
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-interface MacroBase {
-  id: string
-  name: string
-  token: string
-  builtin: boolean
-  description: string
-}
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export interface SimpleMacro extends MacroBase {
-  type: 'simple'
-  defaultValue: string
-  dynamic: boolean
-}
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export interface ComplexMacro extends MacroBase {
-  type: 'complex'
-  variesBy: {
-    mode?: boolean
-    pov?: boolean
-    tense?: boolean
-  }
-  variants: MacroVariant[]
-  fallbackContent?: string
-}
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export type Macro = SimpleMacro | ComplexMacro
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export interface ContextPlaceholder {
-  id: string
-  name: string
-  token: string
-  description: string
-  category: 'story' | 'entities' | 'memory' | 'wizard' | 'service' | 'other'
-}
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export interface MacroOverride {
-  macroId: string
-  value?: string
-  variantOverrides?: MacroVariant[]
-}
-
-/** @deprecated Macro system removed. Stub type for UI compatibility. */
-export interface PromptContext {
-  mode: 'adventure' | 'creative-writing'
-  pov: 'first' | 'second' | 'third'
-  tense: 'past' | 'present'
-  protagonistName: string
-  currentLocation?: string
-  storyTime?: string
-  genre?: string
-  tone?: string
-  settingDescription?: string
-  themes?: string[]
-  visualProseMode?: boolean
-  inlineImageMode?: boolean
-  customValues?: Record<string, string>
 }

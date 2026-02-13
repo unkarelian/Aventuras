@@ -14,16 +14,6 @@ export type {
   PromptCategory,
   PromptOverride,
   PromptSettings,
-  // Legacy type stubs (for UI component compatibility, will be removed in Phase 4)
-  Macro,
-  SimpleMacro,
-  ComplexMacro,
-  MacroType,
-  MacroVariant,
-  MacroOverride,
-  VariantKey,
-  ContextPlaceholder,
-  PromptContext,
 } from './types'
 
 // Re-export settings utilities
@@ -36,5 +26,4 @@ export {
   getTemplatesByCategory,
   getImageStyleTemplates,
   hasUserContent,
-  getPlaceholderByToken,
 } from './definitions'

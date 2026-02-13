@@ -1,21 +1,13 @@
 <script lang="ts">
   import { settings } from '$lib/stores/settings.svelte'
-  import {
-    PROMPT_TEMPLATES,
-    type MacroOverride,
-    type Macro,
-    type MacroVariant,
-  } from '$lib/services/prompts'
+  import { PROMPT_TEMPLATES } from '$lib/services/prompts'
   import { promptExportService } from '$lib/services/promptExport'
-  import PromptEditor from '$lib/components/prompts/PromptEditor.svelte'
-  import MacroChip from '$lib/components/prompts/MacroChip.svelte'
-  import MacroInspector from '$lib/components/prompts/MacroInspector.svelte'
   import { RotateCcw, Download, Upload, Loader2, X, Check } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as Accordion from '$lib/components/ui/accordion'
-  import * as Card from '$lib/components/ui/card'
   import { Badge } from '$lib/components/ui/badge'
+  import { Textarea } from '$lib/components/ui/textarea'
 
   interface Props {
     openImportModal: () => void
@@ -26,12 +18,7 @@
   // Prompts tab state
   let promptsCategory = $state<'story' | 'service' | 'wizard' | 'image-style'>('story')
   let isExporting = $state(false)
-
-  // Macro Library State
-  let libraryEditingMacro = $state<Macro | null>(null)
-
   let confirmingCategoryReset = $state(false)
-  let confirmingMacroReset = $state(false)
 
   // Get all templates grouped by category
   const allTemplates = PROMPT_TEMPLATES
@@ -39,8 +26,6 @@
   const serviceTemplates = $derived(allTemplates.filter((t) => t.category === 'service'))
   const wizardTemplates = $derived(allTemplates.filter((t) => t.category === 'wizard'))
   const imageStyleTemplates = $derived(allTemplates.filter((t) => t.category === 'image-style'))
-  // Macro library is empty -- macro system has been removed
-  const allMacros: Macro[] = []
 
   // Get templates for current category
   function getTemplatesForCategory() {
@@ -65,7 +50,6 @@
     const template = allTemplates.find((t) => t.id === templateId)
     if (!template?.userContent) return undefined
 
-    // Check for user content override (stored as templateId-user)
     const override = settings.promptSettings.templateOverrides.find(
       (o) => o.templateId === `${templateId}-user`,
     )
@@ -103,53 +87,6 @@
   // Handle user content reset
   function handleUserContentReset(templateId: string) {
     settings.removeTemplateOverride(`${templateId}-user`)
-  }
-
-  // Handle macro override
-  function handleMacroOverride(override: MacroOverride) {
-    const existingIndex = settings.promptSettings.macroOverrides.findIndex(
-      (o) => o.macroId === override.macroId,
-    )
-    if (existingIndex >= 0) {
-      // Use spread operator to trigger Svelte reactivity
-      const updated = [...settings.promptSettings.macroOverrides]
-      updated[existingIndex] = override
-      settings.promptSettings.macroOverrides = updated
-    } else {
-      settings.promptSettings.macroOverrides = [...settings.promptSettings.macroOverrides, override]
-    }
-    settings.savePromptSettings()
-  }
-
-  // Handle macro reset
-  function handleMacroReset(macroId: string) {
-    settings.promptSettings.macroOverrides = settings.promptSettings.macroOverrides.filter(
-      (o) => o.macroId !== macroId,
-    )
-    settings.savePromptSettings()
-  }
-
-  // Find macro override
-  function findMacroOverride(macroId: string): MacroOverride | undefined {
-    return settings.promptSettings.macroOverrides.find((o) => o.macroId === macroId)
-  }
-
-  // Handle Library Macro Save
-  function handleLibraryMacroSave(value: string | MacroVariant[]) {
-    if (!libraryEditingMacro) return
-
-    if (libraryEditingMacro.type === 'simple' && typeof value === 'string') {
-      handleMacroOverride({
-        macroId: libraryEditingMacro.id,
-        value,
-      })
-    } else if (libraryEditingMacro.type === 'complex' && Array.isArray(value)) {
-      handleMacroOverride({
-        macroId: libraryEditingMacro.id,
-        variantOverrides: value,
-      })
-    }
-    libraryEditingMacro = null
   }
 </script>
 
@@ -254,21 +191,63 @@
               </div>
             </Accordion.Trigger>
             <Accordion.Content>
-              <div class="pt-0 pb-4">
-                <PromptEditor
-                  {template}
-                  content={getTemplateContent(template.id)}
-                  userContent={getUserContent(template.id)}
-                  isModified={isTemplateModified(template.id)}
-                  isUserModified={isUserContentModified(template.id)}
-                  macroOverrides={settings.promptSettings.macroOverrides}
-                  onChange={(content) => handleTemplateChange(template.id, content)}
-                  onUserChange={(content) => handleUserContentChange(template.id, content)}
-                  onReset={() => handleTemplateReset(template.id)}
-                  onUserReset={() => handleUserContentReset(template.id)}
-                  onMacroOverride={handleMacroOverride}
-                  onMacroReset={handleMacroReset}
-                />
+              <div class="flex flex-col gap-4 pt-0 pb-4">
+                <p class="text-muted-foreground text-base">{template.description}</p>
+
+                <!-- System Prompt -->
+                <div class="flex flex-col gap-1">
+                  <div class="flex items-center justify-between">
+                    <span class="text-muted-foreground text-xs font-medium">System Prompt</span>
+                    {#if isTemplateModified(template.id)}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        class="text-muted-foreground h-6 w-6 hover:text-red-500"
+                        title="Reset to default"
+                        onclick={() => handleTemplateReset(template.id)}
+                      >
+                        <RotateCcw class="h-3 w-3" />
+                      </Button>
+                    {/if}
+                  </div>
+                  <Textarea
+                    value={getTemplateContent(template.id)}
+                    oninput={(e) =>
+                      handleTemplateChange(template.id, (e.target as HTMLTextAreaElement).value)}
+                    class="max-h-[400px] min-h-[200px] font-mono text-sm"
+                    placeholder="Enter system prompt content..."
+                  />
+                </div>
+
+                <!-- User Message (if applicable) -->
+                {#if template.userContent !== undefined && template.userContent.length > 0}
+                  <div class="flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                      <span class="text-muted-foreground text-xs font-medium">User Message</span>
+                      {#if isUserContentModified(template.id)}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          class="text-muted-foreground h-6 w-6 hover:text-red-500"
+                          title="Reset to default"
+                          onclick={() => handleUserContentReset(template.id)}
+                        >
+                          <RotateCcw class="h-3 w-3" />
+                        </Button>
+                      {/if}
+                    </div>
+                    <Textarea
+                      value={getUserContent(template.id) ?? ''}
+                      oninput={(e) =>
+                        handleUserContentChange(
+                          template.id,
+                          (e.target as HTMLTextAreaElement).value,
+                        )}
+                      class="max-h-[300px] min-h-[150px] font-mono text-sm"
+                      placeholder="Enter user message content..."
+                    />
+                  </div>
+                {/if}
               </div>
             </Accordion.Content>
           </Accordion.Item>
@@ -276,119 +255,4 @@
       </Accordion.Root>
     </Tabs.Content>
   </Tabs.Root>
-
-  <!-- Macro Library Section -->
-  <div class="mb-4 flex items-center justify-between">
-    <div>
-      <h3 class="text-lg font-medium">Macro Library</h3>
-      <p class="text-muted-foreground text-sm">
-        Global variables used across templates. Click to edit defaults.
-      </p>
-    </div>
-    {#if confirmingMacroReset}
-      <div class="animate-in fade-in slide-in-from-right-2 flex items-center gap-2 duration-200">
-        <span class="text-muted-foreground hidden text-xs font-medium sm:inline">
-          Reset all macros?
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground hover:text-foreground h-8 w-8 p-0 hover:bg-transparent"
-          onclick={() => (confirmingMacroReset = false)}
-          title="Cancel"
-        >
-          <X class="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          class="text-destructive h-8 w-8 p-0 hover:bg-transparent"
-          onclick={() => {
-            settings.promptSettings.macroOverrides = []
-            settings.savePromptSettings()
-            confirmingMacroReset = false
-          }}
-          title="Confirm Reset"
-        >
-          <Check class="h-4 w-4" />
-        </Button>
-      </div>
-    {:else}
-      <Button variant="ghost" size="sm" onclick={() => (confirmingMacroReset = true)}>
-        <RotateCcw class="h-4 w-4" />
-        Reset All Macros
-      </Button>
-    {/if}
-  </div>
-
-  <!-- Inspector Area (Shows when editing) -->
-  {#if libraryEditingMacro}
-    <div class="animate-in slide-in-from-top-2 fade-in mb-6 duration-200">
-      <MacroInspector
-        macro={libraryEditingMacro}
-        override={findMacroOverride(libraryEditingMacro.id)}
-        onSave={handleLibraryMacroSave}
-        onReset={() => handleMacroReset(libraryEditingMacro!.id)}
-        onClose={() => (libraryEditingMacro = null)}
-      />
-    </div>
-  {/if}
-
-  <div class="grid gap-6 md:grid-cols-2">
-    <!-- Simple Macros -->
-    <Card.Root>
-      <Card.Header>
-        <Card.Title class="text-base">Simple Macros</Card.Title>
-      </Card.Header>
-      <Card.Content>
-        <div class="flex flex-wrap gap-2">
-          {#each allMacros.filter((m) => m.type === 'simple') as macro (macro.id)}
-            <MacroChip
-              {macro}
-              interactive={true}
-              onClick={() => {
-                // Toggle editing
-                if (libraryEditingMacro?.id === macro.id) {
-                  libraryEditingMacro = null
-                } else {
-                  libraryEditingMacro = macro
-                }
-              }}
-              class={libraryEditingMacro?.id === macro.id
-                ? 'ring-primary ring-2 ring-offset-1'
-                : ''}
-            />
-          {/each}
-        </div>
-      </Card.Content>
-    </Card.Root>
-
-    <!-- Complex Macros -->
-    <Card.Root>
-      <Card.Header>
-        <Card.Title class="text-base">Complex Macros</Card.Title>
-      </Card.Header>
-      <Card.Content>
-        <div class="flex flex-wrap gap-2">
-          {#each allMacros.filter((m) => m.type === 'complex') as macro (macro.id)}
-            <MacroChip
-              {macro}
-              interactive={true}
-              onClick={() => {
-                // Toggle editing
-                if (libraryEditingMacro?.id === macro.id) {
-                  libraryEditingMacro = null
-                } else {
-                  libraryEditingMacro = macro
-                }
-              }}
-              class={libraryEditingMacro?.id === macro.id
-                ? 'ring-primary ring-2 ring-offset-1'
-                : ''}
-            />
-          {/each}
-        </div>
-      </Card.Content>
-    </Card.Root>
-  </div>
 </div>

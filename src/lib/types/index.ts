@@ -827,8 +827,8 @@ export interface PromptExportData {
   appVersion?: string
 
   promptSettings: {
-    customMacros: import('$lib/services/prompts/types').Macro[]
-    macroOverrides: import('$lib/services/prompts/types').MacroOverride[]
+    customMacros: unknown[]
+    macroOverrides: unknown[]
     templateOverrides: import('$lib/services/prompts/types').PromptOverride[]
   }
 

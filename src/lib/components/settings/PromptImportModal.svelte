@@ -58,8 +58,6 @@
     if (!parseResult?.data) return null
     const data = parseResult.data
     return {
-      customMacros: data.promptSettings.customMacros.length,
-      macroOverrides: data.promptSettings.macroOverrides.length,
       templateOverrides: data.promptSettings.templateOverrides.length,
       presets: data.generationPresets.length,
     }
@@ -279,24 +277,12 @@
         <div class="space-y-4" transition:fade={{ duration: 150 }}>
           <!-- Stats Summary -->
           {#if importStats}
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div class="grid grid-cols-2 gap-2">
               <div class="bg-muted/50 border-border rounded-lg border p-3 text-center">
                 <div class="text-foreground text-lg font-bold">
                   {importStats.templateOverrides}
                 </div>
                 <div class="text-muted-foreground text-xs">Prompts</div>
-              </div>
-              <div class="bg-muted/50 border-border rounded-lg border p-3 text-center">
-                <div class="text-foreground text-lg font-bold">
-                  {importStats.customMacros}
-                </div>
-                <div class="text-muted-foreground text-xs">Macros</div>
-              </div>
-              <div class="bg-muted/50 border-border rounded-lg border p-3 text-center">
-                <div class="text-foreground text-lg font-bold">
-                  {importStats.macroOverrides}
-                </div>
-                <div class="text-muted-foreground text-xs">Overrides</div>
               </div>
               <div class="bg-muted/50 border-border rounded-lg border p-3 text-center">
                 <div class="text-foreground text-lg font-bold">
@@ -491,7 +477,7 @@
           >
             <AlertTriangle class="h-4 w-4 text-amber-500" />
             <AlertDescription class="text-xs">
-              Importing will <span class="font-bold">replace</span> all current prompts, macros, and presets.
+              Importing will <span class="font-bold">replace</span> all current prompts and presets.
             </AlertDescription>
           </Alert>
         </div>
