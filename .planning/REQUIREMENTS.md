@@ -9,23 +9,23 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Template Engine
 
-- [ ] **ENG-01**: Template engine uses LiquidJS with default configuration (no heavy customization)
-- [ ] **ENG-02**: All templates use Liquid syntax for variable substitution ({{ variable }})
-- [ ] **ENG-03**: Templates support Liquid conditionals ({% if %}, {% elsif %}, {% else %}, {% endif %})
-- [ ] **ENG-04**: Templates support Liquid filters as provided by LiquidJS out of the box
-- [ ] **ENG-05**: Template resolution happens in one pass against one unified context object
-- [ ] **ENG-06**: Three variable categories exist: system (auto-filled), runtime (service-injected), custom (user-defined)
-- [ ] **ENG-07**: All variables have a type: text, enum, number, or boolean
-- [ ] **ENG-08**: Template engine is sandboxed — no arbitrary code execution from user-editable templates
-- [ ] **ENG-09**: Unknown variables in templates produce clear error feedback (not silent failure)
-- [ ] **ENG-10**: Circular variable references are detected and reported with clear error messages
+- [x] **ENG-01**: Template engine uses LiquidJS with default configuration (no heavy customization)
+- [x] **ENG-02**: All templates use Liquid syntax for variable substitution ({{ variable }})
+- [x] **ENG-03**: Templates support Liquid conditionals ({% if %}, {% elsif %}, {% else %}, {% endif %})
+- [x] **ENG-04**: Templates support Liquid filters as provided by LiquidJS out of the box
+- [x] **ENG-05**: Template resolution happens in one pass against one unified context object
+- [x] **ENG-06**: Three variable categories exist: system (auto-filled), runtime (service-injected), custom (user-defined)
+- [x] **ENG-07**: All variables have a type: text, enum, number, or boolean
+- [x] **ENG-08**: Template engine is sandboxed — no arbitrary code execution from user-editable templates
+- [x] **ENG-09**: Unknown variables in templates produce clear error feedback (not silent failure)
+- [x] **ENG-10**: Circular variable references are detected and reported with clear error messages
 
 ### Prompt Editor
 
 - [ ] **EDT-01**: User can edit any prompt template through an in-app text editor
 - [ ] **EDT-02**: Editor provides syntax highlighting for Liquid template syntax
 - [ ] **EDT-03**: Editor has a bottom toolbar for inserting variables (categorized picker, mobile-friendly)
-- [ ] **EDT-04**: Editor has a bottom toolbar for inserting conditionals without typing syntax manually
+- [ ] **EDT-04**: Editor has a bottom toolbar for inserting variables (mobile-friendly) — *conditionals insertion removed per user decision: users type conditionals manually with syntax highlighting support*
 - [ ] **EDT-05**: User can preview a template expanded with current/sample context
 - [ ] **EDT-06**: Editor shows real-time validation feedback (syntax errors, unknown variables)
 - [ ] **EDT-07**: User can save changes to a template
@@ -37,13 +37,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Preset Pack System
 
-- [ ] **PKG-01**: A preset pack bundles all prompt templates and custom variable definitions
-- [ ] **PKG-02**: App ships with a default preset pack containing all current prompt templates
+- [x] **PKG-01**: A preset pack bundles all prompt templates and custom variable definitions
+- [x] **PKG-02**: App ships with a default preset pack containing all current prompt templates
 - [ ] **PKG-03**: User can create a new preset pack (copies defaults as starting point)
 - [ ] **PKG-04**: User can export a preset pack as a file
 - [ ] **PKG-05**: User can import a preset pack from a file
-- [ ] **PKG-06**: Imported presets are validated before applying
-- [ ] **PKG-07**: Preset export format is versioned for forward compatibility
+- [x] **PKG-06**: Imported presets are validated before applying
+- [x] **PKG-07**: Preset export format is versioned for forward compatibility
 - [ ] **PKG-08**: User can select which preset pack to use for a story in the creation wizard
 
 ### Vault Integration
@@ -58,9 +58,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Custom Variables
 
-- [ ] **VAR-01**: User can define custom variables per preset pack
-- [ ] **VAR-02**: Custom variable definition includes: name, type (text/enum/number/boolean), default value or required flag
-- [ ] **VAR-03**: For enum type, user defines the available options
+- [x] **VAR-01**: User can define custom variables per preset pack
+- [x] **VAR-02**: Custom variable definition includes: name, type (text/enum/number/boolean), default value or required flag
+- [x] **VAR-03**: For enum type, user defines the available options
 - [ ] **VAR-04**: Custom variables are managed through the Variables tab in the editor
 - [ ] **VAR-05**: Wizard auto-discovers custom variables by scanning active preset's templates
 - [ ] **VAR-06**: Wizard generates appropriate UI controls per variable type (text field, dropdown, toggle, number input)
@@ -69,18 +69,18 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Service Pipeline
 
-- [ ] **SVC-01**: A ContextBuilder builds one unified context object from system state, runtime data, and custom variable values
-- [ ] **SVC-02**: Services provide runtime data to ContextBuilder (not directly to templates)
-- [ ] **SVC-03**: NarrativeService uses the new unified pipeline for prompt generation
-- [ ] **SVC-04**: SuggestionsService uses the new unified pipeline
-- [ ] **SVC-05**: ActionChoicesService uses the new unified pipeline
-- [ ] **SVC-06**: ClassifierService uses the new unified pipeline
-- [ ] **SVC-07**: MemoryService uses the new unified pipeline
-- [ ] **SVC-08**: All wizard services use the new unified pipeline
-- [ ] **SVC-09**: StyleReviewerService uses the new unified pipeline
-- [ ] **SVC-10**: LoreManagementService uses the new unified pipeline
-- [ ] **SVC-11**: Image prompt services use the new unified pipeline
-- [ ] **SVC-12**: Translation services use the new unified pipeline
+- [x] **SVC-01**: A ContextBuilder builds one unified context object from system state, runtime data, and custom variable values
+- [x] **SVC-02**: Services provide runtime data to ContextBuilder (not directly to templates)
+- [x] **SVC-03**: NarrativeService uses the new unified pipeline for prompt generation
+- [x] **SVC-04**: SuggestionsService uses the new unified pipeline
+- [x] **SVC-05**: ActionChoicesService uses the new unified pipeline
+- [x] **SVC-06**: ClassifierService uses the new unified pipeline
+- [x] **SVC-07**: MemoryService uses the new unified pipeline
+- [x] **SVC-08**: All wizard services use the new unified pipeline
+- [x] **SVC-09**: StyleReviewerService uses the new unified pipeline
+- [x] **SVC-10**: LoreManagementService uses the new unified pipeline
+- [x] **SVC-11**: Image prompt services use the new unified pipeline
+- [x] **SVC-12**: Translation services use the new unified pipeline
 
 ### Legacy Cleanup
 
@@ -135,16 +135,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ENG-01 | Phase 1 | Pending |
-| ENG-02 | Phase 1 | Pending |
-| ENG-03 | Phase 1 | Pending |
-| ENG-04 | Phase 1 | Pending |
-| ENG-05 | Phase 1 | Pending |
-| ENG-06 | Phase 1 | Pending |
-| ENG-07 | Phase 1 | Pending |
-| ENG-08 | Phase 1 | Pending |
-| ENG-09 | Phase 1 | Pending |
-| ENG-10 | Phase 1 | Pending |
+| ENG-01 | Phase 1 | Complete |
+| ENG-02 | Phase 1 | Complete |
+| ENG-03 | Phase 1 | Complete |
+| ENG-04 | Phase 1 | Complete |
+| ENG-05 | Phase 1 | Complete |
+| ENG-06 | Phase 1 | Complete |
+| ENG-07 | Phase 1 | Complete |
+| ENG-08 | Phase 1 | Complete |
+| ENG-09 | Phase 1 | Complete |
+| ENG-10 | Phase 1 | Complete |
 | EDT-01 | Phase 4 | Pending |
 | EDT-02 | Phase 4 | Pending |
 | EDT-03 | Phase 4 | Pending |
@@ -157,13 +157,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EDT-10 | Phase 4 | Pending |
 | EDT-11 | Phase 4 | Pending |
 | EDT-12 | Phase 4 | Pending |
-| PKG-01 | Phase 2 | Pending |
-| PKG-02 | Phase 2 | Pending |
+| PKG-01 | Phase 2 | Complete |
+| PKG-02 | Phase 2 | Complete |
 | PKG-03 | Phase 4 | Pending |
 | PKG-04 | Phase 5 | Pending |
 | PKG-05 | Phase 5 | Pending |
-| PKG-06 | Phase 2 | Pending |
-| PKG-07 | Phase 2 | Pending |
+| PKG-06 | Phase 2 | Complete |
+| PKG-07 | Phase 2 | Complete |
 | PKG-08 | Phase 5 | Pending |
 | VLT-01 | Phase 4 | Pending |
 | VLT-02 | Phase 4 | Pending |
@@ -172,26 +172,26 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VLT-05 | Phase 4 | Pending |
 | VLT-06 | Phase 4 | Pending |
 | VLT-07 | Phase 4 | Pending |
-| VAR-01 | Phase 2 | Pending |
-| VAR-02 | Phase 2 | Pending |
-| VAR-03 | Phase 2 | Pending |
+| VAR-01 | Phase 2 | Complete |
+| VAR-02 | Phase 2 | Complete |
+| VAR-03 | Phase 2 | Complete |
 | VAR-04 | Phase 4 | Pending |
 | VAR-05 | Phase 5 | Pending |
 | VAR-06 | Phase 5 | Pending |
 | VAR-07 | Phase 5 | Pending |
 | VAR-08 | Phase 5 | Pending |
-| SVC-01 | Phase 3 | Pending |
-| SVC-02 | Phase 3 | Pending |
-| SVC-03 | Phase 3 | Pending |
-| SVC-04 | Phase 3 | Pending |
-| SVC-05 | Phase 3 | Pending |
-| SVC-06 | Phase 3 | Pending |
-| SVC-07 | Phase 3 | Pending |
-| SVC-08 | Phase 3 | Pending |
-| SVC-09 | Phase 3 | Pending |
-| SVC-10 | Phase 3 | Pending |
-| SVC-11 | Phase 3 | Pending |
-| SVC-12 | Phase 3 | Pending |
+| SVC-01 | Phase 3 | Complete |
+| SVC-02 | Phase 3 | Complete |
+| SVC-03 | Phase 3 | Complete |
+| SVC-04 | Phase 3 | Complete |
+| SVC-05 | Phase 3 | Complete |
+| SVC-06 | Phase 3 | Complete |
+| SVC-07 | Phase 3 | Complete |
+| SVC-08 | Phase 3 | Complete |
+| SVC-09 | Phase 3 | Complete |
+| SVC-10 | Phase 3 | Complete |
+| SVC-11 | Phase 3 | Complete |
+| SVC-12 | Phase 3 | Complete |
 | CLN-01 | Phase 6 | Pending |
 | CLN-02 | Phase 6 | Pending |
 | CLN-03 | Phase 6 | Pending |
@@ -208,4 +208,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-08*
-*Last updated: 2026-02-08 after roadmap creation*
+*Last updated: 2026-02-12 — EDT-04 revised per user decision (no conditional insertion tool)*
