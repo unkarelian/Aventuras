@@ -461,6 +461,18 @@
           storyId: currentStoryRef.id,
         }
 
+        const persistSuggestedActions = (actions: unknown[], type: 'suggestions' | 'choices') => {
+          if (narrationEntry && actions.length > 0) {
+            database
+              .updateStoryEntry(narrationEntry.id, {
+                suggestedActions: JSON.stringify(actions),
+              })
+              .catch((err) =>
+                console.warn(`[ActionInput] Failed to save suggested ${type} to entry:`, err),
+              )
+          }
+        }
+
         const eventCallbacks: PipelineUICallbacks = {
           startStreaming: ui.startStreaming.bind(ui),
           appendStreamContent: ui.appendStreamContent.bind(ui),
@@ -470,29 +482,11 @@
           setActionChoicesLoading: ui.setActionChoicesLoading.bind(ui),
           setSuggestions: (suggestions, storyId) => {
             ui.setSuggestions(suggestions, storyId)
-            // Persist suggestions to the narration entry for time-travel restore
-            if (narrationEntry && suggestions.length > 0) {
-              database
-                .updateStoryEntry(narrationEntry.id, {
-                  suggestedActions: JSON.stringify(suggestions),
-                })
-                .catch((err) =>
-                  console.warn('[ActionInput] Failed to save suggestions to entry:', err),
-                )
-            }
+            persistSuggestedActions(suggestions, 'suggestions')
           },
           setActionChoices: (choices, storyId) => {
             ui.setActionChoices(choices, storyId)
-            // Persist action choices to the narration entry for time-travel restore
-            if (narrationEntry && choices.length > 0) {
-              database
-                .updateStoryEntry(narrationEntry.id, {
-                  suggestedActions: JSON.stringify(choices),
-                })
-                .catch((err) =>
-                  console.warn('[ActionInput] Failed to save action choices to entry:', err),
-                )
-            }
+            persistSuggestedActions(choices, 'choices')
           },
           emitResponseStreaming: (chunk, accumulated) => {
             eventBus.emit<ResponseStreamingEvent>({
