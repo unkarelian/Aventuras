@@ -2,7 +2,7 @@
   import { story } from '$lib/stores/story.svelte'
   import { ui } from '$lib/stores/ui.svelte'
   import { settings } from '$lib/stores/settings.svelte'
-  import { Loader2, BookOpen, ChevronDown } from 'lucide-svelte'
+  import { Loader2, BookOpen, ChevronDown, ChevronUp } from 'lucide-svelte'
   import { fade } from 'svelte/transition'
   import StoryEntry from './StoryEntry.svelte'
   import StreamingEntry from './StreamingEntry.svelte'
@@ -19,21 +19,34 @@
   // This dramatically improves performance with large stories (80k+ words)
   const DEFAULT_VISIBLE_ENTRIES = 50
   const LOAD_MORE_BATCH = 50
+  const SCROLL_THRESHOLD = 50 // pixels from top/bottom to trigger state changes
 
   // Track how many entries to show (starts at DEFAULT_VISIBLE_ENTRIES)
   let visibleEntryCount = $state(DEFAULT_VISIBLE_ENTRIES)
 
+  // Track viewing mode: 'bottom' shows recent entries, 'top' shows oldest entries
+  let viewMode = $state<'top' | 'bottom'>('bottom')
+
+  // Track if user has scrolled away from top (for showing scroll-to-top button)
+  let userScrolledDown = $state(false)
+
   // Track the current story ID to detect story switches
   let lastStoryId = $state<string | null>(null)
 
-  // Reset visible count when story changes
+  // Auto-scroll to bottom when new entries are added or streaming content changes
+  // Use requestAnimationFrame to batch scroll updates and avoid layout thrashing
+  let scrollRAF: number | null = null
+  let prevEntryCount = 0
+
+  // Reset visible count and view mode when story changes
   $effect(() => {
     const currentStoryId = story.currentStory?.id ?? null
 
-    // If story changed, reset the visible count
+    // If story changed, reset to default view
     if (currentStoryId !== lastStoryId) {
       lastStoryId = currentStoryId
       visibleEntryCount = DEFAULT_VISIBLE_ENTRIES
+      viewMode = 'bottom'
     }
   })
 
@@ -43,15 +56,27 @@
     const total = entries.length
 
     if (total <= visibleEntryCount) {
-      return { entries, hiddenCount: 0, startIndex: 0 }
+      return { entries, hiddenAtTop: 0, hiddenAtBottom: 0, startIndex: 0 }
     }
 
-    // Show the most recent entries
-    const startIndex = total - visibleEntryCount
-    return {
-      entries: entries.slice(startIndex),
-      hiddenCount: startIndex,
-      startIndex,
+    if (viewMode === 'top') {
+      // Show the oldest entries (from the top)
+      const endIndex = Math.min(visibleEntryCount, total)
+      return {
+        entries: entries.slice(0, endIndex),
+        hiddenAtTop: 0,
+        hiddenAtBottom: total - endIndex,
+        startIndex: 0,
+      }
+    } else {
+      // Show the most recent entries (from the bottom)
+      const startIndex = total - visibleEntryCount
+      return {
+        entries: entries.slice(startIndex),
+        hiddenAtTop: startIndex,
+        hiddenAtBottom: 0,
+        startIndex,
+      }
     }
   })
 
@@ -59,58 +84,72 @@
     visibleEntryCount = Math.min(visibleEntryCount + LOAD_MORE_BATCH, story.entries.length)
   }
 
-  function showAllEntries() {
-    visibleEntryCount = story.entries.length
-  }
-
-  function scrollToBottom() {
+  // Helper function to perform smooth scroll with RAF batching
+  function performScroll(scrollPosition: number) {
     if (!storyContainer) return
 
     if (scrollRAF !== null) {
       cancelAnimationFrame(scrollRAF)
     }
 
-    // Batch scroll update with requestAnimationFrame for better performance
     scrollRAF = requestAnimationFrame(() => {
       if (storyContainer) {
-        storyContainer.scrollTop = storyContainer.scrollHeight
+        storyContainer.scrollTop = scrollPosition
       }
       scrollRAF = null
     })
   }
 
-  // Check if container is scrolled near bottom
-  function isNearBottom(): boolean {
+  function scrollToBottom() {
+    // Switch to bottom view mode (show most recent entries)
+    viewMode = 'bottom'
+    visibleEntryCount = DEFAULT_VISIBLE_ENTRIES
+    requestAnimationFrame(() => {
+      performScroll(storyContainer?.scrollHeight ?? 0)
+    })
+  }
+
+  function scrollToTop() {
+    // Switch to top view mode (show oldest entries)
+    viewMode = 'top'
+    visibleEntryCount = DEFAULT_VISIBLE_ENTRIES
+    requestAnimationFrame(() => {
+      performScroll(0)
+    })
+  }
+
+  // Check if container is scrolled near a specific edge
+  function isNearEdge(edge: 'top' | 'bottom'): boolean {
     if (!storyContainer) return true
-    const threshold = 50 // pixels from bottom
+    
+    if (edge === 'top') {
+      return storyContainer.scrollTop < SCROLL_THRESHOLD
+    }
+    
     return (
       storyContainer.scrollHeight - storyContainer.scrollTop - storyContainer.clientHeight <
-      threshold
+      SCROLL_THRESHOLD
     )
   }
   // Handle scroll events during streaming
   function handleScroll() {
     if (!storyContainer) return
 
-    // Keep userScrolledUp in sync with actual scroll position
-    // This allows re-engaging auto-scroll when the user scrolls back to bottom
-    const nearBottom = isNearBottom()
+    const nearBottom = isNearEdge('bottom')
+    const nearTop = isNearEdge('top')
 
-    // Update the break state based on current scroll position
-    // If we are near bottom, we are NOT "scrolled up"
-    // If we are NOT near bottom, we ARE "scrolled up"
+    // Update scroll break state - if near bottom, re-engage auto-scroll
     if (nearBottom) {
       if (ui.userScrolledUp) ui.setScrollBreak(false)
     } else {
       if (!ui.userScrolledUp) ui.setScrollBreak(true)
     }
+
+    // Track if user has scrolled down from top (for scroll-to-top button)
+    userScrolledDown = !nearTop
   }
 
   // Auto-scroll to bottom when new entries are added or streaming content changes
-  // Use requestAnimationFrame to batch scroll updates and avoid layout thrashing
-  let scrollRAF: number | null = null
-  let prevEntryCount = 0
-
   $effect(() => {
     // Track primary scroll-inducing changes
     const currentCount = story.entries.length
@@ -131,7 +170,13 @@
 
     if (!shouldScroll) return
 
-    scrollToBottom()
+    // When new entries are added, switch back to bottom view mode
+    if (wasAdded && viewMode === 'top') {
+      viewMode = 'bottom'
+      visibleEntryCount = DEFAULT_VISIBLE_ENTRIES
+    }
+
+    performScroll(storyContainer?.scrollHeight ?? 0)
   })
 
   // Scroll to bottom when returning from gallery or other panels
@@ -173,10 +218,10 @@
   <div
     bind:this={storyContainer}
     bind:clientHeight={containerHeight}
-    class="relative z-10 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-4"
+    class="relative z-10 flex-1 overflow-y-auto px-3 pt-3 pb-1 sm:px-6 sm:pt-4 sm:pb-2"
     onscroll={handleScroll}
   >
-    <div class="mx-auto max-w-3xl space-y-3 sm:space-y-4" bind:clientHeight={innerHeight}>
+    <div class="mx-auto max-w-3xl space-y-2.5 sm:space-y-3" bind:clientHeight={innerHeight}>
       {#if story.entries.length === 0 && !ui.isStreaming}
         <EmptyState
           icon={BookOpen}
@@ -185,20 +230,15 @@
           class="py-12 sm:py-20"
         />
       {:else}
-        <!-- Show collapsed entries indicator if there are hidden entries -->
-        {#if displayedEntries.hiddenCount > 0}
+        <!-- Show collapsed entries indicator if there are hidden entries at top -->
+        {#if displayedEntries.hiddenAtTop > 0}
           <div class="border-border mb-3 flex flex-col items-center gap-2 border-b py-3">
             <p class="text-muted-foreground text-sm">
-              {displayedEntries.hiddenCount} earlier entries hidden for performance
+              {displayedEntries.hiddenAtTop} earlier entries hidden for performance
             </p>
-            <div class="flex gap-2">
-              <Button variant="secondary" size="sm" class="h-7 text-xs" onclick={showMoreEntries}>
-                Show {Math.min(LOAD_MORE_BATCH, displayedEntries.hiddenCount)} more
-              </Button>
-              <Button variant="text" size="sm" class="h-7 text-xs" onclick={showAllEntries}>
-                Show all
-              </Button>
-            </div>
+            <Button variant="secondary" size="sm" class="h-7 text-xs" onclick={showMoreEntries}>
+              Show {Math.min(LOAD_MORE_BATCH, displayedEntries.hiddenAtTop)} more
+            </Button>
           </div>
         {/if}
 
@@ -225,28 +265,59 @@
         {#if !ui.isStreaming && !ui.isGenerating && story.storyMode === 'adventure' && !settings.uiSettings.disableSuggestions}
           <ActionChoices />
         {/if}
+
+        <!-- Show collapsed entries indicator if there are hidden entries at bottom -->
+        {#if displayedEntries.hiddenAtBottom > 0}
+          <div class="border-border mt-3 flex flex-col items-center gap-2 border-t py-3">
+            <p class="text-muted-foreground text-sm">
+              {displayedEntries.hiddenAtBottom} later entries hidden for performance
+            </p>
+            <Button variant="secondary" size="sm" class="h-7 text-xs" onclick={showMoreEntries}>
+              Show {Math.min(LOAD_MORE_BATCH, displayedEntries.hiddenAtBottom)} more
+            </Button>
+          </div>
+        {/if}
       {/if}
     </div>
 
-    <!-- Scroll to bottom button -->
-    {#if ui.userScrolledUp}
-      <div class="pointer-events-none sticky bottom-2 flex w-full justify-center pb-2">
-        <Button
-          variant="secondary"
-          size="sm"
-          class="border-border bg-background/80 hover:bg-accent animate-in fade-in slide-in-from-bottom-2 pointer-events-auto h-9 w-9 rounded-full border shadow-lg backdrop-blur-sm"
-          onclick={scrollToBottom}
-          aria-label="Scroll to bottom"
-        >
-          <ChevronDown class="h-5 w-5" />
-        </Button>
+    <!-- Scroll navigation buttons (floating at bottom of scroll container) -->
+    {#if story.entries.length > 0}
+      {@const buttonClasses = 'h-8 w-8 rounded-full shadow-lg disabled:opacity-50 sm:h-9 sm:w-9'}
+      {@const iconClasses = 'h-4 w-4 sm:h-5 sm:w-5'}
+      
+      <div class="pointer-events-none sticky bottom-0 left-0 right-0 z-20 flex justify-center py-2">
+        <div class="pointer-events-auto flex gap-2">
+          <!-- Scroll to top button -->
+          <Button
+            variant="secondary"
+            size="sm"
+            class={buttonClasses}
+            onclick={scrollToTop}
+            disabled={!userScrolledDown}
+            aria-label="Scroll to first message"
+          >
+            <ChevronUp class={iconClasses} />
+          </Button>
+
+          <!-- Scroll to bottom button -->
+          <Button
+            variant="secondary"
+            size="sm"
+            class={buttonClasses}
+            onclick={scrollToBottom}
+            disabled={!ui.userScrolledUp}
+            aria-label="Scroll to bottom"
+          >
+            <ChevronDown class={iconClasses} />
+          </Button>
+        </div>
       </div>
     {/if}
   </div>
 
   <!-- Action input area -->
   <div
-    class="border-border relative z-10 border-t px-3 pt-2 pb-1 sm:py-4 sm:pr-8 sm:pl-6 {story.currentBgImage
+    class="border-border relative z-10 border-t px-3 pt-2 pb-1 sm:pt-3 sm:pb-2 sm:pr-8 sm:pl-6 {story.currentBgImage
       ? 'bg-background/60 backdrop-blur-md'
       : 'bg-card'}"
   >
