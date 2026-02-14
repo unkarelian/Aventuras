@@ -94,6 +94,9 @@
 
   function scrollToTop() {
     showAllEntries()
+    requestAnimationFrame(() => {
+      performScroll(0)
+    })
   }
 
   // Check if container is scrolled near a specific edge
