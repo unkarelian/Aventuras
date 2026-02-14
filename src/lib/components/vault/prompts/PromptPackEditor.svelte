@@ -5,12 +5,14 @@
   import TemplateGroupList from './TemplateGroupList.svelte'
   import TemplateEditor from './TemplateEditor.svelte'
   import VariableManager from './VariableManager.svelte'
+  import VariablePalette from './VariablePalette.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Badge } from '$lib/components/ui/badge'
   import { Skeleton } from '$lib/components/ui/skeleton'
   import * as Dialog from '$lib/components/ui/dialog'
   import * as Drawer from '$lib/components/ui/drawer'
-  import { ChevronLeft, Menu } from 'lucide-svelte'
+  import * as Tabs from '$lib/components/ui/tabs'
+  import { ChevronLeft, Menu, Save, Undo2, RotateCcw } from 'lucide-svelte'
 
   interface Props {
     packId: string
@@ -24,6 +26,10 @@
   let fullPack = $state<FullPack | null>(null)
   let loading = $state(true)
   let drawerOpen = $state(false)
+
+  // Editor tab state
+  let editorActiveTab = $state<'system' | 'user'>('system')
+  let editorHasUserContent = $state(false)
 
   // Dirty guard state
   let isEditorDirty = $state(false)
@@ -147,20 +153,80 @@
         {#if fullPack.pack.isDefault}
           <Badge variant="default">Default</Badge>
         {/if}
+        {#if isEditorDirty}
+          <Badge variant="outline" class="border-yellow-500/50 text-yellow-500 text-xs"
+            >Unsaved</Badge
+          >
+        {/if}
       </div>
     {/if}
 
-    <!-- Mobile menu button -->
-    {#if isMobile.current}
-      <Button
-        variant="outline"
-        size="icon"
-        class="ml-auto h-8 w-8"
-        onclick={() => (drawerOpen = true)}
-      >
-        <Menu class="h-4 w-4" />
-      </Button>
-    {/if}
+    <div class="ml-auto flex items-center gap-1">
+      {#if selectedTemplateId && editorRef}
+        {#if editorHasUserContent}
+          <Tabs.Root
+            value={editorActiveTab}
+            onValueChange={(v) => {
+              if (v) editorActiveTab = v as 'system' | 'user'
+            }}
+          >
+            <Tabs.List class="h-8">
+              <Tabs.Trigger value="system" class="text-xs">System Prompt</Tabs.Trigger>
+              <Tabs.Trigger value="user" class="text-xs">User Message</Tabs.Trigger>
+            </Tabs.List>
+          </Tabs.Root>
+        {/if}
+
+        <VariablePalette
+          customVariables={fullPack?.variables ?? []}
+          onInsert={(name) => editorRef?.insertVariable(name)}
+        />
+
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-8 gap-1 text-xs"
+          disabled={!isEditorDirty}
+          onclick={() => editorRef?.save()}
+        >
+          <Save class="h-3.5 w-3.5" />
+          <span class="hidden sm:inline">Save</span>
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-8 gap-1 text-xs"
+          disabled={!isEditorDirty}
+          onclick={() => editorRef?.discard()}
+        >
+          <Undo2 class="h-3.5 w-3.5" />
+          <span class="hidden sm:inline">Discard</span>
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          class="h-8 gap-1 text-xs"
+          onclick={() => editorRef?.reset()}
+        >
+          <RotateCcw class="h-3.5 w-3.5" />
+          <span class="hidden sm:inline">Reset</span>
+        </Button>
+      {/if}
+
+      <!-- Mobile menu button -->
+      {#if isMobile.current}
+        <Button
+          variant="outline"
+          size="icon"
+          class="h-8 w-8"
+          onclick={() => (drawerOpen = true)}
+        >
+          <Menu class="h-4 w-4" />
+        </Button>
+      {/if}
+    </div>
   </div>
 
   <!-- Main Content -->
@@ -203,7 +269,10 @@
               {packId}
               templateId={selectedTemplateId}
               customVariables={fullPack.variables}
+              activeTab={editorActiveTab}
               onDirtyChange={handleDirtyChange}
+              onActiveTabChange={(tab) => (editorActiveTab = tab)}
+              onHasUserContent={(has) => (editorHasUserContent = has)}
             />
           </div>
         {:else}

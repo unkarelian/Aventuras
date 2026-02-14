@@ -10,12 +10,8 @@
   import type { ValidationError } from '$lib/services/templates/types'
   import type { CustomVariable } from '$lib/services/packs/types'
   import type { Completion } from '@codemirror/autocomplete'
-  import VariablePalette from './VariablePalette.svelte'
-  import * as Tabs from '$lib/components/ui/tabs'
   import { Button } from '$lib/components/ui/button'
-  import { Badge } from '$lib/components/ui/badge'
-  import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates'
-  import { Save, Undo2, RotateCcw, AlertTriangle, CircleCheck, Eye, Pencil } from 'lucide-svelte'
+  import { AlertTriangle, CircleCheck, Eye, Pencil } from 'lucide-svelte'
   import TemplatePreview from './TemplatePreview.svelte'
   import { createIsMobile } from '$lib/hooks/is-mobile.svelte'
 
@@ -23,17 +19,27 @@
     packId: string
     templateId: string
     customVariables: CustomVariable[]
+    activeTab?: 'system' | 'user'
     onDirtyChange?: (dirty: boolean) => void
+    onActiveTabChange?: (tab: 'system' | 'user') => void
+    onHasUserContent?: (has: boolean) => void
   }
 
-  let { packId, templateId, customVariables, onDirtyChange }: Props = $props()
+  let {
+    packId,
+    templateId,
+    customVariables,
+    activeTab = 'system',
+    onDirtyChange,
+    onActiveTabChange,
+    onHasUserContent,
+  }: Props = $props()
 
   // Editor content state
   let systemContent = $state('')
   let userContent = $state('')
   let originalSystem = $state('')
   let originalUser = $state('')
-  let activeTab = $state<'system' | 'user'>('system')
   let hasUserContent = $state(false)
   let validationErrors = $state<ValidationError[]>([])
   let editorView = $state<EditorView | null>(null)
@@ -47,11 +53,6 @@
   let isSystemDirty = $derived(systemContent !== originalSystem)
   let isUserDirty = $derived(userContent !== originalUser)
   let isDirty = $derived(isSystemDirty || isUserDirty)
-
-  // Template display name
-  let templateName = $derived(
-    PROMPT_TEMPLATES.find((t) => t.id === templateId)?.name ?? templateId,
-  )
 
   // Notify parent of dirty state changes
   $effect(() => {
@@ -162,7 +163,8 @@
         hasUserContent = false
       }
 
-      activeTab = 'system'
+      onHasUserContent?.(hasUserContent)
+      onActiveTabChange?.('system')
       // Run initial validation
       validateContent(sysContent)
     } catch (error) {
@@ -185,7 +187,7 @@
     editorView = view
   }
 
-  function handleInsertVariable(variableName: string) {
+  export function insertVariable(variableName: string) {
     if (!editorView) return
     const insertion = `{{ ${variableName} }}`
     const cursor = editorView.state.selection.main.head
@@ -242,85 +244,30 @@
   </div>
 {:else}
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Header: Template name + tabs + toolbar -->
-    <div class="flex flex-wrap items-center gap-1 border-b px-2 py-1.5">
-      <div class="flex items-center gap-2 px-2">
-        <h3 class="text-sm font-semibold">{templateName}</h3>
-        {#if isDirty}
-          <Badge variant="outline" class="border-yellow-500/50 text-yellow-500 text-xs"
-            >Unsaved</Badge
+    {#if isMobile.current}
+      <div class="flex items-center gap-1 border-b px-2 py-1.5">
+        <div class="ml-auto flex items-center rounded-md border">
+          <Button
+            variant={mobileView === 'editor' ? 'secondary' : 'ghost'}
+            size="sm"
+            class="h-7 rounded-r-none text-xs"
+            onclick={() => (mobileView = 'editor')}
           >
-        {/if}
+            <Pencil class="mr-1 h-3 w-3" />
+            Editor
+          </Button>
+          <Button
+            variant={mobileView === 'preview' ? 'secondary' : 'ghost'}
+            size="sm"
+            class="h-7 rounded-l-none text-xs"
+            onclick={() => (mobileView = 'preview')}
+          >
+            <Eye class="mr-1 h-3 w-3" />
+            Preview
+          </Button>
+        </div>
       </div>
-
-      {#if hasUserContent}
-        <Tabs.Root
-          value={activeTab}
-          onValueChange={(v) => {
-            if (v) activeTab = v as 'system' | 'user'
-          }}
-        >
-          <Tabs.List class="h-8">
-            <Tabs.Trigger value="system" class="text-xs">System Prompt</Tabs.Trigger>
-            <Tabs.Trigger value="user" class="text-xs">User Message</Tabs.Trigger>
-          </Tabs.List>
-        </Tabs.Root>
-      {/if}
-
-      <div class="ml-auto flex items-center gap-1">
-        {#if isMobile.current}
-          <div class="flex items-center rounded-md border">
-            <Button
-              variant={mobileView === 'editor' ? 'secondary' : 'ghost'}
-              size="sm"
-              class="h-7 rounded-r-none text-xs"
-              onclick={() => (mobileView = 'editor')}
-            >
-              <Pencil class="mr-1 h-3 w-3" />
-              Editor
-            </Button>
-            <Button
-              variant={mobileView === 'preview' ? 'secondary' : 'ghost'}
-              size="sm"
-              class="h-7 rounded-l-none text-xs"
-              onclick={() => (mobileView = 'preview')}
-            >
-              <Eye class="mr-1 h-3 w-3" />
-              Preview
-            </Button>
-          </div>
-        {/if}
-
-        <VariablePalette {customVariables} onInsert={handleInsertVariable} />
-
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-8 gap-1 text-xs"
-          disabled={!isDirty}
-          onclick={save}
-        >
-          <Save class="h-3.5 w-3.5" />
-          <span class="hidden sm:inline">Save</span>
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-8 gap-1 text-xs"
-          disabled={!isDirty}
-          onclick={discard}
-        >
-          <Undo2 class="h-3.5 w-3.5" />
-          <span class="hidden sm:inline">Discard</span>
-        </Button>
-
-        <Button variant="ghost" size="sm" class="h-8 gap-1 text-xs" onclick={reset}>
-          <RotateCcw class="h-3.5 w-3.5" />
-          <span class="hidden sm:inline">Reset</span>
-        </Button>
-      </div>
-    </div>
+    {/if}
 
     <!-- Editor + Preview content area -->
     <div class="flex min-h-0 flex-1 {isMobile.current ? 'flex-col' : 'flex-row'}">
