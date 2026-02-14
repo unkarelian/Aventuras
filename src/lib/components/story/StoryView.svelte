@@ -84,10 +84,6 @@
     visibleEntryCount = Math.min(visibleEntryCount + LOAD_MORE_BATCH, story.entries.length)
   }
 
-  function showMoreAtBottom() {
-    visibleEntryCount = Math.min(visibleEntryCount + LOAD_MORE_BATCH, story.entries.length)
-  }
-
   // Helper function to perform smooth scroll with RAF batching
   function performScroll(scrollPosition: number) {
     if (!storyContainer) return
@@ -276,7 +272,7 @@
             <p class="text-muted-foreground text-sm">
               {displayedEntries.hiddenAtBottom} later entries hidden for performance
             </p>
-            <Button variant="secondary" size="sm" class="h-7 text-xs" onclick={showMoreAtBottom}>
+            <Button variant="secondary" size="sm" class="h-7 text-xs" onclick={showMoreEntries}>
               Show {Math.min(LOAD_MORE_BATCH, displayedEntries.hiddenAtBottom)} more
             </Button>
           </div>
