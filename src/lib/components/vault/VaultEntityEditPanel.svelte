@@ -13,10 +13,11 @@
   interface Props {
     change: VaultPendingChange
     onApprove: (change?: VaultPendingChange) => void
+    onReject?: (change: VaultPendingChange) => void
     onClose: () => void
   }
 
-  let { change, onApprove, onClose }: Props = $props()
+  let { change, onApprove, onReject, onClose }: Props = $props()
 
   // Local state for the editable data (character / scenario)
   let charData = $state<VaultCharacterInput | null>(null)
@@ -80,6 +81,11 @@
     onApprove(pendingChange)
   }
 
+  /** Reject a specific pending entry from the lorebook editor list */
+  function handlePendingEntryReject(pendingChange: VaultPendingChange) {
+    onReject?.(pendingChange)
+  }
+
   const entityLabel = $derived(
     change.entityType === 'character'
       ? 'Character'
@@ -109,6 +115,7 @@
         onApprove={handleApproveWithEdits}
         pendingEntries={vaultEditor.pendingEntries}
         onApproveEntry={handlePendingEntryApprove}
+        onRejectEntry={handlePendingEntryReject}
         onUpdatePendingChange={(changeToUpdate, newData) => {
           vaultEditor.updateChangeData(changeToUpdate.id, {
             ...changeToUpdate,
@@ -120,19 +127,35 @@
   {:else}
     <!-- Standard UI for character / scenario -->
     <!-- Header -->
-    <div class="bg-muted/20 flex shrink-0 items-center justify-between border-b px-4 py-3">
-      <div class="flex items-center gap-2">
-        {#if change.entityType === 'character'}
-          <User class="h-4 w-4 text-amber-400" />
-        {:else if change.entityType === 'lorebook-entry'}
-          <BookOpen class="h-4 w-4 text-cyan-400" />
-        {:else}
-          <Map class="h-4 w-4 text-violet-400" />
-        {/if}
-        <span class="text-sm font-semibold">{actionLabel} {entityLabel}</span>
+    <div
+      class="border-surface-700/50 bg-surface-900/60 flex shrink-0 items-center justify-between border-b px-4 py-2.5"
+    >
+      <div class="flex items-center gap-2.5">
+        <div
+          class="flex h-6 w-6 items-center justify-center rounded-md {change.entityType ===
+          'character'
+            ? 'bg-amber-500/15'
+            : change.entityType === 'lorebook-entry'
+              ? 'bg-cyan-500/15'
+              : 'bg-violet-500/15'}"
+        >
+          {#if change.entityType === 'character'}
+            <User class="h-3 w-3 text-amber-400" />
+          {:else if change.entityType === 'lorebook-entry'}
+            <BookOpen class="h-3 w-3 text-cyan-400" />
+          {:else}
+            <Map class="h-3 w-3 text-violet-400" />
+          {/if}
+        </div>
+        <span class="text-surface-200 text-xs font-semibold">{actionLabel} {entityLabel}</span>
       </div>
-      <Button variant="ghost" size="icon" class="h-7 w-7" onclick={onClose}>
-        <X class="h-4 w-4" />
+      <Button
+        variant="ghost"
+        size="icon"
+        class="text-surface-400 hover:text-surface-200 h-6 w-6"
+        onclick={onClose}
+      >
+        <X class="h-3.5 w-3.5" />
       </Button>
     </div>
 
@@ -166,14 +189,18 @@
     </div>
 
     <!-- Footer -->
-    <div class="bg-muted/20 flex shrink-0 items-center justify-end gap-2 border-t px-4 py-3">
-      <Button variant="outline" size="sm" onclick={onClose}>Cancel</Button>
+    <div
+      class="border-surface-700/50 bg-surface-900/40 flex shrink-0 items-center justify-end gap-2 border-t px-4 py-2.5"
+    >
+      <Button variant="outline" size="sm" class="border-surface-600 h-7 text-xs" onclick={onClose}
+        >Cancel</Button
+      >
       <Button
         size="sm"
-        class="gap-1.5 bg-green-600 text-white hover:bg-green-700"
+        class="h-7 gap-1.5 bg-emerald-600 text-xs text-white hover:bg-emerald-500"
         onclick={handleApproveWithEdits}
       >
-        <Check class="h-3.5 w-3.5" />
+        <Check class="h-3 w-3" />
         Confirm & Approve
       </Button>
     </div>

@@ -212,6 +212,14 @@
         characters: () => characterVault.items,
         lorebooks: () => lorebookVault.items,
         scenarios: () => scenarioVault.items,
+        get activeLorebookId() {
+          return vaultEditor.currentLorebookId ?? undefined
+        },
+        get activeEntries() {
+          const id = vaultEditor.currentLorebookId
+          if (!id) return undefined
+          return lorebookVault.getById(id)?.entries
+        },
       }
 
       for await (const event of service.sendMessageStreaming(
@@ -393,33 +401,39 @@
   >
     <div class="flex flex-col overflow-hidden" style="height: 100%">
       <!-- Top Bar -->
-      <div class="bg-muted/20 flex items-center justify-between border-b px-4 py-3">
-        <div class="flex items-center gap-2">
+      <div
+        class="border-surface-700/60 bg-surface-900/80 flex items-center justify-between border-b px-4 py-2.5 backdrop-blur-sm"
+      >
+        <div class="flex items-center gap-2.5">
           <Button
             variant="ghost"
             size="icon"
-            class="text-muted-foreground hover:text-foreground h-9 w-9"
+            class="text-surface-400 hover:text-foreground hover:bg-surface-700/50 h-8 w-8"
             onclick={onClose}
             title="Back to Vault"
           >
-            <ChevronLeft class="h-5 w-5" />
+            <ChevronLeft class="h-4 w-4" />
           </Button>
-          <Bot class="text-accent-400 h-5 w-5" />
-          <h2 class="text-lg font-semibold tracking-tight">Vault Assistant</h2>
+          <div class="flex items-center gap-2">
+            <div class="bg-accent-500/15 flex h-7 w-7 items-center justify-center rounded-lg">
+              <Bot class="text-accent-400 h-4 w-4" />
+            </div>
+            <h2 class="text-surface-100 text-sm font-semibold tracking-tight">Vault Assistant</h2>
+          </div>
         </div>
         {#if vaultEditor.pendingCount > 0}
           <div in:fade={{ duration: 150 }}>
             <Button
               variant="outline"
               size="sm"
-              class="gap-2 border-green-500/40 bg-green-500/10 text-green-400 hover:bg-green-500/20"
+              class="h-7 gap-1.5 border-emerald-500/30 bg-emerald-500/8 px-2.5 text-xs text-emerald-400 hover:bg-emerald-500/15"
               onclick={handleApproveAll}
               disabled={isGenerating}
             >
-              <CheckCheck class="h-4 w-4" />
+              <CheckCheck class="h-3.5 w-3.5" />
               Approve All
               <span
-                class="rounded-full bg-green-500/20 px-1.5 py-0.5 text-xs font-semibold text-green-300"
+                class="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300"
               >
                 {vaultEditor.pendingBreakdown}
               </span>
@@ -433,13 +447,14 @@
         <!-- Entity Editor Panel (left, desktop only) -->
         {#if vaultEditor.editorOpen && vaultEditor.activeChange && !isMobile.current}
           <div
-            class="border-border flex flex-1 flex-col overflow-hidden border-r"
+            class="border-surface-700/50 flex flex-1 flex-col overflow-hidden border-r"
             transition:fade={{ duration: 100 }}
           >
             <VaultEntityEditPanel
               change={vaultEditor.activeChange}
               onApprove={(specificChange) =>
                 handleApprove(specificChange ?? vaultEditor.activeChange!)}
+              onReject={(change) => handleReject(change)}
               onClose={() => vaultEditor.closeEditor()}
             />
           </div>
@@ -452,7 +467,9 @@
             : 'mx-auto w-full max-w-2xl'}"
         >
           <!-- Conversation selector -->
-          <div class="bg-muted/10 flex items-center gap-2 border-b px-3 py-2">
+          <div
+            class="border-surface-700/40 bg-surface-900/40 flex items-center gap-2 border-b px-3 py-1.5"
+          >
             <DropdownMenu.Root bind:open={conversationSelectorOpen}>
               <DropdownMenu.Trigger>
                 {#snippet child({ props })}
@@ -509,7 +526,7 @@
           </div>
 
           <!-- Messages -->
-          <div class="flex-1 space-y-4 overflow-y-auto p-4" bind:this={messagesContainer}>
+          <div class="flex-1 space-y-3 overflow-y-auto px-4 py-3" bind:this={messagesContainer}>
             {#each messages as message (message.id)}
               <div in:fade={{ duration: 150 }}>
                 <div
@@ -527,18 +544,26 @@
                     <!-- Message bubble -->
                     <div
                       class={cn(
-                        'rounded-lg p-3 text-sm',
+                        'rounded-xl text-sm',
                         message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted/50 border',
+                          ? 'bg-accent-600/90 px-3.5 py-2.5 text-white'
+                          : 'bg-surface-800/60 border-surface-700/40 border px-3.5 py-2.5',
                       )}
                     >
                       <!-- Icon + content -->
-                      <div class="flex items-start gap-2">
+                      <div class="flex items-start gap-2.5">
                         {#if message.role === 'assistant'}
-                          <Bot class="text-primary mt-0.5 h-4 w-4 flex-shrink-0" />
+                          <div
+                            class="bg-accent-500/15 mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md"
+                          >
+                            <Bot class="text-accent-400 h-3 w-3" />
+                          </div>
                         {:else}
-                          <User class="mt-0.5 h-4 w-4 flex-shrink-0 opacity-80" />
+                          <div
+                            class="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md bg-white/10"
+                          >
+                            <User class="h-3 w-3 opacity-90" />
+                          </div>
                         {/if}
                         <div class="min-w-0 flex-1">
                           <div class="chat-markdown prose-content break-words">
@@ -549,9 +574,9 @@
 
                       <!-- Reasoning (collapsible) -->
                       {#if message.role === 'assistant' && message.reasoning}
-                        <div class="border-border/50 mt-2 border-t pt-2">
+                        <div class="border-surface-700/30 mt-2 border-t pt-2">
                           <button
-                            class="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
+                            class="text-surface-400 hover:text-surface-200 flex items-center gap-1.5 text-xs transition-colors"
                             onclick={() => toggleReasoning(message.id)}
                           >
                             <Brain class="h-3 w-3" />
@@ -564,7 +589,7 @@
                           </button>
                           {#if expandedReasoning.has(message.id)}
                             <div
-                              class="text-muted-foreground bg-muted/30 mt-2 rounded p-2 font-mono text-xs whitespace-pre-wrap"
+                              class="bg-surface-900/60 text-surface-400 mt-2 rounded-lg p-2.5 font-mono text-xs whitespace-pre-wrap"
                               in:slide
                             >
                               {message.reasoning}
@@ -576,13 +601,13 @@
 
                     <!-- Tool calls for this message -->
                     {#if message.toolCalls && message.toolCalls.length > 0}
-                      <div class="mt-2 space-y-1">
+                      <div class="mt-1.5 space-y-1">
                         {#each message.toolCalls as toolCall (toolCall.id)}
                           <div
-                            class="bg-muted/30 flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+                            class="border-surface-700/30 bg-surface-800/30 flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs"
                           >
-                            <Wrench class="text-muted-foreground h-3 w-3 flex-shrink-0" />
-                            <span class="text-muted-foreground font-medium"
+                            <Wrench class="text-surface-500 h-3 w-3 flex-shrink-0" />
+                            <span class="text-surface-400 font-medium"
                               >{formatToolCallName(toolCall.name)}</span
                             >
                           </div>
@@ -593,7 +618,7 @@
                     <!-- Timestamp -->
                     <div
                       class={cn(
-                        'text-muted-foreground mt-1 text-xs',
+                        'text-surface-500 mt-1 px-1 text-[10px]',
                         message.role === 'user' ? 'text-right' : '',
                       )}
                     >
@@ -623,31 +648,39 @@
             {#if isGenerating}
               <div class="flex justify-start" in:fade>
                 <div class="max-w-[90%] md:max-w-[85%]">
-                  <div class="bg-muted/50 rounded-lg border p-3">
-                    <div class="flex items-start gap-2">
-                      <Bot class="text-primary mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div
+                    class="border-surface-700/40 bg-surface-800/60 rounded-xl border px-3.5 py-2.5"
+                  >
+                    <div class="flex items-start gap-2.5">
+                      <div
+                        class="bg-accent-500/15 mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md"
+                      >
+                        <Bot class="text-accent-400 h-3 w-3" />
+                      </div>
                       <div class="min-w-0 flex-1">
                         {#if activeToolCalls.length > 0}
                           <div class="space-y-1">
                             {#each activeToolCalls as toolCall (toolCall.id)}
                               <div
-                                class="bg-background flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
+                                class="border-surface-700/30 bg-surface-900/40 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs"
                                 in:fade
                               >
                                 {#if toolCall.result === '...'}
                                   <Loader2
-                                    class="text-primary h-3 w-3 flex-shrink-0 animate-spin"
+                                    class="text-accent-400 h-3 w-3 flex-shrink-0 animate-spin"
                                   />
                                 {:else}
-                                  <Wrench class="text-muted-foreground h-3 w-3 flex-shrink-0" />
+                                  <Wrench class="text-surface-500 h-3 w-3 flex-shrink-0" />
                                 {/if}
-                                <span class="font-medium">{formatToolCallName(toolCall.name)}</span>
+                                <span class="text-surface-300 font-medium"
+                                  >{formatToolCallName(toolCall.name)}</span
+                                >
                               </div>
                             {/each}
                           </div>
                         {:else if isThinking}
-                          <div class="text-muted-foreground flex items-center gap-2 text-sm">
-                            <Loader2 class="h-4 w-4 animate-spin" />
+                          <div class="text-surface-400 flex items-center gap-2 text-sm">
+                            <Loader2 class="text-accent-400 h-3.5 w-3.5 animate-spin" />
                             <span>Thinking...</span>
                           </div>
                         {/if}
@@ -676,41 +709,44 @@
 
           <!-- Error display -->
           {#if error}
-            <div class="bg-destructive/10 border-destructive/20 border-t px-4 py-2" in:slide>
-              <div class="text-destructive flex items-center gap-2 text-sm">
-                <AlertCircle class="h-4 w-4" />
+            <div class="border-t border-red-500/20 bg-red-500/8 px-4 py-2" in:slide>
+              <div class="flex items-center gap-2 text-xs text-red-400">
+                <AlertCircle class="h-3.5 w-3.5" />
                 <span>{error}</span>
               </div>
             </div>
           {/if}
 
           <!-- Input area -->
-          <div class="bg-muted/10 border-t p-4">
+          <div class="border-surface-700/40 bg-surface-900/30 border-t p-3">
             <div class="flex items-end gap-2">
               <Textarea
                 bind:value={inputValue}
                 onkeydown={handleKeyDown}
                 placeholder="Ask me to create characters, organize lorebooks, set up scenarios..."
                 rows={2}
-                class="min-h-[2.5rem] resize-none"
+                class="border-surface-700/50 bg-surface-800/50 placeholder:text-surface-500 min-h-[2.5rem] resize-none rounded-xl text-sm"
                 disabled={isGenerating || !service}
               />
               <Button
                 size="icon"
-                class={cn('h-11 w-11 shrink-0', isGenerating && 'opacity-80')}
+                class={cn(
+                  'h-10 w-10 shrink-0 rounded-xl',
+                  isGenerating ? 'opacity-70' : 'bg-accent-600 hover:bg-accent-500',
+                )}
                 onclick={handleSend}
                 disabled={!inputValue.trim() || isGenerating || !service}
                 title="Send message"
               >
                 {#if isGenerating}
-                  <Loader2 class="h-6 w-6 animate-spin" />
+                  <Loader2 class="h-5 w-5 animate-spin" />
                 {:else}
-                  <Send class="h-6 w-6" />
+                  <Send class="h-5 w-5" />
                 {/if}
               </Button>
             </div>
-            <div class="text-muted-foreground mt-2 hidden text-center text-xs md:block">
-              Press {isTouchDevice()
+            <div class="text-surface-500 mt-1.5 hidden text-center text-[10px] md:block">
+              {isTouchDevice()
                 ? 'Shift+Enter to send, Enter for new line'
                 : 'Enter to send, Shift+Enter for new line'}
             </div>
@@ -734,6 +770,7 @@
         <VaultEntityEditPanel
           change={vaultEditor.activeChange}
           onApprove={(specificChange) => handleApprove(specificChange ?? vaultEditor.activeChange!)}
+          onReject={(change) => handleReject(change)}
           onClose={() => vaultEditor.closeEditor()}
         />
       {/if}

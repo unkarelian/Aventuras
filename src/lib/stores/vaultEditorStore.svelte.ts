@@ -95,13 +95,13 @@ class VaultEditorStore {
     // Use edited version if available
     change = this._editedChanges.get(change.id) ?? change
 
-    if (change.entityType === 'lorebook-entry' && 'data' in change) {
+    if (change.entityType === 'lorebook-entry') {
       const lorebook = lorebookVault.getById(change.lorebookId)
       if (!lorebook) return null
       const copy = JSON.parse(JSON.stringify(lorebook)) as VaultLorebook
 
       // Overlay update changes onto the preview copy
-      if (change.action === 'update' && typeof change.entryIndex === 'number') {
+      if (change.action === 'update' && 'data' in change && typeof change.entryIndex === 'number') {
         if (change.entryIndex >= 0 && change.entryIndex < copy.entries.length) {
           copy.entries[change.entryIndex] = {
             ...copy.entries[change.entryIndex],
@@ -153,9 +153,9 @@ class VaultEditorStore {
   get initialEntryIndex(): number | null {
     const change = this.activeChange
     if (!change) return null
-    if (change.entityType !== 'lorebook-entry' || !('data' in change)) return null
+    if (change.entityType !== 'lorebook-entry') return null
 
-    if (change.action === 'create') {
+    if ((change.action === 'create' || change.action === 'merge') && 'data' in change) {
       const pendingIdx = this.pendingEntries.findIndex((c) => c.id === change.id)
       return pendingIdx >= 0 ? -100 - pendingIdx : null
     }

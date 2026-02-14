@@ -21,9 +21,11 @@
     Settings,
     Check,
     Pencil,
+    GitMerge,
   } from 'lucide-svelte'
   import TagInput from '$lib/components/tags/TagInput.svelte'
   import VaultLorebookEntryFields from './VaultLorebookEntryFields.svelte'
+  import VaultPendingOperations, { type PendingOperation } from './VaultPendingOperations.svelte'
 
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
@@ -43,6 +45,7 @@
     onApprove?: () => void
     pendingEntries?: VaultPendingChange[]
     onApproveEntry?: (change: VaultPendingChange) => void
+    onRejectEntry?: (change: VaultPendingChange) => void
     onUpdatePendingChange?: (change: VaultPendingChange, newData: VaultLorebookEntry) => void
   }
 
@@ -57,6 +60,7 @@
     onApprove,
     pendingEntries = [],
     onApproveEntry,
+    onRejectEntry,
     onUpdatePendingChange,
   }: Props = $props()
 
@@ -133,7 +137,7 @@
     index: number
     isPending: boolean
     pendingChange: import('$lib/services/ai/sdk/schemas/vault').VaultPendingChange | null
-    pendingAction?: 'create' | 'edit' | 'delete'
+    pendingAction?: 'create' | 'edit' | 'delete' | 'merge-source' | 'merge-result'
   }
 
   const combinedEntries = $derived.by((): CombinedEntry[] => {
@@ -175,7 +179,16 @@
 
     // Regular entries with overlaid pending state
     const regular: CombinedEntry[] = entries.map((e, i) => {
-      if (deleteMap.has(i) || mergeDeletedIndices.has(i)) {
+      if (mergeDeletedIndices.has(i)) {
+        return {
+          entry: e,
+          index: i,
+          isPending: true,
+          pendingChange: deleteMap.get(i) ?? null,
+          pendingAction: 'merge-source' as const,
+        }
+      }
+      if (deleteMap.has(i)) {
         return {
           entry: e,
           index: i,
@@ -203,9 +216,8 @@
 
     // New entries (creates + merge results)
     const newEntries: CombinedEntry[] = []
-    const allCreates = [...creates, ...mergeCreates]
-    for (let i = 0; i < allCreates.length; i++) {
-      const change = allCreates[i]
+    for (let i = 0; i < creates.length; i++) {
+      const change = creates[i]
       const data = 'data' in change ? (change.data as VaultLorebookEntry) : null
       if (data) {
         newEntries.push({
@@ -214,6 +226,19 @@
           isPending: true,
           pendingChange: change,
           pendingAction: 'create',
+        })
+      }
+    }
+    for (let i = 0; i < mergeCreates.length; i++) {
+      const change = mergeCreates[i]
+      const data = 'data' in change ? (change.data as VaultLorebookEntry) : null
+      if (data) {
+        newEntries.push({
+          entry: data,
+          index: -100 - creates.length - i,
+          isPending: true,
+          pendingChange: change,
+          pendingAction: 'merge-result',
         })
       }
     }
@@ -228,6 +253,85 @@
         entry.name.toLowerCase().includes(q) ||
         (entry.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false),
     )
+  })
+
+  // Build grouped pending operations for the banner
+  let selectedOperationId = $state<string | null>(null)
+
+  const pendingOperations = $derived.by((): PendingOperation[] => {
+    const ops: PendingOperation[] = []
+    const seenMergeIds = new Set<string>()
+
+    for (const combined of combinedEntries) {
+      if (!combined.isPending || !combined.pendingChange) continue
+      const change = combined.pendingChange
+      const changeId = change.id
+
+      if (combined.pendingAction === 'merge-source' || combined.pendingAction === 'merge-result') {
+        if (seenMergeIds.has(changeId)) continue
+        seenMergeIds.add(changeId)
+
+        // Gather all sources and the result for this merge
+        const sources = combinedEntries.filter(
+          (c) => c.pendingAction === 'merge-source' && c.pendingChange?.id === changeId,
+        )
+        const result = combinedEntries.find(
+          (c) => c.pendingAction === 'merge-result' && c.pendingChange?.id === changeId,
+        )
+
+        const sourceNames = sources.map((s) => s.entry.name)
+        const resultName = result?.entry.name ?? 'Merged Entry'
+        const summary = `${sourceNames.join(' + ')} → ${resultName}`
+
+        ops.push({
+          id: changeId,
+          type: 'merge',
+          summary,
+          primaryChange: change,
+          relatedChanges: [change],
+          sourceNames,
+          resultName,
+        })
+      } else if (combined.pendingAction === 'create') {
+        ops.push({
+          id: changeId,
+          type: 'create',
+          summary: combined.entry.name || 'New Entry',
+          primaryChange: change,
+          relatedChanges: [change],
+          entryName: combined.entry.name,
+        })
+      } else if (combined.pendingAction === 'edit') {
+        ops.push({
+          id: changeId,
+          type: 'edit',
+          summary: combined.entry.name,
+          primaryChange: change,
+          relatedChanges: [change],
+          entryName: combined.entry.name,
+        })
+      } else if (combined.pendingAction === 'delete') {
+        ops.push({
+          id: changeId,
+          type: 'delete',
+          summary: combined.entry.name,
+          primaryChange: change,
+          relatedChanges: [change],
+          entryName: combined.entry.name,
+        })
+      }
+    }
+
+    return ops
+  })
+
+  // Set of indices that are claimed by a pending operation (for dimming in the list)
+  const pendingIndices = $derived.by(() => {
+    const indices = new Set<number>()
+    for (const c of combinedEntries) {
+      if (c.isPending) indices.add(c.index)
+    }
+    return indices
   })
 
   // Ensure selectedIndex is valid when entries change
@@ -407,6 +511,7 @@
         }
         case 'merge': {
           if (change.entryIndices) {
+            // Remove source entries (descending order to preserve indices)
             const sorted = [...change.entryIndices].sort((a, b) => b - a)
             for (const idx of sorted) {
               if (idx >= 0 && idx < entries.length) {
@@ -414,8 +519,14 @@
                 entries.splice(idx, 1)
               }
             }
-            entries = [...entries]
-            selectedIndex = null
+            // Add the merged result entry to the local list
+            if ('data' in change && change.data) {
+              entries = [...entries, change.data as VaultLorebookEntry]
+              selectedIndex = entries.length - 1
+            } else {
+              entries = [...entries]
+              selectedIndex = null
+            }
           }
           break
         }
@@ -424,64 +535,126 @@
 
     onApproveEntry(change)
   }
+
+  /** Select an operation from the banner — select the merge result or the relevant entry */
+  function handleSelectOperation(op: PendingOperation) {
+    selectedOperationId = op.id
+    newEntryDraft = null
+    confirmingDeleteIndex = null
+
+    if (op.type === 'merge') {
+      // Select the merge result entry to show its content
+      const result = combinedEntries.find(
+        (c) => c.pendingAction === 'merge-result' && c.pendingChange?.id === op.id,
+      )
+      if (result) {
+        selectedIndex = result.index
+      }
+    } else {
+      // For create/edit/delete, find the entry matching this change
+      const match = combinedEntries.find((c) => c.pendingChange?.id === op.id)
+      if (match) {
+        selectedIndex = match.index
+      }
+    }
+  }
+
+  /** Approve an operation from the banner */
+  function handleApproveOperation(op: PendingOperation) {
+    if (!onApproveEntry) return
+    selectedOperationId = null
+    handleApproveEntry(op.primaryChange)
+  }
+
+  /** Reject an operation from the banner */
+  function handleRejectOperation(op: PendingOperation) {
+    if (!onRejectEntry) return
+    selectedOperationId = null
+    onRejectEntry(op.primaryChange)
+    // Deselect if the rejected entry was selected
+    if (selectedIndex !== null) {
+      const match = combinedEntries.find((c) => c.pendingChange?.id === op.id)
+      if (match && match.index === selectedIndex) {
+        selectedIndex = null
+      }
+    }
+  }
+
+  /** Approve all pending operations — snapshot first to avoid index-shifting bugs */
+  function handleApproveAll() {
+    if (!onApproveEntry) return
+    selectedOperationId = null
+    // Snapshot: handleApproveEntry mutates entries[] which shifts indices,
+    // so we collect all changes first and delegate to parent without optimistic splicing
+    const changes = [...pendingOperations].map((op) => op.primaryChange)
+    for (const change of changes) {
+      onApproveEntry(change)
+    }
+  }
 </script>
 
-<div class="bg-background flex h-full w-full flex-col overflow-hidden">
+<div class="bg-surface-900 flex h-full w-full flex-col overflow-hidden">
   <!-- Header -->
   {#if !isEmbedded}
-    <div class="relative flex flex-shrink-0 items-center justify-center border-b px-6 py-4">
+    <div
+      class="border-surface-700/50 bg-surface-900/80 relative flex flex-shrink-0 items-center justify-center border-b px-6 py-3"
+    >
       <div class="absolute top-1/2 left-4 -translate-y-1/2">
         <Button
           variant="ghost"
           size="icon"
-          class="text-muted-foreground hover:text-foreground h-8 w-8"
+          class="text-surface-400 hover:text-surface-200 h-7 w-7"
           onclick={() => (isMaximized = !isMaximized)}
         >
           {#if isMaximized}
-            <Minimize2 class="h-4 w-4" />
+            <Minimize2 class="h-3.5 w-3.5" />
           {:else}
-            <Maximize2 class="h-4 w-4" />
+            <Maximize2 class="h-3.5 w-3.5" />
           {/if}
           <span class="sr-only">{isMaximized ? 'Minimize' : 'Maximize'}</span>
         </Button>
       </div>
-      <h2 class="text-lg font-semibold tracking-tight">Edit Lorebook</h2>
+      <h2 class="text-surface-100 text-sm font-semibold tracking-tight">Edit Lorebook</h2>
       {#if error}
         <div
-          class="bg-background/95 text-destructive absolute top-full left-0 w-full border-b py-1 text-center text-sm backdrop-blur"
+          class="absolute top-full left-0 w-full border-b border-red-500/20 bg-red-500/8 py-1 text-center text-xs text-red-400 backdrop-blur"
         >
           {error}
         </div>
       {/if}
     </div>
   {:else if error}
-    <div class="bg-destructive/10 text-destructive w-full border-b py-1 text-center text-sm">
+    <div
+      class="w-full border-b border-red-500/20 bg-red-500/8 py-1 text-center text-xs text-red-400"
+    >
       {error}
     </div>
   {/if}
 
   <Tabs.Root bind:value={activeTab} class="flex flex-1 flex-col overflow-hidden">
-    <div class="bg-muted/20 flex shrink-0 items-center justify-between border-b">
-      <Tabs.List class="h-12 justify-start bg-transparent p-0">
+    <div
+      class="border-surface-700/40 bg-surface-800/30 flex shrink-0 items-center justify-between border-b"
+    >
+      <Tabs.List class="h-10 justify-start bg-transparent p-0">
         <Tabs.Trigger
           value="editor"
-          class="data-[state=active]:border-primary h-full rounded-none px-4 data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          class="data-[state=active]:border-accent-500 data-[state=active]:text-surface-100 h-full rounded-none px-3.5 text-xs data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
-          <List class="mr-2 h-4 w-4" />
+          <List class="mr-1.5 h-3.5 w-3.5" />
           Entries ({entries.length})
         </Tabs.Trigger>
         <Tabs.Trigger
           value="settings"
-          class="data-[state=active]:border-primary h-full rounded-none px-4 data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          class="data-[state=active]:border-accent-500 data-[state=active]:text-surface-100 h-full rounded-none px-3.5 text-xs data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
-          <Settings class="mr-2 h-4 w-4" />
+          <Settings class="mr-1.5 h-3.5 w-3.5" />
           Settings
         </Tabs.Trigger>
       </Tabs.List>
     </div>
 
     <!-- Main Content Area -->
-    <div class="bg-background relative flex flex-1 overflow-hidden">
+    <div class="bg-surface-900 relative flex flex-1 overflow-hidden">
       <!-- Tab Contents Wrapper -->
       <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Tabs.Content value="settings" class="m-0 flex-1 overflow-y-auto p-6">
@@ -522,16 +695,22 @@
                 />
               </div>
 
-              <div class="bg-muted/30 rounded-lg border p-4">
-                <h4 class="mb-3 text-sm font-medium">Statistics</h4>
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                  <div class="bg-background flex justify-between rounded border p-2">
-                    <span class="text-muted-foreground">Total Entries</span>
-                    <span>{entries.length}</span>
+              <div class="border-surface-700/40 bg-surface-800/40 rounded-xl border p-4">
+                <h4 class="text-surface-300 mb-3 text-xs font-semibold">Statistics</h4>
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                  <div
+                    class="border-surface-700/30 bg-surface-900/50 flex justify-between rounded-lg border p-2.5"
+                  >
+                    <span class="text-surface-400">Total Entries</span>
+                    <span class="text-surface-200 font-semibold">{entries.length}</span>
                   </div>
-                  <div class="bg-background flex justify-between rounded border p-2">
-                    <span class="text-muted-foreground">Active Entries</span>
-                    <span>{entries.filter((e) => e.injectionMode !== 'never').length}</span>
+                  <div
+                    class="border-surface-700/30 bg-surface-900/50 flex justify-between rounded-lg border p-2.5"
+                  >
+                    <span class="text-surface-400">Active Entries</span>
+                    <span class="text-surface-200 font-semibold"
+                      >{entries.filter((e) => e.injectionMode !== 'never').length}</span
+                    >
                   </div>
                 </div>
               </div>
@@ -580,28 +759,38 @@
           <!-- Sidebar (List) -->
           <div
             class={cn(
-              'sm:bg-muted/10 flex w-full flex-col sm:w-80 sm:border-r',
-              selectedIndex !== null && 'hidden sm:flex', // Hide on mobile if selected
+              'sm:border-surface-700/40 sm:bg-surface-800/20 flex w-full flex-col sm:w-72 sm:border-r',
+              selectedIndex !== null && 'hidden sm:flex',
             )}
           >
-            <div class="space-y-3 border-b p-4">
+            <div class="border-surface-700/40 space-y-2 border-b p-3">
               <div class="relative">
                 <Input
                   bind:value={searchQuery}
                   placeholder="Search entries..."
-                  class="bg-background pl-9"
+                  class="border-surface-700/50 bg-surface-800/50 placeholder:text-surface-500 h-8 rounded-lg pl-9 text-xs"
                   leftIcon={Search}
                 />
               </div>
-              <Button class="w-full" onclick={handleAddEntry}>
-                <Plus class="h-4 w-4 " /> Add Entry
+              <Button class="h-8 w-full rounded-lg text-xs" onclick={handleAddEntry}>
+                <Plus class="h-3.5 w-3.5" /> Add Entry
               </Button>
             </div>
 
-            <div class="flex flex-1 flex-col space-y-1 overflow-y-auto p-2">
+            <!-- Pending Operations Banner -->
+            <VaultPendingOperations
+              operations={pendingOperations}
+              {selectedOperationId}
+              onSelectOperation={handleSelectOperation}
+              onApproveOperation={handleApproveOperation}
+              onRejectOperation={handleRejectOperation}
+              onApproveAll={handleApproveAll}
+            />
+
+            <div class="flex flex-1 flex-col space-y-0.5 overflow-y-auto p-1.5">
               {#if combinedEntries.length === 0}
                 <div
-                  class="text-muted-foreground flex min-h-[200px] flex-1 flex-col items-center justify-center text-center text-sm"
+                  class="text-surface-500 flex min-h-[200px] flex-1 flex-col items-center justify-center text-center text-xs"
                 >
                   {#if searchQuery}
                     No matches found
@@ -610,66 +799,75 @@
                   {/if}
                 </div>
               {:else}
-                {#each combinedEntries as { entry, index, isPending, pendingChange, pendingAction } (isPending ? `pending-${pendingChange?.id ?? index}` : index)}
+                {#each combinedEntries as { entry, index, isPending, pendingChange, pendingAction } (isPending ? `pending-${pendingChange?.id ?? 'x'}-${index}` : index)}
                   {@const Icon = typeIcons[entry.type]}
+                  {@const isBeingRemoved =
+                    pendingAction === 'delete' || pendingAction === 'merge-source'}
                   <button
                     class={cn(
-                      'hover:bg-muted/50 flex w-full items-center gap-3 rounded-md px-3 py-3 text-left transition-colors',
-                      selectedIndex === index && 'bg-accent text-accent-foreground',
-                      pendingAction === 'create' &&
-                        'border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10',
-                      pendingAction === 'edit' &&
-                        'border border-blue-500/30 bg-blue-500/5 hover:bg-blue-500/10',
-                      pendingAction === 'delete' &&
-                        'border border-red-500/30 bg-red-500/5 opacity-60 hover:bg-red-500/10',
+                      'hover:bg-surface-700/30 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
+                      selectedIndex === index &&
+                        'bg-accent-500/10 text-accent-foreground ring-accent-500/20 ring-1',
+                      pendingAction === 'edit' && 'border-l-2 border-l-blue-500/30',
+                      pendingAction === 'delete' && 'border-l-2 border-l-red-500/30',
+                      pendingAction === 'create' && 'border-l-2 border-l-emerald-500/30',
+                      pendingAction === 'merge-source' && 'border-l-2 border-l-amber-500/30',
+                      pendingAction === 'merge-result' && 'border-l-2 border-l-amber-500/30',
+                      isBeingRemoved && 'opacity-45',
                     )}
                     onclick={() => {
                       selectedIndex = index
                       newEntryDraft = null
                       confirmingDeleteIndex = null
+                      if (isPending && pendingChange) {
+                        selectedOperationId = pendingChange.id
+                      } else {
+                        selectedOperationId = null
+                      }
                     }}
                   >
                     <div
                       class={cn(
-                        'bg-background/50 flex h-8 w-8 items-center justify-center rounded-md border',
-                        selectedIndex === index && 'bg-background/20 border-transparent',
-                        pendingAction === 'create' && 'border-emerald-500/30 text-emerald-500',
-                        pendingAction === 'edit' && 'border-blue-500/30 text-blue-500',
-                        pendingAction === 'delete' && 'border-red-500/30 text-red-500',
+                        'border-surface-700/40 bg-surface-800/50 flex h-7 w-7 items-center justify-center rounded-lg border',
+                        selectedIndex === index && 'border-accent-500/20 bg-accent-500/10',
+                        pendingAction === 'edit' && 'border-blue-500/30 text-blue-400',
+                        pendingAction === 'delete' && 'border-red-500/30 text-red-400',
+                        pendingAction === 'create' && 'border-emerald-500/30 text-emerald-400',
+                        (pendingAction === 'merge-source' || pendingAction === 'merge-result') &&
+                          'border-amber-500/30 text-amber-400',
                       )}
                     >
-                      <Icon class="h-4 w-4" />
+                      {#if pendingAction === 'merge-source'}
+                        <GitMerge class="h-3.5 w-3.5 text-amber-500/70" />
+                      {:else if pendingAction === 'merge-result'}
+                        <GitMerge class="h-3.5 w-3.5 text-amber-500/70" />
+                      {:else}
+                        <Icon class="h-3.5 w-3.5" />
+                      {/if}
                     </div>
                     <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-2 text-sm font-medium">
-                        <span
-                          class={cn(
-                            'truncate',
-                            pendingAction === 'delete' && 'line-through opacity-70',
-                          )}>{entry.name}</span
+                      <div class="flex items-center gap-1.5 text-xs font-medium">
+                        <span class={cn('truncate', isBeingRemoved && 'line-through')}
+                          >{entry.name}</span
                         >
-                        {#if pendingAction === 'create'}
-                          <span
-                            class="ml-auto shrink-0 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-500 uppercase"
-                            >New</span
-                          >
-                        {:else if pendingAction === 'edit'}
-                          <span
-                            class="ml-auto shrink-0 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold text-blue-500 uppercase"
-                            >Edited</span
-                          >
+                        {#if pendingAction === 'edit'}
+                          <span class="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+                          ></span>
                         {:else if pendingAction === 'delete'}
-                          <span
-                            class="ml-auto shrink-0 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-red-500 uppercase"
-                            >Delete</span
-                          >
+                          <span class="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-red-500"></span>
+                        {:else if pendingAction === 'create'}
+                          <span class="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+                          ></span>
+                        {:else if pendingAction === 'merge-source' || pendingAction === 'merge-result'}
+                          <span class="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
+                          ></span>
                         {/if}
                       </div>
-                      <div class="flex items-center gap-2 text-xs opacity-70">
+                      <div class="text-surface-500 flex items-center gap-1.5 text-[10px]">
                         <span class="capitalize">{entry.type}</span>
                         {#if entry.injectionMode === 'never'}
                           <span class="ml-auto flex items-center gap-0.5">
-                            <EyeOff class="h-3 w-3" />
+                            <EyeOff class="h-2.5 w-2.5" />
                           </span>
                         {/if}
                       </div>
@@ -683,27 +881,29 @@
           <!-- Editor Area -->
           <div
             class={cn(
-              'bg-background flex flex-1 flex-col overflow-hidden',
+              'bg-surface-900 flex flex-1 flex-col overflow-hidden',
               selectedIndex === null && 'hidden sm:flex',
             )}
           >
             {#if selectedEntry !== null && selectedIndex !== null}
-              <div class="flex flex-shrink-0 items-center justify-between border-b px-6 py-4">
-                <div class="flex min-w-0 flex-1 items-center gap-3">
+              <div
+                class="border-surface-700/40 flex flex-shrink-0 items-center justify-between border-b px-4 py-2.5"
+              >
+                <div class="flex min-w-0 flex-1 items-center gap-2">
                   <Button
                     variant="ghost"
                     size="icon"
-                    class="-ml-2 sm:hidden"
+                    class="-ml-2 h-7 w-7 sm:hidden"
                     onclick={() => {
                       selectedIndex = null
                       newEntryDraft = null
                     }}
                   >
-                    <ArrowLeft class="h-5 w-5" />
+                    <ArrowLeft class="h-4 w-4" />
                   </Button>
                   <Input
                     bind:value={selectedEntry.name}
-                    class="hover:border-input focus:border-input h-auto w-full min-w-[200px] border-transparent px-2 py-1 text-lg font-semibold transition-colors sm:w-auto"
+                    class="text-surface-100 hover:border-surface-700 focus:border-surface-600 h-auto w-full min-w-[200px] border-transparent bg-transparent px-2 py-1 text-sm font-semibold transition-colors sm:w-auto"
                   />
                 </div>
                 <div class="flex items-center gap-2">
@@ -727,7 +927,10 @@
                           ? 'bg-red-600 hover:bg-red-700'
                           : selectedPendingAction === 'edit'
                             ? 'bg-blue-600 hover:bg-blue-700'
-                            : 'bg-emerald-600 hover:bg-emerald-700',
+                            : selectedPendingAction === 'merge-source' ||
+                                selectedPendingAction === 'merge-result'
+                              ? 'bg-amber-600 hover:bg-amber-700'
+                              : 'bg-emerald-600 hover:bg-emerald-700',
                       )}
                       onclick={() => handleApproveEntry(selectedPendingChange!)}
                     >
@@ -737,6 +940,9 @@
                       {:else if selectedPendingAction === 'edit'}
                         <Pencil class="h-3.5 w-3.5" />
                         Approve Edit
+                      {:else if selectedPendingAction === 'merge-source' || selectedPendingAction === 'merge-result'}
+                        <GitMerge class="h-3.5 w-3.5" />
+                        Approve Merge
                       {:else}
                         <Save class="h-3.5 w-3.5" />
                         Approve & Save
@@ -822,12 +1028,12 @@
                 </div>
               </div>
             {:else}
-              <div class="text-muted-foreground flex flex-1 flex-col items-center justify-center">
-                <div class="bg-muted/30 mb-4 rounded-full p-6">
-                  <Search class="h-8 w-8 opacity-50" />
+              <div class="text-surface-500 flex flex-1 flex-col items-center justify-center">
+                <div class="bg-surface-800/50 mb-3 rounded-2xl p-5">
+                  <Search class="h-6 w-6 opacity-40" />
                 </div>
-                <p class="text-lg font-medium">Select an entry to edit</p>
-                <p class="mt-2 text-sm">Or click "Add Entry" to create one</p>
+                <p class="text-surface-400 text-sm font-medium">Select an entry to edit</p>
+                <p class="mt-1 text-xs">Or click "Add Entry" to create one</p>
               </div>
             {/if}
           </div>
@@ -839,28 +1045,28 @@
   <!-- Footer -->
   {#if !isEmbedded}
     <div
-      class="bg-muted/40 flex flex-shrink-0 items-center gap-2 border-t px-6 py-4 sm:justify-end"
+      class="border-surface-700/40 bg-surface-800/30 flex flex-shrink-0 items-center gap-2 border-t px-4 py-2.5 sm:justify-end"
     >
       <Button
         variant="outline"
-        class="w-10 p-0 sm:w-auto sm:px-4"
+        class="border-surface-600 h-8 w-10 p-0 text-xs sm:w-auto sm:px-3"
         onclick={onClose}
         disabled={saving}
       >
-        <X class="h-4 w-4" />
+        <X class="h-3.5 w-3.5" />
         <span class="hidden sm:inline">Cancel</span>
       </Button>
       <Button
-        class="flex-1 sm:flex-none"
+        class="h-8 flex-1 text-xs sm:flex-none"
         onclick={() => handleSaveClick(onSaveAndClose ?? onSave)}
         disabled={saving || !name.trim()}
       >
         {#if saving}
           <div
-            class=" h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+            class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
           ></div>
         {:else}
-          <Save class=" h-4 w-4" />
+          <Save class="h-3.5 w-3.5" />
         {/if}
         Save Changes
       </Button>

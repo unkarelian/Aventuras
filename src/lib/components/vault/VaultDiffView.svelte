@@ -244,78 +244,78 @@
 </script>
 
 <div
-  class="border-surface-600 overflow-hidden rounded-lg border {isAutoApproved
-    ? 'bg-teal-500/5 opacity-85'
+  class="overflow-hidden rounded-xl border transition-all {isAutoApproved
+    ? 'border-teal-500/20 bg-teal-500/5 opacity-85'
     : isApproved
-      ? 'bg-green-500/5 opacity-75'
+      ? 'border-emerald-500/20 bg-emerald-500/5 opacity-75'
       : isRejected
-        ? 'bg-red-500/5 opacity-60'
-        : 'bg-surface-800'}"
+        ? 'border-red-500/20 bg-red-500/5 opacity-60'
+        : 'border-surface-700/40 bg-surface-800/70'}"
   in:fade={{ duration: 150 }}
 >
   <!-- Header -->
   <div
-    class="bg-surface-700/50 border-surface-600 flex flex-col justify-between gap-2 border-b px-3 py-2 sm:flex-row sm:items-center sm:px-4"
+    class="border-surface-700/30 bg-surface-800/40 flex flex-col justify-between gap-2 border-b px-3 py-2 sm:flex-row sm:items-center"
   >
     <div class="flex items-center gap-2">
       <!-- Entity type badge -->
       <div
-        class="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium {entityConfig.color} {entityConfig.bg}"
+        class="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wider uppercase {entityConfig.color} {entityConfig.bg}"
       >
-        <entityConfig.icon class="h-3 w-3" />
+        <entityConfig.icon class="h-2.5 w-2.5" />
         {entityConfig.label}
       </div>
 
       <!-- Action indicator -->
-      <div class="flex items-center gap-1.5">
-        <actionConfig.icon class="h-4 w-4 {actionConfig.color}" />
-        <span class="text-sm font-medium {actionConfig.color}">
+      <div class="flex items-center gap-1">
+        <actionConfig.icon class="h-3.5 w-3.5 {actionConfig.color}" />
+        <span class="text-xs font-semibold {actionConfig.color}">
           {actionConfig.label}
         </span>
       </div>
 
       <!-- Entity name -->
-      <span class="text-surface-300 truncate text-sm">{entityName}</span>
+      <span class="text-surface-300 truncate text-xs font-medium">{entityName}</span>
     </div>
 
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-1.5">
       {#if isAutoApproved}
-        <div class="flex items-center gap-1.5 text-sm font-medium text-teal-400">
-          <Zap class="h-4 w-4" />
+        <div class="flex items-center gap-1 text-xs font-medium text-teal-400">
+          <Zap class="h-3 w-3" />
           Auto-approved
         </div>
       {:else if isApproved}
-        <div class="flex items-center gap-1.5 text-sm font-medium text-green-400">
-          <CheckCircle2 class="h-4 w-4" />
+        <div class="flex items-center gap-1 text-xs font-medium text-emerald-400">
+          <CheckCircle2 class="h-3 w-3" />
           Approved
         </div>
       {:else if isRejected}
-        <div class="flex items-center gap-1.5 text-sm font-medium text-red-400">
-          <XCircle class="h-4 w-4" />
+        <div class="flex items-center gap-1 text-xs font-medium text-red-400">
+          <XCircle class="h-3 w-3" />
           Rejected
         </div>
       {:else}
         {#if onEdit}
           <button
-            class="bg-surface-600/50 text-surface-300 hover:bg-surface-600 active:bg-surface-500 flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:py-1.5"
+            class="bg-surface-700/50 text-surface-300 hover:bg-surface-700 flex flex-1 items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:flex-none"
             onclick={onEdit}
           >
-            <Pencil class="h-4 w-4" />
+            <Pencil class="h-3 w-3" />
             Edit
           </button>
         {/if}
         <button
-          class="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-red-500/20 px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30 active:bg-red-500/40 sm:flex-none sm:py-1.5"
+          class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-red-500/15 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/25 sm:flex-none"
           onclick={onReject}
         >
-          <X class="h-4 w-4" />
+          <X class="h-3 w-3" />
           Reject
         </button>
         <button
-          class="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-green-500/20 px-3 py-2 text-sm font-medium text-green-400 transition-colors hover:bg-green-500/30 active:bg-green-500/40 sm:flex-none sm:py-1.5"
+          class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25 sm:flex-none"
           onclick={onApprove}
         >
-          <Check class="h-4 w-4" />
+          <Check class="h-3 w-3" />
           Approve
         </button>
       {/if}
@@ -323,51 +323,58 @@
   </div>
 
   <!-- Content -->
-  <div class="p-3 sm:p-4">
+  <div class="p-3">
     {#if change.action === 'create'}
       <!-- Create: Show new entity data -->
-      <div class="rounded-md border border-green-500/30 bg-green-500/10 p-3">
-        <div class="mb-2 text-xs font-medium text-green-400">
+      <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/8 p-2.5">
+        <div class="mb-1.5 text-[10px] font-bold tracking-wider text-emerald-400 uppercase">
           New {entityConfig.label}
         </div>
         <pre
-          class="text-surface-200 font-mono text-sm whitespace-pre-wrap">{formatChangeData()}</pre>
+          class="text-surface-200 font-mono text-xs leading-relaxed whitespace-pre-wrap">{formatChangeData()}</pre>
       </div>
     {:else if change.action === 'update'}
       <!-- Update: Before / After -->
-      <div class="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
-        <div class="rounded-md border border-red-500/30 bg-red-500/10 p-3">
-          <div class="mb-2 text-xs font-medium text-red-400">Before</div>
+      <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+        <div class="rounded-lg border border-red-500/20 bg-red-500/8 p-2.5">
+          <div class="mb-1.5 text-[10px] font-bold tracking-wider text-red-400 uppercase">
+            Before
+          </div>
           <pre
-            class="text-surface-300 font-mono text-sm whitespace-pre-wrap">{formatPrevious()}</pre>
+            class="text-surface-400 font-mono text-xs leading-relaxed whitespace-pre-wrap">{formatPrevious()}</pre>
         </div>
-        <div class="rounded-md border border-green-500/30 bg-green-500/10 p-3">
-          <div class="mb-2 text-xs font-medium text-green-400">After</div>
+        <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/8 p-2.5">
+          <div class="mb-1.5 text-[10px] font-bold tracking-wider text-emerald-400 uppercase">
+            After
+          </div>
           <pre
-            class="text-surface-200 font-mono text-sm whitespace-pre-wrap">{formatChangeData()}</pre>
+            class="text-surface-200 font-mono text-xs leading-relaxed whitespace-pre-wrap">{formatChangeData()}</pre>
         </div>
       </div>
     {:else if change.action === 'delete'}
       <!-- Delete: Show entity being removed -->
-      <div class="rounded-md border border-red-500/30 bg-red-500/10 p-3">
-        <div class="mb-2 text-xs font-medium text-red-400">
+      <div class="rounded-lg border border-red-500/20 bg-red-500/8 p-2.5">
+        <div class="mb-1.5 text-[10px] font-bold tracking-wider text-red-400 uppercase">
           {entityConfig.label} to Delete
         </div>
         <pre
-          class="text-surface-300 font-mono text-sm whitespace-pre-wrap line-through opacity-70">{formatPrevious()}</pre>
+          class="text-surface-400 font-mono text-xs leading-relaxed whitespace-pre-wrap line-through opacity-70">{formatPrevious()}</pre>
       </div>
     {:else if change.action === 'merge'}
       <!-- Merge: Source entries and result (lorebook-entry only) -->
-      <div class="space-y-4">
-        <div class="rounded-md border border-red-500/30 bg-red-500/10 p-3">
-          <div class="mb-2 text-xs font-medium text-red-400">
+      <div class="space-y-3">
+        <div class="rounded-lg border border-red-500/20 bg-red-500/8 p-2.5">
+          <div class="mb-1.5 text-[10px] font-bold tracking-wider text-red-400 uppercase">
             Entries to Merge ({previousEntries?.length ?? 0})
           </div>
-          <div class="space-y-2">
+          <div class="space-y-1.5">
             {#each previousEntries ?? [] as entry, i (i)}
-              <div class="bg-surface-700/50 rounded p-2">
-                <div class="text-surface-400 mb-1 text-xs">Entry {i + 1}: {entry.name}</div>
-                <pre class="text-surface-300 font-mono text-sm whitespace-pre-wrap">{formatEntry(
+              <div class="bg-surface-800/50 rounded-md p-2">
+                <div class="text-surface-400 mb-1 text-[10px] font-semibold">
+                  Entry {i + 1}: {entry.name}
+                </div>
+                <pre
+                  class="text-surface-300 font-mono text-xs leading-relaxed whitespace-pre-wrap">{formatEntry(
                     entry,
                   )}</pre>
               </div>
@@ -376,12 +383,15 @@
         </div>
 
         <div class="flex justify-center">
-          <ArrowRight class="h-5 w-5 rotate-90 text-purple-400" />
+          <ArrowRight class="h-4 w-4 rotate-90 text-purple-400/70" />
         </div>
 
-        <div class="rounded-md border border-green-500/30 bg-green-500/10 p-3">
-          <div class="mb-2 text-xs font-medium text-green-400">Merged Entry</div>
-          <pre class="text-surface-200 font-mono text-sm whitespace-pre-wrap">{formatEntry(
+        <div class="rounded-lg border border-emerald-500/20 bg-emerald-500/8 p-2.5">
+          <div class="mb-1.5 text-[10px] font-bold tracking-wider text-emerald-400 uppercase">
+            Merged Entry
+          </div>
+          <pre
+            class="text-surface-200 font-mono text-xs leading-relaxed whitespace-pre-wrap">{formatEntry(
               mergeData as VaultLorebookEntry | undefined,
             )}</pre>
         </div>
