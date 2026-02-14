@@ -93,8 +93,8 @@
   }
 
   function scrollToTop() {
-    // First, ensure all entries are loaded so we can scroll to the actual first entry
-    showAllEntries()
+    // Scroll to top of currently rendered content
+    // The "Show all" button will be visible if not all entries are loaded
     performScroll(0)
   }
 
