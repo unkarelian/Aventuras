@@ -24,6 +24,9 @@
   // Track how many entries to show (starts at DEFAULT_VISIBLE_ENTRIES)
   let visibleEntryCount = $state(DEFAULT_VISIBLE_ENTRIES)
 
+  // Track viewing mode: 'bottom' shows recent entries, 'top' shows oldest entries
+  let viewMode = $state<'top' | 'bottom'>('bottom')
+
   // Track if user has scrolled away from top (for showing scroll-to-top button)
   let userScrolledDown = $state(false)
 
@@ -35,14 +38,15 @@
   let scrollRAF: number | null = null
   let prevEntryCount = 0
 
-  // Reset visible count when story changes
+  // Reset visible count and view mode when story changes
   $effect(() => {
     const currentStoryId = story.currentStory?.id ?? null
 
-    // If story changed, reset the visible count
+    // If story changed, reset to default view
     if (currentStoryId !== lastStoryId) {
       lastStoryId = currentStoryId
       visibleEntryCount = DEFAULT_VISIBLE_ENTRIES
+      viewMode = 'bottom'
     }
   })
 
@@ -52,15 +56,27 @@
     const total = entries.length
 
     if (total <= visibleEntryCount) {
-      return { entries, hiddenCount: 0, startIndex: 0 }
+      return { entries, hiddenAtTop: 0, hiddenAtBottom: 0, startIndex: 0 }
     }
 
-    // Show the most recent entries
-    const startIndex = total - visibleEntryCount
-    return {
-      entries: entries.slice(startIndex),
-      hiddenCount: startIndex,
-      startIndex,
+    if (viewMode === 'top') {
+      // Show the oldest entries (from the top)
+      const endIndex = Math.min(visibleEntryCount, total)
+      return {
+        entries: entries.slice(0, endIndex),
+        hiddenAtTop: 0,
+        hiddenAtBottom: total - endIndex,
+        startIndex: 0,
+      }
+    } else {
+      // Show the most recent entries (from the bottom)
+      const startIndex = total - visibleEntryCount
+      return {
+        entries: entries.slice(startIndex),
+        hiddenAtTop: startIndex,
+        hiddenAtBottom: 0,
+        startIndex,
+      }
     }
   })
 
@@ -68,8 +84,8 @@
     visibleEntryCount = Math.min(visibleEntryCount + LOAD_MORE_BATCH, story.entries.length)
   }
 
-  function showAllEntries() {
-    visibleEntryCount = story.entries.length
+  function showMoreAtBottom() {
+    visibleEntryCount = Math.min(visibleEntryCount + LOAD_MORE_BATCH, story.entries.length)
   }
 
   // Helper function to perform smooth scroll with RAF batching
@@ -89,11 +105,18 @@
   }
 
   function scrollToBottom() {
-    performScroll(storyContainer?.scrollHeight ?? 0)
+    // Switch to bottom view mode (show most recent entries)
+    viewMode = 'bottom'
+    visibleEntryCount = DEFAULT_VISIBLE_ENTRIES
+    requestAnimationFrame(() => {
+      performScroll(storyContainer?.scrollHeight ?? 0)
+    })
   }
 
   function scrollToTop() {
-    showAllEntries()
+    // Switch to top view mode (show oldest entries)
+    viewMode = 'top'
+    visibleEntryCount = DEFAULT_VISIBLE_ENTRIES
     requestAnimationFrame(() => {
       performScroll(0)
     })
@@ -151,7 +174,13 @@
 
     if (!shouldScroll) return
 
-    scrollToBottom()
+    // When new entries are added, switch back to bottom view mode
+    if (wasAdded && viewMode === 'top') {
+      viewMode = 'bottom'
+      visibleEntryCount = DEFAULT_VISIBLE_ENTRIES
+    }
+
+    performScroll(storyContainer?.scrollHeight ?? 0)
   })
 
   // Scroll to bottom when returning from gallery or other panels
@@ -205,20 +234,15 @@
           class="py-12 sm:py-20"
         />
       {:else}
-        <!-- Show collapsed entries indicator if there are hidden entries -->
-        {#if displayedEntries.hiddenCount > 0}
+        <!-- Show collapsed entries indicator if there are hidden entries at top -->
+        {#if displayedEntries.hiddenAtTop > 0}
           <div class="border-border mb-3 flex flex-col items-center gap-2 border-b py-3">
             <p class="text-muted-foreground text-sm">
-              {displayedEntries.hiddenCount} earlier entries hidden for performance
+              {displayedEntries.hiddenAtTop} earlier entries hidden for performance
             </p>
-            <div class="flex gap-2">
-              <Button variant="secondary" size="sm" class="h-7 text-xs" onclick={showMoreEntries}>
-                Show {Math.min(LOAD_MORE_BATCH, displayedEntries.hiddenCount)} more
-              </Button>
-              <Button variant="text" size="sm" class="h-7 text-xs" onclick={showAllEntries}>
-                Show all
-              </Button>
-            </div>
+            <Button variant="secondary" size="sm" class="h-7 text-xs" onclick={showMoreEntries}>
+              Show {Math.min(LOAD_MORE_BATCH, displayedEntries.hiddenAtTop)} more
+            </Button>
           </div>
         {/if}
 
@@ -244,6 +268,18 @@
         <!-- Show RPG-style action choices after narration (adventure mode only) -->
         {#if !ui.isStreaming && !ui.isGenerating && story.storyMode === 'adventure' && !settings.uiSettings.disableSuggestions}
           <ActionChoices />
+        {/if}
+
+        <!-- Show collapsed entries indicator if there are hidden entries at bottom -->
+        {#if displayedEntries.hiddenAtBottom > 0}
+          <div class="border-border mt-3 flex flex-col items-center gap-2 border-t py-3">
+            <p class="text-muted-foreground text-sm">
+              {displayedEntries.hiddenAtBottom} later entries hidden for performance
+            </p>
+            <Button variant="secondary" size="sm" class="h-7 text-xs" onclick={showMoreAtBottom}>
+              Show {Math.min(LOAD_MORE_BATCH, displayedEntries.hiddenAtBottom)} more
+            </Button>
+          </div>
         {/if}
       {/if}
     </div>
