@@ -19,6 +19,7 @@
     Map,
     CheckCircle2,
     XCircle,
+    Zap,
   } from 'lucide-svelte'
   import { fade } from 'svelte/transition'
 
@@ -33,6 +34,9 @@
 
   const isApproved = $derived(change.status === 'approved')
   const isRejected = $derived(change.status === 'rejected')
+  const isAutoApproved = $derived(
+    isApproved && change.entityType === 'lorebook' && change.action === 'create',
+  )
 
   // --- Entity type display config ---
 
@@ -42,13 +46,23 @@
         return { label: 'Character', icon: User, color: 'text-amber-400', bg: 'bg-amber-500/15' }
       case 'lorebook-entry':
         return {
-          label: 'Lorebook Entry',
+          label: 'Lorebook entry',
           icon: BookOpen,
           color: 'text-cyan-400',
           bg: 'bg-cyan-500/15',
         }
       case 'scenario':
         return { label: 'Scenario', icon: Map, color: 'text-violet-400', bg: 'bg-violet-500/15' }
+      case 'lorebook':
+        return { label: 'Lorebook', icon: BookOpen, color: 'text-blue-400', bg: 'bg-blue-500/15' }
+      default:
+        // Fallback for safety
+        return {
+          label: 'Entity',
+          icon: BookOpen,
+          color: 'text-surface-400',
+          bg: 'bg-surface-500/15',
+        }
     }
   })
 
@@ -84,6 +98,11 @@
       if (change.action === 'update') return change.data.name ?? change.previous?.name ?? 'Unknown'
       if (change.action === 'delete') return change.previous?.name ?? 'Unknown'
     }
+    if (change.entityType === 'lorebook') {
+      if (change.action === 'create') return change.data.name
+      if (change.action === 'update') return change.data.name ?? change.previous?.name ?? 'Unknown'
+      if (change.action === 'delete') return change.previous?.name ?? 'Unknown'
+    }
     return 'Unknown'
   })
 
@@ -104,31 +123,32 @@
   ): string {
     if (!data) return ''
     const lines: string[] = []
-    if (data.name) lines.push(`Name: ${data.name}`)
-    if (data.description) lines.push(`Description: ${data.description}`)
-    if ((data.traits as string[])?.length)
+    if ('name' in data) lines.push(`Name: ${data.name}`)
+    if ('description' in data) lines.push(`Description: ${data.description}`)
+    if ('traits' in data && (data.traits as string[])?.length)
       lines.push(`Traits: ${(data.traits as string[]).join(', ')}`)
-    if (data.visualDescriptors) {
+    if ('visualDescriptors' in data && data.visualDescriptors) {
       const vd = formatVisualDescriptors(data.visualDescriptors as VisualDescriptors)
       if (vd && vd !== '(none)') lines.push(`Appearance:\n${vd}`)
     }
-    if ((data.tags as string[])?.length) lines.push(`Tags: ${(data.tags as string[]).join(', ')}`)
+    if ('tags' in data && (data.tags as string[])?.length)
+      lines.push(`Tags: ${(data.tags as string[]).join(', ')}`)
     return lines.join('\n')
   }
 
   function formatEntry(entry: VaultLorebookEntry | undefined): string {
     if (!entry) return ''
-    return [
-      `Name: ${entry.name}`,
-      `Type: ${entry.type}`,
-      `Description: ${entry.description}`,
-      entry.keywords.length > 0 ? `Keywords: ${entry.keywords.join(', ')}` : null,
-      entry.aliases.length > 0 ? `Aliases: ${entry.aliases.join(', ')}` : null,
-      `Injection: ${entry.injectionMode}`,
-      `Priority: ${entry.priority}`,
-    ]
-      .filter(Boolean)
-      .join('\n')
+    const lines: string[] = []
+    if ('name' in entry) lines.push(`Name: ${entry.name}`)
+    if ('type' in entry) lines.push(`Type: ${entry.type}`)
+    if ('description' in entry) lines.push(`Description: ${entry.description}`)
+    if ('keywords' in entry && entry.keywords?.length > 0)
+      lines.push(`Keywords: ${entry.keywords.join(', ')}`)
+    if ('aliases' in entry && entry.aliases?.length > 0)
+      lines.push(`Aliases: ${entry.aliases.join(', ')}`)
+    if ('injectionMode' in entry) lines.push(`Injection: ${entry.injectionMode}`)
+    if ('priority' in entry) lines.push(`Priority: ${entry.priority}`)
+    return lines.join('\n')
   }
 
   function formatNpc(npc: VaultScenarioNpc): string {
@@ -145,24 +165,35 @@
   function formatScenario(data: Record<string, unknown> | undefined): string {
     if (!data) return ''
     const lines: string[] = []
-    if (data.name) lines.push(`Name: ${data.name}`)
-    if (data.description) lines.push(`Description: ${data.description}`)
-    if (data.settingSeed) {
+    if ('name' in data) lines.push(`Name: ${data.name}`)
+    if ('description' in data) lines.push(`Description: ${data.description}`)
+    if ('settingSeed' in data && data.settingSeed) {
       const seed = String(data.settingSeed)
       lines.push(`Setting: ${seed.length > 200 ? seed.slice(0, 200) + '...' : seed}`)
     }
-    if (data.primaryCharacterName) lines.push(`Protagonist: ${data.primaryCharacterName}`)
-    if ((data.npcs as VaultScenarioNpc[])?.length) {
+    if ('primaryCharacterName' in data) lines.push(`Protagonist: ${data.primaryCharacterName}`)
+    if ('npcs' in data && (data.npcs as VaultScenarioNpc[])?.length) {
       lines.push(`NPCs (${(data.npcs as VaultScenarioNpc[]).length}):`)
       for (const npc of data.npcs as VaultScenarioNpc[]) {
         lines.push(formatNpc(npc))
       }
     }
-    if (data.firstMessage) {
+    if ('firstMessage' in data && data.firstMessage) {
       const msg = String(data.firstMessage)
       lines.push(`First Message: ${msg.length > 150 ? msg.slice(0, 150) + '...' : msg}`)
     }
-    if ((data.tags as string[])?.length) lines.push(`Tags: ${(data.tags as string[]).join(', ')}`)
+    if ('tags' in data && (data.tags as string[])?.length)
+      lines.push(`Tags: ${(data.tags as string[]).join(', ')}`)
+    return lines.join('\n')
+  }
+
+  function formatLorebook(data: Record<string, unknown> | undefined): string {
+    if (!data) return ''
+    const lines: string[] = []
+    if ('name' in data) lines.push(`Name: ${data.name}`)
+    if ('description' in data) lines.push(`Description: ${data.description}`)
+    if ('tags' in data && (data.tags as string[])?.length)
+      lines.push(`Tags: ${(data.tags as string[]).join(', ')}`)
     return lines.join('\n')
   }
 
@@ -179,6 +210,9 @@
     if (change.entityType === 'scenario') {
       return formatScenario(change.data as Record<string, unknown>)
     }
+    if (change.entityType === 'lorebook') {
+      return formatLorebook(change.data as Record<string, unknown>)
+    }
     return ''
   }
 
@@ -191,6 +225,9 @@
     }
     if (change.entityType === 'scenario' && 'previous' in change) {
       return formatScenario(change.previous as Record<string, unknown>)
+    }
+    if (change.entityType === 'lorebook' && 'previous' in change) {
+      return formatLorebook(change.previous as Record<string, unknown>)
     }
     return ''
   }
@@ -207,11 +244,13 @@
 </script>
 
 <div
-  class="border-surface-600 overflow-hidden rounded-lg border {isApproved
-    ? 'bg-green-500/5 opacity-75'
-    : isRejected
-      ? 'bg-red-500/5 opacity-60'
-      : 'bg-surface-800'}"
+  class="border-surface-600 overflow-hidden rounded-lg border {isAutoApproved
+    ? 'bg-teal-500/5 opacity-85'
+    : isApproved
+      ? 'bg-green-500/5 opacity-75'
+      : isRejected
+        ? 'bg-red-500/5 opacity-60'
+        : 'bg-surface-800'}"
   in:fade={{ duration: 150 }}
 >
   <!-- Header -->
@@ -240,7 +279,12 @@
     </div>
 
     <div class="flex items-center gap-2">
-      {#if isApproved}
+      {#if isAutoApproved}
+        <div class="flex items-center gap-1.5 text-sm font-medium text-teal-400">
+          <Zap class="h-4 w-4" />
+          Auto-approved
+        </div>
+      {:else if isApproved}
         <div class="flex items-center gap-1.5 text-sm font-medium text-green-400">
           <CheckCircle2 class="h-4 w-4" />
           Approved

@@ -4,11 +4,19 @@
  * Exports all tool factory functions for agentic services.
  */
 
-export { createLorebookTools, type LorebookToolContext, type LorebookTools } from './lorebook'
 export {
-  createLorebookBrowsingTools,
-  type VaultLorebookBrowsingContext,
-  type LorebookBrowsingTools,
+  createLoreManagementTools,
+  createInteractiveVaultLorebookTools,
+  type LorebookEntryToolContext,
+  type StoryToolContext,
+  type VaultLorebookToolContext,
+  type ChapterInfo,
+  type VaultLorebookPendingChangeSchema,
+  type LorebookEntryTools,
+  type StoryTools,
+  type VaultLorebookTools,
+  type LoreManagementTools,
+  type InteractiveVaultLorebookTools,
 } from './lorebook'
 export { createCharacterTools, type CharacterToolContext, type CharacterTools } from './character'
 export { createScenarioTools, type ScenarioToolContext, type ScenarioTools } from './scenario'

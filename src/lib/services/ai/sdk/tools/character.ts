@@ -122,7 +122,8 @@ export function createCharacterTools(context: CharacterToolContext) {
      * Returns a pending change for approval workflow.
      */
     create_character: tool({
-      description: 'Create a new vault character. The change will be pending until approved.',
+      description:
+        'Propose a new vault character to be created. The change will be pending until approved.',
       inputSchema: z.object({
         name: z.string().describe('Character name'),
         description: z.string().nullable().describe('Brief character description'),
@@ -179,7 +180,7 @@ export function createCharacterTools(context: CharacterToolContext) {
      */
     update_character: tool({
       description:
-        'Update an existing vault character by ID. Only include fields you want to change. The change will be pending until approved.',
+        'Propose an update to an existing vault character by ID. Only include fields you want to change. The change will be pending until approved.',
       inputSchema: z.object({
         characterId: z.string().describe('ID of the character to update'),
         name: z.string().optional().describe('New name'),
@@ -247,7 +248,8 @@ export function createCharacterTools(context: CharacterToolContext) {
      * Returns a pending change for approval workflow.
      */
     delete_character: tool({
-      description: 'Delete a vault character by ID. The change will be pending until approved.',
+      description:
+        'Propose to delete a vault character by ID. The change will be pending until approved.',
       inputSchema: z.object({
         characterId: z.string().describe('ID of the character to delete'),
         reason: z.string().optional().describe('Reason for deletion'),

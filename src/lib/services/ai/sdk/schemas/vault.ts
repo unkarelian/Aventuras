@@ -97,6 +97,41 @@ const characterDeleteSchema = z.object({
   previous: vaultCharacterInputSchema.optional().describe('Previous character state (for undo)'),
 })
 
+// --- Lorebook changes ---
+
+export const vaultLorebookInputSchema = z.object({
+  name: z.string().describe('Lorebook name'),
+  description: z.string().nullable().describe('Brief lorebook description'),
+  tags: z.array(z.string()).describe('Tags for organization'),
+})
+
+export type VaultLorebookInput = z.infer<typeof vaultLorebookInputSchema>
+
+const lorebookCreateSchema = z.object({
+  ...baseChangeFields,
+  entityType: z.literal('lorebook'),
+  action: z.literal('create'),
+  entityId: z.string().describe('ID of the lorebook to create'),
+  data: vaultLorebookInputSchema.describe('Lorebook data to create'),
+})
+
+const lorebookUpdateSchema = z.object({
+  ...baseChangeFields,
+  entityType: z.literal('lorebook'),
+  action: z.literal('update'),
+  entityId: z.string().describe('ID of the lorebook to update'),
+  data: vaultLorebookInputSchema.partial().describe('Partial lorebook updates'),
+  previous: vaultLorebookInputSchema.optional().describe('Previous lorebook state (for undo)'),
+})
+
+const lorebookDeleteSchema = z.object({
+  ...baseChangeFields,
+  entityType: z.literal('lorebook'),
+  action: z.literal('delete'),
+  entityId: z.string().describe('ID of the lorebook to delete'),
+  previous: vaultLorebookInputSchema.optional().describe('Previous lorebook state (for undo)'),
+})
+
 // --- Lorebook entry changes ---
 
 const lorebookEntryCreateSchema = z.object({
@@ -172,6 +207,10 @@ export const vaultPendingChangeSchema = z.union([
   characterCreateSchema,
   characterUpdateSchema,
   characterDeleteSchema,
+  // Lorebook
+  lorebookCreateSchema,
+  lorebookUpdateSchema,
+  lorebookDeleteSchema,
   // Lorebook entry
   lorebookEntryCreateSchema,
   lorebookEntryUpdateSchema,

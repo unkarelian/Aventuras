@@ -7,7 +7,7 @@
  */
 
 import type { VaultCharacter, VaultLorebook, VaultLorebookEntry, VaultScenario } from '$lib/types'
-import type { ModelMessage, ToolModelMessage, TextPart, ToolCallPart } from 'ai'
+import type { ModelMessage, ToolModelMessage, TextPart, ToolCallPart, ToolSet } from 'ai'
 import { settings } from '$lib/stores/settings.svelte'
 import { characterVault } from '$lib/stores/characterVault.svelte'
 import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
@@ -18,14 +18,14 @@ import { resolveAgentConfig, stopWhenDone } from '../sdk/agents'
 import {
   createCharacterTools,
   createScenarioTools,
-  createLorebookTools,
-  createLorebookBrowsingTools,
+  createInteractiveVaultLorebookTools,
   createVaultLinkingTools,
   createFandomTools,
   type CharacterToolContext,
   type ScenarioToolContext,
-  type LorebookToolContext,
   type FandomToolContext,
+  type VaultLorebookToolContext,
+  type LorebookEntryToolContext,
 } from '../sdk/tools'
 import type { VaultPendingChange } from '../sdk/schemas/vault'
 import { promptService } from '$lib/services/prompts'
@@ -159,8 +159,8 @@ export class InteractiveVaultService {
    * Composes all vault tool sets for the AI to use.
    */
   async *sendMessageStreaming(
-    userMessage: string,
     vaultState: VaultState,
+    userMessage?: string,
     signal?: AbortSignal,
   ): AsyncGenerator<StreamEvent> {
     if (!this.initialized) {
@@ -170,6 +170,7 @@ export class InteractiveVaultService {
 
     // Track state for this message
     const pendingChanges: VaultPendingChange[] = []
+    const linkedChangeIds = new Set<string>() // Prevent re-linking old changes to new tool calls
     const toolCalls: ToolCallDisplay[] = []
     let responseContent = ''
     let reasoning: string | undefined
@@ -181,6 +182,8 @@ export class InteractiveVaultService {
     }
 
     // --- Compose all tool sets ---
+
+    console.log('vaultState :>> ', vaultState)
 
     // Character tools
     const characterContext: CharacterToolContext = {
@@ -198,74 +201,129 @@ export class InteractiveVaultService {
     }
     const scenarioTools = createScenarioTools(scenarioContext)
 
-    // Lorebook browsing tools (vault-level)
-    const browsingTools = createLorebookBrowsingTools({
+    const vaultLorebookContext: VaultLorebookToolContext = {
       lorebooks: vaultState.lorebooks,
-    })
-
-    // Lorebook entry-level tools (scoped to active lorebook if provided)
-    let lorebookTools: ReturnType<typeof createLorebookTools> | undefined
-    if (vaultState.activeEntries) {
-      const lorebookContext: LorebookToolContext = {
-        entries: vaultState.activeEntries,
-        onPendingChange: (change) => {
-          // Wrap legacy PendingChangeSchema into VaultPendingChange
-          const lorebookId = vaultState.activeLorebookId ?? 'unknown'
-          const vaultChange: VaultPendingChange = (() => {
-            switch (change.type) {
-              case 'create':
-                return {
-                  id: change.id,
-                  toolCallId: change.toolCallId,
-                  entityType: 'lorebook-entry' as const,
-                  action: 'create' as const,
-                  lorebookId,
-                  data: change.entry!,
-                  status: change.status,
-                }
-              case 'update':
-                return {
-                  id: change.id,
-                  toolCallId: change.toolCallId,
-                  entityType: 'lorebook-entry' as const,
-                  action: 'update' as const,
-                  lorebookId,
-                  entryIndex: change.index!,
-                  data: change.updates!,
-                  previous: change.previous,
-                  status: change.status,
-                }
-              case 'delete':
-                return {
-                  id: change.id,
-                  toolCallId: change.toolCallId,
-                  entityType: 'lorebook-entry' as const,
-                  action: 'delete' as const,
-                  lorebookId,
-                  entryIndex: change.index!,
-                  previous: change.previous,
-                  status: change.status,
-                }
-              case 'merge':
-                return {
-                  id: change.id,
-                  toolCallId: change.toolCallId,
-                  entityType: 'lorebook-entry' as const,
-                  action: 'merge' as const,
-                  lorebookId,
-                  entryIndices: change.indices!,
-                  data: change.entry!,
-                  previousEntries: change.previousEntries,
-                  status: change.status,
-                }
-            }
-          })()
-          pendingChanges.push(vaultChange)
-        },
-        generateId,
-      }
-      lorebookTools = createLorebookTools(lorebookContext)
+      onPendingChange: (change) => {
+        const vaultChange: VaultPendingChange = (() => {
+          switch (change.type) {
+            case 'create':
+              return {
+                id: change.id,
+                toolCallId: change.toolCallId,
+                entityType: 'lorebook' as const,
+                action: 'create' as const,
+                status: change.status,
+                entityId: change.lorebookId,
+                data: {
+                  name: change.name!,
+                  description: change.description ?? null,
+                  tags: change.tags ?? [],
+                },
+              }
+            case 'update':
+              return {
+                id: change.id,
+                toolCallId: change.toolCallId,
+                entityType: 'lorebook' as const,
+                action: 'update' as const,
+                status: change.status,
+                entityId: change.lorebookId,
+                data: {
+                  name: change.name,
+                  description: change.description ?? undefined,
+                  tags: change.tags,
+                },
+              }
+            case 'delete':
+              return {
+                id: change.id,
+                toolCallId: change.toolCallId,
+                entityType: 'lorebook' as const,
+                action: 'delete' as const,
+                status: change.status,
+                entityId: change.lorebookId,
+              }
+          }
+        })()
+        pendingChanges.push(vaultChange)
+      },
+      generateId,
     }
+
+    const lorebookEntryContext: LorebookEntryToolContext = {
+      entries: vaultState.activeEntries ?? [], // Default to empty if no active lorebook, relying on getLorebookEntries for global access
+      getLorebookEntries: (id: string) => {
+        const lb = vaultState.lorebooks().find((b) => b.id === id)
+        return lb ? lb.entries : undefined
+      },
+      onPendingChange: (change) => {
+        // Wrap legacy PendingChangeSchema into VaultPendingChange
+        // Use the ID from the change if present (global edit), otherwise fallback to active context
+        const lorebookId = change.lorebookId ?? vaultState.activeLorebookId ?? 'unknown'
+
+        // Validation: If no ID found either way, we have a problem
+        if (lorebookId === 'unknown') {
+          log('Warning: No lorebook ID resolved for pending change', { change })
+        }
+
+        const vaultChange: VaultPendingChange = (() => {
+          switch (change.type) {
+            case 'create':
+              return {
+                id: change.id,
+                toolCallId: change.toolCallId,
+                entityType: 'lorebook-entry' as const,
+                action: 'create' as const,
+                lorebookId,
+                data: change.entry!,
+                status: change.status,
+              }
+            case 'update':
+              return {
+                id: change.id,
+                toolCallId: change.toolCallId,
+                entityType: 'lorebook-entry' as const,
+                action: 'update' as const,
+                lorebookId,
+                entryIndex: change.index!,
+                data: change.updates!,
+                previous: change.previous,
+                status: change.status,
+              }
+            case 'delete':
+              return {
+                id: change.id,
+                toolCallId: change.toolCallId,
+                entityType: 'lorebook-entry' as const,
+                action: 'delete' as const,
+                lorebookId,
+                entryIndex: change.index!,
+                previous: change.previous,
+                status: change.status,
+              }
+            case 'merge':
+              return {
+                id: change.id,
+                toolCallId: change.toolCallId,
+                entityType: 'lorebook-entry' as const,
+                action: 'merge' as const,
+                lorebookId,
+                entryIndices: change.indices!,
+                data: change.entry!,
+                previousEntries: change.previousEntries,
+                status: change.status,
+              }
+          }
+        })()
+        pendingChanges.push(vaultChange)
+      },
+      generateId,
+    }
+
+    const lorebookTools = createInteractiveVaultLorebookTools(
+      vaultLorebookContext,
+      lorebookEntryContext,
+    )
 
     // Vault linking tools
     const vaultLinkingTools = createVaultLinkingTools({
@@ -285,20 +343,18 @@ export class InteractiveVaultService {
     const tools: Record<string, unknown> = {
       ...characterTools,
       ...scenarioTools,
-      ...browsingTools,
-      ...(lorebookTools ?? {}),
+      ...lorebookTools,
       ...vaultLinkingTools,
       ...fandomTools,
     }
 
-    // Strip finish_lore_management — it's for the autonomous service only
-    delete tools['finish_lore_management']
-
     // Add user message to conversation history
-    this.conversationHistory.push({
-      role: 'user',
-      content: userMessage,
-    })
+    if (userMessage) {
+      this.conversationHistory.push({
+        role: 'user',
+        content: userMessage,
+      })
+    }
 
     // Resolve agent config
     const debugId = crypto.randomUUID()
@@ -314,7 +370,7 @@ export class InteractiveVaultService {
         model,
         system: this.systemPrompt,
         messages: this.conversationHistory,
-        tools: tools as Parameters<typeof streamText>[0]['tools'],
+        tools: tools as ToolSet,
         temperature: preset.temperature,
         maxOutputTokens: preset.maxTokens,
         providerOptions,
@@ -417,8 +473,13 @@ export class InteractiveVaultService {
 
               // Check if this tool call created a pending change
               const latestChange = pendingChanges[pendingChanges.length - 1]
-              if (latestChange && latestChange.toolCallId.startsWith('iv-')) {
+              if (
+                latestChange &&
+                latestChange.toolCallId.startsWith('iv-') &&
+                !linkedChangeIds.has(latestChange.id)
+              ) {
                 toolCallDisplay.pendingChange = latestChange
+                linkedChangeIds.add(latestChange.id)
               }
 
               stepToolCalls.push(toolCallDisplay)
@@ -507,17 +568,17 @@ export class InteractiveVaultService {
    * Handle approval or rejection of a pending change.
    * Adds a system note to conversation history.
    */
-  handleApproval(change: VaultPendingChange, approved: boolean, rejectionReason?: string): void {
+  handleApproval(change: VaultPendingChange, approved: boolean): void {
     // Mutate the change status
-    ;(change as { status: string }).status = approved ? 'approved' : 'rejected'
-    log('Handled approval', { changeId: change.id, approved, rejectionReason })
+    change.status = approved ? 'approved' : 'rejected'
+    log('Handled approval', { changeId: change.id, approved })
 
     // Extract a display name from the change
     const displayName = this.getChangeDisplayName(change)
 
     const note = approved
       ? `[System: User approved the ${change.action} operation for ${change.entityType} "${displayName}"]`
-      : `[System: User rejected the ${change.action} operation for ${change.entityType}${rejectionReason ? `: ${rejectionReason}` : ''}]`
+      : `[System: User rejected the ${change.action} operation for ${change.entityType} "${displayName}"]`
 
     this.conversationHistory.push({
       role: 'user',
@@ -534,11 +595,44 @@ export class InteractiveVaultService {
       case 'character':
         await this.applyCharacterChange(change)
         break
+      case 'lorebook':
+        await this.applyLorebookChange(change)
+        break
       case 'lorebook-entry':
         await this.applyLorebookEntryChange(change)
         break
       case 'scenario':
         await this.applyScenarioChange(change)
+        break
+    }
+  }
+
+  /**
+   * Apply a lorebook change to the lorebook vault store.
+   */
+  private async applyLorebookChange(
+    change: Extract<VaultPendingChange, { entityType: 'lorebook' }>,
+  ): Promise<void> {
+    switch (change.action) {
+      case 'create':
+        await lorebookVault.add({
+          id: change.entityId,
+          name: change.data.name,
+          description: change.data.description,
+          entries: [],
+          tags: change.data.tags,
+          favorite: false,
+          source: 'manual',
+          originalFilename: null,
+          originalStoryId: null,
+          metadata: null,
+        })
+        break
+      case 'update':
+        await lorebookVault.update(change.entityId, change.data)
+        break
+      case 'delete':
+        await lorebookVault.delete(change.entityId)
         break
     }
   }
@@ -657,10 +751,10 @@ export class InteractiveVaultService {
    */
   private getChangeDisplayName(change: VaultPendingChange): string {
     if ('data' in change && change.data && 'name' in change.data) {
-      return (change.data as { name?: string }).name ?? 'unknown'
+      return change.data.name ?? 'unknown'
     }
     if ('previous' in change && change.previous && 'name' in change.previous) {
-      return (change.previous as { name?: string }).name ?? 'unknown'
+      return change.previous.name ?? 'unknown'
     }
     return 'unknown'
   }

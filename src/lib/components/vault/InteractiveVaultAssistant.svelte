@@ -12,10 +12,10 @@
   import { characterVault } from '$lib/stores/characterVault.svelte'
   import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
   import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
+  import { vaultEditor } from '$lib/stores/vaultEditorStore.svelte'
   import {
     ChevronLeft,
     Bot,
-    MessageSquare,
     Send,
     Loader2,
     User,
@@ -42,6 +42,7 @@
   import { cn } from '$lib/utils/cn'
   import { isTouchDevice } from '$lib/utils/swipe'
   import { SvelteSet } from 'svelte/reactivity'
+  import { createIsMobile } from '$lib/hooks/is-mobile.svelte'
 
   interface Props {
     onClose: () => void
@@ -51,16 +52,7 @@
   let { onClose, onEditEntity }: Props = $props()
 
   // Mobile detection
-  let isMobile = $state(false)
-
-  // Whether the entity editor panel is open
-  let showEntityEditor = $state(false)
-
-  // The change currently open in the entity editor (for edit-before-approve)
-  let activeEditChange = $state<VaultPendingChange | null>(null)
-
-  // Edited versions of pending changes — keys are change IDs
-  const editedChanges = new Map<string, VaultPendingChange>()
+  const isMobile = createIsMobile()
 
   // AbortController for cancelling ongoing requests
   let abortController: AbortController | null = null
@@ -80,49 +72,18 @@
   let activeToolCalls = $state<ToolCallDisplay[]>([])
   let isThinking = $state(false)
 
-  // Pending changes tracking — collects all pending changes across messages
-  let allPendingChanges = $state<VaultPendingChange[]>([])
+  // In-flight pending changes (shown in chat before step message arrives)
+  let streamingChanges = $state<VaultPendingChange[]>([])
 
   // Conversation history selector
   let conversations = $state<VaultConversation[]>([])
   let conversationSelectorOpen = $state(false)
   const MAX_CONVERSATIONS = 10
 
-  // Derived: only pending (not yet approved/rejected) changes
-  const pendingCount = $derived(allPendingChanges.filter((c) => c.status === 'pending').length)
-
-  // Derived: per-entity-type breakdown of pending changes
-  const pendingBreakdown = $derived.by(() => {
-    const pending = allPendingChanges.filter((c) => c.status === 'pending')
-    const counts: Record<string, number> = {}
-    for (const c of pending) {
-      const label =
-        c.entityType === 'character'
-          ? 'character'
-          : c.entityType === 'lorebook-entry'
-            ? 'entry'
-            : 'scenario'
-      counts[label] = (counts[label] ?? 0) + 1
-    }
-    return Object.entries(counts)
-      .map(([type, count]) => `${count} ${type}${count > 1 ? 's' : ''}`)
-      .join(', ')
-  })
-
   // Initialize service on mount
   onMount(() => {
-    // Detect mobile viewport
-    const mq = window.matchMedia('(max-width: 767px)')
-    isMobile = mq.matches
-    const mqHandler = (e: MediaQueryListEvent) => {
-      isMobile = e.matches
-    }
-    mq.addEventListener('change', mqHandler)
-
     initializeService()
     loadConversationsList()
-
-    return () => mq.removeEventListener('change', mqHandler)
   })
 
   // Clean up on unmount
@@ -131,6 +92,7 @@
       abortController.abort()
       abortController = null
     }
+    vaultEditor.reset()
   })
 
   function initializeService() {
@@ -176,9 +138,7 @@
       await service.saveConversation().catch(() => {})
     }
     service.reset()
-    allPendingChanges = []
-    activeEditChange = null
-    showEntityEditor = false
+    vaultEditor.reset()
     initializeService()
     await loadConversationsList()
   }
@@ -191,9 +151,7 @@
     }
     const ok = await service.loadConversation(id)
     if (ok) {
-      allPendingChanges = []
-      activeEditChange = null
-      showEntityEditor = false
+      vaultEditor.reset()
       // Rebuild chat display from restored history
       const loaded = service.getChatMessages()
       messages =
@@ -224,21 +182,22 @@
   }
 
   async function handleSend() {
-    if (!inputValue.trim() || !service || isGenerating) return
+    if (!service || isGenerating) return
 
     const userMessage = inputValue.trim()
     inputValue = ''
     error = null
 
-    // Add user message to UI
-    const userMsg: ChatMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: userMessage,
-      timestamp: Date.now(),
+    if (userMessage) {
+      // Add user message to UI
+      const userMsg: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: userMessage,
+        timestamp: Date.now(),
+      }
+      messages = [...messages, userMsg]
     }
-    messages = [...messages, userMsg]
-
     await tick()
     scrollToBottom()
 
@@ -256,8 +215,8 @@
       }
 
       for await (const event of service.sendMessageStreaming(
-        userMessage,
         vaultState,
+        userMessage,
         abortController.signal,
       )) {
         switch (event.type) {
@@ -285,26 +244,43 @@
             activeToolCalls = activeToolCalls.map((tc) =>
               tc.id === event.toolCall.id ? event.toolCall : tc,
             )
-            // Collect pending changes as they arrive
+            // Collect pending changes as they arrive (store handles dedup)
             if (event.toolCall.pendingChange) {
-              allPendingChanges = [...allPendingChanges, event.toolCall.pendingChange]
-              // Auto-open entity editor on desktop for the latest proposed change
-              if (!isMobile) {
-                activeEditChange = event.toolCall.pendingChange
-                showEntityEditor = true
+              const incoming = event.toolCall.pendingChange
+              // Auto-approve lorebook creation (it's a prerequisite step)
+              if (incoming.entityType === 'lorebook' && incoming.action === 'create' && service) {
+                vaultEditor.addPendingChange(incoming)
+                await handleApprove(incoming)
+                // Open the newly created lorebook in the editor
+                if (!isMobile.current) {
+                  await tick()
+                  vaultEditor.openEditor(incoming)
+                }
+              } else {
+                vaultEditor.addPendingChange(incoming)
+                // Auto-open entity editor on desktop (store handles same-lorebook skip)
+                if (!isMobile.current) {
+                  vaultEditor.openEditorSmart(incoming)
+                }
               }
+              // Track for immediate chat display
+              streamingChanges = [...streamingChanges, incoming]
             }
             await tick()
             scrollToBottom()
             break
 
-          case 'message':
+          case 'message': {
+            // Clear streaming changes that are now attached to this message
+            const msgChangeIds = new Set(event.message.pendingChanges?.map((c) => c.id) ?? [])
+            streamingChanges = streamingChanges.filter((c) => !msgChangeIds.has(c.id))
             messages = [...messages, event.message]
             activeToolCalls = []
             isThinking = true
             await tick()
             scrollToBottom()
             break
+          }
 
           case 'done':
             break
@@ -337,13 +313,14 @@
       isGenerating = false
       isThinking = false
       activeToolCalls = []
+      streamingChanges = []
       abortController = null
     }
   }
 
   function handleKeyDown(e: KeyboardEvent) {
-    const isMobile = isTouchDevice()
-    const shouldSubmit = isMobile
+    const isTouch = isTouchDevice()
+    const shouldSubmit = isTouch
       ? e.key === 'Enter' && e.shiftKey
       : e.key === 'Enter' && !e.shiftKey
 
@@ -376,65 +353,34 @@
       .join(' ')
   }
 
-  // --- Approval handlers ---
+  // --- Approval handlers (delegated to store) ---
 
-  async function handleApprove(change: VaultPendingChange) {
-    if (!service || change.status !== 'pending') return
+  async function handleApprove(change?: VaultPendingChange) {
+    if (!service) return
+    const target = change ?? vaultEditor.activeChange
+    if (!target) return
     try {
-      const effectiveChange = editedChanges.get(change.id) ?? change
-      await service.applyChange(effectiveChange)
-      service.handleApproval(change, true)
-      editedChanges.delete(change.id)
-      if (activeEditChange?.id === change.id) {
-        activeEditChange = null
-        showEntityEditor = false
-      }
-      allPendingChanges = [...allPendingChanges]
+      await vaultEditor.approve(target, service)
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to apply change'
     }
   }
 
   function handleReject(change: VaultPendingChange) {
-    if (!service || change.status !== 'pending') return
-    service.handleApproval(change, false)
-    editedChanges.delete(change.id)
-    if (activeEditChange?.id === change.id) {
-      activeEditChange = null
-      showEntityEditor = false
-    }
-    allPendingChanges = [...allPendingChanges]
+    if (!service) return
+    vaultEditor.reject(change, service)
   }
 
   function handleEdit(change: VaultPendingChange) {
     if (change.status !== 'pending') return
-    activeEditChange = change
-    showEntityEditor = true
+    vaultEditor.openEditor(change)
     onEditEntity?.(change)
-  }
-
-  /** Called by the entity editor when the user modifies proposed data before approving. */
-  function handleEditUpdate(updatedChange: VaultPendingChange) {
-    editedChanges.set(updatedChange.id, updatedChange)
   }
 
   async function handleApproveAll() {
     if (!service) return
-    const pending = allPendingChanges.filter((c) => c.status === 'pending')
-    for (const change of pending) {
-      try {
-        const effectiveChange = editedChanges.get(change.id) ?? change
-        await service.applyChange(effectiveChange)
-        service.handleApproval(change, true)
-        editedChanges.delete(change.id)
-      } catch (e) {
-        error = e instanceof Error ? e.message : 'Failed to apply change'
-        break
-      }
-    }
-    activeEditChange = null
-    showEntityEditor = false
-    allPendingChanges = [...allPendingChanges]
+    const err = await vaultEditor.approveAll(service)
+    if (err) error = err
   }
 </script>
 
@@ -442,7 +388,7 @@
   <ResponsiveModal.Content
     class={cn(
       'flex h-[90vh] w-full flex-col gap-0 overflow-hidden p-0',
-      showEntityEditor && !isMobile ? 'max-w-6xl' : 'max-w-2xl',
+      vaultEditor.editorOpen && !isMobile.current ? 'max-w-[90vw]' : 'max-w-2xl',
     )}
   >
     <div class="flex flex-col overflow-hidden" style="height: 100%">
@@ -461,7 +407,7 @@
           <Bot class="text-accent-400 h-5 w-5" />
           <h2 class="text-lg font-semibold tracking-tight">Vault Assistant</h2>
         </div>
-        {#if pendingCount > 0}
+        {#if vaultEditor.pendingCount > 0}
           <div in:fade={{ duration: 150 }}>
             <Button
               variant="outline"
@@ -475,7 +421,7 @@
               <span
                 class="rounded-full bg-green-500/20 px-1.5 py-0.5 text-xs font-semibold text-green-300"
               >
-                {pendingBreakdown}
+                {vaultEditor.pendingBreakdown}
               </span>
             </Button>
           </div>
@@ -485,26 +431,23 @@
       <!-- Two-panel layout -->
       <div class="flex flex-1 overflow-hidden">
         <!-- Entity Editor Panel (left, desktop only) -->
-        {#if showEntityEditor && activeEditChange && !isMobile}
+        {#if vaultEditor.editorOpen && vaultEditor.activeChange && !isMobile.current}
           <div
             class="border-border flex flex-1 flex-col overflow-hidden border-r"
             transition:fade={{ duration: 100 }}
           >
             <VaultEntityEditPanel
-              change={activeEditChange}
-              onApprove={() => handleApprove(activeEditChange!)}
-              onClose={() => {
-                activeEditChange = null
-                showEntityEditor = false
-              }}
-              onUpdate={handleEditUpdate}
+              change={vaultEditor.activeChange}
+              onApprove={(specificChange) =>
+                handleApprove(specificChange ?? vaultEditor.activeChange!)}
+              onClose={() => vaultEditor.closeEditor()}
             />
           </div>
         {/if}
 
         <!-- Chat Panel (right, or full-width on mobile) -->
         <div
-          class="flex flex-col overflow-hidden {showEntityEditor && !isMobile
+          class="flex flex-col overflow-hidden {vaultEditor.editorOpen && !isMobile.current
             ? 'w-full max-w-2xl shrink-0'
             : 'mx-auto w-full max-w-2xl'}"
         >
@@ -567,16 +510,6 @@
 
           <!-- Messages -->
           <div class="flex-1 space-y-4 overflow-y-auto p-4" bind:this={messagesContainer}>
-            {#if messages.length === 0 && !isGenerating}
-              <!-- Empty state -->
-              <div class="flex flex-1 flex-col items-center justify-center py-16">
-                <MessageSquare class="text-muted-foreground/30 mb-4 h-12 w-12" />
-                <p class="text-muted-foreground text-sm">
-                  Send a message to start managing your vault
-                </p>
-              </div>
-            {/if}
-
             {#each messages as message (message.id)}
               <div in:fade={{ duration: 150 }}>
                 <div
@@ -673,8 +606,7 @@
                 {#if message.pendingChanges && message.pendingChanges.length > 0}
                   <div class="mt-3 space-y-2">
                     {#each message.pendingChanges as change (change.id)}
-                      {@const liveChange =
-                        allPendingChanges.find((c) => c.id === change.id) ?? change}
+                      {@const liveChange = vaultEditor.getLiveChange(change.id) ?? change}
                       <VaultDiffView
                         change={liveChange}
                         onApprove={() => handleApprove(liveChange)}
@@ -724,6 +656,21 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Streaming diff cards (shown before step message arrives) -->
+              {#if streamingChanges.length > 0}
+                <div class="mt-3 space-y-2">
+                  {#each streamingChanges as change (change.id)}
+                    {@const liveChange = vaultEditor.getLiveChange(change.id) ?? change}
+                    <VaultDiffView
+                      change={liveChange}
+                      onApprove={() => handleApprove(liveChange)}
+                      onReject={() => handleReject(liveChange)}
+                      onEdit={() => handleEdit(liveChange)}
+                    />
+                  {/each}
+                </div>
+              {/if}
             {/if}
           </div>
 
@@ -775,26 +722,19 @@
 </ResponsiveModal.Root>
 
 <!-- Mobile entity editor — bottom sheet -->
-{#if isMobile && activeEditChange}
+{#if isMobile.current && vaultEditor.activeChange}
   <Sheet.Root
-    open={showEntityEditor}
+    open={vaultEditor.editorOpen}
     onOpenChange={(open) => {
-      if (!open) {
-        activeEditChange = null
-        showEntityEditor = false
-      }
+      if (!open) vaultEditor.closeEditor()
     }}
   >
     <Sheet.Content side="bottom" class="flex h-[85dvh] flex-col p-0">
-      {#if activeEditChange}
+      {#if vaultEditor.activeChange}
         <VaultEntityEditPanel
-          change={activeEditChange}
-          onApprove={() => handleApprove(activeEditChange!)}
-          onClose={() => {
-            activeEditChange = null
-            showEntityEditor = false
-          }}
-          onUpdate={handleEditUpdate}
+          change={vaultEditor.activeChange}
+          onApprove={(specificChange) => handleApprove(specificChange ?? vaultEditor.activeChange!)}
+          onClose={() => vaultEditor.closeEditor()}
         />
       {/if}
     </Sheet.Content>

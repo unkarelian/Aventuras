@@ -165,7 +165,7 @@ export const interactiveVaultPromptTemplate: PromptTemplate = {
 You can list, view, create, update, and delete characters. Characters have names, descriptions, personality traits, visual descriptors (for image generation), and organizational tags.
 
 ### Lorebooks ({{lorebookCount}} lorebooks, {{totalEntryCount}} total entries)
-You can browse lorebooks and their entries. Within a lorebook, you can create, update, delete, and merge entries. Lorebook entries describe characters, locations, items, factions, concepts, and events that provide context during story generation.
+You can list and browse lorebooks and their entries, you can also create lorebooks. Within a lorebook, you can create, update, delete, and merge entries. Lorebook entries describe characters, locations, items, factions, concepts, and events that provide context during story generation.
 
 ### Scenarios ({{scenarioCount}} in vault)
 You can list, view, create, update, and delete scenarios. Scenarios define story settings with a setting seed, NPCs (non-player characters), a protagonist, and opening messages. You can also add, update, and remove individual NPCs within a scenario.
