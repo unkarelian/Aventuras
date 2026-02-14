@@ -242,9 +242,9 @@
   </div>
 {:else}
   <div class="flex h-full flex-col overflow-hidden">
-    <!-- Header: Template name + dirty indicator -->
-    <div class="flex items-center justify-between border-b px-4 py-2">
-      <div class="flex items-center gap-2">
+    <!-- Header: Template name + tabs + toolbar -->
+    <div class="flex flex-wrap items-center gap-1 border-b px-2 py-1.5">
+      <div class="flex items-center gap-2 px-2">
         <h3 class="text-sm font-semibold">{templateName}</h3>
         {#if isDirty}
           <Badge variant="outline" class="border-yellow-500/50 text-yellow-500 text-xs"
@@ -252,10 +252,7 @@
           >
         {/if}
       </div>
-    </div>
 
-    <!-- Tabs (if user content exists) + Toolbar -->
-    <div class="flex flex-wrap items-center gap-1 border-b px-2 py-1.5">
       {#if hasUserContent}
         <Tabs.Root
           value={activeTab}
@@ -327,15 +324,20 @@
 
     <!-- Editor + Preview content area -->
     <div class="flex min-h-0 flex-1 {isMobile.current ? 'flex-col' : 'flex-row'}">
-      <!-- Editor column (CodeMirror + validation bar) -->
+      <!-- Editor column (label + CodeMirror) -->
       <div
         class="flex min-h-0 flex-col overflow-hidden {isMobile.current ? 'flex-1' : 'flex-1'}"
         class:hidden={isMobile.current && mobileView === 'preview'}
       >
+        <div class="border-b px-4 py-2">
+          <h4 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Editor</h4>
+        </div>
+
         <!-- CodeMirror Editor -->
-        <div class="flex-1 overflow-hidden">
+        <div class="min-h-0 flex-1 overflow-hidden">
           {#key `${templateId}-${activeTab}`}
             <CodeMirror
+              class="h-full"
               value={currentContent}
               onchange={handleContentChange}
               lang={liquidLang}
@@ -349,30 +351,6 @@
             />
           {/key}
         </div>
-
-        <!-- Validation bar -->
-        <div class="border-t px-4 py-2">
-          {#if validationErrors.length > 0}
-            <div class="flex flex-col gap-1">
-              {#each validationErrors as error (error.message)}
-                <div class="flex items-start gap-2 text-xs">
-                  <AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-500" />
-                  <span class="text-muted-foreground">
-                    {error.message}
-                    {#if error.line}
-                      <span class="text-muted-foreground/70">(line {error.line})</span>
-                    {/if}
-                  </span>
-                </div>
-              {/each}
-            </div>
-          {:else}
-            <div class="flex items-center gap-2 text-xs">
-              <CircleCheck class="h-3.5 w-3.5 text-green-500" />
-              <span class="text-muted-foreground">Template is valid</span>
-            </div>
-          {/if}
-        </div>
       </div>
 
       <!-- Preview column -->
@@ -382,6 +360,30 @@
       >
         <TemplatePreview content={currentContent} {customVariables} />
       </div>
+    </div>
+
+    <!-- Validation bar (full width) -->
+    <div class="border-t px-4 py-2">
+      {#if validationErrors.length > 0}
+        <div class="flex flex-col gap-1">
+          {#each validationErrors as error (error.message)}
+            <div class="flex items-start gap-2 text-xs">
+              <AlertTriangle class="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-500" />
+              <span class="text-muted-foreground">
+                {error.message}
+                {#if error.line}
+                  <span class="text-muted-foreground/70">(line {error.line})</span>
+                {/if}
+              </span>
+            </div>
+          {/each}
+        </div>
+      {:else}
+        <div class="flex items-center gap-2 text-xs">
+          <CircleCheck class="h-3.5 w-3.5 text-green-500" />
+          <span class="text-muted-foreground">Template is valid</span>
+        </div>
+      {/if}
     </div>
   </div>
 {/if}

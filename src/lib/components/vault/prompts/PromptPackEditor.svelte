@@ -137,8 +137,6 @@
       onclick={handleBack}
     >
       <ChevronLeft class="h-4 w-4" />
-      <span class="hidden sm:inline">Back to Packs</span>
-      <span class="sm:hidden">Back</span>
     </Button>
 
     {#if loading}

@@ -314,21 +314,23 @@
       <!-- Right Side Actions -->
       <div class="flex items-center gap-2">
         {#if activeTab === 'prompts' && promptsViewState.mode === 'browsing'}
-          <Tooltip.Root>
-            <Tooltip.Trigger>
-              <Button
-                icon={Download}
-                label="Import"
-                variant="outline"
-                size="sm"
-                class="h-9"
-                disabled
-              />
-            </Tooltip.Trigger>
-            <Tooltip.Content>
-              <p>Available in Phase 5</p>
-            </Tooltip.Content>
-          </Tooltip.Root>
+          <Tooltip.Provider>
+            <Tooltip.Root>
+              <Tooltip.Trigger>
+                <Button
+                  icon={Download}
+                  label="Import"
+                  variant="outline"
+                  size="sm"
+                  class="h-9"
+                  disabled
+                />
+              </Tooltip.Trigger>
+              <Tooltip.Content>
+                <p>Available in Phase 5</p>
+              </Tooltip.Content>
+            </Tooltip.Root>
+          </Tooltip.Provider>
 
           <Button
             icon={Plus}
@@ -527,7 +529,7 @@
   >
     {#if promptsViewState.mode === 'browsing'}
       <ScrollArea class="h-full">
-        <div class="flex min-h-full flex-col px-4 pb-36 sm:pb-16">
+        <div class="flex min-h-full flex-col px-4 pt-4 pb-36 sm:pb-16">
           <PromptPackList
             onOpenPack={handleOpenPack}
             bind:showCreateDialog={showCreatePackDialog}

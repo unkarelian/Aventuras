@@ -28,16 +28,26 @@
 
   let { variable, onUpdate, onDelete, initialExpanded = false }: Props = $props()
 
-  let expanded = $state(initialExpanded)
-  let editName = $state(variable.variableName)
-  let editDisplayName = $state(variable.displayName)
-  let editType = $state<CustomVariableType>(variable.variableType)
-  let editRequired = $state(variable.isRequired)
-  let editDefault = $state(variable.defaultValue ?? '')
-  let editEnumOptions = $state<EnumOption[]>(
-    variable.enumOptions ? structuredClone(variable.enumOptions) : [],
-  )
+  let expanded = $state(false)
+  let editName = $state('')
+  let editDisplayName = $state('')
+  let editType = $state<CustomVariableType>('text')
+  let editRequired = $state(false)
+  let editDefault = $state('')
+  let editEnumOptions = $state<EnumOption[]>([])
   let showDeleteConfirm = $state(false)
+
+  // Sync edit state from variable prop (runs on mount and when variable prop changes)
+  $effect.pre(() => {
+    editName = variable.variableName
+    editDisplayName = variable.displayName
+    editType = variable.variableType
+    editRequired = variable.isRequired
+    editDefault = variable.defaultValue ?? ''
+    editEnumOptions = variable.enumOptions ? structuredClone(variable.enumOptions) : []
+    expanded = initialExpanded
+    showDeleteConfirm = false
+  })
 
   const VARIABLE_NAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 

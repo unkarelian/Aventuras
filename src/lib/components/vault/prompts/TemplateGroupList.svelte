@@ -21,23 +21,6 @@
 
 <ScrollArea class="h-full">
   <div class="flex flex-col py-2">
-    <!-- Variables Tab -->
-    <button
-      type="button"
-      class={cn(
-        'mx-2 mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-        showVariables
-          ? 'bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-      )}
-      onclick={onToggleVariables}
-    >
-      <Variable class="h-4 w-4" />
-      Variables
-    </button>
-
-    <div class="mx-2 mb-2 border-b"></div>
-
     <!-- Template Groups -->
     {#each groups as group (group.name)}
       <Collapsible.Root class="px-2">
@@ -72,5 +55,22 @@
         </Collapsible.Content>
       </Collapsible.Root>
     {/each}
+
+    <!-- Variables button after groups -->
+    <div class="mx-2 mt-1 border-t pt-2">
+      <button
+        type="button"
+        class={cn(
+          'flex w-full items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors',
+          showVariables
+            ? 'border-primary/50 bg-primary/10 text-primary'
+            : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+        )}
+        onclick={onToggleVariables}
+      >
+        <Variable class="h-4 w-4" />
+        Variables
+      </button>
+    </div>
   </div>
 </ScrollArea>
