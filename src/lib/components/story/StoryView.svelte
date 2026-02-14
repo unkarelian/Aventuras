@@ -93,9 +93,7 @@
   }
 
   function scrollToTop() {
-    // Scroll to top of currently rendered content
-    // The "Show all" button will be visible if not all entries are loaded
-    performScroll(0)
+    showAllEntries()
   }
 
   // Check if container is scrolled near a specific edge
