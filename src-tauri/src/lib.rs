@@ -3,8 +3,10 @@ use tauri_plugin_sql::{Migration, MigrationKind};
 mod sync;
 
 use sync::commands::{
-    clear_received_stories, get_received_stories, start_sync_server, stop_sync_server,
-    sync_connect, sync_pull_story, sync_push_story,
+    clear_received_stories, clear_sync_events, get_discovered_devices, get_received_stories,
+    get_sync_events, get_sync_role, start_discovery, start_sync_server, start_udp_broadcast,
+    stop_discovery, stop_sync_server, stop_udp_broadcast, sync_connect, sync_pull_story,
+    sync_push_story,
 };
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -217,6 +219,14 @@ pub fn run() {
             sync_connect,
             sync_pull_story,
             sync_push_story,
+            get_sync_role,
+            start_udp_broadcast,
+            stop_udp_broadcast,
+            start_discovery,
+            stop_discovery,
+            get_discovered_devices,
+            get_sync_events,
+            clear_sync_events,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
