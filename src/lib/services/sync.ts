@@ -1,24 +1,58 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { SyncServerInfo, SyncStoryPreview, SyncConnectionData } from '$lib/types/sync'
+import type {
+  SyncServerInfo,
+  SyncStoryPreview,
+  SyncConnectionData,
+  SyncRole,
+  SyncEvent,
+  DiscoveredDevice,
+} from '$lib/types/sync'
+import { SYNC_PORT } from '$lib/types/sync'
 import type { AventuraExport } from './export'
 import { database } from './database'
 import { story } from '$lib/stores/story.svelte'
 
 /**
- * Service for local network sync functionality
+ * Service for local network sync functionality.
+ *
+ * Architecture:
+ *   Mobile (Android/iOS) = Server — listens on fixed TCP port 55555.
+ *   Desktop (Win/Linux/Mac) = Client — connects outbound to mobile.
+ *
+ * Discovery methods:
+ *   1. QR Code (primary) — mobile shows QR, PC scans with webcam
+ *   2. UDP Auto-Discovery — mobile broadcasts, PC listens
+ *   3. Manual Entry — user types mobile's IP + 6-digit connect code
  */
 class SyncService {
+  // ---------------------------------------------------------------------------
+  // Platform role
+  // ---------------------------------------------------------------------------
+
   /**
-   * Start the sync server with all local stories available
+   * Get the sync role for this platform.
+   * Returns "server" on mobile (Android/iOS) or "client" on desktop.
+   */
+  async getSyncRole(): Promise<SyncRole> {
+    return invoke('get_sync_role')
+  }
+
+  // ---------------------------------------------------------------------------
+  // Server commands (mobile)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Start the sync server with all local stories available.
+   * On mobile, binds to fixed port 55555.
    * @param storiesJson Array of story JSON strings in Aventura export format
-   * @returns Server info including QR code
+   * @returns Server info including QR code and connect code
    */
   async startServer(storiesJson: string[]): Promise<SyncServerInfo> {
     return invoke('start_sync_server', { storiesJson })
   }
 
   /**
-   * Stop the sync server
+   * Stop the sync server and any associated UDP broadcast
    */
   async stopServer(): Promise<void> {
     return invoke('stop_sync_server')
@@ -38,6 +72,74 @@ class SyncService {
     return invoke('clear_received_stories')
   }
 
+  // ---------------------------------------------------------------------------
+  // Sync events (mobile activity log)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get sync events from the server (connected, pulled, pushed).
+   * Called by mobile UI to show activity feedback.
+   */
+  async getSyncEvents(): Promise<SyncEvent[]> {
+    return invoke('get_sync_events')
+  }
+
+  /**
+   * Clear sync events after the mobile UI has processed them
+   */
+  async clearSyncEvents(): Promise<void> {
+    return invoke('clear_sync_events')
+  }
+
+  // ---------------------------------------------------------------------------
+  // UDP discovery (mobile responds, PC requests)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Start broadcasting this device's sync server info via UDP.
+   * Called by mobile after starting the HTTP server.
+   */
+  async startBroadcast(ip: string, port: number, token: string): Promise<void> {
+    return invoke('start_udp_broadcast', { ip, port, token })
+  }
+
+  /**
+   * Stop the UDP broadcast
+   */
+  async stopBroadcast(): Promise<void> {
+    return invoke('stop_udp_broadcast')
+  }
+
+  // ---------------------------------------------------------------------------
+  // UDP discovery (PC listens for mobile broadcasts)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Start listening for UDP discovery broadcasts from mobile devices.
+   */
+  async startDiscovery(): Promise<void> {
+    return invoke('start_discovery')
+  }
+
+  /**
+   * Stop the UDP discovery listener
+   */
+  async stopDiscovery(): Promise<void> {
+    return invoke('stop_discovery')
+  }
+
+  /**
+   * Get the list of devices discovered via UDP broadcast.
+   * Call periodically (polling) after `startDiscovery()`.
+   */
+  async getDiscoveredDevices(): Promise<DiscoveredDevice[]> {
+    return invoke('get_discovered_devices')
+  }
+
+  // ---------------------------------------------------------------------------
+  // Client connection commands (PC connects to mobile)
+  // ---------------------------------------------------------------------------
+
   /**
    * Connect to a remote sync server and list available stories
    */
@@ -46,6 +148,18 @@ class SyncService {
       ip: connection.ip,
       port: connection.port,
       token: connection.token,
+    })
+  }
+
+  /**
+   * Connect to a device using IP and the 6-digit connect code (manual entry).
+   * Uses the fixed SYNC_PORT.
+   */
+  async connectWithCode(ip: string, connectCode: string): Promise<SyncStoryPreview[]> {
+    return invoke('sync_connect', {
+      ip,
+      port: SYNC_PORT,
+      token: connectCode,
     })
   }
 
@@ -73,6 +187,10 @@ class SyncService {
       storyJson,
     })
   }
+
+  // ---------------------------------------------------------------------------
+  // Helper methods (unchanged)
+  // ---------------------------------------------------------------------------
 
   /**
    * Create a pre-sync backup checkpoint for a story

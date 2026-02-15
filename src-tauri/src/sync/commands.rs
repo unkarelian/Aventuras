@@ -7,15 +7,28 @@ use tauri::{AppHandle, State};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use super::server::{bind_listener, build_router, spawn_server, ServerState, StoriesData};
-use super::types::{QrCodeData, SyncAction, SyncRequest, SyncResponse, SyncServerInfo, SyncStoryPreview};
+use super::server::{
+    bind_listener, bind_listener_on_port, build_router, get_device_name,
+    spawn_discovery_requester, spawn_discovery_responder, spawn_server, token_to_connect_code,
+    ServerState, StoriesData,
+};
+use super::types::{
+    DiscoveredDevice, DiscoveryBroadcast, QrCodeData, SyncAction, SyncEvent, SyncRequest,
+    SyncResponse, SyncServerInfo, SyncStoryPreview, APP_IDENTIFIER, SYNC_PORT,
+};
 
 /// State managed by Tauri for sync operations
 pub struct SyncState {
-    /// Handle to the running server task
+    /// Handle to the running HTTP server task
     server_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
     /// Current server state (for accessing received stories)
     server_state: Arc<Mutex<Option<ServerState>>>,
+    /// Handle to the UDP broadcast task (mobile only)
+    broadcast_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    /// Handle to the UDP discovery listener task (PC only)
+    discovery_handle: Arc<Mutex<Option<tokio::task::JoinHandle<()>>>>,
+    /// Devices discovered via UDP broadcast (PC only)
+    discovered_devices: Arc<Mutex<Vec<DiscoveredDevice>>>,
 }
 
 impl Default for SyncState {
@@ -23,13 +36,17 @@ impl Default for SyncState {
         Self {
             server_handle: Arc::new(Mutex::new(None)),
             server_state: Arc::new(Mutex::new(None)),
+            broadcast_handle: Arc::new(Mutex::new(None)),
+            discovery_handle: Arc::new(Mutex::new(None)),
+            discovered_devices: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
 
 /// Generate a QR code as base64-encoded PNG
 fn generate_qr_code(data: &str) -> Result<String, String> {
-    let code = QrCode::new(data.as_bytes()).map_err(|e| format!("Failed to create QR code: {}", e))?;
+    let code =
+        QrCode::new(data.as_bytes()).map_err(|e| format!("Failed to create QR code: {}", e))?;
 
     let image = code.render::<Luma<u8>>().min_dimensions(256, 256).build();
 
@@ -73,7 +90,10 @@ fn parse_story_preview(json: &str) -> Result<SyncStoryPreview, String> {
             .and_then(|v| v.as_str())
             .unwrap_or("Untitled")
             .to_string(),
-        genre: story.get("genre").and_then(|v| v.as_str()).map(String::from),
+        genre: story
+            .get("genre")
+            .and_then(|v| v.as_str())
+            .map(String::from),
         updated_at: story
             .get("updatedAt")
             .and_then(|v| v.as_i64())
@@ -82,7 +102,34 @@ fn parse_story_preview(json: &str) -> Result<SyncStoryPreview, String> {
     })
 }
 
-/// Start the sync server with available stories
+// ---------------------------------------------------------------------------
+// Platform detection
+// ---------------------------------------------------------------------------
+
+/// Returns whether this build targets a mobile platform.
+fn is_mobile() -> bool {
+    cfg!(any(target_os = "android", target_os = "ios"))
+}
+
+/// Get the sync role for this platform.
+/// Mobile devices act as **server** (listen for connections).
+/// Desktop devices act as **client** (initiate connections outbound).
+#[tauri::command]
+pub fn get_sync_role() -> String {
+    if is_mobile() {
+        "server".to_string()
+    } else {
+        "client".to_string()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Server commands (primarily used by mobile)
+// ---------------------------------------------------------------------------
+
+/// Start the sync server with available stories.
+/// On mobile, binds to the fixed SYNC_PORT (55555).
+/// On desktop, binds to a random available port (fallback / legacy).
 #[tauri::command]
 pub async fn start_sync_server(
     app: AppHandle,
@@ -116,8 +163,23 @@ pub async fn start_sync_server(
         }
     }
 
-    // Bind listener before starting the server task
-    let listener = bind_listener().await?;
+    // Bind listener: fixed port on mobile, random on desktop
+    let listener = if is_mobile() {
+        // Try fixed port first, fall back to random if occupied
+        match bind_listener_on_port(SYNC_PORT).await {
+            Ok(l) => l,
+            Err(_) => {
+                eprintln!(
+                    "[Sync] Fixed port {} in use, falling back to random port",
+                    SYNC_PORT
+                );
+                bind_listener().await?
+            }
+        }
+    } else {
+        bind_listener().await?
+    };
+
     let addr = listener
         .local_addr()
         .map_err(|e| format!("Failed to get local address: {}", e))?;
@@ -126,6 +188,9 @@ pub async fn start_sync_server(
     let ip = get_local_ip()?;
     let port = addr.port();
 
+    // Generate connect code from token
+    let connect_code = token_to_connect_code(&token);
+
     // Generate QR code with connection data
     let qr_data = QrCodeData {
         ip: ip.clone(),
@@ -133,12 +198,13 @@ pub async fn start_sync_server(
         token: token.clone(),
         version: app.package_info().version.to_string(),
     };
-    let qr_json = serde_json::to_string(&qr_data).map_err(|e| format!("Failed to serialize QR data: {}", e))?;
+    let qr_json = serde_json::to_string(&qr_data)
+        .map_err(|e| format!("Failed to serialize QR data: {}", e))?;
     let qr_code_base64 = generate_qr_code(&qr_json)?;
 
-    // Start the server after QR data is ready
-    let app = build_router(server_state.clone());
-    let handle = spawn_server(listener, app);
+    // Start the HTTP server
+    let router = build_router(server_state.clone());
+    let handle = spawn_server(listener, router);
 
     // Store handles
     *state.server_handle.lock().await = Some(handle);
@@ -149,17 +215,26 @@ pub async fn start_sync_server(
         port,
         token,
         qr_code_base64,
+        connect_code,
     })
 }
 
-/// Stop the sync server
+/// Stop the sync server and any associated broadcast
 #[tauri::command]
 pub async fn stop_sync_server(state: State<'_, SyncState>) -> Result<(), String> {
+    // Stop HTTP server
     let mut handle = state.server_handle.lock().await;
     if let Some(h) = handle.take() {
         h.abort();
     }
     *state.server_state.lock().await = None;
+
+    // Stop broadcast if running
+    let mut broadcast = state.broadcast_handle.lock().await;
+    if let Some(h) = broadcast.take() {
+        h.abort();
+    }
+
     Ok(())
 }
 
@@ -186,9 +261,139 @@ pub async fn clear_received_stories(state: State<'_, SyncState>) -> Result<(), S
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Sync events (mobile server activity log)
+// ---------------------------------------------------------------------------
+
+/// Get sync events (connection, pull, push notifications) for the mobile UI
+#[tauri::command]
+pub async fn get_sync_events(state: State<'_, SyncState>) -> Result<Vec<SyncEvent>, String> {
+    let server_state = state.server_state.lock().await;
+    if let Some(ref ss) = *server_state {
+        let events = ss.sync_events.lock().await;
+        Ok(events.clone())
+    } else {
+        Ok(Vec::new())
+    }
+}
+
+/// Clear sync events after the mobile UI has processed them
+#[tauri::command]
+pub async fn clear_sync_events(state: State<'_, SyncState>) -> Result<(), String> {
+    let server_state = state.server_state.lock().await;
+    if let Some(ref ss) = *server_state {
+        let mut events = ss.sync_events.lock().await;
+        events.clear();
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// UDP discovery commands
+//
+// Mobile (server): listens on DISCOVERY_PORT and responds to requests.
+// PC (client): broadcasts discovery requests and collects responses.
+//
+// This ensures the PC only makes OUTBOUND UDP traffic (allowed by firewalls).
+// ---------------------------------------------------------------------------
+
+/// Start the discovery responder (mobile).
+/// Listens on DISCOVERY_PORT for requests from PCs and responds with server info.
+#[tauri::command]
+pub async fn start_udp_broadcast(
+    app: AppHandle,
+    state: State<'_, SyncState>,
+    ip: String,
+    port: u16,
+    token: String,
+) -> Result<(), String> {
+    // Stop existing responder
+    let mut broadcast = state.broadcast_handle.lock().await;
+    if let Some(h) = broadcast.take() {
+        h.abort();
+    }
+
+    let response_data = DiscoveryBroadcast {
+        app: APP_IDENTIFIER.to_string(),
+        ip,
+        port,
+        token,
+        version: app.package_info().version.to_string(),
+        device_name: get_device_name(),
+    };
+
+    let handle = spawn_discovery_responder(response_data);
+    *broadcast = Some(handle);
+
+    Ok(())
+}
+
+/// Stop the discovery responder
+#[tauri::command]
+pub async fn stop_udp_broadcast(state: State<'_, SyncState>) -> Result<(), String> {
+    let mut broadcast = state.broadcast_handle.lock().await;
+    if let Some(h) = broadcast.take() {
+        h.abort();
+    }
+    Ok(())
+}
+
+/// Start the discovery requester (PC).
+/// Broadcasts discovery requests and collects responses from mobile devices.
+#[tauri::command]
+pub async fn start_discovery(state: State<'_, SyncState>) -> Result<(), String> {
+    // Stop existing requester
+    let mut handle = state.discovery_handle.lock().await;
+    if let Some(h) = handle.take() {
+        h.abort();
+    }
+
+    // Clear previous discoveries
+    {
+        let mut devices = state.discovered_devices.lock().await;
+        devices.clear();
+    }
+
+    let devices = Arc::clone(&state.discovered_devices);
+    let requester = spawn_discovery_requester(devices);
+    *handle = Some(requester);
+
+    Ok(())
+}
+
+/// Stop the UDP discovery listener
+#[tauri::command]
+pub async fn stop_discovery(state: State<'_, SyncState>) -> Result<(), String> {
+    let mut handle = state.discovery_handle.lock().await;
+    if let Some(h) = handle.take() {
+        h.abort();
+    }
+    // Clear discovered devices
+    let mut devices = state.discovered_devices.lock().await;
+    devices.clear();
+    Ok(())
+}
+
+/// Get the list of devices discovered via UDP broadcast
+#[tauri::command]
+pub async fn get_discovered_devices(
+    state: State<'_, SyncState>,
+) -> Result<Vec<DiscoveredDevice>, String> {
+    let devices = state.discovered_devices.lock().await;
+    Ok(devices.clone())
+}
+
+// ---------------------------------------------------------------------------
+// Client commands (PC connects outbound to mobile server)
+// ---------------------------------------------------------------------------
+
 /// Connect to a remote sync server and list available stories
 #[tauri::command]
-pub async fn sync_connect(ip: String, port: u16, token: String) -> Result<Vec<SyncStoryPreview>, String> {
+pub async fn sync_connect(
+    ip: String,
+    port: u16,
+    token: String,
+) -> Result<Vec<SyncStoryPreview>, String> {
     let url = format!("http://{}:{}/sync", ip, port);
 
     let request = SyncRequest {
