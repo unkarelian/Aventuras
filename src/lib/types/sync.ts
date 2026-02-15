@@ -52,12 +52,13 @@ export interface SyncConnectionData {
 }
 
 /**
- * A device discovered via UDP broadcast on the local network
+ * A device discovered via UDP broadcast on the local network.
+ * Does NOT contain the auth token — the user must enter the
+ * 6-digit connect code displayed on the mobile device.
  */
 export interface DiscoveredDevice {
   ip: string
   port: number
-  token: string
   version: string
   deviceName: string
 }
@@ -74,8 +75,9 @@ export interface SyncEvent {
  * Current mode of the sync modal
  */
 export type SyncMode =
-  | 'select' // Initial mode selection (PC: scan/discover/manual)
-  | 'generate' // Server mode: showing QR code (mobile)
+  | 'role' // Role selection: Share or Receive (shown on all platforms)
+  | 'select' // Client mode selection (scan/discover/manual)
+  | 'generate' // Server mode: showing QR code
   | 'scan' // Client mode: scanning QR code with camera
   | 'discover' // Client mode: auto-discovering devices via UDP
   | 'manual' // Client mode: manually entering IP + connect code

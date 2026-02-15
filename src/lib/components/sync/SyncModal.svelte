@@ -17,6 +17,8 @@
     Keyboard,
     Smartphone,
     Monitor,
+    CheckSquare,
+    Square,
   } from 'lucide-svelte'
   import { Html5Qrcode } from 'html5-qrcode'
   import type {
@@ -40,9 +42,8 @@
   // State
   // ---------------------------------------------------------------------------
 
-  // Platform role (determined on mount)
-  let syncRole = $state<SyncRole>('client')
-  let roleLoaded = $state(false)
+  // User-selected role (shared across all platforms)
+  let syncRole = $state<SyncRole | null>(null)
 
   // Server state (mobile)
   let serverInfo = $state<SyncServerInfo | null>(null)
@@ -51,8 +52,11 @@
   let connection = $state<SyncConnectionData | null>(null)
   let remoteStories = $state<SyncStoryPreview[]>([])
   let localStories = $state<SyncStoryPreview[]>([])
-  let selectedRemoteStory = $state<SyncStoryPreview | null>(null)
-  let selectedLocalStory = $state<SyncStoryPreview | null>(null)
+  let selectedRemoteStories = $state<SyncStoryPreview[]>([])
+  let selectedLocalStories = $state<SyncStoryPreview[]>([])
+
+  // Batch sync progress
+  let syncProgress = $state<{ current: number; total: number } | null>(null)
 
   // Discovery state (PC)
   let discoveredDevices = $state<DiscoveredDevice[]>([])
@@ -66,6 +70,7 @@
   let error = $state<string | null>(null)
   let showConflictWarning = $state(false)
   let conflictStoryTitle = $state<string | null>(null)
+  let conflictingTitles = $state<string[]>([])
   let syncSuccess = $state(false)
   let syncMessage = $state<string | null>(null)
 
@@ -76,6 +81,7 @@
   let receivedStoryJson = $state<string | null>(null)
   let receivedStoryPreview = $state<SyncStoryPreview | null>(null)
   let showReceivedConflict = $state(false)
+  let receivedStoryQueue = $state<string[]>([])
   let pollingInterval: ReturnType<typeof setInterval> | null = null
 
   // Discovery polling
@@ -95,24 +101,11 @@
   // Lifecycle
   // ---------------------------------------------------------------------------
 
-  onMount(async () => {
-    try {
-      syncRole = (await syncService.getSyncRole()) as SyncRole
-    } catch {
-      // Default to client if detection fails (safer for firewalls)
-      syncRole = 'client'
-    }
-    roleLoaded = true
-  })
-
-  // Reset state when modal opens
+  // Reset state when modal opens — show role selection screen
   $effect(() => {
-    if (ui.syncModalOpen && roleLoaded) {
+    if (ui.syncModalOpen) {
       resetState()
-      if (syncRole === 'server') {
-        // Mobile: auto-start server mode
-        startServerMode()
-      }
+      ui.setSyncMode('role')
     }
   })
 
@@ -125,12 +118,14 @@
   // ---------------------------------------------------------------------------
 
   function resetState() {
+    syncRole = null
     serverInfo = null
     connection = null
     remoteStories = []
     localStories = []
-    selectedRemoteStory = null
-    selectedLocalStory = null
+    selectedRemoteStories = []
+    selectedLocalStories = []
+    syncProgress = null
     discoveredDevices = []
     syncEvents = []
     manualIp = ''
@@ -139,11 +134,13 @@
     error = null
     showConflictWarning = false
     conflictStoryTitle = null
+    conflictingTitles = []
     syncSuccess = false
     syncMessage = null
     receivedStoryJson = null
     receivedStoryPreview = null
     showReceivedConflict = false
+    receivedStoryQueue = []
     remoteVersion = null
     localVersion = null
     showVersionWarning = false
@@ -207,8 +204,40 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Server mode (mobile)
+  // Role selection (all platforms)
   // ---------------------------------------------------------------------------
+
+  function selectShareRole() {
+    syncRole = 'server'
+    startServerMode()
+  }
+
+  function selectReceiveRole() {
+    syncRole = 'client'
+    ui.setSyncMode('select')
+  }
+
+  // ---------------------------------------------------------------------------
+  // Server mode (share stories)
+  // ---------------------------------------------------------------------------
+
+  async function stopServerAndGoBack() {
+    stopPolling()
+    try {
+      await syncService.stopBroadcast()
+    } catch {
+      // Ignore
+    }
+    try {
+      await syncService.stopServer()
+    } catch {
+      // Ignore
+    }
+    serverInfo = null
+    syncEvents = []
+    syncRole = null
+    ui.setSyncMode('role')
+  }
 
   async function startServerMode() {
     ui.setSyncMode('generate')
@@ -222,7 +251,7 @@
 
       // Start UDP broadcast for auto-discovery by PC
       try {
-        await syncService.startBroadcast(serverInfo.ip, serverInfo.port, serverInfo.token)
+        await syncService.startBroadcast(serverInfo.ip, serverInfo.port)
       } catch {
         // UDP broadcast is best-effort; QR code is the fallback
         console.warn('[Sync] UDP broadcast failed to start')
@@ -232,7 +261,8 @@
       startPolling()
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to start server'
-      ui.setSyncMode('select')
+      syncRole = null
+      ui.setSyncMode('role')
     } finally {
       loading = false
     }
@@ -248,29 +278,45 @@
         await syncService.clearSyncEvents()
       }
 
-      // Poll for received (pushed) stories
+      // If already processing a story (e.g. conflict dialog), skip fetching more
+      if (receivedStoryJson) return
+
+      // Poll for received (pushed) stories — enqueue all of them
       const received = await syncService.getReceivedStories()
       if (received.length > 0) {
-        const storyJson = received[0]
-        const preview = syncService.getStoryPreview(storyJson)
-
-        if (preview) {
-          receivedStoryJson = storyJson
-          receivedStoryPreview = preview
-
-          const exists = await syncService.checkStoryExists(preview.title)
-          if (exists) {
-            showReceivedConflict = true
-          } else {
-            await importReceivedStory()
-          }
-        }
-
+        receivedStoryQueue = [...receivedStoryQueue, ...received]
         await syncService.clearReceivedStories()
-        // Don't stop polling — keep listening for more activity
       }
+
+      // Process next story from queue
+      await processNextReceivedStory()
     } catch {
       // Ignore polling errors
+    }
+  }
+
+  // Process the next story in the received queue
+  async function processNextReceivedStory() {
+    if (receivedStoryQueue.length === 0) return
+    if (receivedStoryJson) return // Already processing one
+
+    const storyJson = receivedStoryQueue[0]
+    receivedStoryQueue = receivedStoryQueue.slice(1)
+
+    const preview = syncService.getStoryPreview(storyJson)
+    if (preview) {
+      receivedStoryJson = storyJson
+      receivedStoryPreview = preview
+
+      const exists = await syncService.checkStoryExists(preview.title)
+      if (exists) {
+        showReceivedConflict = true
+      } else {
+        await importReceivedStory()
+      }
+    } else {
+      // Invalid story, skip and try next
+      await processNextReceivedStory()
     }
   }
 
@@ -313,6 +359,8 @@
       loading = false
       receivedStoryJson = null
       receivedStoryPreview = null
+      // Process next queued story if any
+      await processNextReceivedStory()
     }
   }
 
@@ -320,6 +368,8 @@
     showReceivedConflict = false
     receivedStoryJson = null
     receivedStoryPreview = null
+    // Process next queued story instead of just resuming polling
+    processNextReceivedStory()
     startPolling()
   }
 
@@ -437,7 +487,33 @@
     }
   }
 
-  async function connectToDiscoveredDevice(device: DiscoveredDevice) {
+  // The discovered device the user tapped (awaiting connect code input)
+  let selectedDiscoveredDevice = $state<DiscoveredDevice | null>(null)
+  let discoveryConnectCode = $state('')
+
+  async function selectDiscoveredDevice(device: DiscoveredDevice) {
+    const appVersion = await getVersion()
+
+    if (device.version && device.version !== appVersion) {
+      pendingDiscoveredDevice = device
+      remoteVersion = device.version
+      localVersion = appVersion
+      showVersionWarning = true
+      return
+    }
+
+    // Show inline connect code prompt for this device
+    selectedDiscoveredDevice = device
+    discoveryConnectCode = ''
+    error = null
+  }
+
+  async function connectToSelectedDevice() {
+    if (!selectedDiscoveredDevice || !discoveryConnectCode.trim()) {
+      error = 'Please enter the 6-digit code shown on the other device'
+      return
+    }
+
     stopDiscoveryPolling()
     try {
       await syncService.stopDiscovery()
@@ -445,28 +521,47 @@
       // Ignore
     }
 
-    const appVersion = await getVersion()
+    loading = true
+    error = null
 
-    if (device.version && device.version !== appVersion) {
-      pendingConnection = {
-        ip: device.ip,
-        port: device.port,
-        token: device.token,
-        version: device.version,
+    try {
+      const stories = await syncService.connectWithCode(
+        selectedDiscoveredDevice.ip,
+        discoveryConnectCode.trim(),
+      )
+
+      connection = {
+        ip: selectedDiscoveredDevice.ip,
+        port: SYNC_PORT,
+        token: discoveryConnectCode.trim(),
       }
-      remoteVersion = device.version
-      localVersion = appVersion
-      showVersionWarning = true
-      return
-    }
+      ui.setSyncMode('connected')
+      remoteStories = stories
 
-    await proceedWithConnection({
-      ip: device.ip,
-      port: device.port,
-      token: device.token,
-      version: device.version,
-    })
+      const allLocalStories = story.allStories
+      localStories = allLocalStories.map((s) => ({
+        id: s.id,
+        title: s.title,
+        genre: s.genre ?? null,
+        updatedAt: s.updatedAt,
+        entryCount: 0,
+      }))
+    } catch (e) {
+      error = e instanceof Error ? e.message : 'Connection failed'
+      // Keep the device selected so user can retry
+    } finally {
+      loading = false
+    }
   }
+
+  function deselectDiscoveredDevice() {
+    selectedDiscoveredDevice = null
+    discoveryConnectCode = ''
+    error = null
+  }
+
+  // Stored discovered device when version mismatch occurs
+  let pendingDiscoveredDevice = $state<DiscoveredDevice | null>(null)
 
   // -- Manual Entry --
 
@@ -517,16 +612,29 @@
   function cancelVersionMismatch() {
     showVersionWarning = false
     pendingConnection = null
+    pendingDiscoveredDevice = null
     remoteVersion = null
     localVersion = null
     ui.setSyncMode('select')
   }
 
   async function proceedWithVersionMismatch() {
-    if (!pendingConnection) return
     showVersionWarning = false
     remoteVersion = null
     localVersion = null
+
+    // If this came from a discovered device, show inline code prompt
+    if (pendingDiscoveredDevice) {
+      selectedDiscoveredDevice = pendingDiscoveredDevice
+      discoveryConnectCode = ''
+      error = null
+      pendingDiscoveredDevice = null
+      pendingConnection = null
+      return
+    }
+
+    // Otherwise proceed with a full connection (QR code flow has the token)
+    if (!pendingConnection) return
     await proceedWithConnection(pendingConnection)
     pendingConnection = null
   }
@@ -558,87 +666,188 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Multi-select helpers
+  // ---------------------------------------------------------------------------
+
+  function toggleRemoteStory(s: SyncStoryPreview) {
+    const idx = selectedRemoteStories.findIndex((r) => r.id === s.id)
+    if (idx >= 0) {
+      selectedRemoteStories = selectedRemoteStories.filter((r) => r.id !== s.id)
+    } else {
+      selectedRemoteStories = [...selectedRemoteStories, s]
+      // Deselect any local stories when selecting remote (pull vs push)
+      selectedLocalStories = []
+    }
+  }
+
+  function toggleLocalStory(s: SyncStoryPreview) {
+    const idx = selectedLocalStories.findIndex((l) => l.id === s.id)
+    if (idx >= 0) {
+      selectedLocalStories = selectedLocalStories.filter((l) => l.id !== s.id)
+    } else {
+      selectedLocalStories = [...selectedLocalStories, s]
+      // Deselect any remote stories when selecting local (push vs pull)
+      selectedRemoteStories = []
+    }
+  }
+
+  function selectAllRemote() {
+    selectedRemoteStories = [...remoteStories]
+    selectedLocalStories = []
+  }
+
+  function deselectAllRemote() {
+    selectedRemoteStories = []
+  }
+
+  function selectAllLocal() {
+    selectedLocalStories = [...localStories]
+    selectedRemoteStories = []
+  }
+
+  function deselectAllLocal() {
+    selectedLocalStories = []
+  }
+
+  // ---------------------------------------------------------------------------
   // Story sync actions (same for both roles when in connected mode)
   // ---------------------------------------------------------------------------
 
-  async function pullStory() {
-    if (!connection || !selectedRemoteStory) return
+  async function pullStories() {
+    if (!connection || selectedRemoteStories.length === 0) return
 
-    const exists = await syncService.checkStoryExists(selectedRemoteStory.title)
-    if (exists && !showConflictWarning) {
-      conflictStoryTitle = selectedRemoteStory.title
-      showConflictWarning = true
-      return
+    // Check for conflicts across all selected stories
+    if (!showConflictWarning) {
+      const conflicts: string[] = []
+      for (const s of selectedRemoteStories) {
+        const exists = await syncService.checkStoryExists(s.title)
+        if (exists) conflicts.push(s.title)
+      }
+      if (conflicts.length > 0) {
+        conflictingTitles = conflicts
+        conflictStoryTitle = conflicts.join(', ')
+        showConflictWarning = true
+        return
+      }
     }
 
     ui.setSyncMode('syncing')
     loading = true
     error = null
     showConflictWarning = false
+    conflictingTitles = []
+
+    const total = selectedRemoteStories.length
+    let succeeded = 0
+    const failed: string[] = []
 
     try {
-      // Remove existing story with same title (best-effort)
-      try {
-        const existingId = await syncService.findStoryIdByTitle(selectedRemoteStory.title)
-        if (existingId) {
+      for (let i = 0; i < total; i++) {
+        const rs = selectedRemoteStories[i]
+        syncProgress = { current: i + 1, total }
+
+        try {
+          // Remove existing story with same title (best-effort)
           try {
-            await syncService.createPreSyncBackup(existingId)
+            const existingId = await syncService.findStoryIdByTitle(rs.title)
+            if (existingId) {
+              try {
+                await syncService.createPreSyncBackup(existingId)
+              } catch {
+                console.warn('[Sync] Pre-sync backup failed (non-fatal)')
+              }
+              await syncService.deleteStory(existingId)
+            }
           } catch {
-            console.warn('[Sync] Pre-sync backup failed (non-fatal)')
+            console.warn('[Sync] Failed to remove existing story (non-fatal)')
           }
-          await syncService.deleteStory(existingId)
+
+          const storyJson = await syncService.pullStory(connection, rs.id)
+          const result = await exportService.importFromContent(storyJson, true)
+
+          if (result.success) {
+            succeeded++
+          } else {
+            failed.push(rs.title)
+          }
+        } catch {
+          failed.push(rs.title)
         }
-      } catch {
-        console.warn('[Sync] Failed to remove existing story (non-fatal)')
       }
 
-      const storyJson = await syncService.pullStory(connection, selectedRemoteStory.id)
-      const result = await exportService.importFromContent(storyJson, true)
+      await story.loadAllStories()
+      syncSuccess = true
 
-      if (result.success) {
-        await story.loadAllStories()
-        syncSuccess = true
-        syncMessage = `Successfully pulled "${selectedRemoteStory.title}"`
+      if (failed.length === 0) {
+        syncMessage =
+          total === 1
+            ? `Successfully pulled "${selectedRemoteStories[0].title}"`
+            : `Successfully pulled ${succeeded} ${succeeded === 1 ? 'story' : 'stories'}`
       } else {
-        error = result.error ?? 'Import failed'
+        syncMessage = `Pulled ${succeeded} of ${total} stories. Failed: ${failed.join(', ')}`
       }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Pull failed'
     } finally {
       loading = false
+      syncProgress = null
     }
   }
 
-  async function pushStory() {
-    if (!connection || !selectedLocalStory) return
+  async function pushStories() {
+    if (!connection || selectedLocalStories.length === 0) return
 
     ui.setSyncMode('syncing')
     loading = true
     error = null
 
+    const total = selectedLocalStories.length
+    let succeeded = 0
+    const failed: string[] = []
+
     try {
-      // Backup is best-effort — don't fail the push if backup fails
-      try {
-        await syncService.createPreSyncBackup(selectedLocalStory.id)
-      } catch (backupErr) {
-        console.warn('[Sync] Pre-sync backup failed (non-fatal):', backupErr)
+      for (let i = 0; i < total; i++) {
+        const ls = selectedLocalStories[i]
+        syncProgress = { current: i + 1, total }
+
+        try {
+          // Backup is best-effort
+          try {
+            await syncService.createPreSyncBackup(ls.id)
+          } catch {
+            console.warn('[Sync] Pre-sync backup failed (non-fatal)')
+          }
+
+          const storyJson = await syncService.exportStoryToJson(ls.id)
+          await syncService.pushStory(connection, storyJson)
+          succeeded++
+        } catch {
+          failed.push(ls.title)
+        }
       }
 
-      const storyJson = await syncService.exportStoryToJson(selectedLocalStory.id)
-      await syncService.pushStory(connection, storyJson)
-
       syncSuccess = true
-      syncMessage = `Successfully pushed "${selectedLocalStory.title}"`
+
+      if (failed.length === 0) {
+        syncMessage =
+          total === 1
+            ? `Successfully pushed "${selectedLocalStories[0].title}"`
+            : `Successfully pushed ${succeeded} ${succeeded === 1 ? 'story' : 'stories'}`
+      } else {
+        syncMessage = `Pushed ${succeeded} of ${total} stories. Failed: ${failed.join(', ')}`
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : 'Push failed'
     } finally {
       loading = false
+      syncProgress = null
     }
   }
 
   function cancelConflict() {
     showConflictWarning = false
     conflictStoryTitle = null
+    conflictingTitles = []
   }
 
   // ---------------------------------------------------------------------------
@@ -666,13 +875,22 @@
 
   function goBack() {
     error = null
+    selectedDiscoveredDevice = null
+    discoveryConnectCode = ''
     if (scanner) {
       scanner.stop().catch(() => {})
       scanner = null
     }
     stopDiscoveryPolling()
     syncService.stopDiscovery().catch(() => {})
-    ui.setSyncMode('select')
+    // From client sub-modes, go back to client mode selection
+    // From client mode selection, go back to role selection
+    if (ui.syncMode === 'select') {
+      syncRole = null
+      ui.setSyncMode('role')
+    } else {
+      ui.setSyncMode('select')
+    }
   }
 </script>
 
@@ -681,60 +899,46 @@
     <ResponsiveModal.Header>
       <ResponsiveModal.Title class="flex items-center gap-2">
         <RefreshCw class="text-primary h-5 w-5" />
-        {#if !roleLoaded}
+        {#if ui.syncMode === 'role'}
           Local Network Sync
-        {:else if syncRole === 'server'}
-          <!-- Mobile server titles -->
-          {#if ui.syncMode === 'generate'}
-            Waiting for Connection
-          {:else}
-            Local Network Sync
-          {/if}
+        {:else if ui.syncMode === 'generate'}
+          Waiting for Connection
+        {:else if ui.syncMode === 'select'}
+          Connect to Device
+        {:else if ui.syncMode === 'scan'}
+          Scan QR Code
+        {:else if ui.syncMode === 'discover'}
+          Searching for Devices
+        {:else if ui.syncMode === 'manual'}
+          Manual Connection
+        {:else if ui.syncMode === 'connected'}
+          Select Story to Sync
+        {:else if ui.syncMode === 'syncing'}
+          Syncing...
         {:else}
-          <!-- PC client titles -->
-          {#if ui.syncMode === 'select'}
-            Connect to Mobile Device
-          {:else if ui.syncMode === 'scan'}
-            Scan QR Code
-          {:else if ui.syncMode === 'discover'}
-            Searching for Devices
-          {:else if ui.syncMode === 'manual'}
-            Manual Connection
-          {:else if ui.syncMode === 'connected'}
-            Select Story to Sync
-          {:else if ui.syncMode === 'syncing'}
-            Syncing...
-          {:else}
-            Local Network Sync
-          {/if}
+          Local Network Sync
         {/if}
       </ResponsiveModal.Title>
       <ResponsiveModal.Description>
-        {#if !roleLoaded}
-          Detecting platform...
-        {:else if syncRole === 'server'}
-          {#if ui.syncMode === 'generate'}
-            Connect from your PC to sync stories.
-          {:else}
-            Sync stories between this device and your PC.
-          {/if}
-        {:else}
-          {#if ui.syncMode === 'select'}
-            Choose how to find your mobile device on the network.
-          {:else if ui.syncMode === 'scan'}
-            Point your camera at the QR code on the mobile device.
-          {:else if ui.syncMode === 'discover'}
-            Looking for Aventuras devices on your local network...
-          {:else if ui.syncMode === 'manual'}
-            Enter the IP address and connection code shown on your mobile device.
-          {:else if ui.syncMode === 'connected'}
-            Choose a story to transfer between devices.
-          {/if}
+        {#if ui.syncMode === 'role'}
+          Sync stories between devices on your local network.
+        {:else if ui.syncMode === 'generate'}
+          Connect from another device to sync stories.
+        {:else if ui.syncMode === 'select'}
+          Choose how to find the other device on the network.
+        {:else if ui.syncMode === 'scan'}
+          Point your camera at the QR code on the other device.
+        {:else if ui.syncMode === 'discover'}
+          Looking for Aventuras devices on your local network...
+        {:else if ui.syncMode === 'manual'}
+          Enter the IP address and connection code shown on the other device.
+        {:else if ui.syncMode === 'connected'}
+          Choose a story to transfer between devices.
         {/if}
       </ResponsiveModal.Description>
     </ResponsiveModal.Header>
 
-    <div class="py-4">
+    <div class="min-h-0 flex-1 overflow-y-auto py-4">
       {#if error}
         <div
           class="bg-destructive/15 text-destructive mb-4 flex items-center gap-2 rounded-lg p-3 text-sm"
@@ -785,16 +989,47 @@
         </div>
 
         <!-- ============================================================= -->
-        <!-- LOADING (not yet determined) -->
+        <!-- ROLE SELECTION (all platforms) -->
         <!-- ============================================================= -->
-      {:else if !roleLoaded}
-        <div class="flex flex-col items-center justify-center py-12">
-          <Loader2 class="text-primary h-8 w-8 animate-spin" />
-          <p class="text-muted-foreground mt-4">Detecting platform...</p>
+      {:else if ui.syncMode === 'role'}
+        <div class="grid grid-cols-1 gap-3">
+          <Card
+            class="hover:bg-muted/50 cursor-pointer transition-colors"
+            onclick={selectShareRole}
+          >
+            <CardHeader class="flex flex-row items-center gap-4 space-y-0 p-4">
+              <div class="bg-primary/10 rounded-lg p-3">
+                <Upload class="text-primary h-6 w-6" />
+              </div>
+              <div>
+                <CardTitle class="text-base">Share My Stories</CardTitle>
+                <CardDescription>
+                  Make this device's stories available to another device via QR code
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card
+            class="hover:bg-muted/50 cursor-pointer transition-colors"
+            onclick={selectReceiveRole}
+          >
+            <CardHeader class="flex flex-row items-center gap-4 space-y-0 p-4">
+              <div class="bg-primary/10 rounded-lg p-3">
+                <Download class="text-primary h-6 w-6" />
+              </div>
+              <div>
+                <CardTitle class="text-base">Get Stories from Another Device</CardTitle>
+                <CardDescription>
+                  Connect to another device by scanning its QR code or entering a code
+                </CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
         </div>
 
         <!-- ============================================================= -->
-        <!-- MOBILE SERVER: Generate QR Code -->
+        <!-- SERVER MODE: Generate QR Code (any platform) -->
         <!-- ============================================================= -->
       {:else if syncRole === 'server' && ui.syncMode === 'generate'}
         {#if showReceivedConflict && receivedStoryPreview}
@@ -832,7 +1067,7 @@
             </div>
 
             <p class="text-muted-foreground text-sm">
-              Scan this QR code from your PC, or enter the details below manually.
+              Scan this QR code from another device, or enter the details below manually.
             </p>
 
             <!-- Connection details for manual entry -->
@@ -852,7 +1087,7 @@
             <!-- Activity log -->
             {#if syncEvents.length > 0}
               <div class="mt-4 w-full space-y-1.5">
-                {#each syncEvents as event (event.message)}
+                {#each syncEvents as event, i (event.eventType + ':' + event.message + ':' + i)}
                   <div
                     class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm {event.eventType ===
                     'connected'
@@ -868,14 +1103,16 @@
               </div>
             {:else}
               <p class="text-muted-foreground/60 mt-3 text-xs">
-                Waiting for PC to connect...
+                Waiting for another device to connect...
               </p>
             {/if}
+
+            <Button variant="outline" class="mt-4" onclick={stopServerAndGoBack}>Back</Button>
           </div>
         {/if}
 
         <!-- ============================================================= -->
-        <!-- PC CLIENT: Mode Selection -->
+        <!-- CLIENT: Mode Selection -->
         <!-- ============================================================= -->
       {:else if syncRole === 'client' && ui.syncMode === 'select'}
         <div class="grid grid-cols-1 gap-3">
@@ -887,7 +1124,7 @@
               <div>
                 <CardTitle class="text-base">Scan QR Code</CardTitle>
                 <CardDescription
-                  >Use your webcam to scan the QR code on the mobile device</CardDescription
+                  >Use your camera to scan the QR code on the other device</CardDescription
                 >
               </div>
             </CardHeader>
@@ -921,7 +1158,7 @@
               <div>
                 <CardTitle class="text-base">Enter Manually</CardTitle>
                 <CardDescription
-                  >Type the IP address and code shown on the mobile device</CardDescription
+                  >Type the IP address and code shown on the other device</CardDescription
                 >
               </div>
             </CardHeader>
@@ -929,7 +1166,7 @@
         </div>
 
         <!-- ============================================================= -->
-        <!-- PC CLIENT: QR Scanner -->
+        <!-- CLIENT: QR Scanner -->
         <!-- ============================================================= -->
       {:else if syncRole === 'client' && ui.syncMode === 'scan'}
         <div class="flex flex-col items-center text-center">
@@ -943,20 +1180,67 @@
         </div>
 
         <!-- ============================================================= -->
-        <!-- PC CLIENT: Auto-Discovery -->
+        <!-- CLIENT: Auto-Discovery -->
         <!-- ============================================================= -->
       {:else if syncRole === 'client' && ui.syncMode === 'discover'}
         <div class="flex flex-col items-center">
-          {#if discoveredDevices.length === 0}
+          {#if selectedDiscoveredDevice}
+            <!-- Inline connect code prompt for selected device -->
+            <div class="w-full space-y-4">
+              <Card class="border-primary/30 bg-primary/5">
+                <CardHeader class="flex flex-row items-center gap-4 space-y-0 p-3">
+                  <div class="bg-primary/10 rounded-lg p-2">
+                    <Smartphone class="text-primary h-5 w-5" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <CardTitle class="text-sm">{selectedDiscoveredDevice.deviceName}</CardTitle>
+                    <CardDescription class="font-mono text-xs"
+                      >{selectedDiscoveredDevice.ip}:{selectedDiscoveredDevice.port}</CardDescription
+                    >
+                  </div>
+                  {#if selectedDiscoveredDevice.version}
+                    <Badge variant="secondary" class="text-[10px]"
+                      >v{selectedDiscoveredDevice.version}</Badge
+                    >
+                  {/if}
+                </CardHeader>
+              </Card>
+              <div class="space-y-2">
+                <label for="discovery-code" class="text-sm font-medium"
+                  >Enter the 6-digit code from the other device</label
+                >
+                <Input
+                  id="discovery-code"
+                  type="text"
+                  placeholder="000000"
+                  bind:value={discoveryConnectCode}
+                  maxlength={6}
+                  class="font-mono text-center text-lg tracking-widest"
+                />
+              </div>
+              <div class="flex gap-2">
+                <Button variant="outline" onclick={deselectDiscoveredDevice}>Back</Button>
+                <Button onclick={connectToSelectedDevice} disabled={loading} class="flex-1">
+                  {#if loading}
+                    <Loader2 class="mr-2 h-4 w-4 animate-spin" />
+                    Connecting...
+                  {:else}
+                    Connect
+                  {/if}
+                </Button>
+              </div>
+            </div>
+          {:else if discoveredDevices.length === 0}
             <div class="flex flex-col items-center justify-center py-8 text-center">
               <Loader2 class="text-primary mb-4 h-8 w-8 animate-spin" />
               <p class="text-muted-foreground text-sm">
                 Searching for devices on your network...
               </p>
               <p class="text-muted-foreground/60 mt-1 text-xs">
-                Make sure the mobile device has Aventuras Sync open
+                Make sure the other device has Aventuras Sync open
               </p>
             </div>
+            <Button variant="outline" class="mt-4" onclick={goBack}>Back</Button>
           {:else}
             <div class="w-full space-y-2">
               <p class="text-muted-foreground mb-3 text-sm">
@@ -965,7 +1249,7 @@
               {#each discoveredDevices as device (device.ip)}
                 <Card
                   class="hover:bg-muted/50 cursor-pointer transition-colors"
-                  onclick={() => connectToDiscoveredDevice(device)}
+                  onclick={() => selectDiscoveredDevice(device)}
                 >
                   <CardHeader class="flex flex-row items-center gap-4 space-y-0 p-3">
                     <div class="bg-primary/10 rounded-lg p-2">
@@ -984,12 +1268,12 @@
                 </Card>
               {/each}
             </div>
+            <Button variant="outline" class="mt-4" onclick={goBack}>Back</Button>
           {/if}
-          <Button variant="outline" class="mt-4" onclick={goBack}>Back</Button>
         </div>
 
         <!-- ============================================================= -->
-        <!-- PC CLIENT: Manual Entry -->
+        <!-- CLIENT: Manual Entry -->
         <!-- ============================================================= -->
       {:else if syncRole === 'client' && ui.syncMode === 'manual'}
         <div class="space-y-4">
@@ -1014,7 +1298,7 @@
             />
           </div>
           <p class="text-muted-foreground text-xs">
-            Enter the IP address and 6-digit code shown on the mobile device's sync screen.
+            Enter the IP address and 6-digit code shown on the other device's sync screen.
           </p>
           <div class="flex gap-2">
             <Button variant="outline" onclick={goBack}>Back</Button>
@@ -1044,15 +1328,24 @@
             <div class="mb-4 rounded-lg bg-amber-500/15 p-4 text-amber-600 dark:text-amber-500">
               <div class="mb-2 flex items-center gap-2">
                 <AlertTriangle class="h-5 w-5" />
-                <span class="font-semibold">Story Already Exists</span>
+                <span class="font-semibold"
+                  >{conflictingTitles.length === 1
+                    ? 'Story Already Exists'
+                    : `${conflictingTitles.length} Stories Already Exist`}</span
+                >
               </div>
               <p class="text-sm">
-                A story named "{conflictStoryTitle}" already exists on this device. Pulling will
-                replace it after creating a "Pre-sync backup" checkpoint.
+                {#if conflictingTitles.length === 1}
+                  A story named "{conflictingTitles[0]}" already exists on this device. Pulling will
+                  replace it after creating a "Pre-sync backup" checkpoint.
+                {:else}
+                  The following stories already exist: {conflictingTitles.join(', ')}. Pulling will
+                  replace them after creating backups.
+                {/if}
               </p>
               <div class="mt-3 flex gap-2">
                 <Button variant="secondary" size="sm" onclick={cancelConflict}>Cancel</Button>
-                <Button size="sm" onclick={pullStory}>Continue Anyway</Button>
+                <Button size="sm" onclick={pullStories}>Continue Anyway</Button>
               </div>
             </div>
           {/if}
@@ -1060,35 +1353,58 @@
           <div class="space-y-6">
             <!-- Pull Stories (from remote) -->
             <div>
-              <h3 class="text-muted-foreground mb-2 flex items-center gap-2 text-sm font-medium">
-                <Download class="h-4 w-4" />
-                Pull from {syncRole === 'client' ? 'Mobile Device' : 'Remote Device'}
-              </h3>
+              <div class="mb-2 flex items-center justify-between">
+                <h3 class="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                  <Download class="h-4 w-4" />
+                  Pull from Other Device
+                </h3>
+                {#if remoteStories.length > 1}
+                  <button
+                    class="text-primary text-xs hover:underline"
+                    onclick={() =>
+                      selectedRemoteStories.length === remoteStories.length
+                        ? deselectAllRemote()
+                        : selectAllRemote()}
+                  >
+                    {selectedRemoteStories.length === remoteStories.length
+                      ? 'Deselect All'
+                      : 'Select All'}
+                  </button>
+                {/if}
+              </div>
               {#if remoteStories.length > 0}
-                <ScrollArea class="h-40 rounded-md border p-1">
+                <ScrollArea class="h-32 rounded-md border p-1 sm:h-40">
                   {#each remoteStories as remoteStory (remoteStory.id)}
+                    {@const isSelected = selectedRemoteStories.some(
+                      (s) => s.id === remoteStory.id,
+                    )}
                     <button
-                      class="hover:bg-accent hover:text-accent-foreground flex w-full flex-col items-start gap-1 rounded-sm px-3 py-2 text-left {selectedRemoteStory?.id ===
-                      remoteStory.id
-                        ? 'bg-accent text-accent-foreground ring-primary ring-1'
+                      class="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left {isSelected
+                        ? 'bg-accent text-accent-foreground'
                         : ''}"
-                      onclick={() => {
-                        selectedRemoteStory = remoteStory
-                        selectedLocalStory = null
-                      }}
+                      onclick={() => toggleRemoteStory(remoteStory)}
                     >
-                      <div class="flex w-full items-center justify-between">
-                        <span class="truncate font-medium">{remoteStory.title}</span>
-                        {#if remoteStory.genre}
-                          <Badge variant="secondary" class="h-5 text-[10px]"
-                            >{remoteStory.genre}</Badge
-                          >
+                      <div class="shrink-0">
+                        {#if isSelected}
+                          <CheckSquare class="text-primary h-4 w-4" />
+                        {:else}
+                          <Square class="text-muted-foreground h-4 w-4" />
                         {/if}
                       </div>
-                      <div class="text-muted-foreground text-xs">
-                        {remoteStory.entryCount} entries • Updated {formatDate(
-                          remoteStory.updatedAt,
-                        )}
+                      <div class="min-w-0 flex-1">
+                        <div class="flex w-full items-center justify-between">
+                          <span class="truncate font-medium">{remoteStory.title}</span>
+                          {#if remoteStory.genre}
+                            <Badge variant="secondary" class="ml-2 h-5 shrink-0 text-[10px]"
+                              >{remoteStory.genre}</Badge
+                            >
+                          {/if}
+                        </div>
+                        <div class="text-muted-foreground text-xs">
+                          {remoteStory.entryCount} entries • Updated {formatDate(
+                            remoteStory.updatedAt,
+                          )}
+                        </div>
                       </div>
                     </button>
                   {/each}
@@ -1102,33 +1418,56 @@
 
             <!-- Push Stories (to remote) -->
             <div>
-              <h3 class="text-muted-foreground mb-2 flex items-center gap-2 text-sm font-medium">
-                <Upload class="h-4 w-4" />
-                Push to {syncRole === 'client' ? 'Mobile Device' : 'Remote Device'}
-              </h3>
+              <div class="mb-2 flex items-center justify-between">
+                <h3 class="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                  <Upload class="h-4 w-4" />
+                  Push to Other Device
+                </h3>
+                {#if localStories.length > 1}
+                  <button
+                    class="text-primary text-xs hover:underline"
+                    onclick={() =>
+                      selectedLocalStories.length === localStories.length
+                        ? deselectAllLocal()
+                        : selectAllLocal()}
+                  >
+                    {selectedLocalStories.length === localStories.length
+                      ? 'Deselect All'
+                      : 'Select All'}
+                  </button>
+                {/if}
+              </div>
               {#if localStories.length > 0}
-                <ScrollArea class="h-40 rounded-md border p-1">
+                <ScrollArea class="h-32 rounded-md border p-1 sm:h-40">
                   {#each localStories as localStory (localStory.id)}
+                    {@const isSelected = selectedLocalStories.some(
+                      (s) => s.id === localStory.id,
+                    )}
                     <button
-                      class="hover:bg-accent hover:text-accent-foreground flex w-full flex-col items-start gap-1 rounded-sm px-3 py-2 text-left {selectedLocalStory?.id ===
-                      localStory.id
-                        ? 'bg-accent text-accent-foreground ring-primary ring-1'
+                      class="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left {isSelected
+                        ? 'bg-accent text-accent-foreground'
                         : ''}"
-                      onclick={() => {
-                        selectedLocalStory = localStory
-                        selectedRemoteStory = null
-                      }}
+                      onclick={() => toggleLocalStory(localStory)}
                     >
-                      <div class="flex w-full items-center justify-between">
-                        <span class="truncate font-medium">{localStory.title}</span>
-                        {#if localStory.genre}
-                          <Badge variant="secondary" class="h-5 text-[10px]"
-                            >{localStory.genre}</Badge
-                          >
+                      <div class="shrink-0">
+                        {#if isSelected}
+                          <CheckSquare class="text-primary h-4 w-4" />
+                        {:else}
+                          <Square class="text-muted-foreground h-4 w-4" />
                         {/if}
                       </div>
-                      <div class="text-muted-foreground text-xs">
-                        Updated {formatDate(localStory.updatedAt)}
+                      <div class="min-w-0 flex-1">
+                        <div class="flex w-full items-center justify-between">
+                          <span class="truncate font-medium">{localStory.title}</span>
+                          {#if localStory.genre}
+                            <Badge variant="secondary" class="ml-2 h-5 shrink-0 text-[10px]"
+                              >{localStory.genre}</Badge
+                            >
+                          {/if}
+                        </div>
+                        <div class="text-muted-foreground text-xs">
+                          Updated {formatDate(localStory.updatedAt)}
+                        </div>
                       </div>
                     </button>
                   {/each}
@@ -1149,8 +1488,19 @@
         <div class="flex flex-col items-center justify-center py-12">
           <Loader2 class="text-primary h-8 w-8 animate-spin" />
           <p class="text-muted-foreground mt-4">
-            {selectedRemoteStory ? 'Pulling' : 'Pushing'} story...
+            {selectedRemoteStories.length > 0 ? 'Pulling' : 'Pushing'}
+            {syncProgress && syncProgress.total > 1
+              ? ` story ${syncProgress.current} of ${syncProgress.total}...`
+              : ' story...'}
           </p>
+          {#if syncProgress && syncProgress.total > 1}
+            <div class="bg-muted mt-3 h-2 w-48 overflow-hidden rounded-full">
+              <div
+                class="bg-primary h-full rounded-full transition-all duration-300"
+                style="width: {(syncProgress.current / syncProgress.total) * 100}%"
+              ></div>
+            </div>
+          {/if}
           <p class="text-muted-foreground/80 mt-1 text-sm">Please wait</p>
         </div>
       {/if}
@@ -1159,19 +1509,31 @@
     <!-- Footer -->
     {#if ui.syncMode === 'connected' && !showConflictWarning && !loading && !syncSuccess}
       <ResponsiveModal.Footer>
-        <div class="flex w-full justify-end gap-2">
+        <div class="flex w-full items-center justify-between gap-2">
           <Button variant="outline" onclick={close}>Cancel</Button>
-          {#if selectedRemoteStory}
-            <Button onclick={pullStory}>
-              <Download class="mr-2 h-4 w-4" />
-              Pull Story
-            </Button>
-          {:else if selectedLocalStory}
-            <Button onclick={pushStory}>
-              <Upload class="mr-2 h-4 w-4" />
-              Push Story
-            </Button>
-          {/if}
+          <div class="flex items-center gap-2">
+            {#if selectedRemoteStories.length > 0}
+              <span class="text-muted-foreground text-xs"
+                >{selectedRemoteStories.length} selected</span
+              >
+              <Button onclick={pullStories}>
+                <Download class="mr-2 h-4 w-4" />
+                Pull {selectedRemoteStories.length === 1
+                  ? 'Story'
+                  : `${selectedRemoteStories.length} Stories`}
+              </Button>
+            {:else if selectedLocalStories.length > 0}
+              <span class="text-muted-foreground text-xs"
+                >{selectedLocalStories.length} selected</span
+              >
+              <Button onclick={pushStories}>
+                <Upload class="mr-2 h-4 w-4" />
+                Push {selectedLocalStories.length === 1
+                  ? 'Story'
+                  : `${selectedLocalStories.length} Stories`}
+              </Button>
+            {/if}
+          </div>
         </div>
       </ResponsiveModal.Footer>
     {/if}

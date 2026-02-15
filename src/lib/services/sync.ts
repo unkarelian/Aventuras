@@ -98,9 +98,10 @@ class SyncService {
   /**
    * Start broadcasting this device's sync server info via UDP.
    * Called by mobile after starting the HTTP server.
+   * Note: The token is NOT broadcast — authentication uses the connect code on-screen.
    */
-  async startBroadcast(ip: string, port: number, token: string): Promise<void> {
-    return invoke('start_udp_broadcast', { ip, port, token })
+  async startBroadcast(ip: string, port: number): Promise<void> {
+    return invoke('start_udp_broadcast', { ip, port })
   }
 
   /**

@@ -74,7 +74,9 @@ pub struct QrCodeData {
     pub version: String, // App version for compatibility check
 }
 
-/// Data broadcast via UDP for device discovery
+/// Data broadcast via UDP for device discovery.
+/// NOTE: Does NOT include the authentication token for security reasons.
+/// The token/connect code must be entered manually after discovery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscoveryBroadcast {
@@ -84,8 +86,6 @@ pub struct DiscoveryBroadcast {
     pub ip: String,
     /// Server port (fixed SYNC_PORT)
     pub port: u16,
-    /// Authentication token
-    pub token: String,
     /// App version for compatibility check
     pub version: String,
     /// Human-readable device name
@@ -102,13 +102,14 @@ pub struct SyncEvent {
     pub message: String,
 }
 
-/// A device discovered via UDP broadcast, returned to the frontend
+/// A device discovered via UDP broadcast, returned to the frontend.
+/// Does NOT contain the authentication token — the user must enter
+/// the 6-digit connect code displayed on the mobile device.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiscoveredDevice {
     pub ip: String,
     pub port: u16,
-    pub token: String,
     pub version: String,
     pub device_name: String,
 }

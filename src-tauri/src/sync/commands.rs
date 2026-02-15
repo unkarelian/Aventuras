@@ -8,9 +8,8 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use super::server::{
-    bind_listener, bind_listener_on_port, build_router, get_device_name,
-    spawn_discovery_requester, spawn_discovery_responder, spawn_server, token_to_connect_code,
-    ServerState, StoriesData,
+    bind_listener_on_port, build_router, get_device_name, spawn_discovery_requester,
+    spawn_discovery_responder, spawn_server, token_to_connect_code, ServerState, StoriesData,
 };
 use super::types::{
     DiscoveredDevice, DiscoveryBroadcast, QrCodeData, SyncAction, SyncEvent, SyncRequest,
@@ -163,22 +162,14 @@ pub async fn start_sync_server(
         }
     }
 
-    // Bind listener: fixed port on mobile, random on desktop
-    let listener = if is_mobile() {
-        // Try fixed port first, fall back to random if occupied
-        match bind_listener_on_port(SYNC_PORT).await {
-            Ok(l) => l,
-            Err(_) => {
-                eprintln!(
-                    "[Sync] Fixed port {} in use, falling back to random port",
-                    SYNC_PORT
-                );
-                bind_listener().await?
-            }
-        }
-    } else {
-        bind_listener().await?
-    };
+    // Always bind to the fixed SYNC_PORT so manual connect and discovery work.
+    // Fail fast with a user-facing error if the port is occupied.
+    let listener = bind_listener_on_port(SYNC_PORT).await.map_err(|_| {
+        format!(
+            "Unable to start sync: port {} is already in use. Please close any other app using this port and try again.",
+            SYNC_PORT
+        )
+    })?;
 
     let addr = listener
         .local_addr()
@@ -265,26 +256,24 @@ pub async fn clear_received_stories(state: State<'_, SyncState>) -> Result<(), S
 // Sync events (mobile server activity log)
 // ---------------------------------------------------------------------------
 
-/// Get sync events (connection, pull, push notifications) for the mobile UI
+/// Get sync events (connection, pull, push notifications) for the mobile UI.
+/// Drains the pending events atomically so they are only delivered once.
 #[tauri::command]
 pub async fn get_sync_events(state: State<'_, SyncState>) -> Result<Vec<SyncEvent>, String> {
     let server_state = state.server_state.lock().await;
     if let Some(ref ss) = *server_state {
-        let events = ss.sync_events.lock().await;
-        Ok(events.clone())
+        let mut events = ss.sync_events.lock().await;
+        let drained: Vec<SyncEvent> = events.drain(..).collect();
+        Ok(drained)
     } else {
         Ok(Vec::new())
     }
 }
 
-/// Clear sync events after the mobile UI has processed them
+/// Clear sync events — now a no-op since `get_sync_events` drains atomically.
+/// Kept for API backwards compatibility.
 #[tauri::command]
-pub async fn clear_sync_events(state: State<'_, SyncState>) -> Result<(), String> {
-    let server_state = state.server_state.lock().await;
-    if let Some(ref ss) = *server_state {
-        let mut events = ss.sync_events.lock().await;
-        events.clear();
-    }
+pub async fn clear_sync_events(_state: State<'_, SyncState>) -> Result<(), String> {
     Ok(())
 }
 
@@ -299,13 +288,13 @@ pub async fn clear_sync_events(state: State<'_, SyncState>) -> Result<(), String
 
 /// Start the discovery responder (mobile).
 /// Listens on DISCOVERY_PORT for requests from PCs and responds with server info.
+/// Note: The token is NOT broadcast — authentication uses the connect code on-screen.
 #[tauri::command]
 pub async fn start_udp_broadcast(
     app: AppHandle,
     state: State<'_, SyncState>,
     ip: String,
     port: u16,
-    token: String,
 ) -> Result<(), String> {
     // Stop existing responder
     let mut broadcast = state.broadcast_handle.lock().await;
@@ -313,11 +302,12 @@ pub async fn start_udp_broadcast(
         h.abort();
     }
 
+    // Discovery response does NOT include the token for security.
+    // Users authenticate via the 6-digit connect code shown on the mobile screen.
     let response_data = DiscoveryBroadcast {
         app: APP_IDENTIFIER.to_string(),
         ip,
         port,
-        token,
         version: app.package_info().version.to_string(),
         device_name: get_device_name(),
     };

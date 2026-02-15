@@ -1,8 +1,10 @@
 use axum::{
-    extract::{DefaultBodyLimit, State},
+    extract::{ConnectInfo, DefaultBodyLimit, State},
     routing::post,
     Json, Router,
 };
+use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::sync::Mutex;
@@ -11,6 +13,11 @@ use super::types::{
     DiscoveredDevice, DiscoveryBroadcast, SyncAction, SyncEvent, SyncRequest, SyncResponse,
     SyncStoryPreview, APP_IDENTIFIER, DISCOVERY_PORT,
 };
+
+/// Maximum failed auth attempts per IP before blocking
+const MAX_AUTH_FAILURES: u32 = 5;
+/// Duration (in seconds) to block an IP after too many failures
+const AUTH_BLOCK_DURATION_SECS: u64 = 60;
 
 /// Shared state for the sync server
 #[derive(Clone)]
@@ -23,6 +30,8 @@ pub struct ServerState {
     pub received_stories: Arc<Mutex<Vec<String>>>,
     /// Activity events for the mobile UI (connected, pulled, pushed)
     pub sync_events: Arc<Mutex<Vec<SyncEvent>>>,
+    /// Rate limiter: tracks failed auth attempts per IP (count, last_attempt_time)
+    pub auth_failures: Arc<Mutex<HashMap<String, (u32, std::time::Instant)>>>,
 }
 
 /// Data about a story available on the server
@@ -39,6 +48,7 @@ impl ServerState {
             stories: Arc::new(Mutex::new(Vec::new())),
             received_stories: Arc::new(Mutex::new(Vec::new())),
             sync_events: Arc::new(Mutex::new(Vec::new())),
+            auth_failures: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -63,21 +73,15 @@ pub fn validate_token(request_token: &str, server_token: &str) -> bool {
     request_token == server_token || request_token == token_to_connect_code(server_token)
 }
 
-/// Bind a listener for the sync HTTP server on a random local port
-pub async fn bind_listener() -> Result<TcpListener, String> {
-    TcpListener::bind("0.0.0.0:0")
-        .await
-        .map_err(|e| format!("Failed to bind server: {}", e))
-}
-
-/// Bind a listener on a specific port (used on mobile for fixed SYNC_PORT)
+/// Bind a listener on a specific port (fixed SYNC_PORT for all server roles)
 pub async fn bind_listener_on_port(port: u16) -> Result<TcpListener, String> {
     TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
         .map_err(|e| format!("Failed to bind server on port {}: {}", port, e))
 }
 
-/// Build the sync router with shared state
+/// Build the sync router with shared state.
+/// Uses `into_make_service_with_connect_info` so handlers can access the client IP.
 pub fn build_router(state: ServerState) -> Router {
     Router::new()
         .route("/sync", post(handle_sync))
@@ -86,25 +90,68 @@ pub fn build_router(state: ServerState) -> Router {
         .with_state(state)
 }
 
-/// Start the sync HTTP server task
+/// Start the sync HTTP server task.
+/// Uses `into_make_service_with_connect_info` to make client IP available to handlers.
 pub fn spawn_server(listener: TcpListener, app: Router) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        if let Err(e) = axum::serve(listener, app).await {
+        if let Err(e) =
+            axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await
+        {
             eprintln!("Sync server error: {}", e);
         }
     })
 }
 
-/// Handle sync requests
+/// Handle sync requests with IP-based rate limiting on authentication failures.
 async fn handle_sync(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     State(state): State<ServerState>,
     Json(request): Json<SyncRequest>,
 ) -> Json<SyncResponse> {
+    let client_ip = addr.ip().to_string();
+
+    // Check rate limit before validating token
+    {
+        let failures = state.auth_failures.lock().await;
+        if let Some((count, last_time)) = failures.get(&client_ip) {
+            if *count >= MAX_AUTH_FAILURES {
+                let elapsed = last_time.elapsed().as_secs();
+                if elapsed < AUTH_BLOCK_DURATION_SECS {
+                    return Json(SyncResponse::Error {
+                        message: format!(
+                            "Too many failed attempts. Try again in {} seconds.",
+                            AUTH_BLOCK_DURATION_SECS - elapsed
+                        ),
+                    });
+                }
+                // Block period expired — will be cleared below on success or reset
+            }
+        }
+    }
+
     // Validate token (accepts full token or connect code)
     if !validate_token(&request.token, &state.token) {
+        // Record failed attempt
+        let mut failures = state.auth_failures.lock().await;
+        let entry = failures
+            .entry(client_ip)
+            .or_insert((0, std::time::Instant::now()));
+        // Reset counter if the block period has expired
+        if entry.1.elapsed().as_secs() >= AUTH_BLOCK_DURATION_SECS {
+            *entry = (0, std::time::Instant::now());
+        }
+        entry.0 += 1;
+        entry.1 = std::time::Instant::now();
+
         return Json(SyncResponse::Error {
             message: "Invalid authentication token".to_string(),
         });
+    }
+
+    // Successful auth — clear any failure history for this IP
+    {
+        let mut failures = state.auth_failures.lock().await;
+        failures.remove(&client_ip);
     }
 
     match request.action {
@@ -119,7 +166,7 @@ async fn handle_sync(
                 let mut events = state.sync_events.lock().await;
                 events.push(SyncEvent {
                     event_type: "connected".to_string(),
-                    message: format!("PC connected — {} stories available", count),
+                    message: format!("Device connected — {} stories available", count),
                 });
             }
 
@@ -135,7 +182,7 @@ async fn handle_sync(
                     let mut events = state.sync_events.lock().await;
                     events.push(SyncEvent {
                         event_type: "pulled".to_string(),
-                        message: format!("Sent \"{}\" to PC", title),
+                        message: format!("Sent \"{}\" to other device", title),
                     });
                 }
 
@@ -154,7 +201,7 @@ async fn handle_sync(
                 let mut events = state.sync_events.lock().await;
                 events.push(SyncEvent {
                     event_type: "pushed".to_string(),
-                    message: "Receiving story from PC...".to_string(),
+                    message: "Receiving story from other device...".to_string(),
                 });
             }
 
@@ -187,7 +234,7 @@ pub fn spawn_discovery_responder(
     response_data: DiscoveryBroadcast,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        // Use std socket first to set SO_REUSEADDR before binding
+        // Use std socket first to set non-blocking and broadcast options before converting to tokio
         let std_socket = match std::net::UdpSocket::bind(format!("0.0.0.0:{}", DISCOVERY_PORT)) {
             Ok(s) => s,
             Err(e) => {
@@ -251,25 +298,41 @@ pub fn spawn_discovery_responder(
 /// Returns a list of addresses to try: subnet-directed broadcast first,
 /// then the limited broadcast as fallback.
 ///
-/// Subnet-directed broadcast (e.g., 192.168.1.255) is the industry-standard
-/// approach for local service discovery — it is reliably forwarded by routers
-/// within the subnet and works on both Windows and Android, unlike the
-/// limited broadcast address 255.255.255.255 which many OSes and routers drop.
+/// Uses the `if-addrs` crate to detect actual interface netmasks rather than
+/// assuming /24, making this work correctly on networks with non-standard
+/// subnets (e.g., /16 office networks, /30 point-to-point links).
 fn compute_broadcast_targets() -> Vec<String> {
     let mut targets = Vec::new();
 
-    // Try to get local IP and compute subnet-directed broadcast (assume /24)
-    if let Ok(ip) = local_ip_address::local_ip() {
-        if let std::net::IpAddr::V4(v4) = ip {
-            let octets = v4.octets();
-            let subnet_broadcast =
-                format!("{}.{}.{}.255:{}", octets[0], octets[1], octets[2], DISCOVERY_PORT);
-            targets.push(subnet_broadcast);
+    // Enumerate all network interfaces and compute broadcast addresses
+    if let Ok(interfaces) = if_addrs::get_if_addrs() {
+        for iface in &interfaces {
+            if iface.is_loopback() {
+                continue;
+            }
+            if let if_addrs::IfAddr::V4(ref v4) = iface.addr {
+                let ip_octets = v4.ip.octets();
+                let mask_octets = v4.netmask.octets();
+                // Broadcast = IP | ~netmask
+                let broadcast = std::net::Ipv4Addr::new(
+                    ip_octets[0] | !mask_octets[0],
+                    ip_octets[1] | !mask_octets[1],
+                    ip_octets[2] | !mask_octets[2],
+                    ip_octets[3] | !mask_octets[3],
+                );
+                let target = format!("{}:{}", broadcast, DISCOVERY_PORT);
+                if !targets.contains(&target) {
+                    targets.push(target);
+                }
+            }
         }
     }
 
     // Fallback: limited broadcast (less reliable but covers edge cases)
-    targets.push(format!("255.255.255.255:{}", DISCOVERY_PORT));
+    let fallback = format!("255.255.255.255:{}", DISCOVERY_PORT);
+    if !targets.contains(&fallback) {
+        targets.push(fallback);
+    }
 
     targets
 }
@@ -326,7 +389,6 @@ pub fn spawn_discovery_requester(
                                 let device = DiscoveredDevice {
                                     ip: broadcast.ip,
                                     port: broadcast.port,
-                                    token: broadcast.token,
                                     version: broadcast.version,
                                     device_name: broadcast.device_name,
                                 };
@@ -344,6 +406,9 @@ pub fn spawn_discovery_requester(
                     _ => break, // Timeout or error — send next round
                 }
             }
+
+            // Pause between discovery cycles to avoid flooding the network
+            tokio::time::sleep(std::time::Duration::from_secs(3)).await;
         }
     })
 }
