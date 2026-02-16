@@ -73,7 +73,13 @@ export class ContextBuilder {
     // Pack custom variable defaults
     await builder.loadCustomVariables()
 
-    log('forStory complete', { storyId, packId, contextKeys: Object.keys(builder.context).length })
+    // Override pack variable defaults with story-specific values
+    const storyVarValues = await database.getStoryCustomVariables(story.id)
+    if (storyVarValues) {
+      builder.add(storyVarValues)
+    }
+
+    log('forStory complete', { storyId, packId, contextKeys: Object.keys(builder.context).length, storyVarOverrides: storyVarValues ? Object.keys(storyVarValues).length : 0 })
     return builder
   }
 

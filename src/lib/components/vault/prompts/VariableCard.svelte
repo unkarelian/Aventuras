@@ -16,7 +16,6 @@
     ArrowUp,
     ArrowDown,
     X,
-    Asterisk,
   } from 'lucide-svelte'
 
   interface Props {
@@ -31,8 +30,8 @@
   let expanded = $state(false)
   let editName = $state('')
   let editDisplayName = $state('')
+  let editDescription = $state('')
   let editType = $state<CustomVariableType>('text')
-  let editRequired = $state(false)
   let editDefault = $state('')
   let editEnumOptions = $state<EnumOption[]>([])
   let showDeleteConfirm = $state(false)
@@ -41,8 +40,8 @@
   $effect.pre(() => {
     editName = variable.variableName
     editDisplayName = variable.displayName
+    editDescription = variable.description ?? ''
     editType = variable.variableType
-    editRequired = variable.isRequired
     editDefault = variable.defaultValue ?? ''
     editEnumOptions = variable.enumOptions ? structuredClone(variable.enumOptions) : []
     expanded = initialExpanded
@@ -86,8 +85,9 @@
       ...variable,
       variableName: editName,
       displayName: editDisplayName,
+      description: editDescription || undefined,
       variableType: editType,
-      isRequired: editRequired,
+      isRequired: variable.isRequired,
       defaultValue: editType === 'boolean' ? editDefault : editDefault || undefined,
       enumOptions: editType === 'enum' ? editEnumOptions : undefined,
     }
@@ -98,8 +98,8 @@
   function handleCancel() {
     editName = variable.variableName
     editDisplayName = variable.displayName
+    editDescription = variable.description ?? ''
     editType = variable.variableType
-    editRequired = variable.isRequired
     editDefault = variable.defaultValue ?? ''
     editEnumOptions = variable.enumOptions ? structuredClone(variable.enumOptions) : []
     showDeleteConfirm = false
@@ -165,13 +165,15 @@
       <Badge variant="outline" class="shrink-0 text-[10px]">
         {TYPE_LABELS[variable.variableType]}
       </Badge>
+      {#if variable.description}
+        <span class="text-muted-foreground min-w-0 truncate text-xs italic">
+          {truncate(variable.description, 40)}
+        </span>
+      {/if}
       {#if variable.defaultValue}
         <span class="text-muted-foreground min-w-0 truncate text-xs">
           = {truncate(variable.defaultValue, 30)}
         </span>
-      {/if}
-      {#if variable.isRequired}
-        <Asterisk class="text-destructive h-3 w-3 shrink-0" />
       {/if}
     </div>
     {#if expanded}
@@ -207,6 +209,15 @@
         />
       </div>
 
+      <!-- Description -->
+      <div class="space-y-1.5">
+        <Label>Description</Label>
+        <Input
+          bind:value={editDescription}
+          placeholder="Help text shown in wizard"
+        />
+      </div>
+
       <!-- Type -->
       <div class="space-y-1.5">
         <Label>Type</Label>
@@ -226,15 +237,6 @@
             {/each}
           </Select.Content>
         </Select.Root>
-      </div>
-
-      <!-- Required -->
-      <div class="flex items-center justify-between">
-        <Label>Required</Label>
-        <Switch
-          checked={editRequired}
-          onCheckedChange={(v) => (editRequired = v)}
-        />
       </div>
 
       <!-- Default Value -->
