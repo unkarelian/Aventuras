@@ -21,8 +21,10 @@ export const CustomVariableSchema = z.object({
     message: 'Variable name must use lowercase letters, numbers, and underscores only',
   }),
   displayName: z.string().min(1),
+  description: z.string().optional(),
   variableType: z.enum(['text', 'textarea', 'enum', 'number', 'boolean']),
   isRequired: z.boolean(),
+  sortOrder: z.number().optional(),
   defaultValue: z.string().optional(),
   enumOptions: z.array(EnumOptionSchema).optional(),
 }).refine(

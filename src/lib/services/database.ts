@@ -3216,7 +3216,7 @@ class DatabaseService {
   async getPackVariables(packId: string): Promise<CustomVariable[]> {
     const db = await this.getDb()
     const results = await db.select<any[]>(
-      'SELECT * FROM pack_variables WHERE pack_id = ? ORDER BY variable_name',
+      'SELECT * FROM pack_variables WHERE pack_id = ? ORDER BY sort_order ASC, variable_name ASC',
       [packId],
     )
     return results.map(this.mapPackVariable)
@@ -3236,15 +3236,17 @@ class DatabaseService {
     const id = crypto.randomUUID()
     const now = Date.now()
     await db.execute(
-      `INSERT INTO pack_variables (id, pack_id, variable_name, display_name, variable_type, is_required, default_value, enum_options, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO pack_variables (id, pack_id, variable_name, display_name, description, variable_type, is_required, sort_order, default_value, enum_options, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         packId,
         variable.variableName,
         variable.displayName,
+        variable.description ?? null,
         variable.variableType,
         variable.isRequired ? 1 : 0,
+        variable.sortOrder ?? 0,
         variable.defaultValue ?? null,
         variable.enumOptions ? JSON.stringify(variable.enumOptions) : null,
         now,
@@ -3266,6 +3268,10 @@ class DatabaseService {
       setClauses.push('display_name = ?')
       values.push(updates.displayName)
     }
+    if (updates.description !== undefined) {
+      setClauses.push('description = ?')
+      values.push(updates.description || null)
+    }
     if (updates.variableType !== undefined) {
       setClauses.push('variable_type = ?')
       values.push(updates.variableType)
@@ -3273,6 +3279,10 @@ class DatabaseService {
     if (updates.isRequired !== undefined) {
       setClauses.push('is_required = ?')
       values.push(updates.isRequired ? 1 : 0)
+    }
+    if (updates.sortOrder !== undefined) {
+      setClauses.push('sort_order = ?')
+      values.push(updates.sortOrder)
     }
     if (updates.defaultValue !== undefined) {
       setClauses.push('default_value = ?')
@@ -3305,6 +3315,32 @@ class DatabaseService {
   async setStoryPack(storyId: string, packId: string): Promise<void> {
     const db = await this.getDb()
     await db.execute('UPDATE stories SET pack_id = ? WHERE id = ?', [packId, storyId])
+  }
+
+  /**
+   * Get per-story custom variable value overrides.
+   * Returns null if no overrides have been set.
+   */
+  async getStoryCustomVariables(storyId: string): Promise<Record<string, string> | null> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>(
+      'SELECT custom_variable_values FROM stories WHERE id = ?',
+      [storyId],
+    )
+    if (results.length === 0 || !results[0].custom_variable_values) return null
+    return JSON.parse(results[0].custom_variable_values)
+  }
+
+  /**
+   * Set per-story custom variable value overrides.
+   * Pass an object mapping variable names to their story-specific values.
+   */
+  async setStoryCustomVariables(storyId: string, values: Record<string, string>): Promise<void> {
+    const db = await this.getDb()
+    await db.execute(
+      'UPDATE stories SET custom_variable_values = ? WHERE id = ?',
+      [JSON.stringify(values), storyId],
+    )
   }
 
   /**
@@ -3380,8 +3416,10 @@ class DatabaseService {
       packId: row.pack_id,
       variableName: row.variable_name,
       displayName: row.display_name,
+      description: row.description ?? undefined,
       variableType: row.variable_type,
       isRequired: row.is_required === 1,
+      sortOrder: row.sort_order ?? 0,
       defaultValue: row.default_value ?? undefined,
       enumOptions: row.enum_options ? JSON.parse(row.enum_options) : undefined,
       createdAt: row.created_at,

@@ -23,6 +23,7 @@
         displayName: 'New Variable',
         variableType: 'text',
         isRequired: false,
+        sortOrder: variables.length,
       })
       newlyCreatedId = created.id
       onVariablesChanged()
@@ -36,8 +37,10 @@
       await database.updatePackVariable(variable.id, {
         variableName: variable.variableName,
         displayName: variable.displayName,
+        description: variable.description,
         variableType: variable.variableType,
         isRequired: variable.isRequired,
+        sortOrder: variable.sortOrder,
         defaultValue: variable.defaultValue,
         enumOptions: variable.enumOptions,
       })

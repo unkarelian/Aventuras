@@ -53,10 +53,14 @@ export interface CustomVariable {
   variableName: string
   /** Display name for UI (e.g., 'Writing Style') */
   displayName: string
+  /** Optional description / help text (shown in wizard) */
+  description?: string
   /** Variable data type */
   variableType: CustomVariableType
   /** Whether this variable must have a value */
   isRequired: boolean
+  /** Author-defined display order within pack (lower = first) */
+  sortOrder: number
   /** Default value (stored as string, parsed by type) */
   defaultValue?: string
   /** Available options when variableType is 'enum' */

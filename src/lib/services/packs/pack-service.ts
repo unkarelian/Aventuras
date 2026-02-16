@@ -116,8 +116,10 @@ class PackService {
       await database.createPackVariable(packId, {
         variableName: variable.variableName,
         displayName: variable.displayName,
+        description: variable.description,
         variableType: variable.variableType,
         isRequired: variable.isRequired,
+        sortOrder: variable.sortOrder,
         defaultValue: variable.defaultValue,
         enumOptions: variable.enumOptions,
       })
