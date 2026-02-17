@@ -1056,17 +1056,11 @@ class SettingsStore {
   // Advanced wizard settings for scenario generation
   wizardSettings = $state<AdvancedWizardSettings>(getDefaultAdvancedSettings())
 
-  // Story generation settings (main AI prompts)
-  storyGenerationSettings = $state<StoryGenerationSettings>(getDefaultStoryGenerationSettings())
-
   // System services settings (classifier, memory, suggestions)
   systemServicesSettings = $state<SystemServicesSettings>(getDefaultSystemServicesSettings())
 
   // Update settings
   updateSettings = $state<UpdateSettings>(getDefaultUpdateSettings())
-
-  // Prompt settings (centralized macro-based prompts)
-  promptSettings = $state<PromptSettings>(getDefaultPromptSettings())
 
   // Translation settings
   translationSettings = $state<TranslationSettings>(getDefaultTranslationSettings())
@@ -1395,21 +1389,6 @@ class SettingsStore {
         }
       }
 
-      // Load story generation settings
-      const storyGenSettingsJson = await database.getSetting('story_generation_settings')
-      if (storyGenSettingsJson) {
-        try {
-          const loaded = JSON.parse(storyGenSettingsJson)
-          const defaults = getDefaultStoryGenerationSettings()
-          this.storyGenerationSettings = {
-            adventurePrompt: loaded.adventurePrompt || defaults.adventurePrompt,
-            creativeWritingPrompt: loaded.creativeWritingPrompt || defaults.creativeWritingPrompt,
-          }
-        } catch {
-          this.storyGenerationSettings = getDefaultStoryGenerationSettings()
-        }
-      }
-
       // Load Generation Presets
       const presetsJson = await database.getSetting('generation_presets')
       if (presetsJson) {
@@ -1617,141 +1596,6 @@ class SettingsStore {
         } catch {
           this.translationSettings = getDefaultTranslationSettings()
         }
-      }
-
-      // Load prompt settings and initialize the prompt service
-      const promptSettingsJson = await database.getSetting('prompt_settings')
-      if (promptSettingsJson) {
-        try {
-          const loaded = JSON.parse(promptSettingsJson)
-          const defaults = getDefaultPromptSettings()
-          this.promptSettings = {
-            customMacros: loaded.customMacros ?? defaults.customMacros,
-            macroOverrides: loaded.macroOverrides ?? defaults.macroOverrides,
-            templateOverrides: loaded.templateOverrides ?? defaults.templateOverrides,
-            legacyMigrationComplete: loaded.legacyMigrationComplete ?? false,
-          }
-        } catch {
-          this.promptSettings = getDefaultPromptSettings()
-        }
-      }
-
-      // Migrate legacy prompt overrides into centralized prompt settings
-      // Only run this migration once - check the flag to prevent re-migration
-      if (!this.promptSettings.legacyMigrationComplete) {
-        const defaultStorySettings = getDefaultStoryGenerationSettings()
-        const defaultWizardSettings = getDefaultAdvancedSettings()
-        const defaultSystemServices = getDefaultSystemServicesSettingsForProvider(
-          this.getDefaultProviderType(),
-        )
-        const overrideIds = new SvelteSet(
-          this.promptSettings.templateOverrides.map((o) => o.templateId),
-        )
-
-        const addOverride = (
-          templateId: string,
-          content?: string | null,
-          defaultContent?: string | null,
-        ) => {
-          if (!content) return
-          if (overrideIds.has(templateId)) return
-          if (defaultContent !== undefined && content === defaultContent) return
-          this.promptSettings.templateOverrides.push({ templateId, content })
-          overrideIds.add(templateId)
-        }
-
-        // Story generation prompts
-        addOverride(
-          'adventure',
-          this.storyGenerationSettings.adventurePrompt,
-          defaultStorySettings.adventurePrompt,
-        )
-        addOverride(
-          'creative-writing',
-          this.storyGenerationSettings.creativeWritingPrompt,
-          defaultStorySettings.creativeWritingPrompt,
-        )
-
-        // System services prompts
-        addOverride(
-          'classifier',
-          this.systemServicesSettings.classifier.systemPrompt,
-          defaultSystemServices.classifier.systemPrompt,
-        )
-        addOverride(
-          'suggestions',
-          this.systemServicesSettings.suggestions.systemPrompt,
-          defaultSystemServices.suggestions.systemPrompt,
-        )
-        addOverride(
-          'style-reviewer',
-          this.systemServicesSettings.styleReviewer.systemPrompt,
-          defaultSystemServices.styleReviewer.systemPrompt,
-        )
-        addOverride(
-          'lore-management',
-          this.systemServicesSettings.loreManagement.systemPrompt,
-          defaultSystemServices.loreManagement.systemPrompt,
-        )
-        addOverride(
-          'agentic-retrieval',
-          this.systemServicesSettings.agenticRetrieval.systemPrompt,
-          defaultSystemServices.agenticRetrieval.systemPrompt,
-        )
-        addOverride(
-          'timeline-fill',
-          this.systemServicesSettings.timelineFill?.systemPrompt,
-          defaultSystemServices.timelineFill?.systemPrompt,
-        )
-        addOverride(
-          'timeline-fill-answer',
-          this.systemServicesSettings.timelineFill?.queryAnswerPrompt,
-          defaultSystemServices.timelineFill?.queryAnswerPrompt,
-        )
-        addOverride(
-          'lorebook-classifier',
-          this.systemServicesSettings.lorebookClassifier.systemPrompt,
-          defaultSystemServices.lorebookClassifier.systemPrompt,
-        )
-
-        // Wizard prompts
-        addOverride(
-          'setting-expansion',
-          this.wizardSettings.settingExpansion.systemPrompt,
-          defaultWizardSettings.settingExpansion.systemPrompt,
-        )
-        addOverride(
-          'protagonist-generation',
-          this.wizardSettings.protagonistGeneration.systemPrompt,
-          defaultWizardSettings.protagonistGeneration.systemPrompt,
-        )
-        addOverride(
-          'character-elaboration',
-          this.wizardSettings.characterElaboration.systemPrompt,
-          defaultWizardSettings.characterElaboration.systemPrompt,
-        )
-        addOverride(
-          'supporting-characters',
-          this.wizardSettings.supportingCharacters.systemPrompt,
-          defaultWizardSettings.supportingCharacters.systemPrompt,
-        )
-
-        if (this.wizardSettings.openingGeneration.systemPrompt) {
-          const converted = this.wizardSettings.openingGeneration.systemPrompt
-            .replace(/\{userName\}/g, '{{protagonistName}}')
-            .replace(/\{genreLabel\}/g, '{{genreLabel}}')
-            .replace(/\{mode\}/g, '{{mode}}')
-            .replace(/\{tense\}/g, '{{tenseInstruction}}')
-            .replace(/\{tone\}/g, '{{tone}}')
-          addOverride('opening-generation-adventure', converted, '')
-          addOverride('opening-generation-creative', converted, '')
-        }
-
-        // Mark migration as complete so it doesn't run again
-        this.promptSettings.legacyMigrationComplete = true
-
-        // Always save after migration to persist the legacyMigrationComplete flag
-        await database.setSetting('prompt_settings', JSON.stringify(this.promptSettings))
       }
 
       // Ensure default image generation profiles are set
@@ -2392,13 +2236,6 @@ class SettingsStore {
     }
   }
 
-  private stripWizardSystemPrompts() {
-    if (!this.promptSettings.legacyMigrationComplete) return
-    for (const process of Object.values(this.wizardSettings)) {
-      process.systemPrompt = undefined
-    }
-  }
-
   async setFontFamily(fontFamily: string, source: FontSource) {
     this.uiSettings.fontFamily = fontFamily
     this.uiSettings.fontSource = source
@@ -2469,7 +2306,6 @@ class SettingsStore {
 
   // Wizard settings methods
   async saveWizardSettings() {
-    this.stripWizardSystemPrompts()
     await database.setSetting('wizard_settings', JSON.stringify(this.wizardSettings))
   }
 
@@ -2482,19 +2318,6 @@ class SettingsStore {
   async resetAllWizardSettings() {
     this.wizardSettings = getDefaultAdvancedSettingsForProvider(this.getDefaultProviderType())
     await this.saveWizardSettings()
-  }
-
-  // Story generation settings methods
-  async saveStoryGenerationSettings() {
-    await database.setSetting(
-      'story_generation_settings',
-      JSON.stringify(this.storyGenerationSettings),
-    )
-  }
-
-  async resetStoryGenerationSettings() {
-    this.storyGenerationSettings = getDefaultStoryGenerationSettings()
-    await this.saveStoryGenerationSettings()
   }
 
   // System services settings methods
@@ -2740,41 +2563,6 @@ class SettingsStore {
     await this.saveUpdateSettings()
   }
 
-  // Prompt settings methods
-  async savePromptSettings() {
-    await database.setSetting('prompt_settings', JSON.stringify(this.promptSettings))
-  }
-
-  async resetPromptSettings() {
-    this.promptSettings = getDefaultPromptSettings()
-    await this.savePromptSettings()
-  }
-
-  /**
-   * Update a template override in prompt settings
-   */
-  async setTemplateOverride(templateId: string, content: string) {
-    const existingIndex = this.promptSettings.templateOverrides.findIndex(
-      (o) => o.templateId === templateId,
-    )
-    if (existingIndex >= 0) {
-      this.promptSettings.templateOverrides[existingIndex].content = content
-    } else {
-      this.promptSettings.templateOverrides.push({ templateId, content })
-    }
-    await this.savePromptSettings()
-  }
-
-  /**
-   * Remove a template override (reset to default)
-   */
-  async removeTemplateOverride(templateId: string) {
-    this.promptSettings.templateOverrides = this.promptSettings.templateOverrides.filter(
-      (o) => o.templateId !== templateId,
-    )
-    await this.savePromptSettings()
-  }
-
   /**
    * Reset ALL settings to their default values based on the current provider preset.
    * This preserves the API key and URL but resets everything else.
@@ -2838,17 +2626,11 @@ class SettingsStore {
     // Reset wizard settings based on provider
     this.wizardSettings = getDefaultAdvancedSettingsForProvider(provider)
 
-    // Reset story generation settings
-    this.storyGenerationSettings = getDefaultStoryGenerationSettings()
-
     // Reset system services settings based on provider
     this.systemServicesSettings = getDefaultSystemServicesSettingsForProvider(provider)
 
     // Reset update settings
     this.updateSettings = getDefaultUpdateSettings()
-
-    // Reset prompt settings
-    this.promptSettings = getDefaultPromptSettings()
 
     // Save all to database
     await database.setSetting('default_model', this.apiSettings.defaultModel)
@@ -2873,10 +2655,8 @@ class SettingsStore {
       this.advancedRequestSettings.manualMode.toString(),
     )
     await this.saveWizardSettings()
-    await this.saveStoryGenerationSettings()
     await this.saveSystemServicesSettings()
     await this.saveUpdateSettings()
-    await this.savePromptSettings()
 
     // Apply theme and font size
     this.applyTheme(this.uiSettings.theme)

@@ -3690,7 +3690,6 @@ class StoryStore {
     startingLocation: Partial<Location>
     initialItems: Partial<Item>[]
     openingScene: string
-    systemPrompt: string
     characters: Partial<Character>[]
     importedEntries?: ImportedEntry[]
     // Translation data (optional)
@@ -3739,8 +3738,6 @@ class StoryStore {
         tense: data.settings.tense,
         tone: data.settings.tone,
         themes: data.settings.themes,
-        // Don't store systemPromptOverride - use centralized prompt system instead
-        // The centralized template uses story settings (pov, tense, genre, tone, themes) via macros
         visualProseMode: data.settings.visualProseMode,
         imageGenerationMode: data.settings.imageGenerationMode,
         backgroundImagesEnabled: data.settings.backgroundImagesEnabled,

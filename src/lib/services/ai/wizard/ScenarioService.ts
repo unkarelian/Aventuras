@@ -910,15 +910,11 @@ class ScenarioService {
     startingLocation: Partial<Location>
     initialItems: Partial<Item>[]
     openingScene: string
-    systemPrompt: string
     characters: Partial<Character>[]
   }> {
     const { mode, genre, customGenre, expandedSetting, protagonist, characters, writingStyle } =
       wizardData
     const genreLabel = genre === 'custom' && customGenre ? customGenre : this.capitalizeGenre(genre)
-
-    // Build a custom system prompt based on the setting
-    const systemPrompt = await this.buildSystemPrompt(wizardData, expandedSetting)
 
     return {
       title: opening.title || wizardData.title,
@@ -951,7 +947,6 @@ class ScenarioService {
       },
       initialItems: [],
       openingScene: opening.scene,
-      systemPrompt,
       characters: (characters || []).map((c) => ({
         name: c.name,
         description: c.description,
@@ -960,36 +955,6 @@ class ScenarioService {
         status: 'active' as const,
       })),
     }
-  }
-
-  private async buildSystemPrompt(wizardData: WizardData, setting?: ExpandedSetting): Promise<string> {
-    const { mode, genre, customGenre, writingStyle, protagonist } = wizardData
-    const genreLabel = genre === 'custom' && customGenre ? customGenre : this.capitalizeGenre(genre)
-
-    const settingDescription = setting
-      ? `${setting.name || 'A unique world'}\n${setting.description || ''}`
-      : undefined
-
-    const ctx = new ContextBuilder()
-    ctx.add({
-      mode,
-      pov: writingStyle.pov,
-      tense: writingStyle.tense,
-      protagonistName:
-        protagonist?.name || (writingStyle.pov === 'second' ? 'You' : 'The Protagonist'),
-      genre: genreLabel,
-      tone:
-        writingStyle.tone ||
-        (mode === 'creative-writing' ? 'engaging and immersive' : 'immersive and engaging'),
-      settingDescription,
-      themes: setting?.themes?.join(', ') || '',
-      visualProseMode: writingStyle.visualProseMode,
-      inlineImageMode: writingStyle.imageGenerationMode === 'inline',
-    })
-
-    const templateId = mode === 'creative-writing' ? 'creative-writing' : 'adventure'
-    const { system } = await ctx.render(templateId)
-    return system
   }
 
   private capitalizeGenre(genre: Genre): string {
