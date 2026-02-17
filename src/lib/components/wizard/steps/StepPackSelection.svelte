@@ -6,6 +6,7 @@
   import { Label } from '$lib/components/ui/label'
   import { Badge } from '$lib/components/ui/badge'
   import { Package } from 'lucide-svelte'
+  import { renderDescription } from '$lib/utils/markdown'
   import type { PresetPack, CustomVariable } from '$lib/services/packs/types'
 
   interface Props {
@@ -47,7 +48,7 @@
 
   <!-- Pack Dropdown (only shown when multiple packs exist) -->
   {#if hasMultiplePacks}
-    <div class="rounded-lg border p-4 space-y-3">
+    <div class="space-y-2">
       <Label>Pack</Label>
       <Select.Root
         type="single"
@@ -71,7 +72,9 @@
         </Select.Content>
       </Select.Root>
       {#if selectedPack?.description}
-        <p class="text-muted-foreground text-xs">{selectedPack.description}</p>
+        <div class="prose-content text-muted-foreground text-xs">
+          {@html renderDescription(selectedPack.description)}
+        </div>
       {/if}
     </div>
   {/if}
@@ -93,7 +96,7 @@
   <!-- Variable Inputs -->
   {#if hasVariables}
     <!-- Divider with centered label -->
-    <div class="relative py-4">
+    <div class="relative py-1">
       <div class="absolute inset-0 flex items-center" aria-hidden="true">
         <div class="w-full border-t"></div>
       </div>
@@ -104,7 +107,7 @@
 
     <div class="space-y-3">
       {#each packVariables as variable (variable.id)}
-        <div class="rounded-lg border p-3 space-y-2">
+        <div class="space-y-1">
           {#if variable.variableType === 'boolean'}
             <!-- Boolean: horizontal layout with label left, switch right -->
             <div class="flex items-center justify-between">

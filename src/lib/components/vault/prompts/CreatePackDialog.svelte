@@ -77,6 +77,7 @@
 
       <div class="flex flex-col gap-2">
         <Label for="pack-description">Description</Label>
+        <p class="text-muted-foreground text-xs">Supports Markdown and HTML</p>
         <Textarea
           id="pack-description"
           bind:value={description}

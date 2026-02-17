@@ -129,6 +129,13 @@ class PackService {
   }
 
   /**
+   * Update pack metadata (name, description, author).
+   */
+  async updatePack(id: string, updates: { name?: string, description?: string | null, author?: string | null }): Promise<void> {
+    await database.updatePack(id, updates)
+  }
+
+  /**
    * Delete a pack if allowed.
    * Per user decisions:
    * - Default pack cannot be deleted

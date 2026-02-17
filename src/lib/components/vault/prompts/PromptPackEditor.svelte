@@ -12,7 +12,11 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import * as Drawer from '$lib/components/ui/drawer'
   import * as Tabs from '$lib/components/ui/tabs'
-  import { ChevronLeft, Menu, Save, Undo2, RotateCcw } from 'lucide-svelte'
+  import { Input } from '$lib/components/ui/input'
+  import { Textarea } from '$lib/components/ui/textarea'
+  import { Label } from '$lib/components/ui/label'
+  import { renderDescription } from '$lib/utils/markdown'
+  import { ChevronLeft, Menu, Save, Undo2, RotateCcw, Pencil, Check, X, Settings } from 'lucide-svelte'
 
   interface Props {
     packId: string
@@ -36,6 +40,10 @@
   let showDirtyDialog = $state(false)
   let pendingAction = $state<(() => void) | null>(null)
   let editorRef = $state<TemplateEditor | null>(null)
+
+  // Pack settings edit state
+  let editingSettings = $state(false)
+  let settingsDraft = $state({ name: '', author: '', description: '' })
 
   const isMobile = createIsMobile()
 
@@ -130,6 +138,35 @@
   function handleCancelSwitch() {
     showDirtyDialog = false
     pendingAction = null
+  }
+
+  function startEditSettings() {
+    settingsDraft = {
+      name: fullPack?.pack.name ?? '',
+      author: fullPack?.pack.author ?? '',
+      description: fullPack?.pack.description ?? '',
+    }
+    editingSettings = true
+  }
+
+  async function saveSettings() {
+    const name = settingsDraft.name.trim()
+    if (!name) return
+    try {
+      await packService.updatePack(packId, {
+        name,
+        author: settingsDraft.author.trim() || null,
+        description: settingsDraft.description.trim() || null,
+      })
+      await refreshPack()
+    } catch (error) {
+      console.error('[PromptPackEditor] Failed to save pack settings:', error)
+    }
+    editingSettings = false
+  }
+
+  function discardSettings() {
+    editingSettings = false
   }
 </script>
 
@@ -276,9 +313,87 @@
             />
           </div>
         {:else}
-          <div class="flex flex-1 items-center justify-center">
-            <div class="text-muted-foreground text-center">
-              <p class="text-sm">Select a template to edit</p>
+          <!-- Pack Settings (default view) -->
+          <div class="flex flex-1 flex-col overflow-y-auto p-6">
+            <div class="mx-auto w-full max-w-2xl space-y-6">
+              <!-- Header -->
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <Settings class="text-muted-foreground h-4 w-4" />
+                  <h3 class="text-sm font-medium">Pack Settings</h3>
+                </div>
+                {#if !editingSettings && !fullPack.pack.isDefault}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    class="h-7 gap-1.5 text-xs"
+                    onclick={startEditSettings}
+                  >
+                    <Pencil class="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                {/if}
+              </div>
+
+              {#if editingSettings}
+                <!-- Edit mode -->
+                <div class="space-y-4">
+                  <div class="space-y-1.5">
+                    <Label for="pack-name">Name</Label>
+                    <Input id="pack-name" bind:value={settingsDraft.name} placeholder="Pack name" />
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <Label for="pack-author">Author</Label>
+                    <Input id="pack-author" bind:value={settingsDraft.author} placeholder="Author name" />
+                  </div>
+
+                  <div class="space-y-1.5">
+                    <Label for="pack-desc">Description</Label>
+                    <p class="text-muted-foreground text-xs">Supports Markdown and HTML</p>
+                    <Textarea
+                      id="pack-desc"
+                      bind:value={settingsDraft.description}
+                      rows={8}
+                      placeholder="Describe your pack..."
+                      class="font-mono text-sm"
+                    />
+                  </div>
+
+                  <div class="flex gap-2">
+                    <Button size="sm" onclick={saveSettings} disabled={!settingsDraft.name.trim()}>
+                      <Check class="mr-1.5 h-3.5 w-3.5" />
+                      Save
+                    </Button>
+                    <Button variant="ghost" size="sm" onclick={discardSettings}>
+                      <X class="mr-1.5 h-3.5 w-3.5" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              {:else}
+                <!-- Read-only display -->
+                <div class="space-y-4">
+                  <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                    <span class="text-muted-foreground">Name</span>
+                    <span>{fullPack.pack.name}</span>
+                    <span class="text-muted-foreground">Author</span>
+                    <span>{fullPack.pack.author || '—'}</span>
+                  </div>
+
+                  {#if fullPack.pack.description}
+                    <div class="border-t pt-4">
+                      <div class="prose-content text-sm">
+                        {@html renderDescription(fullPack.pack.description)}
+                      </div>
+                    </div>
+                  {:else if !fullPack.pack.isDefault}
+                    <div class="text-muted-foreground border-t pt-4 text-center text-sm">
+                      No description. Click Edit to add one.
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </div>
           </div>
         {/if}

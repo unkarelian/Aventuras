@@ -49,6 +49,18 @@ export function parseInlineMarkdown(text: string): string {
 }
 
 /**
+ * Render a description that may be HTML or Markdown.
+ * If content starts with an HTML tag, render directly (bypasses marked
+ * which mangles raw HTML with its breaks/paragraph wrapping).
+ * Otherwise parse as markdown.
+ */
+export function renderDescription(text: string): string {
+  if (!text) return ''
+  if (text.trimStart().startsWith('<')) return text
+  return parseMarkdown(text)
+}
+
+/**
  * Escape HTML special characters.
  * Used as fallback when markdown parsing fails.
  */
