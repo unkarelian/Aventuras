@@ -17,7 +17,7 @@ import { wizardTemplates } from './wizard'
 import { translationTemplates } from './translation'
 import { imageTemplates } from './image'
 
-// Combined list of all templates for PromptService
+// Combined list of all prompt templates
 export const PROMPT_TEMPLATES: PromptTemplate[] = [
   ...storyTemplates,
   ...analysisTemplates,
