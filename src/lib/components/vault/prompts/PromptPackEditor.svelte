@@ -16,6 +16,7 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { Label } from '$lib/components/ui/label'
   import { renderDescription } from '$lib/utils/markdown'
+  import TestVariablesModal from './TestVariablesModal.svelte'
   import {
     ChevronLeft,
     Menu,
@@ -27,6 +28,7 @@
     Check,
     X,
     Settings,
+    FlaskConical,
   } from 'lucide-svelte'
 
   interface Props {
@@ -53,6 +55,14 @@
   let pendingAction = $state<(() => void) | null>(null)
   let editorRef = $state<TemplateEditor | null>(null)
 
+  // Test variables state
+  let showTestVars = $state(false)
+  let testValues = $state<Record<string, string>>({})
+
+  function handleTestValuesChange(values: Record<string, string>) {
+    testValues = values
+  }
+
   // Pack settings edit state
   let editingSettings = $state(false)
   let settingsDraft = $state({ name: '', author: '', description: '' })
@@ -77,6 +87,11 @@
   async function refreshPack() {
     try {
       fullPack = await packService.getFullPack(packId)
+      // Clean up test values for deleted variables
+      const validNames = new Set(fullPack?.variables.map((v) => v.variableName) ?? [])
+      testValues = Object.fromEntries(
+        Object.entries(testValues).filter(([key]) => validNames.has(key)),
+      )
     } catch (error) {
       console.error('[PromptPackEditor] Failed to refresh pack:', error)
     }
@@ -247,6 +262,18 @@
             onInsert={(name) => editorRef?.insertVariable(name)}
           />
 
+          {#if (fullPack?.variables.length ?? 0) > 0}
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-8 w-8"
+              onclick={() => (showTestVars = true)}
+              title="Test Variables"
+            >
+              <FlaskConical class="h-3.5 w-3.5" />
+            </Button>
+          {/if}
+
           <Button
             variant="ghost"
             size="icon"
@@ -343,6 +370,18 @@
             onInsert={(name) => editorRef?.insertVariable(name)}
           />
 
+          {#if (fullPack?.variables.length ?? 0) > 0}
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-8 w-8"
+              onclick={() => (showTestVars = true)}
+              title="Test Variables"
+            >
+              <FlaskConical class="h-3.5 w-3.5" />
+            </Button>
+          {/if}
+
           <div class="ml-auto flex items-center gap-1">
             <Button
               variant="ghost"
@@ -423,6 +462,7 @@
               customVariables={fullPack.variables}
               activeTab={editorActiveTab}
               {mobileView}
+              {testValues}
               onDirtyChange={handleDirtyChange}
               onActiveTabChange={(tab) => (editorActiveTab = tab)}
               onHasUserContent={(has) => (editorHasUserContent = has)}
@@ -546,6 +586,15 @@
     </Drawer.Content>
   </Drawer.Root>
 {/if}
+
+<!-- Test Variables modal -->
+<TestVariablesModal
+  open={showTestVars}
+  customVariables={fullPack?.variables ?? []}
+  {testValues}
+  onOpenChange={(open) => (showTestVars = open)}
+  onTestValuesChange={handleTestValuesChange}
+/>
 
 <!-- Dirty guard dialog -->
 <Dialog.Root bind:open={showDirtyDialog}>

@@ -22,6 +22,7 @@
     customVariables: CustomVariable[]
     activeTab?: 'system' | 'user'
     mobileView?: 'editor' | 'preview'
+    testValues?: Record<string, string>
     onDirtyChange?: (dirty: boolean) => void
     onActiveTabChange?: (tab: 'system' | 'user') => void
     onHasUserContent?: (has: boolean) => void
@@ -33,6 +34,7 @@
     customVariables,
     activeTab = 'system',
     mobileView = 'editor',
+    testValues = {},
     onDirtyChange,
     onActiveTabChange,
     onHasUserContent,
@@ -378,7 +380,7 @@
         class="min-h-0 overflow-hidden {isMobile.current ? 'flex-1' : 'w-[45%] border-l'}"
         class:hidden={isMobile.current && mobileView === 'editor'}
       >
-        <TemplatePreview content={currentContent} {customVariables} hideHeader={isMobile.current} />
+        <TemplatePreview content={currentContent} {customVariables} hideHeader={isMobile.current} {testValues} />
       </div>
     </div>
 
