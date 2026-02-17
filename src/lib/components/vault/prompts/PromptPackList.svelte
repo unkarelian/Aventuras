@@ -109,7 +109,7 @@
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {#each Array(3) as _, i (i)}
       <div class="space-y-3">
-        <Skeleton class="h-[120px] w-full rounded-xl" />
+        <Skeleton class="h-30 w-full rounded-xl" />
       </div>
     {/each}
   </div>

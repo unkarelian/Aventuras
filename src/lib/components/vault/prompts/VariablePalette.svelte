@@ -40,7 +40,7 @@
         <button
           {...props}
           type="button"
-          class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-2 text-sm transition-colors"
+          class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 py-2 text-sm transition-colors"
         >
           <Braces class="h-4 w-4" />
           <span class="hidden sm:inline">Insert Variable</span>
@@ -51,7 +51,7 @@
   <Popover.Content class="w-80 p-0" align="start" side="bottom">
     <Command.Root>
       <Command.Input placeholder="Search variables..." />
-      <Command.List class="max-h-[300px]">
+      <Command.List class="max-h-75">
         <Command.Empty>No variable found.</Command.Empty>
 
         <Command.Group heading="System">
