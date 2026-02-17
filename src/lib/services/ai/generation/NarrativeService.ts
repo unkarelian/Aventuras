@@ -16,7 +16,17 @@ import { ContextBuilder } from '$lib/services/context'
 import { StyleReviewerService } from './StyleReviewerService'
 import { createLogger } from '../core/config'
 import type { StreamChunk } from '../core/types'
-import type { Story, StoryEntry, Entry, Character, Location, Item, StoryBeat, Chapter, TimeTracker } from '$lib/types'
+import type {
+  Story,
+  StoryEntry,
+  Entry,
+  Character,
+  Location,
+  Item,
+  StoryBeat,
+  Chapter,
+  TimeTracker,
+} from '$lib/types'
 import type { StyleReviewResult } from './StyleReviewerService'
 import type { TimelineFillResult } from '../retrieval/TimelineFillService'
 
@@ -398,10 +408,7 @@ export class NarrativeService {
 
     // Build chapter summaries block
     if (worldState.chapters && worldState.chapters.length > 0) {
-      const chapterSummaries = buildChapterSummariesBlock(
-        worldState.chapters,
-        timelineFillResult,
-      )
+      const chapterSummaries = buildChapterSummariesBlock(worldState.chapters, timelineFillResult)
       if (chapterSummaries) {
         ctx.add({ chapterSummaries })
       }
@@ -509,8 +516,12 @@ export class NarrativeService {
 
   private buildAdventurePriming(pov: string, tense: string, protagonistName: string): string {
     const tenseWord = tense === 'past' ? 'past' : 'present'
-    const actionExample = tense === 'past' ? 'pushed open the heavy door' : 'pushes open the heavy door'
-    const descWords = tense === 'past' ? 'saw, heard, and experienced as I explored' : 'see, hear, and experience as I explore'
+    const actionExample =
+      tense === 'past' ? 'pushed open the heavy door' : 'pushes open the heavy door'
+    const descWords =
+      tense === 'past'
+        ? 'saw, heard, and experienced as I explored'
+        : 'see, hear, and experience as I explore'
 
     if (pov === 'third') {
       return `You are the narrator of this interactive adventure. Write in ${tenseWord} tense, third person (they/the character name).

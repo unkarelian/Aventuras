@@ -145,7 +145,7 @@ function levenshtein(a: string, b: string): number {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1, // substitution
           matrix[i][j - 1] + 1, // insertion
-          matrix[i - 1][j] + 1 // deletion
+          matrix[i - 1][j] + 1, // deletion
         )
       }
     }
@@ -162,7 +162,11 @@ function levenshtein(a: string, b: string): number {
  * @param maxDistance - Maximum edit distance to consider (default: 2)
  * @returns Closest match or undefined if none found within maxDistance
  */
-function findSimilar(name: string, validNames: string[], maxDistance: number = 2): string | undefined {
+function findSimilar(
+  name: string,
+  validNames: string[],
+  maxDistance: number = 2,
+): string | undefined {
   let closest: string | undefined
   let closestDistance = Infinity
 
@@ -208,7 +212,7 @@ function extractFilterNames(template: string): string[] {
  */
 export function validateTemplate(
   template: string,
-  additionalVariables?: string[]
+  additionalVariables?: string[],
 ): ValidationResult {
   const errors: ValidationError[] = []
 

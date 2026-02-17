@@ -10,7 +10,6 @@
   import type { ValidationError } from '$lib/services/templates/types'
   import type { CustomVariable } from '$lib/services/packs/types'
   import type { Completion } from '@codemirror/autocomplete'
-  import { Button } from '$lib/components/ui/button'
   import { AlertTriangle, CircleCheck } from 'lucide-svelte'
   import TemplatePreview from './TemplatePreview.svelte'
   import { createIsMobile } from '$lib/hooks/is-mobile.svelte'
@@ -253,7 +252,9 @@
       >
         {#if !isMobile.current}
           <div class="border-b px-4 py-2">
-            <h4 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Editor</h4>
+            <h4 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Editor
+            </h4>
           </div>
         {/if}
 

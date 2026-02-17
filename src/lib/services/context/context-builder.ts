@@ -35,7 +35,7 @@ export class ContextBuilder {
       return new ContextBuilder()
     }
 
-    const packId = packIdOverride || await database.getStoryPackId(storyId) || 'default-pack'
+    const packId = packIdOverride || (await database.getStoryPackId(storyId)) || 'default-pack'
     const builder = new ContextBuilder(packId)
 
     // Load story data into context
@@ -67,7 +67,9 @@ export class ContextBuilder {
     // Story time
     if (story.timeTracker) {
       const t = story.timeTracker
-      builder.add({ storyTime: `Year ${t.years + 1}, Day ${t.days + 1}, ${t.hours} hours ${t.minutes} minutes` })
+      builder.add({
+        storyTime: `Year ${t.years + 1}, Day ${t.days + 1}, ${t.hours} hours ${t.minutes} minutes`,
+      })
     }
 
     // Pack custom variable defaults
@@ -79,7 +81,12 @@ export class ContextBuilder {
       builder.add(storyVarValues)
     }
 
-    log('forStory complete', { storyId, packId, contextKeys: Object.keys(builder.context).length, storyVarOverrides: storyVarValues ? Object.keys(storyVarValues).length : 0 })
+    log('forStory complete', {
+      storyId,
+      packId,
+      contextKeys: Object.keys(builder.context).length,
+      storyVarOverrides: storyVarValues ? Object.keys(storyVarValues).length : 0,
+    })
     return builder
   }
 
@@ -103,11 +110,18 @@ export class ContextBuilder {
     }
     const userTemplate = await database.getPackTemplate(this.packId, `${templateId}-user`)
     if (!userTemplate) {
-      log('WARNING: user template not found', { templateId: `${templateId}-user`, packId: this.packId })
+      log('WARNING: user template not found', {
+        templateId: `${templateId}-user`,
+        packId: this.packId,
+      })
     }
 
-    const system = systemTemplate?.content ? templateEngine.render(systemTemplate.content, this.context) : ''
-    const user = userTemplate?.content ? templateEngine.render(userTemplate.content, this.context) : ''
+    const system = systemTemplate?.content
+      ? templateEngine.render(systemTemplate.content, this.context)
+      : ''
+    const user = userTemplate?.content
+      ? templateEngine.render(userTemplate.content, this.context)
+      : ''
 
     return { system, user }
   }

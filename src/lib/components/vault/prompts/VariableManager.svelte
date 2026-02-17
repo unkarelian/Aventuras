@@ -64,12 +64,7 @@
   <!-- Header -->
   <div class="flex items-center justify-between border-b px-4 py-3">
     <h3 class="text-sm font-semibold">Custom Variables</h3>
-    <Button
-      variant="outline"
-      size="sm"
-      class="h-7 gap-1 text-xs"
-      onclick={handleAddVariable}
-    >
+    <Button variant="outline" size="sm" class="h-7 gap-1 text-xs" onclick={handleAddVariable}>
       <Plus class="h-3 w-3" />
       Add Variable
     </Button>
@@ -85,15 +80,11 @@
           No custom variables defined for this pack.
         </p>
         <p class="text-muted-foreground mt-1 max-w-sm text-xs">
-          Custom variables let you add configurable values to your templates.
-          Use <code class="bg-muted rounded px-1 py-0.5 font-mono">{`{{ variable_name }}`}</code> syntax in templates.
+          Custom variables let you add configurable values to your templates. Use <code
+            class="bg-muted rounded px-1 py-0.5 font-mono">{`{{ variable_name }}`}</code
+          > syntax in templates.
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          class="mt-4 gap-1"
-          onclick={handleAddVariable}
-        >
+        <Button variant="outline" size="sm" class="mt-4 gap-1" onclick={handleAddVariable}>
           <Plus class="h-3.5 w-3.5" />
           Add Variable
         </Button>

@@ -16,11 +16,11 @@ export interface TemplateGroup {
 /** Template IDs mapped to display group names */
 const TEMPLATE_GROUP_MAP: Record<string, string> = {
   // Story Generation
-  'adventure': 'Story Generation',
+  adventure: 'Story Generation',
   'creative-writing': 'Story Generation',
 
   // Analysis
-  'classifier': 'Analysis',
+  classifier: 'Analysis',
   'style-reviewer': 'Analysis',
   'lorebook-classifier': 'Analysis',
   'tier3-entry-selection': 'Analysis',
@@ -34,7 +34,7 @@ const TEMPLATE_GROUP_MAP: Record<string, string> = {
   'agentic-retrieval': 'Memory',
 
   // Suggestions & Actions
-  'suggestions': 'Suggestions & Actions',
+  suggestions: 'Suggestions & Actions',
   'action-choices': 'Suggestions & Actions',
   'timeline-fill': 'Suggestions & Actions',
   'timeline-fill-answer': 'Suggestions & Actions',

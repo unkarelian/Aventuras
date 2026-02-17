@@ -16,27 +16,29 @@ export const EnumOptionSchema = z.object({
 })
 
 /** Custom variable definition within a pack */
-export const CustomVariableSchema = z.object({
-  variableName: z.string().min(1).regex(variableNameRegex, {
-    message: 'Variable name must use lowercase letters, numbers, and underscores only',
-  }),
-  displayName: z.string().min(1),
-  description: z.string().optional(),
-  variableType: z.enum(['text', 'textarea', 'enum', 'number', 'boolean']),
-  isRequired: z.boolean(),
-  sortOrder: z.number().optional(),
-  defaultValue: z.string().optional(),
-  enumOptions: z.array(EnumOptionSchema).optional(),
-}).refine(
-  (data) => {
-    // Enum type must have at least one option
-    if (data.variableType === 'enum') {
-      return data.enumOptions && data.enumOptions.length > 0
-    }
-    return true
-  },
-  { message: 'Enum variables must have at least one option' },
-)
+export const CustomVariableSchema = z
+  .object({
+    variableName: z.string().min(1).regex(variableNameRegex, {
+      message: 'Variable name must use lowercase letters, numbers, and underscores only',
+    }),
+    displayName: z.string().min(1),
+    description: z.string().optional(),
+    variableType: z.enum(['text', 'textarea', 'enum', 'number', 'boolean']),
+    isRequired: z.boolean(),
+    sortOrder: z.number().optional(),
+    defaultValue: z.string().optional(),
+    enumOptions: z.array(EnumOptionSchema).optional(),
+  })
+  .refine(
+    (data) => {
+      // Enum type must have at least one option
+      if (data.variableType === 'enum') {
+        return data.enumOptions && data.enumOptions.length > 0
+      }
+      return true
+    },
+    { message: 'Enum variables must have at least one option' },
+  )
 
 /** Pack template: template ID + content */
 export const PackTemplateSchema = z.object({
@@ -72,7 +74,7 @@ export function validatePackImport(data: unknown): {
   }
   return {
     valid: false,
-    errors: result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`),
+    errors: result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
   }
 }
 
@@ -90,6 +92,6 @@ export function validateCustomVariable(data: unknown): {
   }
   return {
     valid: false,
-    errors: result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`),
+    errors: result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
   }
 }

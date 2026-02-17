@@ -68,7 +68,13 @@ export class MemoryService {
         : ''
 
     const ctx = new ContextBuilder()
-    ctx.add({ mode, pov, tense, chapterContent: entriesText, previousContext: previousChaptersContext })
+    ctx.add({
+      mode,
+      pov,
+      tense,
+      chapterContent: entriesText,
+      previousContext: previousChaptersContext,
+    })
     const { system, user: prompt } = await ctx.render('chapter-summarization')
 
     const result = await generateStructured(
@@ -111,7 +117,9 @@ export class MemoryService {
 
     const ctx = new ContextBuilder()
     ctx.add({
-      mode, pov, tense,
+      mode,
+      pov,
+      tense,
       messagesInRange: entriesText,
       firstValidId: firstValidMessageId.toString(),
       lastValidId: lastValidMessageId.toString(),
@@ -158,7 +166,9 @@ export class MemoryService {
 
     const ctx = new ContextBuilder()
     ctx.add({
-      mode, pov, tense,
+      mode,
+      pov,
+      tense,
       userInput: context.userInput,
       recentContext: context.recentNarrative,
       chapterSummaries,

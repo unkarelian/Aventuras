@@ -44,10 +44,7 @@
 
         <Command.Group heading="System">
           {#each systemVars as v (v.name)}
-            <Command.Item
-              value={v.name}
-              onSelect={() => handleSelect(v.name)}
-            >
+            <Command.Item value={v.name} onSelect={() => handleSelect(v.name)}>
               <span class="font-mono text-xs">{v.name}</span>
               <span class="text-muted-foreground ml-auto truncate text-xs">{v.description}</span>
             </Command.Item>
@@ -58,10 +55,7 @@
 
         <Command.Group heading="Runtime">
           {#each runtimeVars as v (v.name)}
-            <Command.Item
-              value={v.name}
-              onSelect={() => handleSelect(v.name)}
-            >
+            <Command.Item value={v.name} onSelect={() => handleSelect(v.name)}>
               <span class="font-mono text-xs">{v.name}</span>
               <span class="text-muted-foreground ml-auto truncate text-xs">{v.description}</span>
             </Command.Item>
@@ -72,10 +66,7 @@
           <Command.Separator />
           <Command.Group heading="Custom">
             {#each customVariables as v (v.id)}
-              <Command.Item
-                value={v.variableName}
-                onSelect={() => handleSelect(v.variableName)}
-              >
+              <Command.Item value={v.variableName} onSelect={() => handleSelect(v.variableName)}>
                 <span class="font-mono text-xs">{v.variableName}</span>
                 <span class="text-muted-foreground ml-auto truncate text-xs">{v.displayName}</span>
               </Command.Item>

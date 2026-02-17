@@ -94,7 +94,9 @@ export class StyleReviewerService {
 
     const ctx = new ContextBuilder()
     ctx.add({
-      mode, pov, tense,
+      mode,
+      pov,
+      tense,
       passageCount: narrationEntries.length.toString(),
       passages,
     })

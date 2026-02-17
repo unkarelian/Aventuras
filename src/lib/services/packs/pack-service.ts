@@ -42,7 +42,7 @@ class PackService {
 
     // Check existing templates
     const existingTemplates = await database.getPackTemplates('default-pack')
-    const existingIds = new Set(existingTemplates.map(t => t.templateId))
+    const existingIds = new Set(existingTemplates.map((t) => t.templateId))
 
     // Seed or update templates from PROMPT_TEMPLATES
     for (const template of PROMPT_TEMPLATES) {
@@ -129,19 +129,25 @@ class PackService {
   /**
    * Update pack metadata (name, description, author).
    */
-  async updatePack(id: string, updates: { name?: string, description?: string | null, author?: string | null }): Promise<void> {
+  async updatePack(
+    id: string,
+    updates: { name?: string; description?: string | null; author?: string | null },
+  ): Promise<void> {
     await database.updatePack(id, updates)
   }
 
   /** Delete a pack. Default pack and packs in use by stories cannot be deleted. */
-  async deletePack(packId: string): Promise<{ deleted: boolean, reason?: string }> {
+  async deletePack(packId: string): Promise<{ deleted: boolean; reason?: string }> {
     const pack = await database.getPack(packId)
     if (!pack) return { deleted: false, reason: 'Pack not found' }
     if (pack.isDefault) return { deleted: false, reason: 'Cannot delete the default pack' }
 
     const canDelete = await database.canDeletePack(packId)
     if (!canDelete) {
-      return { deleted: false, reason: 'Pack is in use by one or more stories. Reassign stories first.' }
+      return {
+        deleted: false,
+        reason: 'Pack is in use by one or more stories. Reassign stories first.',
+      }
     }
 
     await database.deletePack(packId)
@@ -202,12 +208,12 @@ class PackService {
     // Check for user content template (e.g., 'adventure-user')
     if (templateId.endsWith('-user')) {
       const baseId = templateId.replace(/-user$/, '')
-      const template = PROMPT_TEMPLATES.find(t => t.id === baseId)
+      const template = PROMPT_TEMPLATES.find((t) => t.id === baseId)
       return template?.userContent ?? null
     }
 
     // System prompt content
-    const template = PROMPT_TEMPLATES.find(t => t.id === templateId)
+    const template = PROMPT_TEMPLATES.find((t) => t.id === templateId)
     return template?.content ?? null
   }
 }

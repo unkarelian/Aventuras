@@ -57,7 +57,7 @@
 </script>
 
 <ResponsiveModal.Root {open} onOpenChange={handleOpenChange}>
-  <ResponsiveModal.Content class="sm:max-w-md p-0">
+  <ResponsiveModal.Content class="p-0 sm:max-w-md">
     <ResponsiveModal.Header class="border-b px-6 py-4">
       <ResponsiveModal.Title>Create Prompt Pack</ResponsiveModal.Title>
       <ResponsiveModal.Description>
@@ -68,11 +68,7 @@
     <div class="flex flex-col gap-4 px-6 py-4">
       <div class="flex flex-col gap-2">
         <Label for="pack-name">Name <span class="text-destructive">*</span></Label>
-        <Input
-          id="pack-name"
-          bind:value={name}
-          placeholder="My Custom Pack"
-        />
+        <Input id="pack-name" bind:value={name} placeholder="My Custom Pack" />
       </div>
 
       <div class="flex flex-col gap-2">
@@ -88,18 +84,12 @@
 
       <div class="flex flex-col gap-2">
         <Label for="pack-author">Author</Label>
-        <Input
-          id="pack-author"
-          bind:value={author}
-          placeholder="Your name"
-        />
+        <Input id="pack-author" bind:value={author} placeholder="Your name" />
       </div>
     </div>
 
     <ResponsiveModal.Footer class="border-t px-6 py-4">
-      <Button variant="outline" onclick={() => handleOpenChange(false)}>
-        Cancel
-      </Button>
+      <Button variant="outline" onclick={() => handleOpenChange(false)}>Cancel</Button>
       <Button onclick={handleCreate} disabled={!canCreate}>
         {#if creating}
           Creating...

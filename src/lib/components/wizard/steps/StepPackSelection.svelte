@@ -53,7 +53,9 @@
       <Select.Root
         type="single"
         value={selectedPackId}
-        onValueChange={(v) => { if (v) onSelectPack(v) }}
+        onValueChange={(v) => {
+          if (v) onSelectPack(v)
+        }}
       >
         <Select.Trigger class="w-full">
           {selectedPack?.name ?? 'Select a pack'}
@@ -81,14 +83,14 @@
 
   <!-- Empty state: default pack, no variables -->
   {#if !hasMultiplePacks && !hasVariables}
-    <div class="flex flex-col items-center justify-center text-center py-8">
-      <div class="bg-muted rounded-full p-4 mb-3">
+    <div class="flex flex-col items-center justify-center py-8 text-center">
+      <div class="bg-muted mb-3 rounded-full p-4">
         <Package class="text-muted-foreground h-10 w-10" />
       </div>
-      <h4 class="text-sm font-medium mb-1">Default Pack Selected</h4>
-      <p class="text-muted-foreground text-sm max-w-sm">
-        Using the built-in prompt templates. You can create custom packs with configurable
-        variables in the Vault's Prompt Editor.
+      <h4 class="mb-1 text-sm font-medium">Default Pack Selected</h4>
+      <p class="text-muted-foreground max-w-sm text-sm">
+        Using the built-in prompt templates. You can create custom packs with configurable variables
+        in the Vault's Prompt Editor.
       </p>
     </div>
   {/if}
@@ -120,7 +122,8 @@
               <Switch
                 id="var-{variable.variableName}"
                 checked={variableValues[variable.variableName] === 'true'}
-                onCheckedChange={(v) => onVariableChange(variable.variableName, v ? 'true' : 'false')}
+                onCheckedChange={(v) =>
+                  onVariableChange(variable.variableName, v ? 'true' : 'false')}
               />
             </div>
           {:else}
@@ -157,10 +160,14 @@
               <Select.Root
                 type="single"
                 value={variableValues[variable.variableName] ?? ''}
-                onValueChange={(v) => { if (v !== undefined) onVariableChange(variable.variableName, v) }}
+                onValueChange={(v) => {
+                  if (v !== undefined) onVariableChange(variable.variableName, v)
+                }}
               >
                 <Select.Trigger class="w-full">
-                  {variable.enumOptions.find((o) => o.value === variableValues[variable.variableName])?.label ?? 'Select...'}
+                  {variable.enumOptions.find(
+                    (o) => o.value === variableValues[variable.variableName],
+                  )?.label ?? 'Select...'}
                 </Select.Trigger>
                 <Select.Content>
                   {#each variable.enumOptions as opt (opt.value)}

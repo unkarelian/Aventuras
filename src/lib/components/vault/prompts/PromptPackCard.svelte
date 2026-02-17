@@ -20,18 +20,20 @@
 
 <button type="button" class="w-full text-left" {onclick}>
   <Card
-    class="group h-full cursor-pointer transition-colors hover:border-primary/50 {pack.isDefault ? 'border-dashed' : ''}"
+    class="group hover:border-primary/50 h-full cursor-pointer transition-colors {pack.isDefault
+      ? 'border-dashed'
+      : ''}"
   >
     <CardContent class="flex h-full flex-col p-4">
       <div class="flex items-start justify-between">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <h3 class="font-semibold truncate">{pack.name}</h3>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="truncate font-semibold">{pack.name}</h3>
             {#if usageCount > 0}
               <Badge variant="outline" class="border-green-500/50 text-green-500">Active</Badge>
             {/if}
           </div>
-          <p class="text-muted-foreground mt-1 text-sm line-clamp-2">
+          <p class="text-muted-foreground mt-1 line-clamp-2 text-sm">
             {#if pack.description}{stripToPlainText(pack.description)}{:else}&nbsp;{/if}
           </p>
         </div>
@@ -40,7 +42,7 @@
             <Button
               variant="ghost"
               size="icon"
-              class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              class="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
               onclick={(e: MouseEvent) => {
                 e.stopPropagation()
                 onExport?.()
@@ -54,7 +56,7 @@
             <Button
               variant="ghost"
               size="icon"
-              class="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+              class="text-destructive h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
               onclick={(e: MouseEvent) => {
                 e.stopPropagation()
                 onDelete?.()
@@ -66,7 +68,7 @@
           {/if}
         </div>
       </div>
-      <div class="mt-auto flex items-center gap-3 pt-3 text-xs text-muted-foreground">
+      <div class="text-muted-foreground mt-auto flex items-center gap-3 pt-3 text-xs">
         {#if pack.isDefault}
           <span class="flex items-center gap-1"><Lock class="h-3 w-3" />Built-in</span>
         {:else}

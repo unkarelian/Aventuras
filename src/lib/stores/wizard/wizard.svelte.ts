@@ -121,7 +121,7 @@ export class WizardStore {
   }
 
   allVariablesFilled(): boolean {
-    return this.packVariables.every(v => {
+    return this.packVariables.every((v) => {
       const val = this.customVariableValues[v.variableName]
       if (v.variableType === 'boolean') return true
       return val !== undefined && val !== ''
