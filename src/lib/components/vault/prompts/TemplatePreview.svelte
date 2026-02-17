@@ -9,9 +9,10 @@
     content: string
     customVariables: CustomVariable[]
     hideHeader?: boolean
+    testValues?: Record<string, string>
   }
 
-  let { content, customVariables, hideHeader = false }: Props = $props()
+  let { content, customVariables, hideHeader = false, testValues }: Props = $props()
 
   // Sample values for system variables
   const systemSamples: Record<string, string> = {
@@ -156,7 +157,7 @@
     conversationHistory: '[Conversation history for interactive lorebook...]',
   }
 
-  function buildSampleContext(vars: CustomVariable[]): TemplateContext {
+  function buildSampleContext(vars: CustomVariable[], overrides?: Record<string, string>): TemplateContext {
     const context: TemplateContext = {}
 
     for (const v of variableRegistry.getByCategory('system')) {
@@ -166,7 +167,12 @@
       context[v.name] = runtimeSamples[v.name] ?? `[${v.name}]`
     }
     for (const v of vars) {
-      context[v.variableName] = v.defaultValue ?? `[${v.displayName}]`
+      // Use test value if provided, otherwise fall back to default or placeholder
+      if (overrides && v.variableName in overrides && overrides[v.variableName] !== '') {
+        context[v.variableName] = overrides[v.variableName]
+      } else {
+        context[v.variableName] = v.defaultValue ?? `[${v.displayName}]`
+      }
     }
 
     return context
@@ -181,6 +187,7 @@
     // Track dependencies
     const currentContent = content
     const currentVars = customVariables
+    const currentTestValues = testValues
 
     clearTimeout(renderTimer)
     renderTimer = setTimeout(() => {
@@ -190,7 +197,7 @@
         return
       }
 
-      const context = buildSampleContext(currentVars)
+      const context = buildSampleContext(currentVars, currentTestValues)
       const result = templateEngine.render(currentContent, context)
 
       if (result === '' && currentContent.trim() !== '') {
