@@ -2,6 +2,8 @@
   import CodeMirror from 'svelte-codemirror-editor'
   import { liquid } from '@codemirror/lang-liquid'
   import { EditorView } from '@codemirror/view'
+  import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+  import { tags } from '@lezer/highlight'
   import type { Extension } from '@codemirror/state'
   import { database } from '$lib/services/database'
   import { packService } from '$lib/services/packs/pack-service'
@@ -117,7 +119,100 @@
     '.cm-scroller': {
       overflow: 'auto',
     },
+    // Autocomplete dropdown container
+    '.cm-tooltip-autocomplete': {
+      backgroundColor: 'var(--popover, hsl(217 33% 17%))',
+      color: 'var(--popover-foreground, hsl(210 40% 98%))',
+      border: '1px solid hsl(var(--border))',
+      borderRadius: '6px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+    },
+    // Individual completion item
+    '.cm-tooltip-autocomplete ul li': {
+      color: 'var(--popover-foreground, hsl(210 40% 98%))',
+    },
+    // Selected/highlighted completion item
+    '.cm-tooltip-autocomplete ul li[aria-selected]': {
+      backgroundColor: 'hsl(var(--accent))',
+      color: 'hsl(var(--accent-foreground))',
+    },
+    // Completion label (main text)
+    '.cm-completionLabel': {
+      color: 'inherit',
+    },
+    // Completion detail text (category)
+    '.cm-completionDetail': {
+      color: 'var(--muted-foreground, hsl(215 20% 65%))',
+      fontStyle: 'italic',
+      marginLeft: '8px',
+    },
+    // Completion info tooltip (description)
+    '.cm-tooltip.cm-completionInfo': {
+      backgroundColor: 'var(--popover, hsl(217 33% 17%))',
+      color: 'var(--popover-foreground, hsl(210 40% 98%))',
+      border: '1px solid hsl(var(--border))',
+      borderRadius: '6px',
+      padding: '8px 12px',
+      maxWidth: '300px',
+    },
+    // Completion icon
+    '.cm-completionIcon': {
+      color: 'var(--color-accent-400, #60a5fa)',
+      opacity: '1',
+    },
+    // Matched characters in completion (bold highlight)
+    '.cm-completionMatchedText': {
+      textDecoration: 'none',
+      fontWeight: '600',
+      color: 'var(--color-accent-300, #93c5fd)',
+    },
+    // General tooltip styling (also affects hover tooltips)
+    '.cm-tooltip': {
+      backgroundColor: 'var(--popover, hsl(217 33% 17%))',
+      color: 'var(--popover-foreground, hsl(210 40% 98%))',
+      border: '1px solid hsl(var(--border))',
+    },
   })
+
+  // Syntax highlighting for Liquid template tokens
+  const liquidHighlightStyle = HighlightStyle.define([
+    // Liquid output delimiters: {{ and }}
+    { tag: tags.brace, color: 'var(--color-accent-500, #3b82f6)' },
+    // Liquid tag delimiters: {% and %}
+    { tag: tags.angleBracket, color: 'var(--color-accent-500, #3b82f6)' },
+    // Variable names inside {{ }}
+    { tag: tags.variableName, color: 'var(--color-accent-400, #60a5fa)', fontWeight: '500' },
+    // Liquid keywords: if, else, endif, for, endfor, unless, case, etc.
+    { tag: tags.keyword, color: 'var(--color-accent-300, #93c5fd)' },
+    // Liquid tag names (e.g., assign, capture, comment)
+    { tag: tags.tagName, color: 'var(--color-accent-300, #93c5fd)' },
+    // Operators: ==, !=, contains, and, or
+    { tag: tags.operator, color: 'var(--color-accent-400, #60a5fa)' },
+    // Strings in Liquid expressions
+    { tag: tags.string, color: '#a5d6a7' },
+    // Numbers in Liquid expressions
+    { tag: tags.number, color: '#ffcc80' },
+    // Boolean values: true, false, nil
+    { tag: tags.bool, color: '#ffcc80' },
+    // Filter names after |
+    { tag: tags.function(tags.variableName), color: '#ce93d8' },
+    // Property access (dot notation)
+    { tag: tags.propertyName, color: 'var(--color-accent-400, #60a5fa)' },
+    // Comments
+    { tag: tags.comment, color: 'var(--color-surface-500, #64748b)', fontStyle: 'italic' },
+    // HTML tags (since Liquid wraps HTML)
+    { tag: tags.typeName, color: 'var(--color-surface-300, #cbd5e1)' },
+    // HTML attribute names
+    { tag: tags.attributeName, color: 'var(--color-accent-400, #60a5fa)' },
+    // HTML attribute values
+    { tag: tags.attributeValue, color: '#a5d6a7' },
+  ])
+
+  // Combined extensions: editor theme + syntax highlighting
+  const editorExtensions: Extension[] = [
+    editorTheme,
+    syntaxHighlighting(liquidHighlightStyle),
+  ]
 
   // Debounced validation
   let validationTimer: ReturnType<typeof setTimeout> | undefined
@@ -266,7 +361,7 @@
               value={currentContent}
               onchange={handleContentChange}
               lang={liquidLang}
-              theme={editorTheme}
+              theme={editorExtensions}
               lineWrapping
               lineNumbers
               onready={handleEditorReady}
