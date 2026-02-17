@@ -43,7 +43,7 @@
     editDescription = variable.description ?? ''
     editType = variable.variableType
     editDefault = variable.defaultValue ?? ''
-    editEnumOptions = variable.enumOptions ? structuredClone(variable.enumOptions) : []
+    editEnumOptions = variable.enumOptions ? structuredClone($state.snapshot(variable.enumOptions)) : []
     expanded = initialExpanded
     showDeleteConfirm = false
   })
@@ -101,7 +101,7 @@
     editDescription = variable.description ?? ''
     editType = variable.variableType
     editDefault = variable.defaultValue ?? ''
-    editEnumOptions = variable.enumOptions ? structuredClone(variable.enumOptions) : []
+    editEnumOptions = variable.enumOptions ? structuredClone($state.snapshot(variable.enumOptions)) : []
     showDeleteConfirm = false
     expanded = false
   }
