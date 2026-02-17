@@ -218,9 +218,29 @@
         {/if}
       {/if}
 
-      <!-- Desktop: action buttons in header row -->
+      <!-- Desktop: System/User tabs + action buttons in header row -->
       {#if selectedTemplateId && editorRef && !isMobile.current}
         <div class="ml-auto flex items-center gap-1">
+          {#if editorHasUserContent}
+            <ToggleGroup.Root
+              type="single"
+              value={editorActiveTab}
+              onValueChange={(v) => {
+                if (v) editorActiveTab = v as 'system' | 'user'
+              }}
+              variant="outline"
+              size="sm"
+              class="mr-1 gap-0"
+            >
+              <ToggleGroup.Item value="system" class="h-7 rounded-r-none px-2.5 text-xs"
+                >System</ToggleGroup.Item
+              >
+              <ToggleGroup.Item value="user" class="h-7 rounded-l-none px-2.5 text-xs"
+                >User</ToggleGroup.Item
+              >
+            </ToggleGroup.Root>
+          {/if}
+
           <VariablePalette
             iconOnly
             customVariables={fullPack?.variables ?? []}
@@ -275,9 +295,8 @@
       {/if}
     </div>
 
-    <!-- Bottom toolbar -->
-    {#if selectedTemplateId && editorRef}
-      {#if isMobile.current}
+    <!-- Bottom toolbar (mobile only) -->
+    {#if selectedTemplateId && editorRef && isMobile.current}
         <!-- Mobile: full bottom toolbar (unchanged) -->
         <div class="border-t"></div>
         <div class="flex items-center gap-1 px-4 py-1.5">
@@ -358,29 +377,6 @@
             </Button>
           </div>
         </div>
-      {:else if editorHasUserContent}
-        <!-- Desktop: only System/User tab toggle -->
-        <div class="border-t"></div>
-        <div class="flex items-center gap-1 px-4 py-2">
-          <ToggleGroup.Root
-            type="single"
-            value={editorActiveTab}
-            onValueChange={(v) => {
-              if (v) editorActiveTab = v as 'system' | 'user'
-            }}
-            variant="outline"
-            size="sm"
-            class="gap-0"
-          >
-            <ToggleGroup.Item value="system" class="h-7 rounded-r-none px-2.5 text-xs"
-              >System</ToggleGroup.Item
-            >
-            <ToggleGroup.Item value="user" class="h-7 rounded-l-none px-2.5 text-xs"
-              >User</ToggleGroup.Item
-            >
-          </ToggleGroup.Root>
-        </div>
-      {/if}
     {/if}
   </div>
 
