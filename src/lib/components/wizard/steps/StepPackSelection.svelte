@@ -90,7 +90,7 @@
       </div>
 
       <ScrollArea class="max-h-[400px]">
-        <div class="space-y-4 pr-3">
+        <div class="space-y-4 pr-3 pb-4">
           {#each packVariables as variable (variable.id)}
             <div class="space-y-1.5">
               <Label for="var-{variable.variableName}">{variable.displayName}</Label>
