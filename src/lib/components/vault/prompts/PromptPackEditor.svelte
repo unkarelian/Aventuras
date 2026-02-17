@@ -105,6 +105,17 @@
     })
   }
 
+  function handleShowSettings() {
+    guardDirty(() => {
+      selectedTemplateId = null
+      showVariables = false
+      isEditorDirty = false
+      drawerOpen = false
+    })
+  }
+
+  const showSettings = $derived(!selectedTemplateId && !showVariables)
+
   function handleBack() {
     guardDirty(() => {
       onClose()
@@ -302,8 +313,10 @@
             {packId}
             {selectedTemplateId}
             {showVariables}
+            {showSettings}
             onSelectTemplate={handleSelectTemplate}
             onToggleVariables={handleToggleVariables}
+            onShowSettings={handleShowSettings}
           />
         </div>
       {/if}
@@ -438,8 +451,10 @@
           {packId}
           {selectedTemplateId}
           {showVariables}
+          {showSettings}
           onSelectTemplate={handleSelectTemplate}
           onToggleVariables={handleToggleVariables}
+          onShowSettings={handleShowSettings}
         />
       </div>
     </Drawer.Content>

@@ -2,18 +2,20 @@
   import { getTemplateGroups } from './templateGroups'
   import * as Collapsible from '$lib/components/ui/collapsible'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
-  import { ChevronRight, Variable } from 'lucide-svelte'
+  import { ChevronRight, Variable, Settings } from 'lucide-svelte'
   import { cn } from '$lib/utils/cn'
 
   interface Props {
     packId: string
     selectedTemplateId: string | null
     showVariables: boolean
+    showSettings: boolean
     onSelectTemplate: (templateId: string) => void
     onToggleVariables: () => void
+    onShowSettings: () => void
   }
 
-  let { packId, selectedTemplateId, showVariables, onSelectTemplate, onToggleVariables }: Props =
+  let { packId, selectedTemplateId, showVariables, showSettings, onSelectTemplate, onToggleVariables, onShowSettings }: Props =
     $props()
 
   const groups = getTemplateGroups()
@@ -21,6 +23,23 @@
 
 <ScrollArea class="h-full">
   <div class="flex flex-col py-2">
+    <!-- Pack Settings -->
+    <div class="mx-2 mb-1 border-b pb-2">
+      <button
+        type="button"
+        class={cn(
+          'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+          showSettings
+            ? 'bg-accent text-accent-foreground'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+        )}
+        onclick={onShowSettings}
+      >
+        <Settings class="h-4 w-4" />
+        Pack Settings
+      </button>
+    </div>
+
     <!-- Template Groups -->
     {#each groups as group (group.name)}
       <Collapsible.Root class="px-2">

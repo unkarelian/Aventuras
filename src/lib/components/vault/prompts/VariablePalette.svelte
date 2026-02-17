@@ -48,7 +48,7 @@
               value={v.name}
               onSelect={() => handleSelect(v.name)}
             >
-              <span class="font-mono text-xs">{`{{ ${v.name} }}`}</span>
+              <span class="font-mono text-xs">{v.name}</span>
               <span class="text-muted-foreground ml-auto truncate text-xs">{v.description}</span>
             </Command.Item>
           {/each}
@@ -62,7 +62,7 @@
               value={v.name}
               onSelect={() => handleSelect(v.name)}
             >
-              <span class="font-mono text-xs">{`{{ ${v.name} }}`}</span>
+              <span class="font-mono text-xs">{v.name}</span>
               <span class="text-muted-foreground ml-auto truncate text-xs">{v.description}</span>
             </Command.Item>
           {/each}
@@ -76,7 +76,7 @@
                 value={v.variableName}
                 onSelect={() => handleSelect(v.variableName)}
               >
-                <span class="font-mono text-xs">{`{{ ${v.variableName} }}`}</span>
+                <span class="font-mono text-xs">{v.variableName}</span>
                 <span class="text-muted-foreground ml-auto truncate text-xs">{v.displayName}</span>
               </Command.Item>
             {/each}
