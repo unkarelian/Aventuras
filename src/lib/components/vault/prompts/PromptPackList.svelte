@@ -5,6 +5,8 @@
   import { importExportService } from '$lib/services/packs/import-export'
   import { ui } from '$lib/stores/ui.svelte'
   import { Skeleton } from '$lib/components/ui/skeleton'
+  import { Button } from '$lib/components/ui/button'
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { fade } from 'svelte/transition'
   import PromptPackCard from './PromptPackCard.svelte'
   import CreatePackDialog from './CreatePackDialog.svelte'
@@ -20,6 +22,10 @@
   let modifiedCounts = $state<Map<string, number>>(new Map())
   let usageCounts = $state<Map<string, number>>(new Map())
   let loading = $state(true)
+
+  // Delete confirmation state
+  let deleteTarget = $state<PresetPack | null>(null)
+  let deleting = $state(false)
 
   async function loadPacks() {
     loading = true
@@ -73,6 +79,26 @@
     }
   }
 
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return
+    deleting = true
+    try {
+      const result = await packService.deletePack(deleteTarget.id)
+      if (result.deleted) {
+        ui.showToast(`Deleted "${deleteTarget.name}"`, 'info')
+        deleteTarget = null
+        await loadPacks()
+      } else {
+        ui.showToast(result.reason ?? 'Could not delete pack', 'error')
+      }
+    } catch (e) {
+      console.error('Delete failed:', e)
+      ui.showToast('Delete failed', 'error')
+    } finally {
+      deleting = false
+    }
+  }
+
   // Load on mount
   $effect(() => {
     loadPacks()
@@ -96,6 +122,7 @@
         usageCount={usageCounts.get(pack.id) ?? 0}
         onclick={() => onOpenPack(pack.id)}
         onExport={() => handleExportPack(pack.id)}
+        onDelete={pack.isDefault ? undefined : () => { deleteTarget = pack }}
       />
     {/each}
   </div>
@@ -106,3 +133,21 @@
   onOpenChange={(v) => (showCreateDialog = v)}
   onCreated={handlePackCreated}
 />
+
+<!-- Delete confirmation -->
+<ResponsiveModal.Root open={!!deleteTarget} onOpenChange={(v) => { if (!v) deleteTarget = null }}>
+  <ResponsiveModal.Content class="sm:max-w-sm p-0">
+    <ResponsiveModal.Header class="border-b px-6 py-4">
+      <ResponsiveModal.Title>Delete Pack</ResponsiveModal.Title>
+      <ResponsiveModal.Description>
+        Are you sure you want to delete "{deleteTarget?.name}"? This cannot be undone.
+      </ResponsiveModal.Description>
+    </ResponsiveModal.Header>
+    <ResponsiveModal.Footer class="border-t px-6 py-4">
+      <Button variant="outline" onclick={() => { deleteTarget = null }}>Cancel</Button>
+      <Button variant="destructive" onclick={handleConfirmDelete} disabled={deleting}>
+        {deleting ? 'Deleting...' : 'Delete'}
+      </Button>
+    </ResponsiveModal.Footer>
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>

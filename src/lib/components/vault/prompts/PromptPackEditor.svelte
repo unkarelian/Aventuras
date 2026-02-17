@@ -11,12 +11,12 @@
   import { Skeleton } from '$lib/components/ui/skeleton'
   import * as Dialog from '$lib/components/ui/dialog'
   import * as Drawer from '$lib/components/ui/drawer'
-  import * as Tabs from '$lib/components/ui/tabs'
+  import * as ToggleGroup from '$lib/components/ui/toggle-group'
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
   import { Label } from '$lib/components/ui/label'
   import { renderDescription } from '$lib/utils/markdown'
-  import { ChevronLeft, Menu, Save, Undo2, RotateCcw, Pencil, Check, X, Settings } from 'lucide-svelte'
+  import { ChevronLeft, Menu, Save, Undo2, RotateCcw, Pencil, Eye, Check, X, Settings } from 'lucide-svelte'
 
   interface Props {
     packId: string
@@ -34,6 +34,7 @@
   // Editor tab state
   let editorActiveTab = $state<'system' | 'user'>('system')
   let editorHasUserContent = $state(false)
+  let mobileView = $state<'editor' | 'preview'>('editor')
 
   // Dirty guard state
   let isEditorDirty = $state(false)
@@ -172,46 +173,74 @@
 
 <div class="flex h-full flex-col">
   <!-- Header Bar -->
-  <div class="flex items-center gap-3 border-b px-4 py-3">
-    <Button
-      variant="ghost"
-      size="sm"
-      class="text-muted-foreground hover:text-foreground -ml-2 gap-1"
-      onclick={handleBack}
-    >
-      <ChevronLeft class="h-4 w-4" />
-    </Button>
+  <div class="border-b">
+    <!-- Top row: back + pack name + hamburger -->
+    <div class="flex items-center gap-2 px-4 py-1.5 sm:py-2">
+      <Button
+        variant="ghost"
+        size="icon"
+        class="text-muted-foreground hover:text-foreground h-8 w-8 shrink-0 -ml-2"
+        onclick={handleBack}
+      >
+        <ChevronLeft class="h-4 w-4" />
+      </Button>
 
-    {#if loading}
-      <Skeleton class="h-5 w-32" />
-    {:else if fullPack}
-      <div class="flex items-center gap-2">
-        <h2 class="text-lg font-semibold">{fullPack.pack.name}</h2>
-        {#if fullPack.pack.isDefault}
-          <Badge variant="default">Default</Badge>
-        {/if}
+      {#if loading}
+        <Skeleton class="h-5 w-32" />
+      {:else if fullPack}
+        <h2 class="min-w-0 shrink truncate font-semibold">{fullPack.pack.name}</h2>
         {#if isEditorDirty}
-          <Badge variant="outline" class="border-yellow-500/50 text-yellow-500 text-xs"
-            >Unsaved</Badge
-          >
+          <Badge variant="outline" class="shrink-0 border-yellow-500/50 text-yellow-500 text-xs">Unsaved</Badge>
         {/if}
-      </div>
-    {/if}
+      {/if}
 
-    <div class="ml-auto flex items-center gap-1">
-      {#if selectedTemplateId && editorRef}
-        {#if editorHasUserContent}
-          <Tabs.Root
-            value={editorActiveTab}
-            onValueChange={(v) => {
-              if (v) editorActiveTab = v as 'system' | 'user'
-            }}
+      {#if isMobile.current}
+        <Button
+          variant="outline"
+          size="icon"
+          class="ml-auto h-8 w-8 shrink-0"
+          onclick={() => (drawerOpen = true)}
+        >
+          <Menu class="h-4 w-4" />
+        </Button>
+      {/if}
+    </div>
+
+    <!-- Bottom toolbar: editor/preview toggle (left) + tabs + palette + actions (right) -->
+    {#if selectedTemplateId && editorRef}
+      <div class="border-t"></div>
+      <div class="flex items-center gap-1 px-4 py-1.5 sm:py-2">
+        <!-- Editor/Preview toggle (mobile) -->
+        {#if isMobile.current}
+          <ToggleGroup.Root
+            type="single"
+            value={mobileView}
+            onValueChange={(v) => { if (v) mobileView = v as 'editor' | 'preview' }}
+            variant="outline"
+            size="sm"
+            class="gap-0"
           >
-            <Tabs.List class="h-8">
-              <Tabs.Trigger value="system" class="text-xs">System Prompt</Tabs.Trigger>
-              <Tabs.Trigger value="user" class="text-xs">User Message</Tabs.Trigger>
-            </Tabs.List>
-          </Tabs.Root>
+            <ToggleGroup.Item value="editor" class="h-7 w-7 rounded-r-none" title="Editor">
+              <Pencil class="h-3.5 w-3.5" />
+            </ToggleGroup.Item>
+            <ToggleGroup.Item value="preview" class="h-7 w-7 rounded-l-none" title="Preview">
+              <Eye class="h-3.5 w-3.5" />
+            </ToggleGroup.Item>
+          </ToggleGroup.Root>
+        {/if}
+
+        {#if editorHasUserContent}
+          <ToggleGroup.Root
+            type="single"
+            value={editorActiveTab}
+            onValueChange={(v) => { if (v) editorActiveTab = v as 'system' | 'user' }}
+            variant="outline"
+            size="sm"
+            class="gap-0"
+          >
+            <ToggleGroup.Item value="system" class="h-7 rounded-r-none px-2.5 text-xs">System</ToggleGroup.Item>
+            <ToggleGroup.Item value="user" class="h-7 rounded-l-none px-2.5 text-xs">User</ToggleGroup.Item>
+          </ToggleGroup.Root>
         {/if}
 
         <VariablePalette
@@ -219,51 +248,41 @@
           onInsert={(name) => editorRef?.insertVariable(name)}
         />
 
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-8 gap-1 text-xs"
-          disabled={!isEditorDirty}
-          onclick={() => editorRef?.save()}
-        >
-          <Save class="h-3.5 w-3.5" />
-          <span class="hidden sm:inline">Save</span>
-        </Button>
+        <div class="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8"
+            disabled={!isEditorDirty}
+            onclick={() => editorRef?.save()}
+            title="Save"
+          >
+            <Save class="h-3.5 w-3.5" />
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-8 gap-1 text-xs"
-          disabled={!isEditorDirty}
-          onclick={() => editorRef?.discard()}
-        >
-          <Undo2 class="h-3.5 w-3.5" />
-          <span class="hidden sm:inline">Discard</span>
-        </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8"
+            disabled={!isEditorDirty}
+            onclick={() => editorRef?.discard()}
+            title="Discard"
+          >
+            <Undo2 class="h-3.5 w-3.5" />
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-8 gap-1 text-xs"
-          onclick={() => editorRef?.reset()}
-        >
-          <RotateCcw class="h-3.5 w-3.5" />
-          <span class="hidden sm:inline">Reset</span>
-        </Button>
-      {/if}
-
-      <!-- Mobile menu button -->
-      {#if isMobile.current}
-        <Button
-          variant="outline"
-          size="icon"
-          class="h-8 w-8"
-          onclick={() => (drawerOpen = true)}
-        >
-          <Menu class="h-4 w-4" />
-        </Button>
-      {/if}
-    </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-8 w-8"
+            onclick={() => editorRef?.reset()}
+            title="Reset to default"
+          >
+            <RotateCcw class="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+    {/if}
   </div>
 
   <!-- Main Content -->
@@ -307,6 +326,7 @@
               templateId={selectedTemplateId}
               customVariables={fullPack.variables}
               activeTab={editorActiveTab}
+              {mobileView}
               onDirtyChange={handleDirtyChange}
               onActiveTabChange={(tab) => (editorActiveTab = tab)}
               onHasUserContent={(has) => (editorHasUserContent = has)}

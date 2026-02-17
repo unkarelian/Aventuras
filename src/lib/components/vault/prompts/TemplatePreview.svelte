@@ -8,9 +8,10 @@
   interface Props {
     content: string
     customVariables: CustomVariable[]
+    hideHeader?: boolean
   }
 
-  let { content, customVariables }: Props = $props()
+  let { content, customVariables, hideHeader = false }: Props = $props()
 
   // Sample values for system variables
   const systemSamples: Record<string, string> = {
@@ -208,9 +209,11 @@
 </script>
 
 <div class="flex h-full flex-col overflow-hidden">
-  <div class="border-b px-4 py-2">
-    <h4 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Preview</h4>
-  </div>
+  {#if !hideHeader}
+    <div class="border-b px-4 py-2">
+      <h4 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Preview</h4>
+    </div>
+  {/if}
 
   <div class="flex-1 overflow-auto bg-[hsl(var(--muted)/0.3)] p-4">
     {#if previewError}

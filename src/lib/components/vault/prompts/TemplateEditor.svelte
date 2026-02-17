@@ -11,7 +11,7 @@
   import type { CustomVariable } from '$lib/services/packs/types'
   import type { Completion } from '@codemirror/autocomplete'
   import { Button } from '$lib/components/ui/button'
-  import { AlertTriangle, CircleCheck, Eye, Pencil } from 'lucide-svelte'
+  import { AlertTriangle, CircleCheck } from 'lucide-svelte'
   import TemplatePreview from './TemplatePreview.svelte'
   import { createIsMobile } from '$lib/hooks/is-mobile.svelte'
 
@@ -20,6 +20,7 @@
     templateId: string
     customVariables: CustomVariable[]
     activeTab?: 'system' | 'user'
+    mobileView?: 'editor' | 'preview'
     onDirtyChange?: (dirty: boolean) => void
     onActiveTabChange?: (tab: 'system' | 'user') => void
     onHasUserContent?: (has: boolean) => void
@@ -30,6 +31,7 @@
     templateId,
     customVariables,
     activeTab = 'system',
+    mobileView = 'editor',
     onDirtyChange,
     onActiveTabChange,
     onHasUserContent,
@@ -45,9 +47,7 @@
   let editorView = $state<EditorView | null>(null)
   let loading = $state(true)
 
-  // Mobile detection and preview toggle
   const isMobile = createIsMobile()
-  let mobileView = $state<'editor' | 'preview'>('editor')
 
   // Dirty tracking
   let isSystemDirty = $derived(systemContent !== originalSystem)
@@ -244,31 +244,6 @@
   </div>
 {:else}
   <div class="flex h-full flex-col overflow-hidden">
-    {#if isMobile.current}
-      <div class="flex items-center gap-1 border-b px-2 py-1.5">
-        <div class="ml-auto flex items-center rounded-md border">
-          <Button
-            variant={mobileView === 'editor' ? 'secondary' : 'ghost'}
-            size="sm"
-            class="h-7 rounded-r-none text-xs"
-            onclick={() => (mobileView = 'editor')}
-          >
-            <Pencil class="mr-1 h-3 w-3" />
-            Editor
-          </Button>
-          <Button
-            variant={mobileView === 'preview' ? 'secondary' : 'ghost'}
-            size="sm"
-            class="h-7 rounded-l-none text-xs"
-            onclick={() => (mobileView = 'preview')}
-          >
-            <Eye class="mr-1 h-3 w-3" />
-            Preview
-          </Button>
-        </div>
-      </div>
-    {/if}
-
     <!-- Editor + Preview content area -->
     <div class="flex min-h-0 flex-1 {isMobile.current ? 'flex-col' : 'flex-row'}">
       <!-- Editor column (label + CodeMirror) -->
@@ -276,9 +251,11 @@
         class="flex min-h-0 flex-col overflow-hidden {isMobile.current ? 'flex-1' : 'flex-1'}"
         class:hidden={isMobile.current && mobileView === 'preview'}
       >
-        <div class="border-b px-4 py-2">
-          <h4 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Editor</h4>
-        </div>
+        {#if !isMobile.current}
+          <div class="border-b px-4 py-2">
+            <h4 class="text-muted-foreground text-xs font-medium uppercase tracking-wide">Editor</h4>
+          </div>
+        {/if}
 
         <!-- CodeMirror Editor -->
         <div class="min-h-0 flex-1 overflow-hidden">
@@ -305,7 +282,7 @@
         class="min-h-0 overflow-hidden {isMobile.current ? 'flex-1' : 'w-[45%] border-l'}"
         class:hidden={isMobile.current && mobileView === 'editor'}
       >
-        <TemplatePreview content={currentContent} {customVariables} />
+        <TemplatePreview content={currentContent} {customVariables} hideHeader={isMobile.current} />
       </div>
     </div>
 

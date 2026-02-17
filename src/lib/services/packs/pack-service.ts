@@ -35,7 +35,7 @@ class PackService {
         id: 'default-pack',
         name: 'Default',
         description: 'Built-in prompt templates shipped with Aventura',
-        author: 'Aventura',
+        author: 'Aventuras',
         isDefault: true,
       })
     }
