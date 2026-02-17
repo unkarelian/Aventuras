@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { ImportValidationResult, ConflictStrategy } from '$lib/services/packs/import-export'
   import type { PresetPack } from '$lib/services/packs/types'
-  import * as Dialog from '$lib/components/ui/dialog'
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Button } from '$lib/components/ui/button'
   import { Badge } from '$lib/components/ui/badge'
   import * as Alert from '$lib/components/ui/alert'
@@ -23,10 +23,10 @@
   let pack = $derived(validationResult?.pack)
 </script>
 
-<Dialog.Root {open} onOpenChange={(v) => { if (!v) onCancel() }}>
-  <Dialog.Content class="sm:max-w-lg">
-    <Dialog.Header>
-      <Dialog.Title class="flex items-center gap-2">
+<ResponsiveModal.Root {open} onOpenChange={(v) => { if (!v) onCancel() }}>
+  <ResponsiveModal.Content class="sm:max-w-lg p-0">
+    <ResponsiveModal.Header class="border-b px-6 py-4">
+      <ResponsiveModal.Title class="flex items-center gap-2">
         Import Prompt Pack
         {#if validationResult}
           {#if isValid}
@@ -35,19 +35,19 @@
             <Badge variant="destructive">Invalid</Badge>
           {/if}
         {/if}
-      </Dialog.Title>
-      <Dialog.Description>
+      </ResponsiveModal.Title>
+      <ResponsiveModal.Description>
         {#if isValid}
           Review the pack details before importing.
         {:else}
           The selected file contains errors and cannot be imported.
         {/if}
-      </Dialog.Description>
-    </Dialog.Header>
+      </ResponsiveModal.Description>
+    </ResponsiveModal.Header>
 
     {#if validationResult && !isValid}
       <!-- Error state -->
-      <div class="flex flex-col gap-3 py-4">
+      <div class="flex flex-col gap-3 px-6 py-4">
         {#if validationResult.structuralErrors.length > 0}
           <div class="flex flex-col gap-1">
             <p class="text-sm font-medium">Structural errors:</p>
@@ -76,12 +76,12 @@
         {/if}
       </div>
 
-      <Dialog.Footer>
+      <ResponsiveModal.Footer class="border-t px-6 py-4">
         <Button variant="outline" onclick={onCancel}>Close</Button>
-      </Dialog.Footer>
+      </ResponsiveModal.Footer>
     {:else if validationResult && isValid && pack}
       <!-- Valid state: pack preview -->
-      <div class="flex flex-col gap-3 py-4">
+      <div class="flex flex-col gap-3 px-6 py-4">
         <div class="flex flex-col gap-1">
           <h3 class="text-base font-semibold">{pack.name}</h3>
           {#if pack.description}
@@ -110,7 +110,7 @@
         {/if}
       </div>
 
-      <Dialog.Footer>
+      <ResponsiveModal.Footer class="border-t px-6 py-4">
         {#if conflictPack}
           <Button variant="ghost" onclick={onCancel}>Cancel</Button>
           <Button variant="outline" onclick={() => onConfirm('rename')}>Import as Copy</Button>
@@ -119,7 +119,7 @@
           <Button variant="outline" onclick={onCancel}>Cancel</Button>
           <Button onclick={() => onConfirm('rename')}>Import</Button>
         {/if}
-      </Dialog.Footer>
+      </ResponsiveModal.Footer>
     {/if}
-  </Dialog.Content>
-</Dialog.Root>
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>

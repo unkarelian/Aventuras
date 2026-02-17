@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { PresetPack } from '$lib/services/packs/types'
   import { packService } from '$lib/services/packs/pack-service'
-  import * as Dialog from '$lib/components/ui/dialog'
+  import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
@@ -56,16 +56,16 @@
   }
 </script>
 
-<Dialog.Root {open} onOpenChange={handleOpenChange}>
-  <Dialog.Content class="sm:max-w-md">
-    <Dialog.Header>
-      <Dialog.Title>Create Prompt Pack</Dialog.Title>
-      <Dialog.Description>
+<ResponsiveModal.Root {open} onOpenChange={handleOpenChange}>
+  <ResponsiveModal.Content class="sm:max-w-md p-0">
+    <ResponsiveModal.Header class="border-b px-6 py-4">
+      <ResponsiveModal.Title>Create Prompt Pack</ResponsiveModal.Title>
+      <ResponsiveModal.Description>
         New packs start as a copy of the default templates. You can customize them after creation.
-      </Dialog.Description>
-    </Dialog.Header>
+      </ResponsiveModal.Description>
+    </ResponsiveModal.Header>
 
-    <div class="flex flex-col gap-4 py-4">
+    <div class="flex flex-col gap-4 px-6 py-4">
       <div class="flex flex-col gap-2">
         <Label for="pack-name">Name <span class="text-destructive">*</span></Label>
         <Input
@@ -96,7 +96,7 @@
       </div>
     </div>
 
-    <Dialog.Footer>
+    <ResponsiveModal.Footer class="border-t px-6 py-4">
       <Button variant="outline" onclick={() => handleOpenChange(false)}>
         Cancel
       </Button>
@@ -107,6 +107,6 @@
           Create
         {/if}
       </Button>
-    </Dialog.Footer>
-  </Dialog.Content>
-</Dialog.Root>
+    </ResponsiveModal.Footer>
+  </ResponsiveModal.Content>
+</ResponsiveModal.Root>

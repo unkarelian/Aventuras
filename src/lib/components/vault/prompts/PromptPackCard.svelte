@@ -19,9 +19,9 @@
 
 <button type="button" class="w-full text-left" {onclick}>
   <Card
-    class="group cursor-pointer transition-colors hover:border-primary/50"
+    class="group h-full cursor-pointer transition-colors hover:border-primary/50"
   >
-    <CardContent class="p-4">
+    <CardContent class="flex h-full flex-col p-4">
       <div class="flex items-start justify-between">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
@@ -33,9 +33,9 @@
               <Badge variant="outline" class="border-green-500/50 text-green-500">Active</Badge>
             {/if}
           </div>
-          {#if pack.description}
-            <p class="text-muted-foreground mt-1 text-sm line-clamp-2">{stripToPlainText(pack.description)}</p>
-          {/if}
+          <p class="text-muted-foreground mt-1 text-sm line-clamp-2">
+            {#if pack.description}{stripToPlainText(pack.description)}{:else}&nbsp;{/if}
+          </p>
         </div>
         {#if onExport}
           <Button
@@ -52,7 +52,7 @@
           </Button>
         {/if}
       </div>
-      <div class="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+      <div class="mt-auto flex items-center gap-3 pt-3 text-xs text-muted-foreground">
         <span>{modifiedCount} modified</span>
         <span class="text-muted-foreground/50">|</span>
         <span>{pack.author ?? 'Custom'}</span>
