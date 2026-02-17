@@ -8,15 +8,7 @@
   import { Switch } from '$lib/components/ui/switch'
   import { Separator } from '$lib/components/ui/separator'
   import * as Select from '$lib/components/ui/select'
-  import {
-    ChevronDown,
-    ChevronUp,
-    Trash2,
-    Plus,
-    ArrowUp,
-    ArrowDown,
-    X,
-  } from 'lucide-svelte'
+  import { ChevronDown, ChevronUp, Trash2, Plus, ArrowUp, ArrowDown, X } from 'lucide-svelte'
 
   interface Props {
     variable: CustomVariable
@@ -43,7 +35,9 @@
     editDescription = variable.description ?? ''
     editType = variable.variableType
     editDefault = variable.defaultValue ?? ''
-    editEnumOptions = variable.enumOptions ? structuredClone($state.snapshot(variable.enumOptions)) : []
+    editEnumOptions = variable.enumOptions
+      ? structuredClone($state.snapshot(variable.enumOptions))
+      : []
     expanded = initialExpanded
     showDeleteConfirm = false
   })
@@ -101,7 +95,9 @@
     editDescription = variable.description ?? ''
     editType = variable.variableType
     editDefault = variable.defaultValue ?? ''
-    editEnumOptions = variable.enumOptions ? structuredClone($state.snapshot(variable.enumOptions)) : []
+    editEnumOptions = variable.enumOptions
+      ? structuredClone($state.snapshot(variable.enumOptions))
+      : []
     showDeleteConfirm = false
     expanded = false
   }
@@ -157,7 +153,7 @@
   <!-- Collapsed View -->
   <button
     type="button"
-    class="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50"
+    class="hover:bg-accent/50 flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
     onclick={handleToggle}
   >
     <div class="flex min-w-0 flex-1 items-center gap-3">
@@ -188,13 +184,9 @@
     <Separator />
     <div class="space-y-4 px-4 py-4">
       <!-- Variable Name -->
-      <div class="space-y-1.5">
+      <div class="space-y-2">
         <Label>Variable Name</Label>
-        <Input
-          bind:value={editName}
-          placeholder="my_variable"
-          class="font-mono text-sm"
-        />
+        <Input bind:value={editName} placeholder="my_variable" class="font-mono text-sm" />
         {#if nameError}
           <p class="text-destructive text-xs">{nameError}</p>
         {/if}
@@ -203,29 +195,19 @@
       <!-- Display Name -->
       <div class="space-y-1.5">
         <Label>Display Name</Label>
-        <Input
-          bind:value={editDisplayName}
-          placeholder="My Variable"
-        />
+        <Input bind:value={editDisplayName} placeholder="My Variable" />
       </div>
 
       <!-- Description -->
       <div class="space-y-1.5">
         <Label>Description</Label>
-        <Input
-          bind:value={editDescription}
-          placeholder="Help text shown in wizard"
-        />
+        <Input bind:value={editDescription} placeholder="Help text shown in wizard" />
       </div>
 
       <!-- Type -->
       <div class="space-y-1.5">
         <Label>Type</Label>
-        <Select.Root
-          type="single"
-          value={editType}
-          onValueChange={handleTypeChange}
-        >
+        <Select.Root type="single" value={editType} onValueChange={handleTypeChange}>
           <Select.Trigger class="h-9 w-full">
             {TYPE_LABELS[editType]}
           </Select.Trigger>
@@ -243,22 +225,11 @@
       <div class="space-y-1.5">
         <Label>Default Value</Label>
         {#if editType === 'text'}
-          <Input
-            bind:value={editDefault}
-            placeholder="Default text value"
-          />
+          <Input bind:value={editDefault} placeholder="Default text value" />
         {:else if editType === 'textarea'}
-          <Textarea
-            bind:value={editDefault}
-            placeholder="Default text value"
-            rows={3}
-          />
+          <Textarea bind:value={editDefault} placeholder="Default text value" rows={3} />
         {:else if editType === 'number'}
-          <Input
-            type="number"
-            bind:value={editDefault}
-            placeholder="0"
-          />
+          <Input type="number" bind:value={editDefault} placeholder="0" />
         {:else if editType === 'boolean'}
           <Switch
             checked={editDefault === 'true'}
@@ -266,11 +237,7 @@
           />
         {:else if editType === 'enum'}
           {#if editEnumOptions.length > 0}
-            <Select.Root
-              type="single"
-              value={editDefault}
-              onValueChange={(v) => (editDefault = v)}
-            >
+            <Select.Root type="single" value={editDefault} onValueChange={(v) => (editDefault = v)}>
               <Select.Trigger class="h-9 w-full">
                 {editEnumOptions.find((o) => o.value === editDefault)?.label || 'Select default'}
               </Select.Trigger>
@@ -340,12 +307,7 @@
               </div>
             {/each}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            class="h-7 gap-1 text-xs"
-            onclick={addEnumOption}
-          >
+          <Button variant="outline" size="sm" class="h-7 gap-1 text-xs" onclick={addEnumOption}>
             <Plus class="h-3 w-3" />
             Add Option
           </Button>
@@ -389,20 +351,10 @@
         {/if}
 
         <div class="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            class="h-7 text-xs"
-            onclick={handleCancel}
-          >
+          <Button variant="outline" size="sm" class="h-7 text-xs" onclick={handleCancel}>
             Cancel
           </Button>
-          <Button
-            size="sm"
-            class="h-7 text-xs"
-            disabled={!canSave}
-            onclick={handleSave}
-          >
+          <Button size="sm" class="h-7 text-xs" disabled={!canSave} onclick={handleSave}>
             Save
           </Button>
         </div>
