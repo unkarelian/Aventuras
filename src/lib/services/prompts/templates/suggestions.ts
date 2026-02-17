@@ -2,7 +2,6 @@
  * Suggestions Prompt Template
  *
  * Generates story direction suggestions for creative writing mode.
- * Extracted from definitions.ts as part of the modular prompt reorganization.
  *
  * Templates use Liquid syntax:
  * - {{ variable }} for direct substitution

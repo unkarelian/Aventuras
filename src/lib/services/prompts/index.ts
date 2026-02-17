@@ -1,13 +1,15 @@
-// Prompt System - Template definitions and types
+/**
+ * Prompt System - Template definitions and types
+ */
 
-// Re-export types
+// Types
 export type { PromptTemplate, PromptCategory } from './types'
 
-// Re-export template definitions and utilities
+// Templates and utilities
 export {
   PROMPT_TEMPLATES,
   getTemplateById,
   getTemplatesByCategory,
   getImageStyleTemplates,
   hasUserContent,
-} from './definitions'
+} from './templates'
