@@ -167,11 +167,15 @@
       context[v.name] = runtimeSamples[v.name] ?? `[${v.name}]`
     }
     for (const v of vars) {
-      // Use test value if provided, otherwise fall back to default or placeholder
-      if (overrides && v.variableName in overrides && overrides[v.variableName] !== '') {
-        context[v.variableName] = overrides[v.variableName]
-      } else {
-        context[v.variableName] = v.defaultValue ?? `[${v.displayName}]`
+      context[v.variableName] = v.defaultValue ?? `[${v.displayName}]`
+    }
+
+    // Apply test value overrides for ANY variable (system, runtime, or custom)
+    if (overrides) {
+      for (const [key, value] of Object.entries(overrides)) {
+        if (value !== '') {
+          context[key] = value
+        }
       }
     }
 
