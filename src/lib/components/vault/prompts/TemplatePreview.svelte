@@ -3,7 +3,6 @@
   import { variableRegistry } from '$lib/services/templates/variables'
   import type { CustomVariable } from '$lib/services/packs/types'
   import type { TemplateContext } from '$lib/services/templates/types'
-  import { systemSamples, runtimeSamples } from './sampleContext'
   import { AlertTriangle } from 'lucide-svelte'
 
   interface Props {
@@ -18,17 +17,18 @@
   function buildSampleContext(vars: CustomVariable[], overrides?: Record<string, string>): TemplateContext {
     const context: TemplateContext = {}
 
+    // All variables get bracket-name fallback; actual values come from testValues overrides
     for (const v of variableRegistry.getByCategory('system')) {
-      context[v.name] = systemSamples[v.name] ?? `[${v.name}]`
+      context[v.name] = `[${v.name}]`
     }
     for (const v of variableRegistry.getByCategory('runtime')) {
-      context[v.name] = runtimeSamples[v.name] ?? `[${v.name}]`
+      context[v.name] = `[${v.name}]`
     }
     for (const v of vars) {
       context[v.variableName] = `[${v.displayName}]`
     }
 
-    // Apply test value overrides for ANY variable (system, runtime, or custom)
+    // Apply test value overrides (single source of truth for all sample/default values)
     if (overrides) {
       for (const [key, value] of Object.entries(overrides)) {
         if (value !== '') {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { FullPack, CustomVariable } from '$lib/services/packs/types'
+  import type { FullPack } from '$lib/services/packs/types'
+  import { allSamples } from './sampleContext'
   import { packService } from '$lib/services/packs/pack-service'
   import { createIsMobile } from '$lib/hooks/is-mobile.svelte'
   import TemplateGroupList from './TemplateGroupList.svelte'
@@ -64,29 +65,23 @@
     testValues = values
   }
 
-  /** Build test values from custom variable defaults (non-empty only). */
-  function buildDefaultTestValues(variables: CustomVariable[]): Record<string, string> {
-    const result: Record<string, string> = {}
-    for (const v of variables) {
-      if (v.defaultValue) {
-        result[v.variableName] = v.defaultValue
-      }
-    }
-    return result
-  }
-
-  // Sync testValues when variables change: defaults as base, user overrides on top
+  // Sync testValues when variables change: all samples + custom defaults as base, user overrides on top
   $effect(() => {
     const vars = fullPack?.variables
     if (!vars) return
-    const defaults = buildDefaultTestValues(vars)
-    const validNames = new Set(vars.map((v) => v.variableName))
+    // Build complete defaults: system + runtime samples + custom variable defaults
+    const defaults: Record<string, string> = { ...allSamples }
+    for (const v of vars) {
+      if (v.defaultValue) {
+        defaults[v.variableName] = v.defaultValue
+      }
+    }
     // Read current testValues without creating a dependency (avoid infinite loop)
     const current = untrack(() => testValues)
     // Overlay existing non-empty user overrides on top of defaults
     const merged: Record<string, string> = { ...defaults }
     for (const [key, value] of Object.entries(current)) {
-      if (value !== '' && validNames.has(key)) {
+      if (value !== '' && key in defaults) {
         merged[key] = value
       }
     }

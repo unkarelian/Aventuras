@@ -2,7 +2,6 @@
   import type { CustomVariable } from '$lib/services/packs/types'
   import type { VariableDefinition } from '$lib/services/templates/types'
   import { variableRegistry } from '$lib/services/templates/variables'
-  import { allSamples } from './sampleContext'
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import * as Collapsible from '$lib/components/ui/collapsible'
   import * as Select from '$lib/components/ui/select'
@@ -152,7 +151,7 @@
   let overrideCount = $derived(Object.values(draft).filter((v) => v !== '').length)
 </script>
 
-{#snippet varInput(name: string, description: string, type?: string, enumValues?: string[], useTextarea: boolean = false, sampleValue?: string, isCustom: boolean = false)}
+{#snippet varInput(name: string, description: string, type?: string, enumValues?: string[], useTextarea: boolean = false)}
   <div class="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-1 py-2">
     <div class="flex flex-col gap-0.5">
       <span class="text-foreground text-xs font-medium">{description}</span>
@@ -166,7 +165,7 @@
           onValueChange={(v) => updateDraft(name, v)}
         >
           <Select.Trigger class="h-7 w-full text-xs">
-            {draft[name] || (isCustom ? '' : 'Default')}
+            {draft[name] || ''}
           </Select.Trigger>
           <Select.Content>
             {#each enumValues as opt (opt)}
@@ -186,14 +185,12 @@
           type="number"
           value={draft[name] ?? ''}
           oninput={(e) => updateDraft(name, e.currentTarget.value)}
-          placeholder={isCustom ? undefined : (sampleValue ?? 'Default')}
           class="h-7 text-xs"
         />
       {:else if useTextarea}
         <Textarea
           value={draft[name] ?? ''}
           oninput={(e) => updateDraft(name, e.currentTarget.value)}
-          placeholder={isCustom ? undefined : (sampleValue ?? 'Default')}
           rows={2}
           class="text-xs"
         />
@@ -201,7 +198,6 @@
         <Input
           value={draft[name] ?? ''}
           oninput={(e) => updateDraft(name, e.currentTarget.value)}
-          placeholder={isCustom ? undefined : (sampleValue ?? 'Default')}
           class="h-7 text-xs"
         />
       {/if}
@@ -250,7 +246,7 @@
             <Collapsible.Content>
               <div class="divide-border/50 divide-y pl-6">
                 {#each filteredSystem as v (v.name)}
-                  {@render varInput(v.name, v.description, v.type, v.enumValues, false, allSamples[v.name])}
+                  {@render varInput(v.name, v.description, v.type, v.enumValues)}
                 {/each}
               </div>
             </Collapsible.Content>
@@ -276,8 +272,6 @@
                     v.variableType,
                     v.enumOptions?.map((o) => o.value),
                     v.variableType === 'textarea',
-                    undefined,
-                    true,
                   )}
                 {/each}
               </div>
@@ -298,7 +292,7 @@
             <Collapsible.Content>
               <div class="divide-border/50 divide-y pl-6">
                 {#each group.variables as v (v.name)}
-                  {@render varInput(v.name, v.description, v.type, v.enumValues, false, allSamples[v.name])}
+                  {@render varInput(v.name, v.description, v.type, v.enumValues)}
                 {/each}
               </div>
             </Collapsible.Content>
