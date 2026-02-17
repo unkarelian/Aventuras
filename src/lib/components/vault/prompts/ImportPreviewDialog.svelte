@@ -7,6 +7,7 @@
   import * as Alert from '$lib/components/ui/alert'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
   import { AlertTriangle } from 'lucide-svelte'
+  import { renderDescription } from '$lib/utils/markdown'
 
   interface Props {
     open: boolean
@@ -84,7 +85,9 @@
         <div class="flex flex-col gap-1">
           <h3 class="text-base font-semibold">{pack.name}</h3>
           {#if pack.description}
-            <p class="text-muted-foreground text-sm">{pack.description}</p>
+            <div class="prose-content text-muted-foreground text-sm">
+              {@html renderDescription(pack.description)}
+            </div>
           {/if}
           {#if pack.author}
             <p class="text-muted-foreground text-sm">By {pack.author}</p>

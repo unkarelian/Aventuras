@@ -1,24 +1,6 @@
-/**
- * Analysis Prompt Templates
- *
- * Templates for analysis and classification services including
- * world state extraction, style review, and lorebook classification.
- *
- * Templates use Liquid syntax:
- * - {{ variable }} for direct substitution
- * - {% if/elsif/else/endif %} for conditional logic
- *
- * External templates (lorebook-classifier) are raw text -- services
- * inject data programmatically, not through LiquidJS.
- */
-
 import type { PromptTemplate } from '../types'
 
-/**
- * World State Classifier prompt template
- * Extracts characters, locations, items, and story beats from narrative responses
- */
-export const classifierPromptTemplate: PromptTemplate = {
+const classifierPromptTemplate: PromptTemplate = {
   id: 'classifier',
   name: 'World State Classifier',
   category: 'service',
@@ -178,11 +160,7 @@ Items: {{ existingItems }}
 Empty arrays are fine - don't invent entities that aren't clearly in the text.`,
 }
 
-/**
- * Style Reviewer prompt template
- * Identifies overused phrases and style issues in narrative text
- */
-export const styleReviewerPromptTemplate: PromptTemplate = {
+const styleReviewerPromptTemplate: PromptTemplate = {
   id: 'style-reviewer',
   name: 'Style Reviewer',
   category: 'service',
@@ -223,12 +201,7 @@ Identify overused phrases, sentence patterns, structural repetition, and stylist
 {{ passages }}`,
 }
 
-/**
- * Lorebook Classifier prompt template (EXTERNAL)
- * Classifies lorebook entries into appropriate categories.
- * This is an external template -- services inject data programmatically.
- */
-export const lorebookClassifierPromptTemplate: PromptTemplate = {
+const lorebookClassifierPromptTemplate: PromptTemplate = {
   id: 'lorebook-classifier',
   name: 'Lorebook Classifier',
   category: 'service',
@@ -246,11 +219,7 @@ Entries to classify:
 {{entriesJson}}`,
 }
 
-/**
- * Tier 3 Entry Selection prompt template
- * LLM-based selection of relevant lorebook entries for narrative context
- */
-export const tier3EntrySelectionPromptTemplate: PromptTemplate = {
+const tier3EntrySelectionPromptTemplate: PromptTemplate = {
   id: 'tier3-entry-selection',
   name: 'Tier 3 Entry Selection',
   category: 'service',
@@ -281,9 +250,6 @@ Only include entries that have a clear connection to the current scene or user's
 Which entries (by number) are relevant to the current scene and user input?`,
 }
 
-/**
- * Analysis templates array for registration
- */
 export const analysisTemplates: PromptTemplate[] = [
   classifierPromptTemplate,
   styleReviewerPromptTemplate,

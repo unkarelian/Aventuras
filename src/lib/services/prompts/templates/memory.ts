@@ -1,23 +1,6 @@
-/**
- * Memory System Prompt Templates
- *
- * Templates for the memory and retrieval system including
- * chapter analysis, summarization, and context retrieval.
- *
- * Templates use Liquid syntax:
- * - {{ variable }} for direct substitution
- *
- * External templates (interactive-lorebook) are raw text -- services
- * inject data programmatically, not through LiquidJS.
- */
-
 import type { PromptTemplate } from '../types'
 
-/**
- * Chapter Analysis prompt template
- * Identifies the best endpoint for chapter summarization
- */
-export const chapterAnalysisPromptTemplate: PromptTemplate = {
+const chapterAnalysisPromptTemplate: PromptTemplate = {
   id: 'chapter-analysis',
   name: 'Chapter Analysis',
   category: 'service',
@@ -43,11 +26,7 @@ Last valid message ID: {{ lastValidId }}
 Select the single best chapter endpoint from this range.`,
 }
 
-/**
- * Chapter Summarization prompt template
- * Creates summaries of story chapters for the memory system
- */
-export const chapterSummarizationPromptTemplate: PromptTemplate = {
+const chapterSummarizationPromptTemplate: PromptTemplate = {
   id: 'chapter-summarization',
   name: 'Chapter Summarization',
   category: 'service',
@@ -78,11 +57,7 @@ CHAPTER CONTENT:
 """`,
 }
 
-/**
- * Retrieval Decision prompt template
- * Decides which past chapters are relevant for current context
- */
-export const retrievalDecisionPromptTemplate: PromptTemplate = {
+const retrievalDecisionPromptTemplate: PromptTemplate = {
   id: 'retrieval-decision',
   name: 'Retrieval Decision',
   category: 'service',
@@ -114,11 +89,7 @@ Guidelines:
 - Consider: characters mentioned, locations being revisited, plot threads referenced`,
 }
 
-/**
- * Lore Management prompt template
- * Agentic lore management for maintaining story database
- */
-export const loreManagementPromptTemplate: PromptTemplate = {
+const loreManagementPromptTemplate: PromptTemplate = {
   id: 'lore-management',
   name: 'Lore Management',
   category: 'service',
@@ -154,12 +125,7 @@ Please review the story content and identify:
 Use the available tools to make necessary changes, then call finish_lore_management when done.`,
 }
 
-/**
- * Interactive Lorebook prompt template (EXTERNAL)
- * AI-assisted lorebook creation and organization in the vault.
- * This is an external template -- services inject data programmatically.
- */
-export const interactiveLorebookPromptTemplate: PromptTemplate = {
+const interactiveLorebookPromptTemplate: PromptTemplate = {
   id: 'interactive-lorebook',
   name: 'Interactive Lorebook',
   category: 'service',
@@ -202,11 +168,7 @@ Current lorebook: {{lorebookName}}
 Total entries: {{entryCount}}`,
 }
 
-/**
- * Agentic Retrieval prompt template
- * Agentic context retrieval for gathering past story context
- */
-export const agenticRetrievalPromptTemplate: PromptTemplate = {
+const agenticRetrievalPromptTemplate: PromptTemplate = {
   id: 'agentic-retrieval',
   name: 'Agentic Retrieval',
   category: 'service',
@@ -249,9 +211,6 @@ RECENT SCENE:
 Please gather relevant context from past chapters that will help respond to this situation. Focus on information that is actually needed - often, no retrieval is necessary for simple actions.`,
 }
 
-/**
- * Memory templates array for registration
- */
 export const memoryTemplates: PromptTemplate[] = [
   chapterAnalysisPromptTemplate,
   chapterSummarizationPromptTemplate,

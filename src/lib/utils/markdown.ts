@@ -60,10 +60,15 @@ export function renderDescription(text: string): string {
   return parseMarkdown(text)
 }
 
-/**
- * Escape HTML special characters.
- * Used as fallback when markdown parsing fails.
- */
+/** Strip HTML/Markdown to plain text. Used for card previews where rich rendering isn't appropriate. */
+export function stripToPlainText(text: string): string {
+  if (!text) return ''
+  const html = renderDescription(text)
+  const div = document.createElement('div')
+  div.innerHTML = html
+  return div.textContent ?? ''
+}
+
 function escapeHtml(text: string): string {
   const div = document.createElement('div')
   div.textContent = text

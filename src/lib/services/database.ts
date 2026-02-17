@@ -31,6 +31,7 @@ import type {
   CustomVariable,
   EnumOption,
 } from '$lib/services/packs/types'
+import { hashContent } from '$lib/services/packs/hash'
 
 /**
  * Migrate visual descriptors from old string array format to new structured object format.
@@ -3191,7 +3192,7 @@ class DatabaseService {
   async setPackTemplateContent(packId: string, templateId: string, content: string): Promise<void> {
     const db = await this.getDb()
     const now = Date.now()
-    const contentHash = await this.hashContent(content)
+    const contentHash = await hashContent(content)
     // Use INSERT OR REPLACE to handle both create and update
     // Need to preserve original created_at if exists
     const existing = await this.getPackTemplate(packId, templateId)
@@ -3341,19 +3342,6 @@ class DatabaseService {
       'UPDATE stories SET custom_variable_values = ? WHERE id = ?',
       [JSON.stringify(values), storyId],
     )
-  }
-
-  /**
-   * Hash template content using SHA-256 for modification detection.
-   * Normalizes whitespace before hashing to prevent false positives.
-   */
-  private async hashContent(content: string): Promise<string> {
-    const normalized = content.trim().replace(/\r\n/g, '\n')
-    const encoder = new TextEncoder()
-    const data = encoder.encode(normalized)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
   }
 
   private mapVaultTag(row: any): VaultTag {

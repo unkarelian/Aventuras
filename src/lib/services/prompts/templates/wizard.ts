@@ -1,23 +1,6 @@
-/**
- * Wizard Prompt Templates
- *
- * Templates for the story wizard including setting expansion,
- * character generation, and opening scene creation.
- *
- * Templates use Liquid syntax:
- * - {{ variable }} for direct substitution
- *
- * External templates (vault-character-import, character-card-import)
- * use {{token}} syntax for programmatic replacement by services.
- */
-
 import type { PromptTemplate } from '../types'
 
-/**
- * Setting Expansion prompt template
- * Generates rich, evocative settings for interactive fiction
- */
-export const settingExpansionPromptTemplate: PromptTemplate = {
+const settingExpansionPromptTemplate: PromptTemplate = {
   id: 'setting-expansion',
   name: 'Setting Expansion',
   category: 'wizard',
@@ -34,11 +17,7 @@ Be creative but grounded. Make the setting feel lived-in and full of story poten
 Expand this into a rich, detailed world that could sustain an interactive story.`,
 }
 
-/**
- * Setting Refinement prompt template
- * Refines an existing setting using current details and guidance
- */
-export const settingRefinementPromptTemplate: PromptTemplate = {
+const settingRefinementPromptTemplate: PromptTemplate = {
   id: 'setting-refinement',
   name: 'Setting Refinement',
   category: 'wizard',
@@ -57,11 +36,7 @@ CURRENT SETTING:
 {{ lorebookContext }}`,
 }
 
-/**
- * Protagonist Generation prompt template
- * Creates compelling protagonists for interactive fiction
- */
-export const protagonistGenerationPromptTemplate: PromptTemplate = {
+const protagonistGenerationPromptTemplate: PromptTemplate = {
   id: 'protagonist-generation',
   name: 'Protagonist Generation',
   category: 'wizard',
@@ -79,11 +54,7 @@ SETTING: {{ settingName }}
 Create a compelling protagonist who fits naturally into this world.`,
 }
 
-/**
- * Character Elaboration prompt template
- * Enriches user-provided character details
- */
-export const characterElaborationPromptTemplate: PromptTemplate = {
+const characterElaborationPromptTemplate: PromptTemplate = {
   id: 'character-elaboration',
   name: 'Character Elaboration',
   category: 'wizard',
@@ -107,11 +78,7 @@ Rules:
 Expand on these details while preserving everything the user specified.`,
 }
 
-/**
- * Character Refinement prompt template
- * Refines an existing character using current details and guidance
- */
-export const characterRefinementPromptTemplate: PromptTemplate = {
+const characterRefinementPromptTemplate: PromptTemplate = {
   id: 'character-refinement',
   name: 'Character Refinement',
   category: 'wizard',
@@ -131,11 +98,7 @@ CURRENT CHARACTER:
 {{ settingContext }}`,
 }
 
-/**
- * Supporting Characters prompt template
- * Creates compelling supporting characters
- */
-export const supportingCharactersPromptTemplate: PromptTemplate = {
+const supportingCharactersPromptTemplate: PromptTemplate = {
   id: 'supporting-characters',
   name: 'Supporting Characters',
   category: 'wizard',
@@ -154,11 +117,7 @@ PROTAGONIST: {{ protagonistName }}
 Create diverse characters with different roles (ally, antagonist, mentor, etc.) who can drive story conflict and complement the protagonist.`,
 }
 
-/**
- * Opening Generation (Adventure) prompt template
- * Crafts the opening scene for adventure mode (player controls the protagonist)
- */
-export const openingGenerationAdventurePromptTemplate: PromptTemplate = {
+const openingGenerationAdventurePromptTemplate: PromptTemplate = {
   id: 'opening-generation-adventure',
   name: 'Opening Generation (Adventure)',
   category: 'wizard',
@@ -245,11 +204,7 @@ PROTAGONIST: {{ protagonistName }}{{ protagonistDescription }}
 Write an immersive opening that drops the reader into the story. Remember: describe only the environment and NPCs, NOT the protagonist's actions, dialogue, or thoughts.`,
 }
 
-/**
- * Opening Generation (Creative Writing) prompt template
- * Crafts the opening scene for creative writing mode (author directs the story)
- */
-export const openingGenerationCreativePromptTemplate: PromptTemplate = {
+const openingGenerationCreativePromptTemplate: PromptTemplate = {
   id: 'opening-generation-creative',
   name: 'Opening Generation (Creative Writing)',
   category: 'wizard',
@@ -329,11 +284,7 @@ PROTAGONIST: {{ protagonistName }}{{ protagonistDescription }}
 Write an immersive opening that drops the reader into the story. Remember: the author directs the story, so write the protagonist's actions, dialogue, and thoughts as needed.`,
 }
 
-/**
- * Opening Refinement (Adventure) prompt template
- * Refines the opening scene for adventure mode (player controls the protagonist)
- */
-export const openingRefinementAdventurePromptTemplate: PromptTemplate = {
+const openingRefinementAdventurePromptTemplate: PromptTemplate = {
   id: 'opening-refinement-adventure',
   name: 'Opening Refinement (Adventure)',
   category: 'wizard',
@@ -415,11 +366,7 @@ PROTAGONIST: {{ protagonistName }}{{ protagonistDescription }}
 {{ guidanceSection }}{{ lorebookContext }}{{ openingInstruction }}`,
 }
 
-/**
- * Opening Refinement (Creative Writing) prompt template
- * Refines the opening scene for creative writing mode (author directs the story)
- */
-export const openingRefinementCreativePromptTemplate: PromptTemplate = {
+const openingRefinementCreativePromptTemplate: PromptTemplate = {
   id: 'opening-refinement-creative',
   name: 'Opening Refinement (Creative Writing)',
   category: 'wizard',
@@ -498,12 +445,7 @@ PROTAGONIST: {{ protagonistName }}{{ protagonistDescription }}
 {{ guidanceSection }}{{ lorebookContext }}{{ openingInstruction }}`,
 }
 
-/**
- * Character Card Import prompt template (EXTERNAL)
- * Cleans SillyTavern character cards and converts them to Aventura scenario settings.
- * This is an external template -- services inject {{char}} and {{user}} programmatically.
- */
-export const characterCardImportPromptTemplate: PromptTemplate = {
+const characterCardImportPromptTemplate: PromptTemplate = {
   id: 'character-card-import',
   name: 'Character Card Import',
   category: 'wizard',
@@ -575,12 +517,7 @@ IMPORTANT:
 Clean the above content. Identify all NPCs, replace {{char}} with the actual name, keep {{user}} as-is, and remove meta-content.`,
 }
 
-/**
- * Vault Character Import prompt template (EXTERNAL)
- * Cleans SillyTavern character cards and extracts structured character data for the vault.
- * This is an external template -- services inject data programmatically.
- */
-export const vaultCharacterImportPromptTemplate: PromptTemplate = {
+const vaultCharacterImportPromptTemplate: PromptTemplate = {
   id: 'vault-character-import',
   name: 'Vault Character Import',
   category: 'service',
@@ -641,9 +578,6 @@ export const vaultCharacterImportPromptTemplate: PromptTemplate = {
 Extract the character information. Remove all meta-instructions and roleplay formatting.`,
 }
 
-/**
- * Wizard templates array for registration
- */
 export const wizardTemplates: PromptTemplate[] = [
   settingExpansionPromptTemplate,
   settingRefinementPromptTemplate,

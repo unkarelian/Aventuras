@@ -44,7 +44,7 @@ export const PackTemplateSchema = z.object({
   content: z.string(),
 })
 
-/** Full pack export schema (versioned for Phase 5 forward compatibility) */
+/** Full pack export schema (versioned for forward compatibility) */
 export const PackExportSchema = z.object({
   version: z.literal(1),
   name: z.string().min(1),
@@ -78,7 +78,7 @@ export function validatePackImport(data: unknown): {
 
 /**
  * Validate a single custom variable definition.
- * Used when creating/editing variables in the UI (Phase 4).
+ * Used when creating/editing variables in the UI.
  */
 export function validateCustomVariable(data: unknown): {
   valid: boolean

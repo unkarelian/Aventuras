@@ -38,7 +38,7 @@ class TemplateEngine {
    * Render a template with the given context
    *
    * This is the one-pass render: one template string + one context object = one output string.
-   * Never throws to the caller - returns empty string on error (per user decision: "Never break the user's experience").
+   * Never throws — returns empty string on error.
    *
    * @param template - Template string with LiquidJS syntax
    * @param context - Flat context object with variable values

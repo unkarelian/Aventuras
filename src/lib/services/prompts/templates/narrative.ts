@@ -1,22 +1,6 @@
-/**
- * Narrative Prompt Templates
- *
- * Main story templates for adventure and creative writing modes.
- * These are the primary prompts that drive the narrative generation.
- *
- * Templates use Liquid syntax:
- * - {{ variable }} for direct substitution
- * - {% if/elsif/else/endif %} for conditional logic
- * All variables come from ContextBuilder's flat namespace.
- */
-
 import type { PromptTemplate } from '../types'
 
-/**
- * Adventure mode system prompt
- * This is the main narrative prompt for adventure/RPG style stories.
- */
-export const adventurePromptTemplate: PromptTemplate = {
+const adventurePromptTemplate: PromptTemplate = {
   id: 'adventure',
   name: 'Adventure Mode',
   category: 'story',
@@ -148,11 +132,7 @@ End with a natural opening for action, not a direct question.{% endif %}
 {% endif %}{% if chapterSummaries != '' %}{{ chapterSummaries }}{% endif %}{% if styleGuidance != '' %}{{ styleGuidance }}{% endif %}`,
 }
 
-/**
- * Creative writing mode system prompt
- * This is the main narrative prompt for collaborative fiction writing.
- */
-export const creativeWritingPromptTemplate: PromptTemplate = {
+const creativeWritingPromptTemplate: PromptTemplate = {
   id: 'creative-writing',
   name: 'Creative Writing Mode',
   category: 'story',
@@ -320,9 +300,6 @@ End at a natural narrative beat.{% endif %}
 {% endif %}{% if chapterSummaries != '' %}{{ chapterSummaries }}{% endif %}{% if styleGuidance != '' %}{{ styleGuidance }}{% endif %}`,
 }
 
-/**
- * Story templates array for registration
- */
 export const storyTemplates: PromptTemplate[] = [
   adventurePromptTemplate,
   creativeWritingPromptTemplate,

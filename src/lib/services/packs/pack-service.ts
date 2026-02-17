@@ -1,6 +1,7 @@
 import { database } from '$lib/services/database'
 import { PROMPT_TEMPLATES } from '$lib/services/prompts/templates'
-import type { PresetPack, FullPack, PackTemplate } from './types'
+import { hashContent } from './hash'
+import type { PresetPack, FullPack } from './types'
 
 /**
  * Pack Service
@@ -88,10 +89,7 @@ class PackService {
     return { pack, templates, variables }
   }
 
-  /**
-   * Create a new pack by copying all templates and variables from the default pack.
-   * Per user decision: new packs start as a copy of the default pack.
-   */
+  /** Create a new pack by copying all templates and variables from the default pack. */
   async createPack(name: string, description?: string, author?: string): Promise<PresetPack> {
     const packId = crypto.randomUUID()
 
@@ -135,13 +133,7 @@ class PackService {
     await database.updatePack(id, updates)
   }
 
-  /**
-   * Delete a pack if allowed.
-   * Per user decisions:
-   * - Default pack cannot be deleted
-   * - Pack cannot be deleted while any story uses it
-   * Returns true if deleted, false if not allowed.
-   */
+  /** Delete a pack. Default pack and packs in use by stories cannot be deleted. */
   async deletePack(packId: string): Promise<{ deleted: boolean, reason?: string }> {
     const pack = await database.getPack(packId)
     if (!pack) return { deleted: false, reason: 'Pack not found' }
@@ -168,7 +160,7 @@ class PackService {
     const defaultContent = this.getDefaultContent(templateId)
     if (defaultContent === null) return false
 
-    const defaultHash = await this.hashContent(defaultContent)
+    const defaultHash = await hashContent(defaultContent)
     return packTemplate.contentHash !== defaultHash
   }
 
@@ -186,17 +178,14 @@ class PackService {
         result.set(template.templateId, false)
         continue
       }
-      const defaultHash = await this.hashContent(defaultContent)
+      const defaultHash = await hashContent(defaultContent)
       result.set(template.templateId, template.contentHash !== defaultHash)
     }
 
     return result
   }
 
-  /**
-   * Reset a template to the default baseline content.
-   * Per user decision: reset is per-template, not per-pack.
-   */
+  /** Reset a template to the default baseline content. */
   async resetTemplate(packId: string, templateId: string): Promise<boolean> {
     const defaultContent = this.getDefaultContent(templateId)
     if (defaultContent === null) return false
@@ -220,20 +209,6 @@ class PackService {
     // System prompt content
     const template = PROMPT_TEMPLATES.find(t => t.id === templateId)
     return template?.content ?? null
-  }
-
-  /**
-   * Hash content using SHA-256 with whitespace normalization.
-   * Duplicates DatabaseService.hashContent intentionally -- service layer
-   * needs hashing for comparison without going through the database.
-   */
-  private async hashContent(content: string): Promise<string> {
-    const normalized = content.trim().replace(/\r\n/g, '\n')
-    const encoder = new TextEncoder()
-    const data = encoder.encode(normalized)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
   }
 }
 

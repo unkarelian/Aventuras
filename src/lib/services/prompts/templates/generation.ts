@@ -1,22 +1,6 @@
-/**
- * Generation Prompt Templates
- *
- * Templates for content generation services including
- * action choices and timeline fill operations.
- *
- * Templates use Liquid syntax:
- * - {{ variable }} for direct substitution
- *
- * Note: Suggestions template is in ./suggestions/suggestions.ts
- */
-
 import type { PromptTemplate } from '../types'
 
-/**
- * Action Choices prompt template
- * Generates RPG-style action choices for adventure mode
- */
-export const actionChoicesPromptTemplate: PromptTemplate = {
+const actionChoicesPromptTemplate: PromptTemplate = {
   id: 'action-choices',
   name: 'Action Choices',
   category: 'service',
@@ -65,11 +49,7 @@ Avoid choices like "Wait and see" or "Do nothing" - each option should lead to m
 - move: Going somewhere or leaving`,
 }
 
-/**
- * Timeline Fill prompt template
- * Generates queries to gather context from past chapters
- */
-export const timelineFillPromptTemplate: PromptTemplate = {
+const timelineFillPromptTemplate: PromptTemplate = {
   id: 'timeline-fill',
   name: 'Timeline Fill',
   category: 'service',
@@ -94,11 +74,7 @@ Existing chapter timeline:
 Identify what information from past chapters would help understand the current scene. Generate queries about specific chapters or chapter ranges. The maximum number of chapters per query is 3.`,
 }
 
-/**
- * Timeline Fill Answer prompt template
- * Answers specific questions about past chapter content
- */
-export const timelineFillAnswerPromptTemplate: PromptTemplate = {
+const timelineFillAnswerPromptTemplate: PromptTemplate = {
   id: 'timeline-fill-answer',
   name: 'Timeline Fill Answer',
   category: 'service',
@@ -111,9 +87,6 @@ QUESTION: {{ query }}
 Provide a concise, factual answer based only on the chapter content above. If the information isn't available in these chapters, say "Not mentioned in these chapters."`,
 }
 
-/**
- * Generation templates array for registration
- */
 export const generationTemplates: PromptTemplate[] = [
   actionChoicesPromptTemplate,
   timelineFillPromptTemplate,

@@ -1,20 +1,6 @@
-/**
- * Translation Prompt Templates
- *
- * Templates for translating narrative content, user input,
- * and UI elements between languages.
- *
- * Templates use Liquid syntax:
- * - {{ variable }} for direct substitution
- */
-
 import type { PromptTemplate } from '../types'
 
-/**
- * Translate Narration prompt template
- * Translates narrative content to target language
- */
-export const translateNarrationTemplate: PromptTemplate = {
+const translateNarrationTemplate: PromptTemplate = {
   id: 'translate-narration',
   name: 'Translate Narration',
   category: 'service',
@@ -34,11 +20,7 @@ Respond with ONLY the translated text, no explanations or notes.`,
   userContent: `{{ content }}`,
 }
 
-/**
- * Translate User Input prompt template
- * Translates user input to English for AI processing
- */
-export const translateInputTemplate: PromptTemplate = {
+const translateInputTemplate: PromptTemplate = {
   id: 'translate-input',
   name: 'Translate User Input',
   category: 'service',
@@ -55,11 +37,7 @@ Respond with ONLY the English translation, no explanations.`,
   userContent: `{{ content }}`,
 }
 
-/**
- * Translate UI Elements prompt template
- * Batch translates world state elements
- */
-export const translateUITemplate: PromptTemplate = {
+const translateUITemplate: PromptTemplate = {
   id: 'translate-ui',
   name: 'Translate UI Elements',
   category: 'service',
@@ -73,11 +51,7 @@ Translate each item in the JSON array below. For each item:
   userContent: `{{ elementsJson }}`,
 }
 
-/**
- * Translate Suggestions prompt template
- * Translates creative writing plot suggestions
- */
-export const translateSuggestionsTemplate: PromptTemplate = {
+const translateSuggestionsTemplate: PromptTemplate = {
   id: 'translate-suggestions',
   name: 'Translate Suggestions',
   category: 'service',
@@ -92,11 +66,7 @@ Translate the JSON array of suggestions below. For each item:
   userContent: `{{ suggestionsJson }}`,
 }
 
-/**
- * Translate Action Choices prompt template
- * Translates adventure mode action choices
- */
-export const translateActionChoicesTemplate: PromptTemplate = {
+const translateActionChoicesTemplate: PromptTemplate = {
   id: 'translate-action-choices',
   name: 'Translate Action Choices',
   category: 'service',
@@ -111,11 +81,7 @@ Translate the JSON array of action choices below. For each item:
   userContent: `{{ choicesJson }}`,
 }
 
-/**
- * Translate Wizard Content prompt template
- * Translates story wizard generated content
- */
-export const translateWizardContentTemplate: PromptTemplate = {
+const translateWizardContentTemplate: PromptTemplate = {
   id: 'translate-wizard-content',
   name: 'Translate Wizard Content',
   category: 'service',
@@ -138,9 +104,6 @@ Respond with ONLY the translated text, no explanations.`,
   userContent: `{{ content }}`,
 }
 
-/**
- * Translation templates array for registration
- */
 export const translationTemplates: PromptTemplate[] = [
   translateNarrationTemplate,
   translateInputTemplate,

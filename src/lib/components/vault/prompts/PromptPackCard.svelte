@@ -4,6 +4,7 @@
   import { Badge } from '$lib/components/ui/badge'
   import { Button } from '$lib/components/ui/button'
   import { Download } from 'lucide-svelte'
+  import { stripToPlainText } from '$lib/utils/markdown'
 
   interface Props {
     pack: PresetPack
@@ -33,7 +34,7 @@
             {/if}
           </div>
           {#if pack.description}
-            <p class="text-muted-foreground mt-1 text-sm line-clamp-2">{pack.description}</p>
+            <p class="text-muted-foreground mt-1 text-sm line-clamp-2">{stripToPlainText(pack.description)}</p>
           {/if}
         </div>
         {#if onExport}

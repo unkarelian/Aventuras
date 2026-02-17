@@ -1,23 +1,6 @@
-/**
- * Image Generation Prompt Templates
- *
- * Templates for image generation including style presets,
- * scene analysis, and portrait generation.
- *
- * Templates use Liquid syntax:
- * - {{ variable }} for direct substitution
- *
- * External templates (image-style-*) are raw text -- no variable
- * syntax, used as-is by image generation services.
- */
-
 import type { PromptTemplate } from '../types'
 
-/**
- * Soft Anime style template (EXTERNAL - raw text)
- * Soft cel-shading, muted pastels, dreamy atmosphere
- */
-export const softAnimeStyleTemplate: PromptTemplate = {
+const softAnimeStyleTemplate: PromptTemplate = {
   id: 'image-style-soft-anime',
   name: 'Soft Anime',
   category: 'image-style',
@@ -25,11 +8,7 @@ export const softAnimeStyleTemplate: PromptTemplate = {
   content: `Soft cel-shaded anime illustration with muted pastel color palette. Low saturation, gentle lighting with diffused ambient glow. Subtle linework that blends into the coloring rather than hard outlines. Smooth gradients on shadows, slight bloom effect on highlights and light sources. Dreamy, airy, cozy atmosphere. Studio Ghibli-inspired aesthetic with soft watercolor texture hints in background. Smooth blending on hair and skin with no visible harsh texture. Avoid high contrast, sharp shadows, or dark gritty environments.`,
 }
 
-/**
- * Semi-realistic Anime style template (EXTERNAL - raw text)
- * Polished, cinematic, detailed rendering
- */
-export const semiRealisticAnimeStyleTemplate: PromptTemplate = {
+const semiRealisticAnimeStyleTemplate: PromptTemplate = {
   id: 'image-style-semi-realistic',
   name: 'Semi-realistic Anime',
   category: 'image-style',
@@ -37,11 +16,7 @@ export const semiRealisticAnimeStyleTemplate: PromptTemplate = {
   content: `Digital anime art with polished, detailed rendering. NOT photorealistic - this is stylized anime/digital art with refined details. Anime-style eyes and facial features with expressive proportions. Detailed hair with visible strands, smooth skin with subtle shading, fabric with weight and texture. Clear directional lighting with soft falloff. Cinematic composition with depth of field. Rich colors with professional color grading. Clean linework with painterly rendering. Atmospheric and polished digital illustration style. Think high-quality anime key visual or game CG art. Avoid photorealism, 3D renders, or uncanny valley faces.`,
 }
 
-/**
- * Photorealistic style template (EXTERNAL - raw text)
- * True-to-life rendering with natural lighting
- */
-export const photorealisticStyleTemplate: PromptTemplate = {
+const photorealisticStyleTemplate: PromptTemplate = {
   id: 'image-style-photorealistic',
   name: 'Photorealistic',
   category: 'image-style',
@@ -49,11 +24,7 @@ export const photorealisticStyleTemplate: PromptTemplate = {
   content: `Photorealistic digital art with true-to-life rendering. Natural lighting with accurate shadows and highlights. Detailed textures on skin, fabric, and materials. Accurate human proportions and anatomy. Professional photography aesthetic with cinematic depth of field. High dynamic range with realistic contrast. Detailed environments with accurate perspective. Materials rendered with proper reflectance and subsurface scattering where appropriate. Film grain optional for cinematic feel. 8K quality, hyperrealistic detail.`,
 }
 
-/**
- * Image Prompt Analysis template (legacy mode - full character descriptions)
- * Identifies imageable scenes in narrative text for image generation
- */
-export const imagePromptAnalysisTemplate: PromptTemplate = {
+const imagePromptAnalysisTemplate: PromptTemplate = {
   id: 'image-prompt-analysis',
   name: 'Image Prompt Analysis',
   category: 'service',
@@ -125,11 +96,7 @@ Analyze the narrative and identify up to {{ maxImages }} key visual moments (0 =
 Identify the most visually striking moments and return the JSON array. Remember: sourceText must come from the Display Narrative (translated if provided), but prompts must ALWAYS be in English.`,
 }
 
-/**
- * Image Prompt Analysis (Reference Mode) template
- * Identifies imageable scenes for generation with character reference images
- */
-export const imagePromptAnalysisReferenceTemplate: PromptTemplate = {
+const imagePromptAnalysisReferenceTemplate: PromptTemplate = {
   id: 'image-prompt-analysis-reference',
   name: 'Image Prompt Analysis (Reference Mode)',
   category: 'service',
@@ -301,11 +268,7 @@ Match the angle to the emotional tone: action scenes benefit from low/dutch angl
 Identify visually striking moments. Return JSON array. Remember: NEVER use character names in prompts - describe by visual traits only. Keep prompts concise. sourceText must come from the Display Narrative (translated if provided), but prompts must ALWAYS be in English.`,
 }
 
-/**
- * Portrait Generation template
- * Direct image prompt template for character portraits
- */
-export const imagePortraitGenerationTemplate: PromptTemplate = {
+const imagePortraitGenerationTemplate: PromptTemplate = {
   id: 'image-portrait-generation',
   name: 'Portrait Generation',
   category: 'service',
@@ -352,9 +315,6 @@ When generating a description, follow these standards:
 {{ currentResponse }}`,
 }
 
-/**
- * Image templates array for registration
- */
 export const imageTemplates: PromptTemplate[] = [
   softAnimeStyleTemplate,
   semiRealisticAnimeStyleTemplate,

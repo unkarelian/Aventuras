@@ -1,34 +1,7 @@
-/**
- * Preset Pack System - Type Definitions
- *
- * This module defines the types for the preset pack system.
- * Packs bundle prompt templates and custom variable definitions into reusable units.
- * Each pack is self-contained with all templates and variables needed for a story.
- *
- * Pack types are distinct from the Phase 1 template engine types:
- * - CustomVariableType extends VariableType with 'textarea' for longer text inputs
- * - Packs manage both template content and variable definitions
- * - Packs have no versioning - edits overwrite in place
- */
-
-/**
- * Custom variable type for pack variables
- * Extends Phase 1 VariableType with textarea for multi-line text input.
- *
- * - text: Single-line text input
- * - textarea: Multi-line text input
- * - enum: Dropdown selection with label+value pairs
- * - number: Numeric input
- * - boolean: Toggle/checkbox
- */
+/** Custom variable type for pack variables (extends VariableType with textarea). */
 export type CustomVariableType = 'text' | 'textarea' | 'enum' | 'number' | 'boolean'
 
-/**
- * Enum option for dropdown variables
- * Separates display text from stored value for flexibility.
- *
- * Example: { label: 'Fantasy', value: 'fantasy' }
- */
+/** Enum option: separates display label from stored value. */
 export interface EnumOption {
   /** Display text shown in UI */
   label: string
@@ -36,14 +9,7 @@ export interface EnumOption {
   value: string
 }
 
-/**
- * Custom variable definition
- * Defines a user-configurable variable that can be used in pack templates.
- *
- * Variables have both a variable name (for template usage) and a display name (for UI).
- * Example: variableName='writing_style' appears as {{ writing_style }} in templates,
- * while displayName='Writing Style' is shown in the UI.
- */
+/** User-configurable variable used in pack templates. variableName for templates, displayName for UI. */
 export interface CustomVariable {
   /** Unique identifier */
   id: string
@@ -69,13 +35,7 @@ export interface CustomVariable {
   createdAt: number
 }
 
-/**
- * Pack template content
- * Stores the template content for a specific prompt template within a pack.
- *
- * Each pack contains all prompt templates, even unmodified ones.
- * Content hash enables detection of modifications from default baseline.
- */
+/** Template content within a pack. Content hash detects modifications from default. */
 export interface PackTemplate {
   /** Unique identifier */
   id: string
@@ -93,13 +53,7 @@ export interface PackTemplate {
   updatedAt: number
 }
 
-/**
- * Preset pack metadata
- * Container for a complete set of prompt templates and custom variables.
- *
- * Packs are assigned per-story and provide all template content and variable definitions.
- * No versioning - edits overwrite in place. Export (Phase 5) serves as snapshot mechanism.
- */
+/** Preset pack metadata. Assigned per-story. No versioning — export serves as snapshot. */
 export interface PresetPack {
   /** Unique identifier */
   id: string
@@ -117,10 +71,7 @@ export interface PresetPack {
   updatedAt: number
 }
 
-/**
- * Full pack with all child entities
- * Convenience type for loading a complete pack with all templates and variables.
- */
+/** Full pack with all templates and variables. */
 export interface FullPack {
   /** Pack metadata */
   pack: PresetPack
