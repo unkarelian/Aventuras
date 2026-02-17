@@ -818,66 +818,6 @@ export interface GenerationPreset {
   manualBody: string
 }
 
-// ===== Prompt Export/Import Types =====
-
-/**
- * Exported Generation Preset - excludes sensitive profileId
- * On import, user must reconnect each preset to an API profile
- */
-export interface ExportedGenerationPreset {
-  id: string
-  name: string
-  description: string | null
-  model: string
-  temperature: number
-  maxTokens: number
-  reasoningEffort: ReasoningEffort
-  manualBody: string
-  // profileId is EXCLUDED - will be reconnected on import
-}
-
-/**
- * Main export structure for prompts, macros, presets, and assignments
- */
-export interface PromptExportData {
-  version: string
-  exportedAt: number
-  appVersion?: string
-
-  promptSettings: {
-    customMacros: unknown[]
-    macroOverrides: unknown[]
-    templateOverrides: import('$lib/services/prompts/types').PromptOverride[]
-  }
-
-  generationPresets: ExportedGenerationPreset[]
-  servicePresetAssignments: Record<string, string>
-}
-
-/**
- * Parsed import data with validation state
- */
-export interface ParsedPromptImport {
-  success: boolean
-  data: PromptExportData | null
-  errors: string[]
-  warnings: string[]
-}
-
-/**
- * Profile assignment for import - allows customizing preset parameters
- */
-export interface ImportPresetConfig {
-  presetId: string
-  presetName: string
-  profileId: string
-  model: string
-  temperature: number
-  maxTokens: number
-  reasoningEffort: ReasoningEffort
-  manualBody: string
-}
-
 // ===== Translation System Types =====
 
 /**
