@@ -89,7 +89,7 @@ class PackService {
     return { pack, templates, variables }
   }
 
-  /** Create a new pack by copying all templates and variables from the default pack. */
+  /** Create a new pack seeded from the pristine PROMPT_TEMPLATES baseline. */
   async createPack(name: string, description?: string, author?: string): Promise<PresetPack> {
     const packId = crypto.randomUUID()
 
@@ -102,26 +102,15 @@ class PackService {
       isDefault: false,
     })
 
-    // Copy all templates from default pack
-    const defaultTemplates = await database.getPackTemplates('default-pack')
-    for (const template of defaultTemplates) {
-      await database.setPackTemplateContent(packId, template.templateId, template.content)
+    // Seed templates from code baseline (not from the database default-pack, which may be modified)
+    for (const template of PROMPT_TEMPLATES) {
+      await database.setPackTemplateContent(packId, template.id, template.content)
+      if (template.userContent) {
+        await database.setPackTemplateContent(packId, `${template.id}-user`, template.userContent)
+      }
     }
 
-    // Copy all variables from default pack
-    const defaultVariables = await database.getPackVariables('default-pack')
-    for (const variable of defaultVariables) {
-      await database.createPackVariable(packId, {
-        variableName: variable.variableName,
-        displayName: variable.displayName,
-        description: variable.description,
-        variableType: variable.variableType,
-        isRequired: variable.isRequired,
-        sortOrder: variable.sortOrder,
-        defaultValue: variable.defaultValue,
-        enumOptions: variable.enumOptions,
-      })
-    }
+    // No custom variables copied — new packs start clean
 
     return pack
   }
