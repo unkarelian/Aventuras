@@ -13,6 +13,8 @@ import { database } from '$lib/services/database'
 import { templateEngine } from '$lib/services/templates/engine'
 import { createLogger } from '$lib/services/ai/core/config'
 import type { RenderResult } from './types'
+import type { Character, Location, Item, StoryBeat } from '$lib/types'
+import type { RuntimeVariable, RuntimeVarsMap } from '$lib/services/packs/types'
 
 const log = createLogger('ContextBuilder')
 
@@ -80,6 +82,11 @@ export class ContextBuilder {
     if (storyVarValues) {
       builder.add(storyVarValues)
     }
+
+    // Runtime variable values from entities
+    const items = await database.getItems(storyId)
+    const storyBeats = await database.getStoryBeats(storyId)
+    await builder.loadRuntimeVariableContext(characters, locations, items, storyBeats, protagonist)
 
     log('forStory complete', {
       storyId,
@@ -163,6 +170,116 @@ export class ContextBuilder {
       }
     } catch (error) {
       log('loadCustomVariables failed', { packId: this.packId, error })
+    }
+  }
+
+  /**
+   * Load runtime variable values from story entities and add formatted text blocks
+   * to the context. Each entity type gets a separate variable:
+   *   runtimeVars_characters, runtimeVars_locations, runtimeVars_items,
+   *   runtimeVars_storyBeats, runtimeVars_protagonist
+   *
+   * Format per entity: "EntityName: VarLabel = value, VarLabel = value"
+   * Empty string when no runtime variables are defined or no values exist.
+   */
+  private async loadRuntimeVariableContext(
+    characters: Character[],
+    locations: Location[],
+    items: Item[],
+    storyBeats: StoryBeat[],
+    protagonist: Character | undefined,
+  ): Promise<void> {
+    try {
+      const defs = await database.getRuntimeVariables(this.packId)
+      if (defs.length === 0) {
+        this.add({
+          runtimeVars_characters: '',
+          runtimeVars_locations: '',
+          runtimeVars_items: '',
+          runtimeVars_storyBeats: '',
+          runtimeVars_protagonist: '',
+        })
+        return
+      }
+
+      // Group definitions by entity type for fast lookup
+      const defsByType: Record<string, RuntimeVariable[]> = {}
+      for (const d of defs) {
+        if (!defsByType[d.entityType]) defsByType[d.entityType] = []
+        defsByType[d.entityType].push(d)
+      }
+
+      const formatEntities = (
+        entities: Array<{ name: string; metadata: Record<string, unknown> | null }>,
+        entityType: string,
+      ): string => {
+        const typeDefs = defsByType[entityType]
+        if (!typeDefs || typeDefs.length === 0) return ''
+
+        const lines: string[] = []
+        for (const entity of entities) {
+          const runtimeVars = (entity.metadata as Record<string, unknown> | null)?.runtimeVars as
+            | RuntimeVarsMap
+            | undefined
+          if (!runtimeVars) continue
+
+          const pairs: string[] = []
+          for (const def of typeDefs) {
+            const entry = runtimeVars[def.id]
+            if (entry && entry.v != null && entry.v !== '') {
+              pairs.push(`${def.displayName} = ${entry.v}`)
+            }
+          }
+          if (pairs.length > 0) {
+            lines.push(`${entity.name}: ${pairs.join(', ')}`)
+          }
+        }
+        return lines.join('\n')
+      }
+
+      // Format entity name helper for story beats (uses title instead of name)
+      const beatsWithName = storyBeats.map((b) => ({
+        name: b.title,
+        metadata: b.metadata,
+      }))
+
+      const runtimeVarsCharacters = formatEntities(characters, 'character')
+      const runtimeVarsLocations = formatEntities(locations, 'location')
+      const runtimeVarsItems = formatEntities(items, 'item')
+      const runtimeVarsStoryBeats = formatEntities(beatsWithName, 'story_beat')
+
+      // Protagonist-specific: filter to just the protagonist
+      let runtimeVarsProtagonist = ''
+      if (protagonist) {
+        runtimeVarsProtagonist = formatEntities([protagonist], 'character')
+      }
+
+      this.add({
+        runtimeVars_characters: runtimeVarsCharacters,
+        runtimeVars_locations: runtimeVarsLocations,
+        runtimeVars_items: runtimeVarsItems,
+        runtimeVars_storyBeats: runtimeVarsStoryBeats,
+        runtimeVars_protagonist: runtimeVarsProtagonist,
+      })
+
+      log('loadRuntimeVariableContext', {
+        packId: this.packId,
+        defCount: defs.length,
+        hasCharVars: runtimeVarsCharacters.length > 0,
+        hasLocVars: runtimeVarsLocations.length > 0,
+        hasItemVars: runtimeVarsItems.length > 0,
+        hasBeatVars: runtimeVarsStoryBeats.length > 0,
+        hasProtagonistVars: runtimeVarsProtagonist.length > 0,
+      })
+    } catch (error) {
+      log('loadRuntimeVariableContext failed', { packId: this.packId, error })
+      this.add({
+        runtimeVars_characters: '',
+        runtimeVars_locations: '',
+        runtimeVars_items: '',
+        runtimeVars_storyBeats: '',
+        runtimeVars_protagonist: '',
+      })
     }
   }
 }
