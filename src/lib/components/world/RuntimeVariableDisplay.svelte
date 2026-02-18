@@ -186,11 +186,12 @@
           <!-- Label row: icon/name on left, value on right -->
           <div class="flex items-center gap-1.5">
             {#if Icon}
-              <Icon
-                class="h-3.5 w-3.5 shrink-0 {isSet ? '' : 'opacity-40'}"
-                style="color: {def.color}"
-                title={def.displayName}
-              />
+              <span title={def.displayName}>
+                <Icon
+                  class="h-3.5 w-3.5 shrink-0 {isSet ? '' : 'opacity-40'}"
+                  style="color: {def.color}"
+                />
+              </span>
             {:else}
               <span
                 class="text-[11px] font-medium whitespace-nowrap {isSet ? '' : 'opacity-40'}"
