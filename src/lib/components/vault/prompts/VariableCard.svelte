@@ -27,7 +27,7 @@
   let editDefault = $state('')
   let editEnumOptions = $state<EnumOption[]>([])
   let showDeleteConfirm = $state(false)
-  let lastVariableId = $state(variable.id)
+  let lastVariableId = ''
 
   // Sync edit state from variable prop only when the variable identity changes (different variable swapped in)
   $effect.pre(() => {
