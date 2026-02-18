@@ -202,6 +202,12 @@ pub fn run() {
             sql: include_str!("../migrations/032_runtime_variables.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 33,
+            description: "runtime_variable_pinned",
+            sql: include_str!("../migrations/033_runtime_variable_pinned.sql"),
+            kind: MigrationKind::Up,
+        },
     ];
 
     #[cfg(debug_assertions)] // only enable instrumentation in development builds

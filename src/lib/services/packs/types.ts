@@ -92,6 +92,7 @@ export interface RuntimeVariable {
   enumOptions?: EnumOption[]
   color: string
   icon?: string
+  pinned: boolean
   sortOrder: number
   createdAt: number
 }

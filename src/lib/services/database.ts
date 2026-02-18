@@ -30,7 +30,9 @@ import type {
   PackTemplate,
   CustomVariable,
   RuntimeVariable,
+  RuntimeVariableType,
   RuntimeEntityType,
+  EnumOption,
 } from '$lib/services/packs/types'
 import { hashContent } from '$lib/services/packs/hash'
 
@@ -3358,8 +3360,8 @@ class DatabaseService {
     const id = crypto.randomUUID()
     const now = Date.now()
     await db.execute(
-      `INSERT INTO pack_runtime_variables (id, pack_id, entity_type, variable_name, display_name, description, variable_type, default_value, min_value, max_value, enum_options, color, icon, sort_order, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO pack_runtime_variables (id, pack_id, entity_type, variable_name, display_name, description, variable_type, default_value, min_value, max_value, enum_options, color, icon, pinned, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         packId,
@@ -3374,6 +3376,7 @@ class DatabaseService {
         variable.enumOptions ? JSON.stringify(variable.enumOptions) : null,
         variable.color,
         variable.icon ?? null,
+        variable.pinned ? 1 : 0,
         variable.sortOrder ?? 0,
         now,
       ],
@@ -3383,7 +3386,21 @@ class DatabaseService {
 
   async updateRuntimeVariable(
     id: string,
-    updates: Partial<Omit<RuntimeVariable, 'id' | 'packId' | 'createdAt'>>,
+    updates: {
+      entityType?: RuntimeEntityType
+      variableName?: string
+      displayName?: string
+      description?: string | null
+      variableType?: RuntimeVariableType
+      defaultValue?: string | null
+      minValue?: number | null
+      maxValue?: number | null
+      enumOptions?: EnumOption[] | null
+      color?: string
+      icon?: string | null
+      pinned?: boolean
+      sortOrder?: number
+    },
   ): Promise<void> {
     const db = await this.getDb()
     const setClauses: string[] = []
@@ -3432,6 +3449,10 @@ class DatabaseService {
     if (updates.icon !== undefined) {
       setClauses.push('icon = ?')
       values.push(updates.icon || null)
+    }
+    if (updates.pinned !== undefined) {
+      setClauses.push('pinned = ?')
+      values.push(updates.pinned ? 1 : 0)
     }
     if (updates.sortOrder !== undefined) {
       setClauses.push('sort_order = ?')
@@ -3642,6 +3663,7 @@ class DatabaseService {
         : undefined,
       color: row.color,
       icon: row.icon ?? undefined,
+      pinned: !!row.pinned,
       sortOrder: row.sort_order ?? 0,
       createdAt: row.created_at,
     }

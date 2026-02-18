@@ -1,0 +1,1 @@
+ALTER TABLE pack_runtime_variables ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0;

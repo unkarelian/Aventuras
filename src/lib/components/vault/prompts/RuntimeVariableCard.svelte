@@ -23,6 +23,9 @@
     ArrowDown,
     X,
     AlertTriangle,
+    Save,
+    Check,
+    Pin,
   } from 'lucide-svelte'
 
   // Icon map for rendering selected icon in collapsed state
@@ -149,10 +152,12 @@
   let editColor = $state('#6366f1')
   let editIcon = $state<string | undefined>(undefined)
   let editEnumOptions = $state<EnumOption[]>([])
+  let editPinned = $state(false)
   let showDeleteConfirm = $state(false)
   let showTypeChangeConfirm = $state(false)
   let pendingType = $state<RuntimeVariableType | null>(null)
   let lastVariableId = ''
+  let saveFlash = $state(false)
 
   // Sync edit state from variable prop when variable identity changes
   $effect.pre(() => {
@@ -180,6 +185,7 @@
     editEnumOptions = variable.enumOptions
       ? structuredClone($state.snapshot(variable.enumOptions))
       : []
+    editPinned = variable.pinned ?? false
   }
 
   const VARIABLE_NAME_REGEX = /^[a-z_][a-z0-9_]*$/
@@ -208,6 +214,26 @@
   }
 
   const ENTITY_TYPES: RuntimeEntityType[] = ['character', 'location', 'item', 'story_beat']
+
+  let isDirty = $derived(
+    editDisplayName !== variable.displayName ||
+      (editDescription || '') !== (variable.description ?? '') ||
+      editType !== variable.variableType ||
+      editEntityType !== variable.entityType ||
+      editDefault !== (variable.defaultValue ?? '') ||
+      editColor !== variable.color ||
+      editIcon !== variable.icon ||
+      editMinValue !== (variable.minValue !== undefined ? String(variable.minValue) : '') ||
+      editMaxValue !== (variable.maxValue !== undefined ? String(variable.maxValue) : '') ||
+      JSON.stringify(editEnumOptions) !== JSON.stringify(variable.enumOptions ?? []) ||
+      editPinned !== (variable.pinned ?? false),
+  )
+
+  function handleSave() {
+    emitUpdate()
+    saveFlash = true
+    setTimeout(() => (saveFlash = false), 1500)
+  }
 
   function handleToggle() {
     if (expanded) {
@@ -253,6 +279,7 @@
       maxValue: editType === 'number' && editMaxValue !== '' ? Number(editMaxValue) : undefined,
       color: editColor,
       icon: editIcon,
+      pinned: editPinned,
       enumOptions: editType === 'enum' ? editEnumOptions : undefined,
     }
     onUpdate(updated)
@@ -265,13 +292,20 @@
   function handleTypeChange(newType: string) {
     const t = newType as RuntimeVariableType
     if (t === editType) return
-    // Show confirmation warning
-    pendingType = t
-    showTypeChangeConfirm = true
+    if (entityTypeWarningCount > 0) {
+      // Show confirmation warning only when entities have values to clear
+      pendingType = t
+      showTypeChangeConfirm = true
+    } else {
+      // No entities have values, change directly
+      editType = t
+      onTypeChange(variable, t)
+    }
   }
 
   function confirmTypeChange() {
     if (!pendingType) return
+    editType = pendingType
     onTypeChange(variable, pendingType)
     showTypeChangeConfirm = false
     pendingType = null
@@ -338,21 +372,23 @@
     onclick={handleToggle}
   >
     <div class="flex min-w-0 flex-1 items-center gap-2.5">
-      <!-- Icon or colored dot -->
+      <!-- Icon or display name (whichever is the selected label) -->
       {#if IconComponent}
         <IconComponent class="h-4 w-4 shrink-0" style="color: {variable.color}" />
       {:else}
-        <div class="h-3 w-3 shrink-0 rounded-full" style:background-color={variable.color}></div>
+        <span class="shrink-0 text-sm font-medium" style="color: {variable.color}"
+          >{variable.displayName}</span
+        >
       {/if}
 
-      <span class="shrink-0 text-sm font-medium">{variable.displayName}</span>
+      <code
+        class="text-muted-foreground bg-muted shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px]"
+      >
+        {variable.variableName}
+      </code>
 
       <Badge variant="outline" class="shrink-0 text-[10px]">
-        {ENTITY_TYPE_LABELS[variable.entityType]}
-      </Badge>
-
-      <Badge variant="secondary" class="shrink-0 text-[10px]">
-        {TYPE_LABELS[variable.variableType]}
+        {ENTITY_TYPE_LABELS[variable.entityType]} &middot; {TYPE_LABELS[variable.variableType]}
       </Badge>
 
       {#if variable.description}
@@ -363,6 +399,9 @@
         </span>
       {/if}
     </div>
+    {#if variable.pinned}
+      <Pin class="text-muted-foreground h-3 w-3 shrink-0" />
+    {/if}
     {#if expanded}
       <ChevronUp class="text-muted-foreground h-4 w-4 shrink-0" />
     {:else}
@@ -387,12 +426,6 @@
         {#if nameError}
           <p class="text-destructive text-xs">{nameError}</p>
         {/if}
-      </div>
-
-      <!-- Display Name -->
-      <div class="space-y-1.5">
-        <Label>Display Name</Label>
-        <Input bind:value={editDisplayName} onblur={handleFieldBlur} placeholder="My Variable" />
       </div>
 
       <!-- Entity Type -->
@@ -471,16 +504,55 @@
         />
       </div>
 
-      <!-- Color & Icon row -->
-      <div class="flex items-end gap-4">
-        <div class="space-y-1.5">
-          <Label>Color</Label>
-          <ColorPicker value={editColor} onChange={handleColorChange} />
+      <!-- Color -->
+      <div class="space-y-1.5">
+        <Label>Color</Label>
+        <ColorPicker value={editColor} onChange={handleColorChange} />
+      </div>
+
+      <!-- Label Style: icon or display name -->
+      <div class="space-y-1.5">
+        <Label>Panel Label</Label>
+        <p class="text-muted-foreground text-xs">What to show as the label on entity panels</p>
+        <div class="flex gap-2">
+          <Button
+            variant={editIcon ? 'outline' : 'default'}
+            size="sm"
+            class="h-7 gap-1 text-xs"
+            onclick={() => {
+              editIcon = undefined
+              emitUpdate()
+            }}
+          >
+            Display Name
+          </Button>
+          <Button
+            variant={editIcon ? 'default' : 'outline'}
+            size="sm"
+            class="h-7 gap-1 text-xs"
+            onclick={() => {
+              if (!editIcon) {
+                editIcon = 'Star'
+                emitUpdate()
+              }
+            }}
+          >
+            Icon
+          </Button>
         </div>
-        <div class="space-y-1.5">
-          <Label>Icon</Label>
-          <IconPicker value={editIcon} onSelect={handleIconSelect} />
-        </div>
+        {#if editIcon}
+          <div class="mt-1.5">
+            <IconPicker value={editIcon} onSelect={handleIconSelect} />
+          </div>
+        {:else}
+          <div class="mt-1.5">
+            <Input
+              bind:value={editDisplayName}
+              onblur={handleFieldBlur}
+              placeholder="My Variable"
+            />
+          </div>
+        {/if}
       </div>
 
       <!-- Default Value -->
@@ -614,40 +686,81 @@
         </div>
       {/if}
 
+      <!-- Pinned -->
+      <div class="flex items-center justify-between">
+        <div class="space-y-0.5">
+          <Label>Pinned</Label>
+          <p class="text-muted-foreground text-xs">
+            Always visible on entity panels, even when collapsed
+          </p>
+        </div>
+        <Button
+          variant={editPinned ? 'default' : 'outline'}
+          size="sm"
+          class="h-7 gap-1 text-xs"
+          onclick={() => {
+            editPinned = !editPinned
+            emitUpdate()
+          }}
+        >
+          <Pin class="h-3 w-3" />
+          {editPinned ? 'Pinned' : 'Unpinned'}
+        </Button>
+      </div>
+
       <Separator />
 
-      <!-- Delete -->
+      <!-- Footer: Save + Delete -->
       <div class="flex items-center justify-between">
-        {#if showDeleteConfirm}
-          <div class="flex items-center gap-2">
-            <span class="text-destructive text-xs">
-              Delete this variable?
-              {#if entityTypeWarningCount > 0}
-                ({entityTypeWarningCount}
-                {entityTypeWarningCount === 1 ? 'entity has' : 'entities have'} values)
-              {/if}
-            </span>
-            <Button variant="destructive" size="sm" class="h-7 text-xs" onclick={onDelete}>
-              Confirm
-            </Button>
+        <div>
+          {#if showDeleteConfirm}
+            <div class="flex items-center gap-2">
+              <span class="text-destructive text-xs">
+                Delete this variable?
+                {#if entityTypeWarningCount > 0}
+                  ({entityTypeWarningCount}
+                  {entityTypeWarningCount === 1 ? 'entity has' : 'entities have'} values)
+                {/if}
+              </span>
+              <Button variant="destructive" size="sm" class="h-7 text-xs" onclick={onDelete}>
+                Confirm
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                class="h-7 text-xs"
+                onclick={() => (showDeleteConfirm = false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          {:else}
             <Button
               variant="ghost"
               size="sm"
-              class="h-7 text-xs"
-              onclick={() => (showDeleteConfirm = false)}
+              class="text-destructive h-7 gap-1 text-xs"
+              onclick={() => (showDeleteConfirm = true)}
             >
-              Cancel
+              <Trash2 class="h-3 w-3" />
+              Delete
             </Button>
-          </div>
+          {/if}
+        </div>
+
+        {#if saveFlash}
+          <span class="text-muted-foreground flex items-center gap-1 text-xs">
+            <Check class="h-3 w-3" />
+            Saved
+          </span>
         {:else}
           <Button
-            variant="ghost"
+            variant={isDirty ? 'default' : 'outline'}
             size="sm"
-            class="text-destructive h-7 gap-1 text-xs"
-            onclick={() => (showDeleteConfirm = true)}
+            class="h-7 gap-1 text-xs"
+            onclick={handleSave}
           >
-            <Trash2 class="h-3 w-3" />
-            Delete
+            <Save class="h-3 w-3" />
+            Save
           </Button>
         {/if}
       </div>

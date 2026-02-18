@@ -7,7 +7,7 @@
   import { database } from '$lib/services/database'
   import RuntimeVariableCard from './RuntimeVariableCard.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { Plus, Activity, AlertTriangle } from 'lucide-svelte'
+  import { Plus, Activity, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-svelte'
 
   interface Props {
     packId: string
@@ -85,6 +85,7 @@
         displayName: name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
         variableType: 'text',
         color: '#6366f1',
+        pinned: false,
         sortOrder: runtimeVariables.length,
       })
       newlyCreatedId = created.id
@@ -96,17 +97,20 @@
 
   async function handleUpdateVariable(variable: RuntimeVariable) {
     try {
+      // Use null (not undefined) for optional fields so the database layer
+      // actually clears them — undefined means "skip this field" to updateRuntimeVariable.
       await database.updateRuntimeVariable(variable.id, {
         displayName: variable.displayName,
-        description: variable.description,
+        description: variable.description ?? null,
         entityType: variable.entityType,
         variableType: variable.variableType,
-        defaultValue: variable.defaultValue,
-        minValue: variable.minValue,
-        maxValue: variable.maxValue,
-        enumOptions: variable.enumOptions,
+        defaultValue: variable.defaultValue ?? null,
+        minValue: variable.minValue ?? null,
+        maxValue: variable.maxValue ?? null,
+        enumOptions: variable.enumOptions ?? null,
         color: variable.color,
-        icon: variable.icon,
+        icon: variable.icon ?? null,
+        pinned: variable.pinned,
         sortOrder: variable.sortOrder,
       })
       onVariablesChanged()
@@ -164,6 +168,26 @@
     } catch (error) {
       console.error('[RuntimeVariableManager] Failed to count entities:', error)
     }
+  }
+
+  async function moveVariable(
+    entityType: RuntimeEntityType,
+    index: number,
+    direction: 'up' | 'down',
+  ) {
+    const group = grouped()[entityType]
+    const newIndex = direction === 'up' ? index - 1 : index + 1
+    if (newIndex < 0 || newIndex >= group.length) return
+
+    const tempOrder = group[index].sortOrder
+    group[index].sortOrder = group[newIndex].sortOrder
+    group[newIndex].sortOrder = tempOrder
+
+    await database.updateRuntimeVariable(group[index].id, { sortOrder: group[index].sortOrder })
+    await database.updateRuntimeVariable(group[newIndex].id, {
+      sortOrder: group[newIndex].sortOrder,
+    })
+    onVariablesChanged()
   }
 
   // Load entity counts for all variables
@@ -228,17 +252,41 @@
             {/if}
 
             <div class="space-y-3">
-              {#each grouped()[entityType] as variable (variable.id)}
-                <RuntimeVariableCard
-                  {variable}
-                  onUpdate={handleUpdateVariable}
-                  onDelete={() => handleDeleteVariable(variable)}
-                  onRename={(oldName, newName) =>
-                    handleRenameVariable(variable.id, oldName, newName)}
-                  onTypeChange={handleTypeChange}
-                  initialExpanded={variable.id === newlyCreatedId}
-                  entityTypeWarningCount={entityCounts[variable.id] ?? 0}
-                />
+              {#each grouped()[entityType] as variable, i (variable.id)}
+                <div class="flex items-start gap-1">
+                  <div class="flex flex-col gap-0.5 pt-3">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-6 w-6"
+                      disabled={i === 0}
+                      onclick={() => moveVariable(entityType, i, 'up')}
+                    >
+                      <ArrowUp class="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      class="h-6 w-6"
+                      disabled={i === grouped()[entityType].length - 1}
+                      onclick={() => moveVariable(entityType, i, 'down')}
+                    >
+                      <ArrowDown class="h-3 w-3" />
+                    </Button>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <RuntimeVariableCard
+                      {variable}
+                      onUpdate={handleUpdateVariable}
+                      onDelete={() => handleDeleteVariable(variable)}
+                      onRename={(oldName, newName) =>
+                        handleRenameVariable(variable.id, oldName, newName)}
+                      onTypeChange={handleTypeChange}
+                      initialExpanded={variable.id === newlyCreatedId}
+                      entityTypeWarningCount={entityCounts[variable.id] ?? 0}
+                    />
+                  </div>
+                </div>
               {/each}
             </div>
           </div>
