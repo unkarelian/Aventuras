@@ -216,10 +216,7 @@
   ])
 
   // Combined extensions: editor theme + syntax highlighting
-  const editorExtensions: Extension[] = [
-    editorTheme,
-    syntaxHighlighting(liquidHighlightStyle),
-  ]
+  const editorExtensions: Extension[] = [editorTheme, syntaxHighlighting(liquidHighlightStyle)]
 
   // Debounced validation
   let validationTimer: ReturnType<typeof setTimeout> | undefined
@@ -385,7 +382,12 @@
         class="min-h-0 overflow-hidden {isMobile.current ? 'flex-1' : 'w-[45%] border-l'}"
         class:hidden={isMobile.current && mobileView === 'editor'}
       >
-        <TemplatePreview content={currentContent} {customVariables} hideHeader={isMobile.current} {testValues} />
+        <TemplatePreview
+          content={currentContent}
+          {customVariables}
+          hideHeader={isMobile.current}
+          {testValues}
+        />
       </div>
     </div>
 

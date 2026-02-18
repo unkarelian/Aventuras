@@ -36,36 +36,70 @@
     {
       name: 'Narrative',
       varNames: [
-        'recentContent', 'tieredContextBlock', 'chapterSummaries', 'styleGuidance',
-        'retrievedChapterContext', 'inlineImageInstructions', 'visualProseInstructions',
-        'visualProseMode', 'inlineImageMode',
+        'recentContent',
+        'tieredContextBlock',
+        'chapterSummaries',
+        'styleGuidance',
+        'retrievedChapterContext',
+        'inlineImageInstructions',
+        'visualProseInstructions',
+        'visualProseMode',
+        'inlineImageMode',
       ],
     },
     {
       name: 'Classifier',
       varNames: [
-        'entityCounts', 'currentTimeInfo', 'chatHistoryBlock', 'inputLabel', 'userAction',
-        'narrativeResponse', 'existingCharacters', 'existingLocations', 'existingItems',
-        'existingBeats', 'storyBeatTypes', 'itemLocationOptions', 'defaultItemLocation',
+        'entityCounts',
+        'currentTimeInfo',
+        'chatHistoryBlock',
+        'inputLabel',
+        'userAction',
+        'narrativeResponse',
+        'existingCharacters',
+        'existingLocations',
+        'existingItems',
+        'existingBeats',
+        'storyBeatTypes',
+        'itemLocationOptions',
+        'defaultItemLocation',
       ],
     },
     {
       name: 'Memory',
       varNames: [
-        'chapterContent', 'previousContext', 'messagesInRange', 'firstValidId',
-        'lastValidId', 'recentContext', 'maxChaptersPerRetrieval',
+        'chapterContent',
+        'previousContext',
+        'messagesInRange',
+        'firstValidId',
+        'lastValidId',
+        'recentContext',
+        'maxChaptersPerRetrieval',
       ],
     },
     {
       name: 'Suggestions & Actions',
       varNames: [
-        'activeThreads', 'npcsPresent', 'inventory', 'activeQuests', 'lorebookContext',
-        'protagonistDescription', 'povInstruction', 'lengthInstruction', 'userInput',
+        'activeThreads',
+        'npcsPresent',
+        'inventory',
+        'activeQuests',
+        'lorebookContext',
+        'protagonistDescription',
+        'povInstruction',
+        'lengthInstruction',
+        'userInput',
       ],
     },
     {
       name: 'Style & Lore',
-      varNames: ['passageCount', 'passages', 'entrySummary', 'recentStorySection', 'chapterSummary'],
+      varNames: [
+        'passageCount',
+        'passages',
+        'entrySummary',
+        'recentStorySection',
+        'chapterSummary',
+      ],
     },
     {
       name: 'Retrieval',
@@ -73,25 +107,62 @@
     },
     {
       name: 'Translation',
-      varNames: ['targetLanguage', 'sourceLanguage', 'content', 'elementsJson', 'suggestionsJson', 'choicesJson'],
+      varNames: [
+        'targetLanguage',
+        'sourceLanguage',
+        'content',
+        'elementsJson',
+        'suggestionsJson',
+        'choicesJson',
+      ],
     },
     {
       name: 'Image',
       varNames: [
-        'imageStylePrompt', 'characterDescriptors', 'charactersWithPortraits',
-        'charactersWithoutPortraits', 'maxImages', 'chatHistory', 'translatedNarrativeBlock',
-        'previousResponse', 'currentResponse', 'visualDescriptors',
+        'imageStylePrompt',
+        'characterDescriptors',
+        'charactersWithPortraits',
+        'charactersWithoutPortraits',
+        'maxImages',
+        'chatHistory',
+        'translatedNarrativeBlock',
+        'previousResponse',
+        'currentResponse',
+        'visualDescriptors',
       ],
     },
     {
       name: 'Wizard',
       varNames: [
-        'genreLabel', 'seed', 'customInstruction', 'currentSetting', 'toneInstruction',
-        'settingInstruction', 'characterName', 'characterDescription', 'characterBackground',
-        'settingContext', 'currentCharacter', 'settingName', 'count', 'outputFormat', 'title',
-        'atmosphereSection', 'supportingCharactersSection', 'tenseInstruction', 'povPerspective',
-        'povPerspectiveInstructions', 'currentOpening', 'openingInstruction', 'guidanceSection',
-        'cardContent', 'lorebookName', 'entriesJson', 'entryCount', 'userMessage', 'conversationHistory',
+        'genreLabel',
+        'seed',
+        'customInstruction',
+        'currentSetting',
+        'toneInstruction',
+        'settingInstruction',
+        'characterName',
+        'characterDescription',
+        'characterBackground',
+        'settingContext',
+        'currentCharacter',
+        'settingName',
+        'count',
+        'outputFormat',
+        'title',
+        'atmosphereSection',
+        'supportingCharactersSection',
+        'tenseInstruction',
+        'povPerspective',
+        'povPerspectiveInstructions',
+        'currentOpening',
+        'openingInstruction',
+        'guidanceSection',
+        'cardContent',
+        'lorebookName',
+        'entriesJson',
+        'entryCount',
+        'userMessage',
+        'conversationHistory',
       ],
     },
     {
@@ -101,14 +172,12 @@
   ]
 
   const runtimeGroups = $derived.by(() =>
-    RUNTIME_GROUPS
-      .map((g) => ({
-        name: g.name,
-        variables: g.varNames
-          .map((name) => runtimeVars.find((v) => v.name === name))
-          .filter((v): v is VariableDefinition => v != null),
-      }))
-      .filter((g) => g.variables.length > 0),
+    RUNTIME_GROUPS.map((g) => ({
+      name: g.name,
+      variables: g.varNames
+        .map((name) => runtimeVars.find((v) => v.name === name))
+        .filter((v): v is VariableDefinition => v != null),
+    })).filter((g) => g.variables.length > 0),
   )
 
   // Initialize runtime open states (all collapsed)
@@ -141,23 +210,34 @@
 
   let filteredSystem = $derived(systemVars.filter((v) => matchesSearch(v.name, v.description)))
   let filteredCustom = $derived(
-    customVariables.filter((v) => matchesSearch(v.variableName, v.displayName + ' ' + (v.description ?? ''))),
+    customVariables.filter((v) =>
+      matchesSearch(v.variableName, v.displayName + ' ' + (v.description ?? '')),
+    ),
   )
   let filteredRuntimeGroups = $derived(
     runtimeGroups
-      .map((g) => ({ ...g, variables: g.variables.filter((v) => matchesSearch(v.name, v.description)) }))
+      .map((g) => ({
+        ...g,
+        variables: g.variables.filter((v) => matchesSearch(v.name, v.description)),
+      }))
       .filter((g) => g.variables.length > 0),
   )
   let overrideCount = $derived(Object.values(draft).filter((v) => v !== '').length)
 </script>
 
-{#snippet varInput(name: string, description: string, type?: string, enumValues?: string[], useTextarea: boolean = false)}
+{#snippet varInput(
+  name: string,
+  description: string,
+  type?: string,
+  enumValues?: string[],
+  useTextarea: boolean = false,
+)}
   <div class="grid grid-cols-[1fr_auto] items-start gap-x-3 gap-y-1 py-2">
     <div class="flex flex-col gap-0.5">
       <span class="text-foreground text-xs font-medium">{description}</span>
       <code class="text-muted-foreground text-[10px]">{`{{ ${name} }}`}</code>
     </div>
-    <div class={useTextarea ? 'w-full col-span-2' : 'w-48'}>
+    <div class={useTextarea ? 'col-span-2 w-full' : 'w-48'}>
       {#if type === 'enum' && enumValues}
         <Select.Root
           type="single"
@@ -205,14 +285,15 @@
   </div>
 {/snippet}
 
-
 <ResponsiveModal.Root {open} {onOpenChange}>
   <ResponsiveModal.Content class="p-0 sm:max-w-2xl">
     <ResponsiveModal.Header class="border-b px-6 py-4">
       <ResponsiveModal.Title class="flex items-center gap-2">
         Test Variables
         {#if overrideCount > 0}
-          <Badge variant="default" class="text-[10px]">{overrideCount} override{overrideCount === 1 ? '' : 's'}</Badge>
+          <Badge variant="default" class="text-[10px]"
+            >{overrideCount} override{overrideCount === 1 ? '' : 's'}</Badge
+          >
         {/if}
       </ResponsiveModal.Title>
       <ResponsiveModal.Description>
@@ -238,7 +319,11 @@
           <Collapsible.Root bind:open={systemOpen}>
             <Collapsible.Trigger class="flex w-full">
               <div class="flex w-full items-center gap-2 py-1.5">
-                <ChevronDown class="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200 {systemOpen ? '' : '-rotate-90'}" />
+                <ChevronDown
+                  class="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200 {systemOpen
+                    ? ''
+                    : '-rotate-90'}"
+                />
                 <span class="text-sm font-medium">System</span>
                 <Badge variant="default" class="text-[10px]">{filteredSystem.length}</Badge>
               </div>
@@ -258,7 +343,11 @@
           <Collapsible.Root bind:open={customOpen}>
             <Collapsible.Trigger class="flex w-full">
               <div class="flex w-full items-center gap-2 py-1.5">
-                <ChevronDown class="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200 {customOpen ? '' : '-rotate-90'}" />
+                <ChevronDown
+                  class="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200 {customOpen
+                    ? ''
+                    : '-rotate-90'}"
+                />
                 <span class="text-sm font-medium">Custom</span>
                 <Badge variant="default" class="text-[10px]">{filteredCustom.length}</Badge>
               </div>
@@ -284,7 +373,13 @@
           <Collapsible.Root bind:open={runtimeOpenStates[group.name]}>
             <Collapsible.Trigger class="flex w-full">
               <div class="flex w-full items-center gap-2 py-1.5">
-                <ChevronDown class="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200 {runtimeOpenStates[group.name] ? '' : '-rotate-90'}" />
+                <ChevronDown
+                  class="text-muted-foreground h-4 w-4 shrink-0 transition-transform duration-200 {runtimeOpenStates[
+                    group.name
+                  ]
+                    ? ''
+                    : '-rotate-90'}"
+                />
                 <span class="text-sm font-medium">{group.name}</span>
                 <Badge variant="secondary" class="text-[10px]">{group.variables.length}</Badge>
               </div>

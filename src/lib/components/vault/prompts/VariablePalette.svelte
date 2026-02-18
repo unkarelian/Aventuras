@@ -32,7 +32,7 @@
           {...props}
           type="button"
           title="Insert Variable"
-          class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center justify-center rounded-md h-8 w-8 transition-colors"
+          class="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors"
         >
           <Braces class="h-3.5 w-3.5" />
         </button>
