@@ -7,7 +7,7 @@
   import { database } from '$lib/services/database'
   import RuntimeVariableCard from './RuntimeVariableCard.svelte'
   import { Button } from '$lib/components/ui/button'
-  import { Plus, Activity, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-svelte'
+  import { Plus, Activity, AlertTriangle } from 'lucide-svelte'
 
   interface Props {
     packId: string
@@ -251,42 +251,22 @@
               </div>
             {/if}
 
-            <div class="space-y-3">
+            <div class="space-y-2">
               {#each grouped()[entityType] as variable, i (variable.id)}
-                <div class="flex items-start gap-1">
-                  <div class="flex flex-col gap-0.5 pt-3">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-6 w-6"
-                      disabled={i === 0}
-                      onclick={() => moveVariable(entityType, i, 'up')}
-                    >
-                      <ArrowUp class="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      class="h-6 w-6"
-                      disabled={i === grouped()[entityType].length - 1}
-                      onclick={() => moveVariable(entityType, i, 'down')}
-                    >
-                      <ArrowDown class="h-3 w-3" />
-                    </Button>
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <RuntimeVariableCard
-                      {variable}
-                      onUpdate={handleUpdateVariable}
-                      onDelete={() => handleDeleteVariable(variable)}
-                      onRename={(oldName, newName) =>
-                        handleRenameVariable(variable.id, oldName, newName)}
-                      onTypeChange={handleTypeChange}
-                      initialExpanded={variable.id === newlyCreatedId}
-                      entityTypeWarningCount={entityCounts[variable.id] ?? 0}
-                    />
-                  </div>
-                </div>
+                <RuntimeVariableCard
+                  {variable}
+                  onUpdate={handleUpdateVariable}
+                  onDelete={() => handleDeleteVariable(variable)}
+                  onRename={(oldName, newName) =>
+                    handleRenameVariable(variable.id, oldName, newName)}
+                  onTypeChange={handleTypeChange}
+                  initialExpanded={variable.id === newlyCreatedId}
+                  entityTypeWarningCount={entityCounts[variable.id] ?? 0}
+                  onMoveUp={i > 0 ? () => moveVariable(entityType, i, 'up') : undefined}
+                  onMoveDown={i < grouped()[entityType].length - 1
+                    ? () => moveVariable(entityType, i, 'down')
+                    : undefined}
+                />
               {/each}
             </div>
           </div>

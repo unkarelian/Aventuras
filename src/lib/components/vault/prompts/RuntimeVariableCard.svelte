@@ -128,6 +128,8 @@
     onTypeChange: (variable: RuntimeVariable, newType: RuntimeVariableType) => void
     initialExpanded?: boolean
     entityTypeWarningCount?: number
+    onMoveUp?: () => void
+    onMoveDown?: () => void
   }
 
   let {
@@ -138,6 +140,8 @@
     onTypeChange,
     initialExpanded = false,
     entityTypeWarningCount = 0,
+    onMoveUp,
+    onMoveDown,
   }: Props = $props()
 
   let expanded = $state(false)
@@ -366,48 +370,65 @@
 
 <div class="border-border bg-card rounded-lg border">
   <!-- Collapsed View -->
-  <button
-    type="button"
-    class="hover:bg-accent/50 flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors"
-    onclick={handleToggle}
-  >
-    <div class="flex min-w-0 flex-1 items-center gap-2.5">
-      <!-- Icon or display name (whichever is the selected label) -->
-      {#if IconComponent}
-        <IconComponent class="h-4 w-4 shrink-0" style="color: {variable.color}" />
-      {:else}
-        <span class="shrink-0 text-sm font-medium" style="color: {variable.color}"
-          >{variable.displayName}</span
+  <div class="flex items-center">
+    {#if onMoveUp || onMoveDown}
+      <div class="flex shrink-0 flex-col border-r px-1">
+        <Button variant="ghost" size="icon" class="h-5 w-5" disabled={!onMoveUp} onclick={onMoveUp}>
+          <ArrowUp class="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-5 w-5"
+          disabled={!onMoveDown}
+          onclick={onMoveDown}
         >
-      {/if}
-
-      <code
-        class="text-muted-foreground bg-muted shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px]"
-      >
-        {variable.variableName}
-      </code>
-
-      <Badge variant="outline" class="shrink-0 text-[10px]">
-        {ENTITY_TYPE_LABELS[variable.entityType]} &middot; {TYPE_LABELS[variable.variableType]}
-      </Badge>
-
-      {#if variable.description}
-        <span class="text-muted-foreground min-w-0 truncate text-xs italic">
-          {variable.description.length > 40
-            ? variable.description.slice(0, 40) + '...'
-            : variable.description}
-        </span>
-      {/if}
-    </div>
-    {#if variable.pinned}
-      <Pin class="text-muted-foreground h-3 w-3 shrink-0" />
+          <ArrowDown class="h-3 w-3" />
+        </Button>
+      </div>
     {/if}
-    {#if expanded}
-      <ChevronUp class="text-muted-foreground h-4 w-4 shrink-0" />
-    {:else}
-      <ChevronDown class="text-muted-foreground h-4 w-4 shrink-0" />
-    {/if}
-  </button>
+    <button
+      type="button"
+      class="hover:bg-accent/50 flex min-w-0 flex-1 items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
+      onclick={handleToggle}
+    >
+      <div class="flex min-w-0 flex-1 items-center gap-2.5">
+        {#if IconComponent}
+          <IconComponent class="h-4 w-4 shrink-0" style="color: {variable.color}" />
+        {:else}
+          <span class="shrink-0 text-sm font-medium" style="color: {variable.color}"
+            >{variable.displayName}</span
+          >
+        {/if}
+
+        <code
+          class="text-muted-foreground bg-muted shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px]"
+        >
+          {variable.variableName}
+        </code>
+
+        <Badge variant="outline" class="shrink-0 text-[10px]">
+          {ENTITY_TYPE_LABELS[variable.entityType]} &middot; {TYPE_LABELS[variable.variableType]}
+        </Badge>
+
+        {#if variable.description}
+          <span class="text-muted-foreground min-w-0 truncate text-xs italic">
+            {variable.description.length > 40
+              ? variable.description.slice(0, 40) + '...'
+              : variable.description}
+          </span>
+        {/if}
+      </div>
+      {#if variable.pinned}
+        <Pin class="text-muted-foreground h-3 w-3 shrink-0" />
+      {/if}
+      {#if expanded}
+        <ChevronUp class="text-muted-foreground h-4 w-4 shrink-0" />
+      {:else}
+        <ChevronDown class="text-muted-foreground h-4 w-4 shrink-0" />
+      {/if}
+    </button>
+  </div>
 
   <!-- Expanded Edit Form -->
   {#if expanded}
