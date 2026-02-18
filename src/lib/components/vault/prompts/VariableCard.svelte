@@ -46,13 +46,13 @@
     }
   })
 
-  const VARIABLE_NAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+  const VARIABLE_NAME_REGEX = /^[a-z_][a-z0-9_]*$/
 
   let nameError = $derived(
     editName.length === 0
       ? 'Variable name is required'
       : !VARIABLE_NAME_REGEX.test(editName)
-        ? 'Must start with letter or underscore, only alphanumeric and underscores'
+        ? 'Lowercase letters, numbers, and underscores only (e.g. my_variable)'
         : null,
   )
 
