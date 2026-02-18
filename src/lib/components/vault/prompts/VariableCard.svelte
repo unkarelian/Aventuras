@@ -27,19 +27,23 @@
   let editDefault = $state('')
   let editEnumOptions = $state<EnumOption[]>([])
   let showDeleteConfirm = $state(false)
+  let lastVariableId = $state(variable.id)
 
-  // Sync edit state from variable prop (runs on mount and when variable prop changes)
+  // Sync edit state from variable prop only when the variable identity changes (different variable swapped in)
   $effect.pre(() => {
-    editName = variable.variableName
-    editDisplayName = variable.displayName
-    editDescription = variable.description ?? ''
-    editType = variable.variableType
-    editDefault = variable.defaultValue ?? ''
-    editEnumOptions = variable.enumOptions
-      ? structuredClone($state.snapshot(variable.enumOptions))
-      : []
-    expanded = initialExpanded
-    showDeleteConfirm = false
+    if (variable.id !== lastVariableId) {
+      lastVariableId = variable.id
+      editName = variable.variableName
+      editDisplayName = variable.displayName
+      editDescription = variable.description ?? ''
+      editType = variable.variableType
+      editDefault = variable.defaultValue ?? ''
+      editEnumOptions = variable.enumOptions
+        ? structuredClone($state.snapshot(variable.enumOptions))
+        : []
+      expanded = initialExpanded
+      showDeleteConfirm = false
+    }
   })
 
   const VARIABLE_NAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/
