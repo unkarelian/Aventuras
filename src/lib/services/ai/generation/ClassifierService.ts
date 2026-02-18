@@ -61,7 +61,7 @@ export class ClassifierService {
   /**
    * Classify a narrative response to extract world state changes.
    * When the story's pack defines runtime variables, the schema is dynamically
-   * extended to include customVars extraction in the same LLM pass.
+   * extended to include inline runtime variable extraction in the same LLM pass.
    */
   async classify(
     context: ClassificationContext,
@@ -87,7 +87,7 @@ export class ClassifierService {
       runtimeVarsByType = this.groupByEntityType(runtimeVars)
     }
 
-    // Build the schema: extended with customVars if runtime variables exist, else base
+    // Build the schema: extended with inline vars if runtime variables exist, else base
     const schema =
       runtimeVars.length > 0
         ? buildExtendedClassificationSchema(runtimeVarsByType)
@@ -268,7 +268,7 @@ export class ClassifierService {
       })
 
       sections.push(
-        `For ${labels.updates}/${labels.new}, also extract these custom variables in a \`customVars\` object:\n${varLines.join('\n')}`,
+        `For ${labels.updates}/${labels.new}, include these as direct fields alongside standard fields:\n${varLines.join('\n')}`,
       )
     }
 
@@ -279,7 +279,7 @@ export class ClassifierService {
 
   /**
    * Post-process: clamp number-type runtime variable values to min/max constraints.
-   * Walks through all entity updates/new entities and clamps customVars number values.
+   * Walks through all entity updates/new entities and clamps inline number values.
    */
   private clampRuntimeVarNumbers(
     result: ExtendedClassificationResult,
@@ -296,41 +296,40 @@ export class ClassifierService {
 
     if (numberDefs.size === 0) return
 
-    // Clamp values in update changes.customVars
-    const clampCustomVars = (customVars: Record<string, unknown> | undefined) => {
-      if (!customVars) return
-      for (const [key, value] of Object.entries(customVars)) {
+    // Clamp inline number values on an object
+    const clampInlineVars = (obj: Record<string, unknown>) => {
+      for (const [key, value] of Object.entries(obj)) {
         const def = numberDefs.get(key)
         if (def && typeof value === 'number') {
-          customVars[key] = clampNumber(value, def.minValue, def.maxValue)
+          obj[key] = clampNumber(value, def.minValue, def.maxValue)
         }
       }
     }
 
-    // Walk all entity types
+    // Walk all entity types — vars are inline on changes/entity objects
     for (const update of result.entryUpdates.characterUpdates) {
-      clampCustomVars(update.changes?.customVars)
+      clampInlineVars(update.changes as unknown as Record<string, unknown>)
     }
     for (const entity of result.entryUpdates.newCharacters) {
-      clampCustomVars(entity.customVars)
+      clampInlineVars(entity as unknown as Record<string, unknown>)
     }
     for (const update of result.entryUpdates.locationUpdates) {
-      clampCustomVars(update.changes?.customVars)
+      clampInlineVars(update.changes as unknown as Record<string, unknown>)
     }
     for (const entity of result.entryUpdates.newLocations) {
-      clampCustomVars(entity.customVars)
+      clampInlineVars(entity as unknown as Record<string, unknown>)
     }
     for (const update of result.entryUpdates.itemUpdates) {
-      clampCustomVars(update.changes?.customVars)
+      clampInlineVars(update.changes as unknown as Record<string, unknown>)
     }
     for (const entity of result.entryUpdates.newItems) {
-      clampCustomVars(entity.customVars)
+      clampInlineVars(entity as unknown as Record<string, unknown>)
     }
     for (const update of result.entryUpdates.storyBeatUpdates) {
-      clampCustomVars(update.changes?.customVars)
+      clampInlineVars(update.changes as unknown as Record<string, unknown>)
     }
     for (const entity of result.entryUpdates.newStoryBeats) {
-      clampCustomVars(entity.customVars)
+      clampInlineVars(entity as unknown as Record<string, unknown>)
     }
   }
 

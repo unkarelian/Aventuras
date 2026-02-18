@@ -26,7 +26,10 @@ import { database } from '$lib/services/database'
 import { rollbackService } from '$lib/services/rollbackService'
 import { ui } from './ui.svelte'
 import { settings } from './settings.svelte'
-import type { ExtendedClassificationResult } from '$lib/services/ai/sdk/schemas/runtime-variables'
+import {
+  extractInlineCustomVars,
+  type ExtendedClassificationResult,
+} from '$lib/services/ai/sdk/schemas/runtime-variables'
 import type { RuntimeVariable } from '$lib/services/packs/types'
 import { DEFAULT_MEMORY_CONFIG } from '$lib/services/ai/generation/MemoryService'
 import { convertToEntries, type ImportedEntry } from '$lib/services/lorebookImporter'
@@ -52,28 +55,28 @@ function log(...args: any[]) {
 }
 
 /**
- * Merge LLM-extracted customVars into entity metadata.runtimeVars.
+ * Merge LLM-extracted inline runtime vars into entity metadata.runtimeVars.
  * Values are keyed by defId (RuntimeVariable.id), NOT variableName,
  * so renames only change the definition -- stored values follow automatically.
  *
  * @param existingMetadata - Current entity metadata (may be null)
- * @param customVars - LLM-extracted vars keyed by variableName
+ * @param inlineVars - LLM-extracted vars keyed by variableName (from extractInlineCustomVars)
  * @param defsByName - Lookup from variableName to RuntimeVariable definition
  * @returns Updated metadata with runtimeVars merged
  */
 function mergeRuntimeVars(
   existingMetadata: Record<string, unknown> | null,
-  customVars: Record<string, unknown> | undefined,
+  inlineVars: Record<string, unknown> | undefined,
   defsByName: Map<string, RuntimeVariable>,
 ): Record<string, unknown> {
-  if (!customVars || Object.keys(customVars).length === 0) {
+  if (!inlineVars || Object.keys(inlineVars).length === 0) {
     return existingMetadata ?? {}
   }
 
   const base = existingMetadata ?? {}
   const runtimeVars = { ...((base.runtimeVars as Record<string, unknown>) ?? {}) }
 
-  for (const [key, value] of Object.entries(customVars)) {
+  for (const [key, value] of Object.entries(inlineVars)) {
     const def = defsByName.get(key)
     if (def) {
       runtimeVars[def.id] = { variableName: def.variableName, v: value }
@@ -1963,13 +1966,13 @@ class StoryStore {
           ) {
             changes.visualDescriptors = update.changes.visualDescriptors
           }
-          // Merge runtime variable values into metadata if present
-          if (update.changes.customVars && Object.keys(update.changes.customVars).length > 0) {
-            changes.metadata = mergeRuntimeVars(
-              existing.metadata,
-              update.changes.customVars,
-              defsByName,
-            )
+          // Merge inline runtime variable values into metadata if present
+          const charInlineVars = extractInlineCustomVars(
+            update.changes as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(charInlineVars).length > 0) {
+            changes.metadata = mergeRuntimeVars(existing.metadata, charInlineVars, defsByName)
           }
           // COW: ensure entity is owned by current branch before updating
           const { entity: ownedChar, wasCowed: charWasCowed } = await this.cowCharacter(existing)
@@ -2005,13 +2008,13 @@ class StoryStore {
                 : addition
             }
           }
-          // Merge runtime variable values into metadata if present
-          if (update.changes.customVars && Object.keys(update.changes.customVars).length > 0) {
-            changes.metadata = mergeRuntimeVars(
-              existing.metadata,
-              update.changes.customVars,
-              defsByName,
-            )
+          // Merge inline runtime variable values into metadata if present
+          const locInlineVars = extractInlineCustomVars(
+            update.changes as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(locInlineVars).length > 0) {
+            changes.metadata = mergeRuntimeVars(existing.metadata, locInlineVars, defsByName)
           }
 
           // COW: ensure entity is owned by current branch before updating
@@ -2092,13 +2095,13 @@ class StoryStore {
           if (update.changes.quantity !== undefined) changes.quantity = update.changes.quantity
           if (update.changes.equipped !== undefined) changes.equipped = update.changes.equipped
           if (update.changes.location) changes.location = update.changes.location
-          // Merge runtime variable values into metadata if present
-          if (update.changes.customVars && Object.keys(update.changes.customVars).length > 0) {
-            changes.metadata = mergeRuntimeVars(
-              existing.metadata,
-              update.changes.customVars,
-              defsByName,
-            )
+          // Merge inline runtime variable values into metadata if present
+          const itemInlineVars = extractInlineCustomVars(
+            update.changes as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(itemInlineVars).length > 0) {
+            changes.metadata = mergeRuntimeVars(existing.metadata, itemInlineVars, defsByName)
           }
           // COW: ensure entity is owned by current branch before updating
           const { entity: ownedItem, wasCowed: itemWasCowed } = await this.cowItem(existing)
@@ -2130,13 +2133,13 @@ class StoryStore {
             }
           }
           if (update.changes.description) changes.description = update.changes.description
-          // Merge runtime variable values into metadata if present
-          if (update.changes.customVars && Object.keys(update.changes.customVars).length > 0) {
-            changes.metadata = mergeRuntimeVars(
-              existing.metadata,
-              update.changes.customVars,
-              defsByName,
-            )
+          // Merge inline runtime variable values into metadata if present
+          const beatInlineVars = extractInlineCustomVars(
+            update.changes as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(beatInlineVars).length > 0) {
+            changes.metadata = mergeRuntimeVars(existing.metadata, beatInlineVars, defsByName)
           }
           // COW: ensure entity is owned by current branch before updating
           const { entity: ownedBeat, wasCowed: beatWasCowed } = await this.cowStoryBeat(existing)
@@ -2162,8 +2165,12 @@ class StoryStore {
         if (!exists) {
           log('Adding new character:', newChar.name)
           const charMetadata: Record<string, unknown> = { source: 'classifier' }
-          if (newChar.customVars && Object.keys(newChar.customVars).length > 0) {
-            Object.assign(charMetadata, mergeRuntimeVars(null, newChar.customVars, defsByName))
+          const newCharInlineVars = extractInlineCustomVars(
+            newChar as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(newCharInlineVars).length > 0) {
+            Object.assign(charMetadata, mergeRuntimeVars(null, newCharInlineVars, defsByName))
           }
           const character: Character = {
             id: crypto.randomUUID(),
@@ -2213,8 +2220,12 @@ class StoryStore {
             }
           }
           const locMetadata: Record<string, unknown> = { source: 'classifier' }
-          if (newLoc.customVars && Object.keys(newLoc.customVars).length > 0) {
-            Object.assign(locMetadata, mergeRuntimeVars(null, newLoc.customVars, defsByName))
+          const newLocInlineVars = extractInlineCustomVars(
+            newLoc as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(newLocInlineVars).length > 0) {
+            Object.assign(locMetadata, mergeRuntimeVars(null, newLocInlineVars, defsByName))
           }
           const location: Location = {
             id: crypto.randomUUID(),
@@ -2287,8 +2298,12 @@ class StoryStore {
         if (!exists) {
           log('Adding new item:', newItem.name)
           const itemMetadata: Record<string, unknown> = { source: 'classifier' }
-          if (newItem.customVars && Object.keys(newItem.customVars).length > 0) {
-            Object.assign(itemMetadata, mergeRuntimeVars(null, newItem.customVars, defsByName))
+          const newItemInlineVars = extractInlineCustomVars(
+            newItem as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(newItemInlineVars).length > 0) {
+            Object.assign(itemMetadata, mergeRuntimeVars(null, newItemInlineVars, defsByName))
           }
           const item: Item = {
             id: crypto.randomUUID(),
@@ -2317,8 +2332,12 @@ class StoryStore {
         if (!exists) {
           log('Adding new story beat:', newBeat.title)
           const beatMetadata: Record<string, unknown> = { source: 'classifier' }
-          if (newBeat.customVars && Object.keys(newBeat.customVars).length > 0) {
-            Object.assign(beatMetadata, mergeRuntimeVars(null, newBeat.customVars, defsByName))
+          const newBeatInlineVars = extractInlineCustomVars(
+            newBeat as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(newBeatInlineVars).length > 0) {
+            Object.assign(beatMetadata, mergeRuntimeVars(null, newBeatInlineVars, defsByName))
           }
           const beat: StoryBeat = {
             id: crypto.randomUUID(),

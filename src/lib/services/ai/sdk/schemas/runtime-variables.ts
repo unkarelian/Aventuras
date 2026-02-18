@@ -6,8 +6,9 @@
  * custom variable extraction when a story's pack defines runtime variables.
  *
  * Key design decisions:
+ * - Runtime vars are added as INLINE fields (not nested under `customVars`)
  * - Single-element enums use z.literal() directly (z.union crashes with <2 items)
- * - Number min/max constraints are NOT enforced in the schema; we clamp after extraction
+ * - Number min/max are included in .describe() for LLM guidance; clamped post-extraction
  * - Variables with defaultValue are marked .optional() in the schema
  * - The LLM sees variableName as the key, but stored values are keyed by defId
  */
@@ -29,83 +30,102 @@ import {
 } from './classifier'
 
 // ============================================================================
+// Variable Description Builder
+// ============================================================================
+
+/**
+ * Build a description string for a runtime variable, including min/max range for numbers.
+ * This becomes the `// comment` in the schema the LLM sees.
+ */
+function buildVariableDescription(def: RuntimeVariable): string {
+  const desc = def.description || def.displayName
+
+  if (def.variableType === 'number') {
+    if (def.minValue !== undefined && def.maxValue !== undefined) {
+      return `${desc} (range: ${def.minValue}-${def.maxValue})`
+    } else if (def.minValue !== undefined) {
+      return `${desc} (min: ${def.minValue})`
+    } else if (def.maxValue !== undefined) {
+      return `${desc} (max: ${def.maxValue})`
+    }
+  }
+
+  return desc
+}
+
+// ============================================================================
 // Single Variable Schema Builder
 // ============================================================================
 
 /**
- * Build a Zod schema for a single runtime variable definition.
- *
- * - text: z.string()
- * - number: z.number() (no min/max -- clamped post-extraction)
- * - enum: z.literal() for 1 option, z.union() for 2+
- *
- * Variables with a defaultValue are marked .optional().
+ * Build the base (non-optional) Zod schema for a runtime variable.
+ * Used internally; call buildVariableSchema() for the version with optionality.
  */
-export function buildVariableSchema(def: RuntimeVariable): z.ZodTypeAny {
-  const desc = def.description || def.displayName
-  const hasDefault = def.defaultValue !== undefined && def.defaultValue !== null
+function buildVariableBaseSchema(def: RuntimeVariable): z.ZodTypeAny {
+  const desc = buildVariableDescription(def)
 
   switch (def.variableType) {
-    case 'text': {
-      const base = z.string().describe(desc)
-      return hasDefault ? base.optional() : base
-    }
+    case 'text':
+      return z.string().describe(desc)
 
-    case 'number': {
-      const base = z.number().describe(desc)
-      return hasDefault ? base.optional() : base
-    }
+    case 'number':
+      return z.number().describe(desc)
 
     case 'enum': {
       const options = def.enumOptions ?? []
-      if (options.length === 0) {
-        // No options defined -- fall back to string
-        const base = z.string().describe(desc)
-        return hasDefault ? base.optional() : base
-      }
+      if (options.length === 0) return z.string().describe(desc)
+      if (options.length === 1) return z.literal(options[0].value).describe(desc)
 
-      if (options.length === 1) {
-        // Single-element: use z.literal directly (z.union requires >= 2)
-        const base = z.literal(options[0].value).describe(desc)
-        return hasDefault ? base.optional() : base
-      }
-
-      // 2+ options: z.union of literals
       const literals = options.map((opt) => z.literal(opt.value)) as [
         z.ZodLiteral<string>,
         z.ZodLiteral<string>,
         ...z.ZodLiteral<string>[],
       ]
-      const base = z.union(literals).describe(desc)
-      return hasDefault ? base.optional() : base
+      return z.union(literals).describe(desc)
     }
 
     default:
-      // Fallback for unknown type
-      return z.string().describe(desc).optional()
+      return z.string().describe(desc)
   }
 }
 
+/**
+ * Build a Zod schema for a single runtime variable definition.
+ * Variables with a defaultValue are marked .optional().
+ */
+export function buildVariableSchema(def: RuntimeVariable): z.ZodTypeAny {
+  const base = buildVariableBaseSchema(def)
+  const hasDefault = def.defaultValue !== undefined && def.defaultValue !== null
+  return hasDefault ? base.optional() : base
+}
+
 // ============================================================================
-// Entity Custom Vars Schema Builder
+// Entity Variable Shape Builder
 // ============================================================================
 
 /**
- * Build a z.object schema for a set of runtime variables (already filtered to one entity type).
- * Each field key is the variable's variableName, value is the built schema.
- * Returns null if the variables array is empty.
+ * Build a Zod shape (Record of field schemas) for runtime variables of one entity type.
+ * Returns null if no variables.
+ *
+ * @param allOptional - true for update schemas (only include changed fields),
+ *                      false for new entity schemas (required fields stay required)
  */
-export function buildEntityCustomVarsSchema(
+export function buildEntityVarsShape(
   variables: RuntimeVariable[],
-): z.ZodObject<z.ZodRawShape> | null {
+  allOptional: boolean,
+): z.ZodRawShape | null {
   if (variables.length === 0) return null
 
   const shape: z.ZodRawShape = {}
   for (const def of variables) {
-    shape[def.variableName] = buildVariableSchema(def)
+    // For updates: all vars optional (only send what changed)
+    // For new entities: respect defaultValue-based optionality
+    shape[def.variableName] = allOptional
+      ? buildVariableBaseSchema(def).optional()
+      : buildVariableSchema(def)
   }
 
-  return z.object(shape).describe('Custom runtime variables for this entity')
+  return shape
 }
 
 // ============================================================================
@@ -123,7 +143,7 @@ const ENTITY_TYPE_TO_SCHEMA_FIELDS: Record<RuntimeEntityType, { updates: string;
 }
 
 /**
- * Base update/new schemas per entity type -- used to extend with customVars.
+ * Base update/new schemas per entity type -- used to extend with inline vars.
  */
 const BASE_UPDATE_SCHEMAS: Record<RuntimeEntityType, z.ZodObject<z.ZodRawShape>> = {
   character: characterUpdateSchema as unknown as z.ZodObject<z.ZodRawShape>,
@@ -140,12 +160,12 @@ const BASE_NEW_SCHEMAS: Record<RuntimeEntityType, z.ZodObject<z.ZodRawShape>> = 
 }
 
 /**
- * Build an extended classification schema that includes customVars fields
- * for entity types that have runtime variable definitions.
+ * Build an extended classification schema that includes runtime variable fields
+ * INLINE on entity update/new schemas (not nested under a `customVars` object).
  *
  * For each entity type with runtime variables:
- * - Update schemas get customVars added inside their `changes` object
- * - New entity schemas get customVars added at the top level
+ * - Update schemas get var fields added directly inside their `changes` object (all optional)
+ * - New entity schemas get var fields added at the top level (with default-based optionality)
  *
  * If no runtime variables exist for any entity type, returns the base schema unchanged.
  */
@@ -168,30 +188,25 @@ export function buildExtendedClassificationSchema(
   for (const entityType of ['character', 'location', 'item', 'story_beat'] as RuntimeEntityType[]) {
     const fields = ENTITY_TYPE_TO_SCHEMA_FIELDS[entityType]
     const vars = runtimeVarsByEntityType[entityType]
-    const customVarsSchema = vars ? buildEntityCustomVarsSchema(vars) : null
+    const updateVarsShape = vars ? buildEntityVarsShape(vars, true) : null
+    const newVarsShape = vars ? buildEntityVarsShape(vars, false) : null
 
-    if (customVarsSchema) {
-      // Extend the update schema: add customVars inside the `changes` object
+    if (updateVarsShape) {
+      // Extend the update schema: add var fields directly inside `changes`
       const baseUpdate = BASE_UPDATE_SCHEMAS[entityType]
-      const changesKey = entityType === 'story_beat' ? 'changes' : 'changes'
-      const originalChanges = (baseUpdate.shape as Record<string, z.ZodTypeAny>)[changesKey]
+      const originalChanges = (baseUpdate.shape as Record<string, z.ZodTypeAny>).changes
 
       if (originalChanges && originalChanges instanceof z.ZodObject) {
-        const extendedChanges = originalChanges.extend({
-          customVars: customVarsSchema.optional(),
-        })
-        const extendedUpdate = baseUpdate.extend({ [changesKey]: extendedChanges })
+        const extendedChanges = originalChanges.extend(updateVarsShape)
+        const extendedUpdate = baseUpdate.extend({ changes: extendedChanges })
         entryUpdatesShape[fields.updates] = z.array(extendedUpdate).default([])
       } else {
-        // Fallback: use base schema as-is
         entryUpdatesShape[fields.updates] = z.array(baseUpdate).default([])
       }
 
-      // Extend the new entity schema: add customVars at top level
+      // Extend the new entity schema: add var fields at top level
       const baseNew = BASE_NEW_SCHEMAS[entityType]
-      const extendedNew = baseNew.extend({
-        customVars: customVarsSchema.optional(),
-      })
+      const extendedNew = baseNew.extend(newVarsShape!)
       entryUpdatesShape[fields.new] = z.array(extendedNew).default([])
     } else {
       // No variables for this entity type: use base schemas
@@ -210,50 +225,31 @@ export function buildExtendedClassificationSchema(
 // Extended Classification Result Type
 // ============================================================================
 
-/** Classification result that may include customVars from runtime variable extraction. */
+/**
+ * Classification result that may include inline runtime variable fields.
+ * Runtime variables appear as direct fields on changes/entity objects
+ * (e.g., `health: 80` alongside `status: "active"`), not nested under `customVars`.
+ *
+ * Use extractInlineCustomVars() to pick out the variable fields from these objects.
+ */
 export type ExtendedClassificationResult = ClassificationResult & {
-  entryUpdates: ClassificationResult['entryUpdates'] & {
-    characterUpdates: Array<
-      ClassificationResult['entryUpdates']['characterUpdates'][number] & {
-        changes: { customVars?: Record<string, unknown> }
-      }
-    >
-    newCharacters: Array<
-      ClassificationResult['entryUpdates']['newCharacters'][number] & {
-        customVars?: Record<string, unknown>
-      }
-    >
-    locationUpdates: Array<
-      ClassificationResult['entryUpdates']['locationUpdates'][number] & {
-        changes: { customVars?: Record<string, unknown> }
-      }
-    >
-    newLocations: Array<
-      ClassificationResult['entryUpdates']['newLocations'][number] & {
-        customVars?: Record<string, unknown>
-      }
-    >
-    itemUpdates: Array<
-      ClassificationResult['entryUpdates']['itemUpdates'][number] & {
-        changes: { customVars?: Record<string, unknown> }
-      }
-    >
-    newItems: Array<
-      ClassificationResult['entryUpdates']['newItems'][number] & {
-        customVars?: Record<string, unknown>
-      }
-    >
-    storyBeatUpdates: Array<
-      ClassificationResult['entryUpdates']['storyBeatUpdates'][number] & {
-        changes: { customVars?: Record<string, unknown> }
-      }
-    >
-    newStoryBeats: Array<
-      ClassificationResult['entryUpdates']['newStoryBeats'][number] & {
-        customVars?: Record<string, unknown>
-      }
-    >
-  }
   /** Internal metadata: runtime variable definitions for use by applyClassificationResult. Not LLM output. */
   _runtimeVarDefs?: RuntimeVariable[]
+}
+
+/**
+ * Extract inline runtime variable values from an LLM-generated object.
+ * Filters the object's entries against known variable names from defsByName.
+ */
+export function extractInlineCustomVars(
+  obj: Record<string, unknown>,
+  defsByName: Map<string, RuntimeVariable>,
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (defsByName.has(key) && value !== undefined) {
+      result[key] = value
+    }
+  }
+  return result
 }

@@ -160,158 +160,94 @@
 </script>
 
 {#if filtered.length > 0}
-  <div class="border-border/50 mt-2 border-t pt-2">
+  <div class="mt-2 flex flex-col gap-1">
     {#if editMode && onValueChange}
       <!-- Edit mode: vertical list of inline editors -->
-      <div class="flex flex-col gap-1.5">
-        {#each filtered as def (def.id)}
-          {@const rawVal = getRawValue(def)}
-          <RuntimeVariableEditor
-            definition={def}
-            currentValue={rawVal}
-            onChange={(v) => onValueChange(def.id, v)}
-          />
-        {/each}
-      </div>
+      {#each filtered as def (def.id)}
+        {@const rawVal = getRawValue(def)}
+        <RuntimeVariableEditor
+          definition={def}
+          currentValue={rawVal}
+          onChange={(v) => onValueChange(def.id, v)}
+        />
+      {/each}
     {:else}
-      <!-- Display mode: flowing chip layout -->
-      <div class="flex flex-wrap gap-1.5">
-        {#each filtered as def (def.id)}
-          {@const rawVal = getRawValue(def)}
-          {@const isSet = rawVal != null}
-          {@const Icon = getIconComponent(def.icon)}
+      <!-- Display mode: vertical stat rows -->
+      {#each filtered as def (def.id)}
+        {@const rawVal = getRawValue(def)}
+        {@const isSet = rawVal != null}
+        {@const Icon = getIconComponent(def.icon)}
 
-          {#if def.variableType === 'number' && hasMinMax(def)}
-            <!-- Number with range: chip with stat bar -->
-            <div
-              class="inline-flex items-center gap-1.5 rounded-md px-2 py-1"
-              style="background-color: color-mix(in srgb, {def.color} {isSet
-                ? '12%'
-                : '6%'}, transparent)"
-            >
-              {#if Icon}
-                <Icon
-                  class="h-3.5 w-3.5 shrink-0 {isSet ? '' : 'opacity-40'}"
-                  style="color: {def.color}"
-                />
-              {/if}
+        <div
+          class="rounded-md px-2 py-1"
+          style="background-color: color-mix(in srgb, {def.color} {isSet
+            ? '10%'
+            : '5%'}, transparent)"
+        >
+          <!-- Label row: icon/name on left, value on right -->
+          <div class="flex items-center gap-1.5">
+            {#if Icon}
+              <Icon
+                class="h-3.5 w-3.5 shrink-0 {isSet ? '' : 'opacity-40'}"
+                style="color: {def.color}"
+                title={def.displayName}
+              />
+            {:else}
               <span
-                class="text-[10px] font-medium whitespace-nowrap {isSet ? '' : 'opacity-40'}"
+                class="text-[11px] font-medium whitespace-nowrap {isSet ? '' : 'opacity-40'}"
                 style="color: {def.color}"
               >
                 {def.displayName}
               </span>
-              {#if isSet && typeof rawVal === 'number'}
-                <div class="bg-muted/50 relative h-3.5 w-16 overflow-hidden rounded-sm">
-                  <div
-                    class="h-full rounded-sm"
-                    style="width: {getProgressPercent(
-                      def,
-                      rawVal,
-                    )}%; background-color: {def.color}; opacity: 0.6"
-                  ></div>
-                  <span
-                    class="absolute inset-0 flex items-center justify-center text-[9px] font-bold tabular-nums"
-                    style="color: {def.color}"
-                  >
-                    {rawVal}/{def.maxValue}
-                  </span>
-                </div>
-              {:else}
-                <span class="text-[10px] italic opacity-40">--</span>
-              {/if}
-            </div>
-          {:else if def.variableType === 'number'}
-            <!-- Number without range: chip with value -->
-            <div
-              class="inline-flex items-center gap-1.5 rounded-md px-2 py-1"
-              style="background-color: color-mix(in srgb, {def.color} {isSet
-                ? '12%'
-                : '6%'}, transparent)"
-            >
-              {#if Icon}
-                <Icon
-                  class="h-3.5 w-3.5 shrink-0 {isSet ? '' : 'opacity-40'}"
-                  style="color: {def.color}"
-                />
-              {/if}
-              <span
-                class="text-[10px] font-medium whitespace-nowrap {isSet ? '' : 'opacity-40'}"
-                style="color: {def.color}"
-              >
-                {def.displayName}
-              </span>
+            {/if}
+
+            {#if def.variableType === 'number'}
               {#if isSet}
-                <span class="text-xs font-bold tabular-nums" style="color: {def.color}"
-                  >{rawVal}</span
-                >
+                <span class="ml-auto text-xs font-bold tabular-nums" style="color: {def.color}">
+                  {rawVal}{#if hasMinMax(def)}<span class="opacity-50">/{def.maxValue}</span>{/if}
+                </span>
               {:else}
-                <span class="text-[10px] italic opacity-40">--</span>
+                <span class="ml-auto text-[10px] italic opacity-40">--</span>
               {/if}
-            </div>
-          {:else if def.variableType === 'enum'}
-            <!-- Enum: colored badge chip -->
-            <div
-              class="inline-flex items-center gap-1.5 rounded-md px-2 py-1"
-              style="background-color: color-mix(in srgb, {def.color} {isSet
-                ? '12%'
-                : '6%'}, transparent)"
-            >
-              {#if Icon}
-                <Icon
-                  class="h-3.5 w-3.5 shrink-0 {isSet ? '' : 'opacity-40'}"
-                  style="color: {def.color}"
-                />
-              {/if}
-              <span
-                class="text-[10px] font-medium whitespace-nowrap {isSet ? '' : 'opacity-40'}"
-                style="color: {def.color}"
-              >
-                {def.displayName}
-              </span>
+            {:else if def.variableType === 'enum'}
               {#if isSet}
-                <span class="text-[10px] font-bold" style="color: {def.color}">
+                <span class="ml-auto text-[11px] font-semibold" style="color: {def.color}">
                   {getEnumLabel(def, rawVal)}
                 </span>
               {:else}
-                <span class="text-[10px] italic opacity-40">--</span>
+                <span class="ml-auto text-[10px] italic opacity-40">--</span>
               {/if}
-            </div>
-          {:else}
-            <!-- Text: colored text chip -->
-            <div
-              class="inline-flex items-center gap-1.5 rounded-md px-2 py-1"
-              style="background-color: color-mix(in srgb, {def.color} {isSet
-                ? '12%'
-                : '6%'}, transparent)"
-            >
-              {#if Icon}
-                <Icon
-                  class="h-3.5 w-3.5 shrink-0 {isSet ? '' : 'opacity-40'}"
-                  style="color: {def.color}"
-                />
+            {:else}
+              <!-- Text: "not set" indicator on right when empty -->
+              {#if !isSet}
+                <span class="ml-auto text-[10px] italic opacity-40">--</span>
               {/if}
-              <span
-                class="text-[10px] font-medium whitespace-nowrap {isSet ? '' : 'opacity-40'}"
-                style="color: {def.color}"
-              >
-                {def.displayName}
-              </span>
-              {#if isSet}
-                <span
-                  class="max-w-[100px] truncate text-[10px] font-medium"
-                  style="color: {def.color}"
-                  title={String(rawVal)}
-                >
-                  {rawVal}
-                </span>
-              {:else}
-                <span class="text-[10px] italic opacity-40">--</span>
+            {/if}
+          </div>
+
+          <!-- Full-width progress bar for number with range -->
+          {#if def.variableType === 'number' && hasMinMax(def)}
+            <div class="bg-muted/50 mt-1 h-1.5 w-full overflow-hidden rounded-full">
+              {#if isSet && typeof rawVal === 'number'}
+                <div
+                  class="h-full rounded-full"
+                  style="width: {getProgressPercent(
+                    def,
+                    rawVal,
+                  )}%; background-color: {def.color}; opacity: 0.7"
+                ></div>
               {/if}
             </div>
           {/if}
-        {/each}
-      </div>
+
+          <!-- Full text value below label -->
+          {#if def.variableType === 'text' && isSet}
+            <p class="mt-0.5 text-[11px] leading-snug" style="color: {def.color}; opacity: 0.8">
+              {rawVal}
+            </p>
+          {/if}
+        </div>
+      {/each}
     {/if}
   </div>
 {/if}

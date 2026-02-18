@@ -103,12 +103,12 @@
     Gauge,
   }
 
-  let icon = $derived(definition.icon ? (ICON_MAP[definition.icon] ?? null) : null)
+  let Icon = $derived(definition.icon ? (ICON_MAP[definition.icon] ?? null) : null)
 
-  // Local state for text/number inputs
-  let textValue = $state(currentValue != null ? String(currentValue) : '')
-  let numValue = $state(currentValue != null ? Number(currentValue) : 0)
-  let enumValue = $state(currentValue != null ? String(currentValue) : '')
+  // Local state for text/number inputs (synced from props via $effect below)
+  let textValue = $state('')
+  let numValue = $state(0)
+  let enumValue = $state('')
 
   // Sync external changes
   $effect(() => {
@@ -151,20 +151,15 @@
 
 <div class="flex items-center gap-1.5">
   <!-- Icon or label -->
-  <div class="flex w-5 shrink-0 items-center justify-center" title={definition.displayName}>
-    {#if icon}
-      <svelte:component this={icon} class="h-3.5 w-3.5" style="color: {definition.color}" />
-    {:else}
-      <span class="text-[10px] font-medium" style="color: {definition.color}">
-        {definition.displayName.slice(0, 2)}
-      </span>
-    {/if}
-  </div>
-
-  <!-- Label -->
-  <span class="text-muted-foreground max-w-[80px] min-w-0 shrink-0 truncate text-xs">
-    {definition.displayName}
-  </span>
+  {#if Icon}
+    <div class="flex w-5 shrink-0 items-center justify-center" title={definition.displayName}>
+      <Icon class="h-3.5 w-3.5" style="color: {definition.color}" />
+    </div>
+  {:else}
+    <span class="text-muted-foreground max-w-[80px] min-w-0 shrink-0 truncate text-xs">
+      {definition.displayName}
+    </span>
+  {/if}
 
   <!-- Editor -->
   <div class="min-w-0 flex-1">
