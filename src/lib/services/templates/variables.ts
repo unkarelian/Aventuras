@@ -899,6 +899,51 @@ export const RUNTIME_VARIABLES: VariableDefinition[] = [
     description: 'Conversation history for interactive lorebook',
     required: false,
   },
+
+  // === Runtime Variable Context ===
+  {
+    name: 'runtimeVars_characters',
+    type: 'text',
+    category: 'runtime',
+    description: 'Runtime variable values for all characters (formatted text block)',
+    required: false,
+  },
+  {
+    name: 'runtimeVars_locations',
+    type: 'text',
+    category: 'runtime',
+    description: 'Runtime variable values for all locations (formatted text block)',
+    required: false,
+  },
+  {
+    name: 'runtimeVars_items',
+    type: 'text',
+    category: 'runtime',
+    description: 'Runtime variable values for all items (formatted text block)',
+    required: false,
+  },
+  {
+    name: 'runtimeVars_storyBeats',
+    type: 'text',
+    category: 'runtime',
+    description: 'Runtime variable values for all story beats (formatted text block)',
+    required: false,
+  },
+  {
+    name: 'runtimeVars_protagonist',
+    type: 'text',
+    category: 'runtime',
+    description: 'Runtime variable values for the protagonist only',
+    required: false,
+  },
+  {
+    name: 'customVariableInstructions',
+    type: 'text',
+    category: 'runtime',
+    description:
+      'Custom variable extraction instructions for the classifier (auto-generated from runtime variable definitions)',
+    required: false,
+  },
 ]
 
 /**
