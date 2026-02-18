@@ -38,20 +38,19 @@ class TemplateEngine {
    * Render a template with the given context
    *
    * This is the one-pass render: one template string + one context object = one output string.
-   * Never throws — returns empty string on error.
+   * Never throws — returns null on error so callers can distinguish render failures
+   * from intentionally empty templates.
    *
    * @param template - Template string with LiquidJS syntax
    * @param context - Flat context object with variable values
-   * @returns Rendered string (empty string on error)
+   * @returns Rendered string, or null on render error
    */
-  render(template: string, context: TemplateContext): string {
+  render(template: string, context: TemplateContext): string | null {
     try {
       return this.liquid.parseAndRenderSync(template, context)
     } catch (error) {
-      // Log error in development mode only
       log('render error', { error, template: template.substring(0, 100) })
-      // Return empty string - never break user experience
-      return ''
+      return null
     }
   }
 

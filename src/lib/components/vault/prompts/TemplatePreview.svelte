@@ -62,9 +62,7 @@
       const context = buildSampleContext(currentVars, currentTestValues)
       const result = templateEngine.render(currentContent, context)
 
-      if (result === '' && currentContent.trim() !== '') {
-        // Empty result from non-empty template likely means render error
-        // The engine logs errors internally; show a user-friendly message
+      if (result === null) {
         previewError = 'Template could not be rendered. Check for syntax errors.'
         previewOutput = ''
       } else {
