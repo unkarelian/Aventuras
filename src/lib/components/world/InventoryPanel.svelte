@@ -14,6 +14,7 @@
     X,
   } from 'lucide-svelte'
   import type { Item } from '$lib/types'
+  import type { RuntimeVariable, RuntimeVarsMap } from '$lib/services/packs/types'
   import { Button } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
@@ -23,6 +24,8 @@
   import * as Select from '$lib/components/ui/select'
   import IconRow from '$lib/components/ui/icon-row.svelte'
   import { cn } from '$lib/utils/cn'
+  import { database } from '$lib/services/database'
+  import RuntimeVariableDisplay from './RuntimeVariableDisplay.svelte'
 
   let showAddForm = $state(false)
   let newName = $state('')
@@ -35,6 +38,41 @@
   let editEquipped = $state(false)
   let droppingItemId = $state<string | null>(null)
   let dropLocationId = $state<string>('')
+
+  // Runtime variables
+  let runtimeVarDefs = $state<RuntimeVariable[]>([])
+  let editRuntimeVars = $state<RuntimeVarsMap>({})
+
+  $effect(() => {
+    if (story.currentStory) {
+      loadRuntimeVarDefs()
+    }
+  })
+
+  async function loadRuntimeVarDefs() {
+    if (!story.currentStory) return
+    try {
+      const packId = await database.getStoryPackId(story.currentStory.id)
+      if (packId) {
+        runtimeVarDefs = await database.getRuntimeVariablesByEntityType(packId, 'item')
+      } else {
+        runtimeVarDefs = []
+      }
+    } catch {
+      runtimeVarDefs = []
+    }
+  }
+
+  function updateEditRuntimeVar(
+    defId: string,
+    variableName: string,
+    value: string | number | null,
+  ) {
+    editRuntimeVars = {
+      ...editRuntimeVars,
+      [defId]: { variableName, v: value },
+    }
+  }
 
   const worldItems = $derived(story.items.filter((item) => item.location !== 'inventory'))
 
@@ -60,6 +98,9 @@
     editEquipped = item.equipped
     // Reset other modes
     droppingItemId = null
+    // Initialize runtime vars from entity metadata
+    const rv = (item.metadata as Record<string, unknown> | null)?.runtimeVars
+    editRuntimeVars = rv && typeof rv === 'object' ? { ...(rv as RuntimeVarsMap) } : {}
   }
 
   function cancelEdit() {
@@ -68,6 +109,7 @@
     editDescription = ''
     editQuantity = 1
     editEquipped = false
+    editRuntimeVars = {}
   }
 
   async function saveEdit(item: Item) {
@@ -75,11 +117,26 @@
     if (!name) return
 
     const quantity = Math.max(1, Number(editQuantity) || 1)
+
+    // Merge runtime vars into metadata
+    const existingMeta = (item.metadata as Record<string, unknown>) ?? {}
+    const hasRuntimeVarEdits = Object.keys(editRuntimeVars).length > 0
+    const updatedMetadata = hasRuntimeVarEdits
+      ? {
+          ...existingMeta,
+          runtimeVars: {
+            ...((existingMeta.runtimeVars as RuntimeVarsMap) ?? {}),
+            ...editRuntimeVars,
+          },
+        }
+      : item.metadata
+
     await story.updateItem(item.id, {
       name,
       description: editDescription.trim() || null,
       quantity,
       equipped: item.location === 'inventory' ? editEquipped : false,
+      metadata: updatedMetadata,
     })
 
     cancelEdit()
@@ -240,6 +297,20 @@
                 />
               </div>
 
+              <!-- Runtime Variables (Edit - Equipped) -->
+              {#if runtimeVarDefs.length > 0}
+                <RuntimeVariableDisplay
+                  definitions={runtimeVarDefs}
+                  values={editRuntimeVars}
+                  entityId={item.id}
+                  editMode={true}
+                  onValueChange={(defId, value) => {
+                    const def = runtimeVarDefs.find((d) => d.id === defId)
+                    if (def) updateEditRuntimeVar(defId, def.variableName, value)
+                  }}
+                />
+              {/if}
+
               <div class="border-border flex justify-end gap-2 border-t pt-2">
                 <Button variant="text" size="sm" class="h-7 text-xs" onclick={cancelEdit}>
                   Cancel
@@ -337,6 +408,15 @@
                   {item.translatedDescription ?? item.description}
                 </p>
               </div>
+            {/if}
+
+            <!-- Runtime Variables (Display - Equipped) -->
+            {#if runtimeVarDefs.length > 0}
+              <RuntimeVariableDisplay
+                definitions={runtimeVarDefs}
+                values={item.metadata?.runtimeVars as RuntimeVarsMap | undefined}
+                entityId={item.id}
+              />
             {/if}
 
             <!-- Footer Actions -->
@@ -452,6 +532,20 @@
                 />
               </div>
 
+              <!-- Runtime Variables (Edit - Backpack) -->
+              {#if runtimeVarDefs.length > 0}
+                <RuntimeVariableDisplay
+                  definitions={runtimeVarDefs}
+                  values={editRuntimeVars}
+                  entityId={item.id}
+                  editMode={true}
+                  onValueChange={(defId, value) => {
+                    const def = runtimeVarDefs.find((d) => d.id === defId)
+                    if (def) updateEditRuntimeVar(defId, def.variableName, value)
+                  }}
+                />
+              {/if}
+
               <div class="border-border flex justify-end gap-2 border-t pt-2">
                 <Button variant="text" size="sm" class="h-7 text-xs" onclick={cancelEdit}>
                   Cancel
@@ -541,6 +635,15 @@
                   {item.translatedDescription ?? item.description}
                 </p>
               </div>
+            {/if}
+
+            <!-- Runtime Variables (Display - Backpack) -->
+            {#if runtimeVarDefs.length > 0}
+              <RuntimeVariableDisplay
+                definitions={runtimeVarDefs}
+                values={item.metadata?.runtimeVars as RuntimeVarsMap | undefined}
+                entityId={item.id}
+              />
             {/if}
 
             <!-- Footer Actions -->
@@ -667,6 +770,20 @@
                 />
               </div>
 
+              <!-- Runtime Variables (Edit - World) -->
+              {#if runtimeVarDefs.length > 0}
+                <RuntimeVariableDisplay
+                  definitions={runtimeVarDefs}
+                  values={editRuntimeVars}
+                  entityId={item.id}
+                  editMode={true}
+                  onValueChange={(defId, value) => {
+                    const def = runtimeVarDefs.find((d) => d.id === defId)
+                    if (def) updateEditRuntimeVar(defId, def.variableName, value)
+                  }}
+                />
+              {/if}
+
               <div class="border-border flex justify-end gap-2 border-t pt-2">
                 <Button variant="text" size="sm" class="h-7 text-xs" onclick={cancelEdit}>
                   Cancel
@@ -764,6 +881,15 @@
                   {item.translatedDescription ?? item.description}
                 </p>
               </div>
+            {/if}
+
+            <!-- Runtime Variables (Display - World) -->
+            {#if runtimeVarDefs.length > 0}
+              <RuntimeVariableDisplay
+                definitions={runtimeVarDefs}
+                values={item.metadata?.runtimeVars as RuntimeVarsMap | undefined}
+                entityId={item.id}
+              />
             {/if}
 
             <!-- Footer Actions -->
