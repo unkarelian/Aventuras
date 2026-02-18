@@ -64,7 +64,6 @@ import {
   emitBackgroundImageQueued,
   emitBackgroundImageReady,
 } from '$lib/services/events'
-import { database } from '$lib/services/database'
 import { generateImage as registryGenerateImage } from './image/providers/registry'
 import { normalizeImageDataUrl } from '$lib/utils/image'
 import type { ImageableScene } from './sdk/schemas/imageanalysis'
