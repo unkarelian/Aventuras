@@ -68,12 +68,12 @@
   let activeEntityTypes = $derived(ENTITY_TYPE_ORDER.filter((et) => grouped()[et].length > 0))
 
   function nextVariableName(): string {
-    const existing = new Set(runtimeVariables.map((v) => v.variableName))
-    if (!existing.has('new_variable')) return 'new_variable'
-    for (let i = 2; ; i++) {
-      const name = `new_variable_${i}`
-      if (!existing.has(name)) return name
+    let max = 0
+    for (const v of runtimeVariables) {
+      const match = v.variableName.match(/^new_variable(?:_(\d+))?$/)
+      if (match) max = Math.max(max, Number(match[1] ?? 1))
     }
+    return max === 0 ? 'new_variable' : `new_variable_${max + 1}`
   }
 
   async function handleAddVariable() {
