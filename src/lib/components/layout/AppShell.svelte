@@ -35,6 +35,62 @@
     }
   }
 
+  // Debug button drag state
+  let debugBtnX = $state<number | null>(null) // null = use CSS default position
+  let debugBtnY = $state<number | null>(null)
+  let isDraggingDebug = $state(false)
+  let dragStartX = 0
+  let dragStartY = 0
+  let dragStartBtnX = 0
+  let dragStartBtnY = 0
+  let dragMoved = false // tracks if pointer moved enough to be a drag
+  const DRAG_THRESHOLD = 5 // px before it counts as drag, not click
+
+  function handleDebugPointerDown(e: PointerEvent) {
+    isDraggingDebug = true
+    dragMoved = false
+    const btn = e.currentTarget as HTMLElement
+    btn.setPointerCapture(e.pointerId)
+
+    // If position is null (default), initialize from current computed position
+    if (debugBtnX === null || debugBtnY === null) {
+      const rect = btn.getBoundingClientRect()
+      debugBtnX = rect.left
+      debugBtnY = rect.top
+    }
+
+    dragStartX = e.clientX
+    dragStartY = e.clientY
+    dragStartBtnX = debugBtnX
+    dragStartBtnY = debugBtnY
+    e.preventDefault()
+  }
+
+  function handleDebugPointerMove(e: PointerEvent) {
+    if (!isDraggingDebug) return
+
+    const dx = e.clientX - dragStartX
+    const dy = e.clientY - dragStartY
+
+    if (!dragMoved && Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) {
+      return // below threshold, don't move yet
+    }
+    dragMoved = true
+
+    // Clamp to viewport
+    const btnSize = 48 // h-12 w-12 = 3rem = 48px
+    debugBtnX = Math.max(0, Math.min(window.innerWidth - btnSize, dragStartBtnX + dx))
+    debugBtnY = Math.max(0, Math.min(window.innerHeight - btnSize, dragStartBtnY + dy))
+  }
+
+  function handleDebugPointerUp() {
+    isDraggingDebug = false
+    if (!dragMoved) {
+      // It was a click/tap, not a drag
+      ui.toggleDebugModal()
+    }
+  }
+
   // Resizing logic
   let isResizing = $state(false)
 
@@ -163,17 +219,28 @@
   <!-- Sync Modal -->
   <SyncModal />
 
-  <!-- Floating Debug Button (when debug mode enabled) -->
+  <!-- Floating Debug Button (when debug mode enabled) - draggable, high z-index -->
   {#if settings.uiSettings.debugMode}
     <button
-      class="fixed right-4 bottom-20 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-colors hover:bg-amber-500 sm:bottom-4"
-      onclick={() => ui.toggleDebugModal()}
-      title="View API Debug Logs"
+      class="fixed z-[9998] flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-shadow hover:bg-amber-500 active:shadow-xl"
+      class:cursor-grabbing={isDraggingDebug}
+      class:cursor-grab={!isDraggingDebug}
+      style="{debugBtnX !== null && debugBtnY !== null
+        ? `left: ${debugBtnX}px; top: ${debugBtnY}px;`
+        : 'right: 1rem; bottom: 1rem;'} touch-action: none;"
+      style:transition={isDraggingDebug ? 'none' : undefined}
+      onpointerdown={handleDebugPointerDown}
+      onpointermove={handleDebugPointerMove}
+      onpointerup={handleDebugPointerUp}
+      onpointercancel={() => {
+        isDraggingDebug = false
+      }}
+      title="View API Debug Logs (drag to move)"
     >
-      <Bug class="h-5 w-5" />
+      <Bug class="pointer-events-none h-5 w-5" />
       {#if ui.debugLogs.length > 0}
         <span
-          class="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium"
+          class="pointer-events-none absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium"
         >
           {ui.debugLogs.length > 99 ? '99+' : ui.debugLogs.length}
         </span>
