@@ -220,7 +220,7 @@
   <SyncModal />
 
   <!-- Floating Debug Button (when debug mode enabled) - draggable, high z-index -->
-  {#if settings.uiSettings.debugMode}
+  {#if settings.uiSettings.debugMode && !ui.debugModalOpen}
     <button
       class="fixed z-[9998] flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-shadow hover:bg-amber-500 active:shadow-xl"
       class:cursor-grabbing={isDraggingDebug}
