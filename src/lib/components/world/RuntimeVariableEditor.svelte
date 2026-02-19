@@ -3,7 +3,7 @@
   import { Input } from '$lib/components/ui/input'
   import * as Select from '$lib/components/ui/select'
   import {
-    Icon,
+    Icon as LucideIcon,
     Heart,
     Shield,
     Sword,
@@ -57,7 +57,7 @@
 
   let { definition, currentValue, onChange }: Props = $props()
 
-  const ICON_MAP: Record<string, typeof Icon> = {
+  const ICON_MAP: Record<string, typeof LucideIcon> = {
     Heart,
     Shield,
     Sword,

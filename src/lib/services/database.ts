@@ -138,6 +138,23 @@ class DatabaseService {
   }
 
   /**
+   * Run a callback inside a BEGIN/COMMIT transaction.
+   * Automatically rolls back on error.
+   */
+  async withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    const db = await this.getDb()
+    await db.execute('BEGIN')
+    try {
+      const result = await fn()
+      await db.execute('COMMIT')
+      return result
+    } catch (error) {
+      await db.execute('ROLLBACK')
+      throw error
+    }
+  }
+
+  /**
    * Execute a raw SQL query for debugging purposes.
    * SELECT queries return rows; other queries return affected row count.
    */
