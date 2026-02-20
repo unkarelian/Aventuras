@@ -373,6 +373,22 @@
   const selectedPendingChange = $derived(selectedCombined?.pendingChange ?? null)
   const selectedPendingAction = $derived(selectedCombined?.pendingAction ?? null)
 
+  // Compute changed fields for pending entry updates
+  const entryChangedFields = $derived.by(() => {
+    if (!selectedPendingChange || selectedPendingChange.action !== 'update') return undefined
+    if (!('previous' in selectedPendingChange) || !selectedPendingChange.previous) return undefined
+    if (!('data' in selectedPendingChange)) return undefined
+    const changed = new Set<string>()
+    const prev = selectedPendingChange.previous as Record<string, unknown>
+    const cur = selectedPendingChange.data as Record<string, unknown>
+    for (const key of Object.keys(cur)) {
+      const oldVal = JSON.stringify(prev[key] ?? '')
+      const newVal = JSON.stringify(cur[key] ?? '')
+      if (oldVal !== newVal) changed.add(key)
+    }
+    return changed.size > 0 ? changed : undefined
+  })
+
   const typeIcons: Record<EntryType, any> = {
     character: Users,
     location: MapPin,
@@ -597,23 +613,8 @@
   <!-- Header -->
   {#if !isEmbedded}
     <div
-      class="border-surface-700/50 bg-surface-900/80 relative flex flex-shrink-0 items-center justify-center border-b px-6 py-3"
+      class="border-surface-700 bg-surface-900 relative flex flex-shrink-0 items-center justify-center border-b px-6 py-3"
     >
-      <div class="absolute top-1/2 left-4 -translate-y-1/2">
-        <Button
-          variant="ghost"
-          size="icon"
-          class="text-surface-400 hover:text-surface-200 h-7 w-7"
-          onclick={() => (isMaximized = !isMaximized)}
-        >
-          {#if isMaximized}
-            <Minimize2 class="h-3.5 w-3.5" />
-          {:else}
-            <Maximize2 class="h-3.5 w-3.5" />
-          {/if}
-          <span class="sr-only">{isMaximized ? 'Minimize' : 'Maximize'}</span>
-        </Button>
-      </div>
       <h2 class="text-surface-100 text-sm font-semibold tracking-tight">Edit Lorebook</h2>
       {#if error}
         <div
@@ -623,29 +624,50 @@
         </div>
       {/if}
     </div>
-  {:else if error}
+  {:else}
+    <!-- Embedded header with close button -->
     <div
-      class="w-full border-b border-red-500/20 bg-red-500/8 py-1 text-center text-xs text-red-400"
+      class="border-surface-700 bg-surface-900 flex flex-shrink-0 items-center justify-between border-b px-4 py-2"
     >
-      {error}
+      <div class="flex items-center gap-2">
+        <div class="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15">
+          <List class="h-3 w-3 text-cyan-400" />
+        </div>
+        <span class="text-surface-200 text-xs font-semibold">Lorebook Editor</span>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        class="text-surface-400 hover:text-foreground h-6 w-6"
+        onclick={onClose}
+      >
+        <X class="h-3.5 w-3.5" />
+      </Button>
     </div>
+    {#if error}
+      <div
+        class="w-full border-b border-red-500/20 bg-red-500/8 py-1 text-center text-xs text-red-400"
+      >
+        {error}
+      </div>
+    {/if}
   {/if}
 
   <Tabs.Root bind:value={activeTab} class="flex flex-1 flex-col overflow-hidden">
     <div
-      class="border-surface-700/40 bg-surface-800/30 flex shrink-0 items-center justify-between border-b"
+      class="border-surface-700 bg-surface-800 flex shrink-0 items-center justify-between border-b"
     >
       <Tabs.List class="h-10 justify-start bg-transparent p-0">
         <Tabs.Trigger
           value="editor"
-          class="data-[state=active]:border-accent-500 data-[state=active]:text-surface-100 h-full rounded-none px-3.5 text-xs data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          class="data-[state=active]:border-accent-500 data-[state=active]:text-foreground h-full rounded-none px-3.5 text-xs data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
           <List class="mr-1.5 h-3.5 w-3.5" />
           Entries ({entries.length})
         </Tabs.Trigger>
         <Tabs.Trigger
           value="settings"
-          class="data-[state=active]:border-accent-500 data-[state=active]:text-surface-100 h-full rounded-none px-3.5 text-xs data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          class="data-[state=active]:border-accent-500 data-[state=active]:text-foreground h-full rounded-none px-3.5 text-xs data-[state=active]:border-b-2 data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
           <Settings class="mr-1.5 h-3.5 w-3.5" />
           Settings
@@ -695,17 +717,17 @@
                 />
               </div>
 
-              <div class="border-surface-700/40 bg-surface-800/40 rounded-xl border p-4">
+              <div class="border-surface-700 bg-surface-800 rounded-xl border p-4">
                 <h4 class="text-surface-300 mb-3 text-xs font-semibold">Statistics</h4>
                 <div class="grid grid-cols-2 gap-3 text-xs">
                   <div
-                    class="border-surface-700/30 bg-surface-900/50 flex justify-between rounded-lg border p-2.5"
+                    class="border-surface-700 bg-surface-900 flex justify-between rounded-lg border p-2.5"
                   >
                     <span class="text-surface-400">Total Entries</span>
                     <span class="text-surface-200 font-semibold">{entries.length}</span>
                   </div>
                   <div
-                    class="border-surface-700/30 bg-surface-900/50 flex justify-between rounded-lg border p-2.5"
+                    class="border-surface-700 bg-surface-900 flex justify-between rounded-lg border p-2.5"
                   >
                     <span class="text-surface-400">Active Entries</span>
                     <span class="text-surface-200 font-semibold"
@@ -759,16 +781,16 @@
           <!-- Sidebar (List) -->
           <div
             class={cn(
-              'sm:border-surface-700/40 sm:bg-surface-800/20 flex w-full flex-col sm:w-72 sm:border-r',
+              'sm:border-border sm:bg-foreground/[0.03] flex w-full flex-col sm:w-72 sm:border-r',
               selectedIndex !== null && 'hidden sm:flex',
             )}
           >
-            <div class="border-surface-700/40 space-y-2 border-b p-3">
+            <div class="border-surface-700 space-y-2 border-b p-3">
               <div class="relative">
                 <Input
                   bind:value={searchQuery}
                   placeholder="Search entries..."
-                  class="border-surface-700/50 bg-surface-800/50 placeholder:text-surface-500 h-8 rounded-lg pl-9 text-xs"
+                  class="border-surface-700 bg-surface-800 placeholder:text-surface-500 h-8 rounded-lg pl-9 text-xs"
                   leftIcon={Search}
                 />
               </div>
@@ -805,7 +827,7 @@
                     pendingAction === 'delete' || pendingAction === 'merge-source'}
                   <button
                     class={cn(
-                      'hover:bg-surface-700/30 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
+                      'hover:bg-foreground/5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
                       selectedIndex === index &&
                         'bg-accent-500/10 text-accent-foreground ring-accent-500/20 ring-1',
                       pendingAction === 'edit' && 'border-l-2 border-l-blue-500/30',
@@ -828,7 +850,7 @@
                   >
                     <div
                       class={cn(
-                        'border-surface-700/40 bg-surface-800/50 flex h-7 w-7 items-center justify-center rounded-lg border',
+                        'border-surface-700 bg-surface-800 flex h-7 w-7 items-center justify-center rounded-lg border',
                         selectedIndex === index && 'border-accent-500/20 bg-accent-500/10',
                         pendingAction === 'edit' && 'border-blue-500/30 text-blue-400',
                         pendingAction === 'delete' && 'border-red-500/30 text-red-400',
@@ -887,7 +909,7 @@
           >
             {#if selectedEntry !== null && selectedIndex !== null}
               <div
-                class="border-surface-700/40 flex flex-shrink-0 items-center justify-between border-b px-4 py-2.5"
+                class="border-surface-700 flex flex-shrink-0 items-center justify-between border-b px-4 py-2.5"
               >
                 <div class="flex min-w-0 flex-1 items-center gap-2">
                   <Button
@@ -1010,6 +1032,7 @@
                 <div class="mx-auto max-w-3xl">
                   <VaultLorebookEntryFields
                     data={selectedEntry}
+                    changedFields={entryChangedFields}
                     onUpdate={(newData) => {
                       entriesDirty = true
                       if (selectedIndex === -1) {
@@ -1029,7 +1052,7 @@
               </div>
             {:else}
               <div class="text-surface-500 flex flex-1 flex-col items-center justify-center">
-                <div class="bg-surface-800/50 mb-3 rounded-2xl p-5">
+                <div class="bg-surface-800 mb-3 rounded-2xl p-5">
                   <Search class="h-6 w-6 opacity-40" />
                 </div>
                 <p class="text-surface-400 text-sm font-medium">Select an entry to edit</p>
@@ -1045,7 +1068,7 @@
   <!-- Footer -->
   {#if !isEmbedded}
     <div
-      class="border-surface-700/40 bg-surface-800/30 flex flex-shrink-0 items-center gap-2 border-t px-4 py-2.5 sm:justify-end"
+      class="border-surface-700 bg-surface-800 flex flex-shrink-0 items-center gap-2 border-t px-4 py-2.5 sm:justify-end"
     >
       <Button
         variant="outline"

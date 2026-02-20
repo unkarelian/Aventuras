@@ -12,9 +12,6 @@
 
   let { lorebook, onClose }: Props = $props()
 
-  // Manage maximization state at the modal level
-  let isMaximized = $state(false)
-
   async function handleSave(updated: VaultLorebook) {
     await lorebookVault.update(updated.id, updated)
   }
@@ -33,8 +30,7 @@
 >
   <ResponsiveModal.Content
     class={cn(
-      'flex h-[100dvh] w-full flex-col overflow-hidden rounded-none p-0 transition-all duration-200 sm:h-[90vh] sm:rounded-lg',
-      isMaximized ? 'max-w-[90vw]' : 'sm:max-w-6xl',
+      'flex h-[100dvh] w-full flex-col overflow-hidden rounded-none p-0 transition-all duration-200 sm:h-[90vh] sm:max-w-6xl sm:rounded-lg',
     )}
   >
     <VaultLorebookEditorContent

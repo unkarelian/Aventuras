@@ -27,9 +27,15 @@
   interface Props {
     data: VaultScenarioInput
     onUpdate: (data: VaultScenarioInput) => void
+    changedFields?: Set<string>
   }
 
-  let { data, onUpdate }: Props = $props()
+  let { data, onUpdate, changedFields }: Props = $props()
+
+  const changed = (field: string) =>
+    changedFields?.has(field)
+      ? 'border-l-2 border-l-blue-400/50 bg-blue-500/5 pl-3 -ml-3 rounded-lg'
+      : ''
 
   let showCharacterSelector = $state(false)
   let charSearchQuery = $state('')
@@ -123,7 +129,7 @@
     <div class="mx-auto max-w-3xl space-y-6 px-4 py-4 md:px-6">
       <Tabs.Content value="general" class="mt-0 space-y-6">
         <div class="space-y-4">
-          <div class="space-y-2">
+          <div class="space-y-2 {changed('name')}">
             <Label for="name">Scenario Name</Label>
             <Input
               id="name"
@@ -133,7 +139,7 @@
             />
           </div>
 
-          <div class="space-y-2">
+          <div class="space-y-2 {changed('description')}">
             <Label for="description">Description</Label>
             <Textarea
               id="description"
@@ -148,7 +154,7 @@
             />
           </div>
 
-          <div class="space-y-2">
+          <div class="space-y-2 {changed('primaryCharacterName')}">
             <Label for="protagonist">Protagonist Name</Label>
             <Input
               id="protagonist"
@@ -158,7 +164,7 @@
             />
           </div>
 
-          <div class="space-y-2">
+          <div class="space-y-2 {changed('settingSeed')}">
             <Label for="seed">Setting Seed</Label>
             <div class="relative">
               <Textarea
@@ -177,7 +183,7 @@
             </div>
           </div>
 
-          <div class="space-y-2">
+          <div class="space-y-2 {changed('tags')}">
             <Label>Tags</Label>
             <TagInput
               value={data.tags}
@@ -192,7 +198,7 @@
         </div>
       </Tabs.Content>
 
-      <Tabs.Content value="npcs" class="mt-0 space-y-6">
+      <Tabs.Content value="npcs" class="mt-0 space-y-6 {changed('npcs')}">
         <div
           class="bg-background sticky top-0 z-10 mb-4 flex items-center justify-between border-b pt-2 pb-4"
         >
@@ -313,7 +319,7 @@
       </Tabs.Content>
 
       <Tabs.Content value="opening" class="mt-0 space-y-6">
-        <div class="space-y-2">
+        <div class="space-y-2 {changed('firstMessage')}">
           <Label>First Message</Label>
           <Textarea
             value={data.firstMessage ?? ''}
@@ -328,7 +334,7 @@
           <p class="text-muted-foreground text-[0.8rem]">Shown when the story begins.</p>
         </div>
 
-        <div class="space-y-4">
+        <div class="space-y-4 {changed('alternateGreetings')}">
           <div class="flex items-center justify-between">
             <Label>Alternate Greetings</Label>
             <Button variant="outline" size="sm" onclick={addGreeting}>

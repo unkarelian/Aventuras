@@ -28,10 +28,14 @@
     Trash2,
     Plus,
     History,
+    BookOpen,
+    Map,
+    Check,
+    X,
+    ListChecks,
   } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button'
   import { Textarea } from '$lib/components/ui/textarea'
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu'
   import VaultDiffView from './VaultDiffView.svelte'
   import VaultEntityEditPanel from './VaultEntityEditPanel.svelte'
   import { fade, slide } from 'svelte/transition'
@@ -79,6 +83,40 @@
   let conversations = $state<VaultConversation[]>([])
   let conversationSelectorOpen = $state(false)
   const MAX_CONVERSATIONS = 10
+
+  // Pending changes quick list
+  let pendingListOpen = $state(false)
+  const pendingOnly = $derived(vaultEditor.pendingChanges.filter((c) => c.status === 'pending'))
+
+  const entityIcons = {
+    character: User,
+    'lorebook-entry': BookOpen,
+    scenario: Map,
+    lorebook: BookOpen,
+  }
+  const entityStyles = {
+    character: { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-l-amber-500/60' },
+    'lorebook-entry': {
+      text: 'text-cyan-400',
+      bg: 'bg-cyan-500/10',
+      border: 'border-l-cyan-500/60',
+    },
+    scenario: { text: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-l-violet-500/60' },
+    lorebook: { text: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-l-blue-500/60' },
+  }
+  const actionStyles = {
+    create: { label: 'Create', text: 'text-emerald-400', bg: 'bg-emerald-500/15' },
+    update: { label: 'Update', text: 'text-blue-400', bg: 'bg-blue-500/15' },
+    delete: { label: 'Delete', text: 'text-red-400', bg: 'bg-red-500/15' },
+    merge: { label: 'Merge', text: 'text-purple-400', bg: 'bg-purple-500/15' },
+  }
+
+  function getChangeName(change: VaultPendingChange): string {
+    if ('data' in change && change.data && 'name' in change.data) return change.data.name as string
+    if ('previous' in change && change.previous && 'name' in change.previous)
+      return change.previous.name as string
+    return 'Unknown'
+  }
 
   // Initialize service on mount
   onMount(() => {
@@ -402,13 +440,13 @@
     <div class="flex flex-col overflow-hidden" style="height: 100%">
       <!-- Top Bar -->
       <div
-        class="border-surface-700/60 bg-surface-900/80 flex items-center justify-between border-b px-4 py-2.5 backdrop-blur-sm"
+        class="border-surface-700 bg-surface-900 flex items-center justify-between border-b px-4 py-2.5"
       >
         <div class="flex items-center gap-2.5">
           <Button
             variant="ghost"
             size="icon"
-            class="text-surface-400 hover:text-foreground hover:bg-surface-700/50 h-8 w-8"
+            class="text-surface-400 hover:text-foreground hover:bg-foreground/5 h-8 w-8"
             onclick={onClose}
             title="Back to Vault"
           >
@@ -447,7 +485,7 @@
         <!-- Entity Editor Panel (left, desktop only) -->
         {#if vaultEditor.editorOpen && vaultEditor.activeChange && !isMobile.current}
           <div
-            class="border-surface-700/50 flex flex-1 flex-col overflow-hidden border-r"
+            class="border-surface-700 flex flex-1 flex-col overflow-hidden border-r"
             transition:fade={{ duration: 100 }}
           >
             <VaultEntityEditPanel
@@ -467,63 +505,199 @@
             : 'mx-auto w-full max-w-2xl'}"
         >
           <!-- Conversation selector -->
-          <div
-            class="border-surface-700/40 bg-surface-900/40 flex items-center gap-2 border-b px-3 py-1.5"
-          >
-            <DropdownMenu.Root bind:open={conversationSelectorOpen}>
-              <DropdownMenu.Trigger>
-                {#snippet child({ props })}
-                  <Button
-                    {...props}
-                    variant="ghost"
-                    size="sm"
-                    class="text-muted-foreground hover:text-foreground h-7 gap-1.5 px-2 text-xs"
+          <div class="relative z-10">
+            <button
+              class="border-surface-700 text-surface-400 hover:text-foreground hover:bg-foreground/5 flex w-full items-center gap-2 border-b px-3 py-1.5 text-xs transition-colors"
+              onclick={() => (conversationSelectorOpen = !conversationSelectorOpen)}
+            >
+              <History class="h-3.5 w-3.5" />
+              <span class="font-medium">
+                {conversations.length > 0
+                  ? `${conversations.length} conversation${conversations.length !== 1 ? 's' : ''}`
+                  : 'No history'}
+              </span>
+              {#if conversationSelectorOpen}
+                <ChevronUp class="ml-auto h-3 w-3" />
+              {:else}
+                <ChevronDown class="ml-auto h-3 w-3" />
+              {/if}
+            </button>
+            {#if conversationSelectorOpen}
+              <!-- Backdrop -->
+              <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <div
+                class="fixed inset-0 z-10"
+                onclick={() => (conversationSelectorOpen = false)}
+                transition:fade={{ duration: 100 }}
+              ></div>
+              <!-- Floating panel -->
+              <div
+                class="border-surface-700 bg-surface-900 absolute right-2 left-2 z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border shadow-xl shadow-black/30"
+                transition:slide={{ duration: 150 }}
+              >
+                <div class="space-y-1 p-1.5">
+                  <!-- New conversation button -->
+                  <button
+                    class="text-surface-300 hover:text-foreground hover:bg-foreground/5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs transition-colors"
+                    onclick={() => {
+                      conversationSelectorOpen = false
+                      handleNewConversation()
+                    }}
                   >
-                    <History class="h-3.5 w-3.5" />
-                    {conversations.length > 0 ? 'Conversations' : 'No history'}
-                    <ChevronDown class="h-3 w-3" />
-                  </Button>
-                {/snippet}
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content class="w-72" align="start">
-                <DropdownMenu.Item onclick={handleNewConversation} class="gap-2">
-                  <Plus class="h-3.5 w-3.5" />
-                  New Conversation
-                </DropdownMenu.Item>
-                {#if conversations.length > 0}
-                  <DropdownMenu.Separator />
-                  {#each conversations as conv, i (conv.id)}
-                    <div class="group flex items-center">
-                      <DropdownMenu.Item
-                        class="min-w-0 flex-1 gap-2 pr-1"
-                        onclick={() => handleSwitchConversation(conv.id)}
+                    <div
+                      class="bg-accent-500/15 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md"
+                    >
+                      <Plus class="text-accent-400 h-3.5 w-3.5" />
+                    </div>
+                    <span class="font-medium">New Conversation</span>
+                  </button>
+
+                  {#if conversations.length > 0}
+                    <div class="border-surface-700 mx-2 border-t"></div>
+                    {#each conversations as conv, i (conv.id)}
+                      <div
+                        class="group bg-surface-800 hover:bg-foreground/5 flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors"
                       >
+                        <button
+                          class="flex min-w-0 flex-1 items-center gap-2.5 text-left"
+                          onclick={() => {
+                            conversationSelectorOpen = false
+                            handleSwitchConversation(conv.id)
+                          }}
+                        >
+                          <div
+                            class="bg-surface-700 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md"
+                          >
+                            <History class="text-surface-400 h-3.5 w-3.5" />
+                          </div>
+                          <div class="min-w-0 flex-1">
+                            <div class="text-surface-200 truncate text-xs font-medium">
+                              {conv.title || 'Untitled'}
+                            </div>
+                            <div class="text-surface-500 mt-0.5 text-[10px]">
+                              {new Date(conv.updatedAt).toLocaleString(undefined, {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                              {#if i === conversations.length - 1 && conversations.length >= MAX_CONVERSATIONS}
+                                <span class="text-surface-600 ml-1">· oldest</span>
+                              {/if}
+                            </div>
+                          </div>
+                        </button>
+                        <button
+                          class="text-surface-500 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md opacity-0 transition-all group-hover:opacity-100 hover:bg-red-500/20 hover:text-red-400"
+                          onclick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteConversation(conv.id)
+                          }}
+                          title="Delete conversation"
+                        >
+                          <Trash2 class="h-3 w-3" />
+                        </button>
+                      </div>
+                    {/each}
+                  {/if}
+                </div>
+              </div>
+            {/if}
+          </div>
+
+          <!-- Pending Changes Quick List (popover) -->
+          {#if pendingOnly.length > 0}
+            <div class="relative z-10">
+              <button
+                class="border-surface-700 text-surface-400 hover:text-foreground hover:bg-foreground/5 flex w-full items-center gap-2 border-b px-3 py-1.5 text-xs transition-colors"
+                onclick={() => (pendingListOpen = !pendingListOpen)}
+              >
+                <ListChecks class="h-3.5 w-3.5" />
+                <span class="font-medium">{pendingOnly.length} pending</span>
+                {#if pendingListOpen}
+                  <ChevronUp class="ml-auto h-3 w-3" />
+                {:else}
+                  <ChevronDown class="ml-auto h-3 w-3" />
+                {/if}
+              </button>
+              {#if pendingListOpen}
+                <!-- Backdrop -->
+                <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_click_events_have_key_events -->
+                <div
+                  class="fixed inset-0 z-10"
+                  onclick={() => (pendingListOpen = false)}
+                  transition:fade={{ duration: 100 }}
+                ></div>
+                <!-- Floating panel -->
+                <div
+                  class="border-surface-700 bg-surface-900 absolute right-2 left-2 z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border shadow-xl shadow-black/30"
+                  transition:slide={{ duration: 150 }}
+                >
+                  <div class="space-y-1 p-1.5">
+                    {#each pendingOnly as change (change.id)}
+                      {@const Icon = entityIcons[change.entityType]}
+                      {@const eStyle = entityStyles[change.entityType]}
+                      {@const aStyle = actionStyles[change.action]}
+                      <div
+                        class="group flex items-center gap-2.5 rounded-lg border-l-2 px-2.5 py-2 transition-colors {eStyle.border} {eStyle.bg} cursor-pointer hover:brightness-125"
+                        role="button"
+                        tabindex="0"
+                        onclick={() => handleEdit(change)}
+                        onkeydown={(e) => e.key === 'Enter' && handleEdit(change)}
+                      >
+                        <!-- Entity icon -->
+                        <div
+                          class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md {eStyle.bg}"
+                        >
+                          <Icon class="h-3.5 w-3.5 {eStyle.text}" />
+                        </div>
+                        <!-- Info -->
                         <div class="min-w-0 flex-1">
-                          <div class="truncate text-xs font-medium">{conv.title || 'Untitled'}</div>
-                          <div class="text-muted-foreground text-[10px]">
-                            {new Date(conv.updatedAt).toLocaleDateString()}
-                            {#if i === conversations.length - 1 && conversations.length >= MAX_CONVERSATIONS}
-                              <span class="text-muted-foreground/60 ml-1">· oldest</span>
-                            {/if}
+                          <div class="text-surface-200 truncate text-xs font-medium">
+                            {getChangeName(change)}
+                          </div>
+                          <div class="mt-0.5 flex items-center gap-1.5">
+                            <span
+                              class="inline-flex items-center rounded px-1 py-px text-[10px] font-semibold uppercase {aStyle.text} {aStyle.bg}"
+                            >
+                              {aStyle.label}
+                            </span>
+                            <span class="text-surface-500 text-[10px]">
+                              {change.entityType === 'lorebook-entry' ? 'entry' : change.entityType}
+                            </span>
                           </div>
                         </div>
-                      </DropdownMenu.Item>
-                      <button
-                        class="text-muted-foreground hover:text-destructive mr-1 rounded p-1 opacity-0 transition-opacity group-hover:opacity-100"
-                        onclick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteConversation(conv.id)
-                        }}
-                        title="Delete conversation"
-                      >
-                        <Trash2 class="h-3 w-3" />
-                      </button>
-                    </div>
-                  {/each}
-                {/if}
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-          </div>
+                        <!-- Actions -->
+                        <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+                        <!-- svelte-ignore a11y_click_events_have_key_events -->
+                        <div
+                          class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                          onclick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            class="flex h-6 w-6 items-center justify-center rounded-md text-red-400/70 transition-colors hover:bg-red-500/20 hover:text-red-400"
+                            onclick={() => handleReject(change)}
+                            title="Reject"
+                          >
+                            <X class="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            class="flex h-6 w-6 items-center justify-center rounded-md text-emerald-400/70 transition-colors hover:bg-emerald-500/20 hover:text-emerald-400"
+                            onclick={() => handleApprove(change)}
+                            title="Approve"
+                          >
+                            <Check class="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+            </div>
+          {/if}
 
           <!-- Messages -->
           <div class="flex-1 space-y-3 overflow-y-auto px-4 py-3" bind:this={messagesContainer}>
@@ -547,7 +721,7 @@
                         'rounded-xl text-sm',
                         message.role === 'user'
                           ? 'bg-accent-600/90 px-3.5 py-2.5 text-white'
-                          : 'bg-surface-800/60 border-surface-700/40 border px-3.5 py-2.5',
+                          : 'bg-surface-800 border-surface-700 border px-3.5 py-2.5',
                       )}
                     >
                       <!-- Icon + content -->
@@ -574,9 +748,9 @@
 
                       <!-- Reasoning (collapsible) -->
                       {#if message.role === 'assistant' && message.reasoning}
-                        <div class="border-surface-700/30 mt-2 border-t pt-2">
+                        <div class="border-surface-700 mt-2 border-t pt-2">
                           <button
-                            class="text-surface-400 hover:text-surface-200 flex items-center gap-1.5 text-xs transition-colors"
+                            class="text-surface-400 hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
                             onclick={() => toggleReasoning(message.id)}
                           >
                             <Brain class="h-3 w-3" />
@@ -589,7 +763,7 @@
                           </button>
                           {#if expandedReasoning.has(message.id)}
                             <div
-                              class="bg-surface-900/60 text-surface-400 mt-2 rounded-lg p-2.5 font-mono text-xs whitespace-pre-wrap"
+                              class="bg-surface-900 text-surface-400 mt-2 rounded-lg p-2.5 font-mono text-xs whitespace-pre-wrap"
                               in:slide
                             >
                               {message.reasoning}
@@ -604,7 +778,7 @@
                       <div class="mt-1.5 space-y-1">
                         {#each message.toolCalls as toolCall (toolCall.id)}
                           <div
-                            class="border-surface-700/30 bg-surface-800/30 flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs"
+                            class="border-surface-700 bg-surface-800 flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs"
                           >
                             <Wrench class="text-surface-500 h-3 w-3 flex-shrink-0" />
                             <span class="text-surface-400 font-medium"
@@ -648,9 +822,7 @@
             {#if isGenerating}
               <div class="flex justify-start" in:fade>
                 <div class="max-w-[90%] md:max-w-[85%]">
-                  <div
-                    class="border-surface-700/40 bg-surface-800/60 rounded-xl border px-3.5 py-2.5"
-                  >
+                  <div class="border-surface-700 bg-surface-800 rounded-xl border px-3.5 py-2.5">
                     <div class="flex items-start gap-2.5">
                       <div
                         class="bg-accent-500/15 mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md"
@@ -662,7 +834,7 @@
                           <div class="space-y-1">
                             {#each activeToolCalls as toolCall (toolCall.id)}
                               <div
-                                class="border-surface-700/30 bg-surface-900/40 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs"
+                                class="border-surface-700 bg-surface-900 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs"
                                 in:fade
                               >
                                 {#if toolCall.result === '...'}
@@ -718,14 +890,14 @@
           {/if}
 
           <!-- Input area -->
-          <div class="border-surface-700/40 bg-surface-900/30 border-t p-3">
+          <div class="border-surface-700 bg-surface-900 border-t p-3">
             <div class="flex items-end gap-2">
               <Textarea
                 bind:value={inputValue}
                 onkeydown={handleKeyDown}
                 placeholder="Ask me to create characters, organize lorebooks, set up scenarios..."
                 rows={2}
-                class="border-surface-700/50 bg-surface-800/50 placeholder:text-surface-500 min-h-[2.5rem] resize-none rounded-xl text-sm"
+                class="border-surface-700 bg-surface-800 placeholder:text-surface-500 min-h-[2.5rem] resize-none rounded-xl text-sm"
                 disabled={isGenerating || !service}
               />
               <Button

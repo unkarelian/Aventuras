@@ -15,6 +15,7 @@
   import type { APIProfile } from '$lib/types'
   import * as Tabs from '$lib/components/ui/tabs'
   import * as Alert from '$lib/components/ui/alert'
+  import { untrack } from 'svelte'
 
   const imageStyles = [
     { value: 'image-style-soft-anime', label: 'Soft Anime' },
@@ -166,53 +167,61 @@
   // Load standard models when profile changes
   $effect(() => {
     const profileId = settings.systemServicesSettings.imageGeneration.profileId
-    if (profileId && standardModels.length === 0 && !isLoadingStandardModels) {
-      loadModelsForProfile(
-        profileId,
-        (m) => (standardModels = m),
-        (l) => (isLoadingStandardModels = l),
-        (e) => (standardModelsError = e),
-      )
-    }
+    untrack(() => {
+      if (profileId && standardModels.length === 0 && !isLoadingStandardModels) {
+        loadModelsForProfile(
+          profileId,
+          (m) => (standardModels = m),
+          (l) => (isLoadingStandardModels = l),
+          (e) => (standardModelsError = e),
+        )
+      }
+    })
   })
 
   // Load portrait models when profile changes (only if portrait mode enabled)
   $effect(() => {
     const profileId = settings.systemServicesSettings.imageGeneration.portraitProfileId
-    if (profileId && portraitModels.length === 0 && !isLoadingPortraitModels) {
-      loadModelsForProfile(
-        profileId,
-        (m) => (portraitModels = m),
-        (l) => (isLoadingPortraitModels = l),
-        (e) => (portraitModelsError = e),
-      )
-    }
+    untrack(() => {
+      if (profileId && portraitModels.length === 0 && !isLoadingPortraitModels) {
+        loadModelsForProfile(
+          profileId,
+          (m) => (portraitModels = m),
+          (l) => (isLoadingPortraitModels = l),
+          (e) => (portraitModelsError = e),
+        )
+      }
+    })
   })
 
   // Load reference models when profile changes (only if portrait mode enabled)
   $effect(() => {
     const profileId = settings.systemServicesSettings.imageGeneration.referenceProfileId
-    if (profileId && referenceModels.length === 0 && !isLoadingReferenceModels) {
-      loadModelsForProfile(
-        profileId,
-        (m) => (referenceModels = m),
-        (l) => (isLoadingReferenceModels = l),
-        (e) => (referenceModelsError = e),
-      )
-    }
+    untrack(() => {
+      if (profileId && referenceModels.length === 0 && !isLoadingReferenceModels) {
+        loadModelsForProfile(
+          profileId,
+          (m) => (referenceModels = m),
+          (l) => (isLoadingReferenceModels = l),
+          (e) => (referenceModelsError = e),
+        )
+      }
+    })
   })
 
   // Load background models when profile changes (only if background mode enabled)
   $effect(() => {
     const profileId = settings.systemServicesSettings.imageGeneration.backgroundProfileId
-    if (profileId && backgroundModels.length === 0 && !isLoadingBackgroundModels) {
-      loadModelsForProfile(
-        profileId,
-        (m) => (backgroundModels = m),
-        (l) => (isLoadingBackgroundModels = l),
-        (e) => (backgroundModelsError = e),
-      )
-    }
+    untrack(() => {
+      if (profileId && backgroundModels.length === 0 && !isLoadingBackgroundModels) {
+        loadModelsForProfile(
+          profileId,
+          (m) => (backgroundModels = m),
+          (l) => (isLoadingBackgroundModels = l),
+          (e) => (backgroundModelsError = e),
+        )
+      }
+    })
   })
 
   // Handle profile change - reload models
@@ -292,6 +301,16 @@
   }
 
   const imageCapableProfiles = $derived(getImageCapableProfiles())
+
+  // Stabilize slider array references to prevent reactivity loops
+  // (passing `value={[x]}` inline creates a new array every render,
+  // which bits-ui interprets as a change and fires onValueChange → loop)
+  const sliderMaxImages = $derived([
+    settings.systemServicesSettings.imageGeneration.maxImagesPerMessage,
+  ])
+  const sliderBackgroundBlur = $derived([
+    settings.systemServicesSettings.imageGeneration.backgroundBlur,
+  ])
 </script>
 
 <div class="space-y-4">
@@ -526,8 +545,10 @@
             </Label>
             <Slider
               type="multiple"
-              value={[settings.systemServicesSettings.imageGeneration.maxImagesPerMessage]}
+              value={sliderMaxImages}
               onValueChange={(v) => {
+                if (v[0] === settings.systemServicesSettings.imageGeneration.maxImagesPerMessage)
+                  return
                 settings.systemServicesSettings.imageGeneration.maxImagesPerMessage = v[0]
                 settings.saveSystemServicesSettings()
               }}
@@ -745,8 +766,9 @@
             </Label>
             <Slider
               type="multiple"
-              value={[settings.systemServicesSettings.imageGeneration.backgroundBlur]}
+              value={sliderBackgroundBlur}
               onValueChange={(v: number[]) => {
+                if (v[0] === settings.systemServicesSettings.imageGeneration.backgroundBlur) return
                 settings.systemServicesSettings.imageGeneration.backgroundBlur = v[0]
                 settings.saveSystemServicesSettings()
               }}

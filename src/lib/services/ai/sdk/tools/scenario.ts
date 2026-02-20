@@ -185,7 +185,7 @@ export function createScenarioTools(context: ScenarioToolContext) {
      */
     update_scenario: tool({
       description:
-        'Update an existing vault scenario by ID. Only include fields you want to change. The change will be pending until approved.',
+        'Update an existing vault scenario by ID. Only include fields you want to change. For tags and alternateGreetings, prefer add*/remove* variants for incremental changes. The change will be pending until approved.',
       inputSchema: z.object({
         scenarioId: z.string().describe('ID of the scenario to update'),
         name: z.string().optional().describe('New name'),
@@ -194,15 +194,40 @@ export function createScenarioTools(context: ScenarioToolContext) {
         npcs: z
           .array(vaultScenarioNpcSchema)
           .optional()
-          .describe('New NPC list (replaces existing)'),
+          .describe('New NPC list (FULLY replaces existing)'),
         primaryCharacterName: z.string().optional().describe('New primary character name'),
         firstMessage: z.string().nullable().optional().describe('New first message'),
-        alternateGreetings: z.array(z.string()).optional().describe('New alternate greetings'),
-        tags: z.array(z.string()).optional().describe('New tags (replaces existing)'),
+        replaceAlternateGreetings: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'Complete replacement of all alternate greetings. Prefer addAlternateGreetings/removeAlternateGreetings instead',
+          ),
+        addAlternateGreetings: z
+          .array(z.string())
+          .optional()
+          .describe('Alternate greetings to add to the existing list'),
+        removeAlternateGreetings: z
+          .array(z.string())
+          .optional()
+          .describe('Alternate greetings to remove from the existing list (matched by exact text)'),
+        replaceTags: z
+          .array(z.string())
+          .optional()
+          .describe('Complete replacement of all tags. Prefer addTags/removeTags instead'),
+        addTags: z.array(z.string()).optional().describe('Tags to add to the existing list'),
+        removeTags: z
+          .array(z.string())
+          .optional()
+          .describe('Tags to remove from the existing list'),
         favorite: z.boolean().optional().describe('New favorite status'),
       }),
       execute: async ({
         scenarioId,
+        addTags,
+        removeTags,
+        addAlternateGreetings,
+        removeAlternateGreetings,
         ...updates
       }: {
         scenarioId: string
@@ -212,8 +237,12 @@ export function createScenarioTools(context: ScenarioToolContext) {
         npcs?: z.infer<typeof vaultScenarioNpcSchema>[]
         primaryCharacterName?: string
         firstMessage?: string | null
-        alternateGreetings?: string[]
-        tags?: string[]
+        replaceAlternateGreetings?: string[]
+        addAlternateGreetings?: string[]
+        removeAlternateGreetings?: string[]
+        replaceTags?: string[]
+        addTags?: string[]
+        removeTags?: string[]
         favorite?: boolean
       }) => {
         const scenario = scenarios().find((s) => s.id === scenarioId)
@@ -222,9 +251,41 @@ export function createScenarioTools(context: ScenarioToolContext) {
           return { success: false, error: `Scenario with ID "${scenarioId}" not found` }
         }
 
+        // Resolve tags: explicit replacement wins, otherwise apply incremental ops
+        let resolvedTags = scenario.tags
+        if (updates.replaceTags !== undefined) {
+          resolvedTags = updates.replaceTags
+        } else {
+          if (addTags?.length) {
+            resolvedTags = [...new Set([...resolvedTags, ...addTags])]
+          }
+          if (removeTags?.length) {
+            resolvedTags = resolvedTags.filter((t) => !removeTags.includes(t))
+          }
+        }
+
+        // Resolve alternateGreetings: same logic
+        let resolvedGreetings = scenario.alternateGreetings ?? []
+        if (updates.replaceAlternateGreetings !== undefined) {
+          resolvedGreetings = updates.replaceAlternateGreetings
+        } else {
+          if (addAlternateGreetings?.length) {
+            resolvedGreetings = [...resolvedGreetings, ...addAlternateGreetings]
+          }
+          if (removeAlternateGreetings?.length) {
+            resolvedGreetings = resolvedGreetings.filter(
+              (g) => !removeAlternateGreetings.includes(g),
+            )
+          }
+        }
+
+        // Strip tool-only keys that aren't real schema fields
+        const { replaceTags: _rt, replaceAlternateGreetings: _rag, ...scalarUpdates } = updates
         const cleanUpdates = Object.fromEntries(
-          Object.entries(updates).filter(([_, v]) => v !== undefined),
+          Object.entries(scalarUpdates).filter(([_, v]) => v !== undefined),
         ) as Partial<z.infer<typeof vaultScenarioInputSchema>>
+
+        const previous = toScenarioInput(scenario)
 
         const changeId = generateId()
         const pendingChange: VaultPendingChange = {
@@ -233,8 +294,13 @@ export function createScenarioTools(context: ScenarioToolContext) {
           entityType: 'scenario',
           action: 'update',
           entityId: scenarioId,
-          data: cleanUpdates,
-          previous: toScenarioInput(scenario),
+          data: {
+            ...previous,
+            ...cleanUpdates,
+            tags: resolvedTags,
+            alternateGreetings: resolvedGreetings,
+          },
+          previous,
           status: 'pending',
         }
 
@@ -311,6 +377,7 @@ export function createScenarioTools(context: ScenarioToolContext) {
         }
 
         const updatedNpcs = [...scenario.npcs, npc]
+        const previous = toScenarioInput(scenario)
         const changeId = generateId()
         const pendingChange: VaultPendingChange = {
           id: changeId,
@@ -318,8 +385,8 @@ export function createScenarioTools(context: ScenarioToolContext) {
           entityType: 'scenario',
           action: 'update',
           entityId: scenarioId,
-          data: { npcs: updatedNpcs },
-          previous: toScenarioInput(scenario),
+          data: { ...previous, npcs: updatedNpcs },
+          previous,
           status: 'pending',
         }
 
@@ -385,6 +452,7 @@ export function createScenarioTools(context: ScenarioToolContext) {
         const updatedNpcs = [...scenario.npcs]
         updatedNpcs[npcIndex] = { ...updatedNpcs[npcIndex], ...updates }
 
+        const previous = toScenarioInput(scenario)
         const changeId = generateId()
         const pendingChange: VaultPendingChange = {
           id: changeId,
@@ -392,8 +460,8 @@ export function createScenarioTools(context: ScenarioToolContext) {
           entityType: 'scenario',
           action: 'update',
           entityId: scenarioId,
-          data: { npcs: updatedNpcs },
-          previous: toScenarioInput(scenario),
+          data: { ...previous, npcs: updatedNpcs },
+          previous,
           status: 'pending',
         }
 
@@ -435,6 +503,7 @@ export function createScenarioTools(context: ScenarioToolContext) {
 
         const updatedNpcs = scenario.npcs.filter((n) => n.name !== npcName)
 
+        const previous = toScenarioInput(scenario)
         const changeId = generateId()
         const pendingChange: VaultPendingChange = {
           id: changeId,
@@ -442,8 +511,8 @@ export function createScenarioTools(context: ScenarioToolContext) {
           entityType: 'scenario',
           action: 'update',
           entityId: scenarioId,
-          data: { npcs: updatedNpcs },
-          previous: toScenarioInput(scenario),
+          data: { ...previous, npcs: updatedNpcs },
+          previous,
           status: 'pending',
         }
 

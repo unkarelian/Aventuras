@@ -61,7 +61,7 @@
           label: 'Entity',
           icon: BookOpen,
           color: 'text-surface-400',
-          bg: 'bg-surface-500/15',
+          bg: 'bg-surface-500',
         }
     }
   })
@@ -250,24 +250,22 @@
       ? 'border-emerald-500/20 bg-emerald-500/5 opacity-75'
       : isRejected
         ? 'border-red-500/20 bg-red-500/5 opacity-60'
-        : 'border-surface-700/40 bg-surface-800/70'}"
+        : 'border-surface-700 bg-surface-800'}"
   in:fade={{ duration: 150 }}
 >
   <!-- Header -->
-  <div
-    class="border-surface-700/30 bg-surface-800/40 flex flex-col justify-between gap-2 border-b px-3 py-2 sm:flex-row sm:items-center"
-  >
-    <div class="flex items-center gap-2">
+  <div class="border-surface-700 bg-surface-800 flex items-center gap-2 border-b px-3 py-2">
+    <div class="flex min-w-0 flex-1 items-center gap-2">
       <!-- Entity type badge -->
       <div
-        class="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wider uppercase {entityConfig.color} {entityConfig.bg}"
+        class="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wider whitespace-nowrap uppercase {entityConfig.color} {entityConfig.bg}"
       >
         <entityConfig.icon class="h-2.5 w-2.5" />
         {entityConfig.label}
       </div>
 
       <!-- Action indicator -->
-      <div class="flex items-center gap-1">
+      <div class="flex shrink-0 items-center gap-1 whitespace-nowrap">
         <actionConfig.icon class="h-3.5 w-3.5 {actionConfig.color}" />
         <span class="text-xs font-semibold {actionConfig.color}">
           {actionConfig.label}
@@ -275,10 +273,10 @@
       </div>
 
       <!-- Entity name -->
-      <span class="text-surface-300 truncate text-xs font-medium">{entityName}</span>
+      <span class="text-surface-300 min-w-0 truncate text-xs font-medium">{entityName}</span>
     </div>
 
-    <div class="flex items-center gap-1.5">
+    <div class="flex shrink-0 items-center gap-1.5">
       {#if isAutoApproved}
         <div class="flex items-center gap-1 text-xs font-medium text-teal-400">
           <Zap class="h-3 w-3" />
@@ -297,7 +295,7 @@
       {:else}
         {#if onEdit}
           <button
-            class="bg-surface-700/50 text-surface-300 hover:bg-surface-700 flex flex-1 items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors sm:flex-none"
+            class="bg-surface-700 text-surface-300 hover:bg-foreground/5 flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium whitespace-nowrap transition-colors"
             onclick={onEdit}
           >
             <Pencil class="h-3 w-3" />
@@ -305,14 +303,14 @@
           </button>
         {/if}
         <button
-          class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-red-500/15 px-2.5 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/25 sm:flex-none"
+          class="flex items-center gap-1 rounded-lg bg-red-500/15 px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-red-400 transition-colors hover:bg-red-500/25"
           onclick={onReject}
         >
           <X class="h-3 w-3" />
           Reject
         </button>
         <button
-          class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/25 sm:flex-none"
+          class="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-emerald-400 transition-colors hover:bg-emerald-500/25"
           onclick={onApprove}
         >
           <Check class="h-3 w-3" />
@@ -369,7 +367,7 @@
           </div>
           <div class="space-y-1.5">
             {#each previousEntries ?? [] as entry, i (i)}
-              <div class="bg-surface-800/50 rounded-md p-2">
+              <div class="bg-surface-800 rounded-md p-2">
                 <div class="text-surface-400 mb-1 text-[10px] font-semibold">
                   Entry {i + 1}: {entry.name}
                 </div>

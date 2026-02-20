@@ -97,10 +97,10 @@
 </script>
 
 {#if operations.length > 0}
-  <div class="border-surface-700/40 border-b" transition:slide={{ duration: 200 }}>
+  <div class="border-surface-700 border-b" transition:slide={{ duration: 200 }}>
     <!-- Header -->
     <button
-      class="bg-surface-800/40 hover:bg-surface-800/60 flex w-full items-center justify-between px-3 py-2 text-left transition-colors"
+      class="bg-surface-800 hover:bg-foreground/5 flex w-full items-center justify-between px-3 py-2 text-left transition-colors"
       onclick={() => (collapsed = !collapsed)}
     >
       <div class="flex items-center gap-2">
@@ -122,7 +122,7 @@
         <Button
           size="sm"
           variant="ghost"
-          class="text-surface-400 hover:text-surface-200 h-6 gap-1 px-2 text-[10px]"
+          class="text-surface-400 hover:text-foreground h-6 gap-1 px-2 text-[10px]"
           onclick={(e: MouseEvent) => {
             e.stopPropagation()
             onApproveAll()
@@ -185,7 +185,7 @@
               <Button
                 size="sm"
                 variant="ghost"
-                class="text-surface-500 hover:bg-surface-700/50 hover:text-surface-300 h-6 w-6 p-0"
+                class="text-surface-500 hover:bg-foreground/5 hover:text-foreground h-6 w-6 p-0"
                 onclick={() => onRejectOperation(op)}
                 title="Reject"
               >

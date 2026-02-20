@@ -14,9 +14,15 @@
   interface Props {
     data: VaultCharacterInput
     onUpdate: (data: VaultCharacterInput) => void
+    changedFields?: Set<string>
   }
 
-  let { data, onUpdate }: Props = $props()
+  let { data, onUpdate, changedFields }: Props = $props()
+
+  const changed = (field: string) =>
+    changedFields?.has(field)
+      ? 'border-l-2 border-l-blue-400/50 bg-blue-500/5 pl-3 -ml-3 rounded-lg'
+      : ''
 
   // Local state for complex string-to-object conversions
   let visualDescriptorsStr = $state(untrack(() => descriptorsToString(data.visualDescriptors)))
@@ -88,7 +94,7 @@
   {/if}
 
   <!-- Name -->
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('name')}">
     <Label for="name">Name *</Label>
     <Input
       id="name"
@@ -100,7 +106,7 @@
   </div>
 
   <!-- Description -->
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('description')}">
     <Label for="description">Description</Label>
     <Textarea
       id="description"
@@ -113,7 +119,7 @@
   </div>
 
   <!-- Traits -->
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('traits')}">
     <Label for="traits">Traits</Label>
     <Input
       id="traits"
@@ -126,7 +132,7 @@
   </div>
 
   <!-- Visual Descriptors -->
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('visualDescriptors')}">
     <Label for="visualDescriptors">Visual Descriptors</Label>
     <Input
       id="visualDescriptors"
@@ -190,7 +196,7 @@
   </div>
 
   <!-- Tags -->
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('tags')}">
     <Label for="tags">Tags</Label>
     <TagInput
       value={data.tags}

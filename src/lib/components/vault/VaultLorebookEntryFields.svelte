@@ -11,9 +11,15 @@
   interface Props {
     data: VaultLorebookEntry
     onUpdate: (data: VaultLorebookEntry) => void
+    changedFields?: Set<string>
   }
 
-  let { data, onUpdate }: Props = $props()
+  let { data, onUpdate, changedFields }: Props = $props()
+
+  const changed = (field: string) =>
+    changedFields?.has(field)
+      ? 'border-l-2 border-l-blue-400/50 bg-blue-500/5 pl-3 -ml-3 rounded-lg'
+      : ''
 
   // Type options
   const entryTypes: EntryType[] = ['character', 'location', 'item', 'faction', 'concept', 'event']
@@ -38,12 +44,12 @@
 </script>
 
 <div class="space-y-6">
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('name')}">
     <Label for="entry-name">Entry Name</Label>
     <Input id="entry-name" bind:value={data.name} oninput={handleInput} placeholder="Entry Name" />
   </div>
 
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('type')}">
     <Label>Entry Type</Label>
     <Select
       type="single"
@@ -64,7 +70,7 @@
     </Select>
   </div>
 
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('keywords')}">
     <Label>Keywords</Label>
     <Input
       value={data.keywords?.join(', ') ?? ''}
@@ -82,7 +88,7 @@
     </p>
   </div>
 
-  <div class="space-y-2">
+  <div class="space-y-2 {changed('aliases')}">
     <Label>Aliases</Label>
     <Input
       value={data.aliases?.join(', ') ?? ''}
@@ -100,7 +106,7 @@
     </p>
   </div>
 
-  <div class="flex flex-1 flex-col space-y-2">
+  <div class="flex flex-1 flex-col space-y-2 {changed('description')}">
     <Label>Description / Content</Label>
     <Textarea
       bind:value={data.description}
@@ -114,7 +120,7 @@
     <h4 class="text-sm font-medium">Injection Settings</h4>
 
     <div class="grid grid-cols-1 items-center gap-4 md:grid-cols-2">
-      <div class="space-y-2">
+      <div class="space-y-2 {changed('injectionMode')}">
         <Label class="text-xs">Injection Mode</Label>
         <Select
           type="single"
@@ -138,7 +144,7 @@
         </p>
       </div>
 
-      <div class="space-y-2">
+      <div class="space-y-2 {changed('priority')}">
         <Label class="text-xs">Priority</Label>
         <Input type="number" bind:value={data.priority} oninput={handleInput} />
       </div>

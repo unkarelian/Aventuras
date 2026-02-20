@@ -180,28 +180,52 @@ export function createCharacterTools(context: CharacterToolContext) {
      */
     update_character: tool({
       description:
-        'Propose an update to an existing vault character by ID. Only include fields you want to change. The change will be pending until approved.',
+        'Propose an update to an existing vault character by ID. Only include fields you want to change. For tags and traits, prefer addTags/removeTags and addTraits/removeTraits for incremental changes. The change will be pending until approved.',
       inputSchema: z.object({
         characterId: z.string().describe('ID of the character to update'),
         name: z.string().optional().describe('New name'),
         description: z.string().nullable().optional().describe('New description'),
-        traits: z.array(z.string()).optional().describe('New traits (replaces existing)'),
+        replaceTraits: z
+          .array(z.string())
+          .optional()
+          .describe('Complete replacement of all traits. Prefer addTraits/removeTraits instead'),
+        addTraits: z.array(z.string()).optional().describe('Traits to add to the existing list'),
+        removeTraits: z
+          .array(z.string())
+          .optional()
+          .describe('Traits to remove from the existing list'),
         visualDescriptors: visualDescriptorsSchema
           .optional()
-          .describe('New visual descriptors (replaces existing)'),
-        tags: z.array(z.string()).optional().describe('New tags (replaces existing)'),
+          .describe('New visual descriptors (FULLY replaces existing)'),
+        replaceTags: z
+          .array(z.string())
+          .optional()
+          .describe('Complete replacement of all tags. Prefer addTags/removeTags instead'),
+        addTags: z.array(z.string()).optional().describe('Tags to add to the existing list'),
+        removeTags: z
+          .array(z.string())
+          .optional()
+          .describe('Tags to remove from the existing list'),
         favorite: z.boolean().optional().describe('New favorite status'),
       }),
       execute: async ({
         characterId,
+        addTags,
+        removeTags,
+        addTraits,
+        removeTraits,
         ...updates
       }: {
         characterId: string
         name?: string
         description?: string | null
-        traits?: string[]
+        replaceTraits?: string[]
+        addTraits?: string[]
+        removeTraits?: string[]
         visualDescriptors?: z.infer<typeof visualDescriptorsSchema>
-        tags?: string[]
+        replaceTags?: string[]
+        addTags?: string[]
+        removeTags?: string[]
         favorite?: boolean
       }) => {
         const character = characters().find((c) => c.id === characterId)
@@ -210,8 +234,46 @@ export function createCharacterTools(context: CharacterToolContext) {
           return { success: false, error: `Character with ID "${characterId}" not found` }
         }
 
+        // Resolve tags: explicit replacement wins, otherwise apply incremental ops
+        let resolvedTags = character.tags
+        if (updates.replaceTags !== undefined) {
+          resolvedTags = updates.replaceTags
+        } else {
+          if (addTags?.length) {
+            resolvedTags = [...new Set([...resolvedTags, ...addTags])]
+          }
+          if (removeTags?.length) {
+            resolvedTags = resolvedTags.filter((t) => !removeTags.includes(t))
+          }
+        }
+
+        // Resolve traits: same logic
+        let resolvedTraits = character.traits
+        if (updates.replaceTraits !== undefined) {
+          resolvedTraits = updates.replaceTraits
+        } else {
+          if (addTraits?.length) {
+            resolvedTraits = [...new Set([...resolvedTraits, ...addTraits])]
+          }
+          if (removeTraits?.length) {
+            resolvedTraits = resolvedTraits.filter((t) => !removeTraits.includes(t))
+          }
+        }
+
+        const previous = {
+          name: character.name,
+          description: character.description,
+          traits: character.traits,
+          visualDescriptors: character.visualDescriptors,
+          tags: character.tags,
+          favorite: character.favorite,
+        }
+
+        // Build full data: start from previous, apply scalar updates, then resolved arrays
+        // Strip tool-only keys that aren't real schema fields
+        const { replaceTags: _rt, replaceTraits: _rtr, ...scalarUpdates } = updates
         const cleanUpdates = Object.fromEntries(
-          Object.entries(updates).filter(([_, v]) => v !== undefined),
+          Object.entries(scalarUpdates).filter(([_, v]) => v !== undefined),
         ) as Partial<z.infer<typeof vaultCharacterInputSchema>>
 
         const changeId = generateId()
@@ -221,15 +283,8 @@ export function createCharacterTools(context: CharacterToolContext) {
           entityType: 'character',
           action: 'update',
           entityId: characterId,
-          data: cleanUpdates,
-          previous: {
-            name: character.name,
-            description: character.description,
-            traits: character.traits,
-            visualDescriptors: character.visualDescriptors,
-            tags: character.tags,
-            favorite: character.favorite,
-          },
+          data: { ...previous, ...cleanUpdates, tags: resolvedTags, traits: resolvedTraits },
+          previous,
           status: 'pending',
         }
 

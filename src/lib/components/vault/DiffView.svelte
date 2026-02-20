@@ -86,7 +86,7 @@
 >
   <!-- Header -->
   <div
-    class="bg-surface-700/50 border-surface-600 flex flex-col justify-between gap-2 border-b px-3 py-2 sm:flex-row sm:items-center sm:px-4"
+    class="bg-surface-700 border-surface-600 flex flex-col justify-between gap-2 border-b px-3 py-2 sm:flex-row sm:items-center sm:px-4"
   >
     <div class="flex items-center gap-2">
       {#if change.action === 'create'}
@@ -180,7 +180,7 @@
           </div>
           <div class="space-y-2">
             {#each previousEntries ?? [] as entry, i (i)}
-              <div class="bg-surface-700/50 rounded p-2">
+              <div class="bg-surface-700 rounded p-2">
                 <div class="text-surface-400 mb-1 text-xs">Entry {i + 1}: {entry.name}</div>
                 <pre class="text-surface-300 font-mono text-sm whitespace-pre-wrap">{formatEntry(
                     entry,

@@ -3,12 +3,13 @@
   import type { VaultCharacterInput, VaultScenarioInput } from '$lib/services/ai/sdk/schemas/vault'
   import type { VaultLorebook, VaultLorebookEntry } from '$lib/types'
   import { Button } from '$lib/components/ui/button'
-  import { X, Check, User, BookOpen, Map, Save } from 'lucide-svelte'
+  import { X, Check, User, BookOpen, Map as MapIcon } from 'lucide-svelte'
   import VaultCharacterFormFields from './VaultCharacterFormFields.svelte'
   import VaultScenarioFormFields from './VaultScenarioFormFields.svelte'
   import VaultLorebookEditorContent from './VaultLorebookEditorContent.svelte'
   import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
   import { vaultEditor } from '$lib/stores/vaultEditorStore.svelte'
+  import { slide } from 'svelte/transition'
 
   interface Props {
     change: VaultPendingChange
@@ -99,6 +100,45 @@
   const actionLabel = $derived(
     'action' in change ? change.action.charAt(0).toUpperCase() + change.action.slice(1) : '',
   )
+
+  // --- Diff computation for update actions ---
+
+  function stringify(val: unknown): string {
+    if (val == null) return ''
+    if (Array.isArray(val))
+      return val.map((v) => (typeof v === 'object' ? JSON.stringify(v) : String(v))).join(', ')
+    if (typeof val === 'object') return JSON.stringify(val)
+    return String(val)
+  }
+
+  function computeChangedFields(
+    data: Record<string, unknown> | undefined,
+    previous: Record<string, unknown> | undefined,
+  ): Map<string, { old: string; new: string }> {
+    const result = new Map<string, { old: string; new: string }>()
+    if (!data || !previous) return result
+    for (const key of Object.keys(data)) {
+      if (key === 'portrait') continue // skip binary data
+      const oldVal = stringify(previous[key])
+      const newVal = stringify(data[key])
+      if (oldVal !== newVal) {
+        result.set(key, { old: oldVal, new: newVal })
+      }
+    }
+    return result
+  }
+
+  const changedFieldsMap = $derived.by(() => {
+    if (change.action !== 'update' || !('data' in change) || !('previous' in change)) {
+      return new Map<string, { old: string; new: string }>()
+    }
+    return computeChangedFields(
+      change.data as Record<string, unknown>,
+      change.previous as Record<string, unknown>,
+    )
+  })
+
+  const changedFieldKeys = $derived(new Set<string>(changedFieldsMap.keys()))
 </script>
 
 <div class="flex h-full flex-col overflow-hidden">
@@ -128,7 +168,7 @@
     <!-- Standard UI for character / scenario -->
     <!-- Header -->
     <div
-      class="border-surface-700/50 bg-surface-900/60 flex shrink-0 items-center justify-between border-b px-4 py-2.5"
+      class="border-surface-700 bg-surface-900 flex shrink-0 items-center justify-between border-b px-4 py-2.5"
     >
       <div class="flex items-center gap-2.5">
         <div
@@ -144,7 +184,7 @@
           {:else if change.entityType === 'lorebook-entry'}
             <BookOpen class="h-3 w-3 text-cyan-400" />
           {:else}
-            <Map class="h-3 w-3 text-violet-400" />
+            <MapIcon class="h-3 w-3 text-violet-400" />
           {/if}
         </div>
         <span class="text-surface-200 text-xs font-semibold">{actionLabel} {entityLabel}</span>
@@ -152,7 +192,7 @@
       <Button
         variant="ghost"
         size="icon"
-        class="text-surface-400 hover:text-surface-200 h-6 w-6"
+        class="text-surface-400 hover:text-foreground h-6 w-6"
         onclick={onClose}
       >
         <X class="h-3.5 w-3.5" />
@@ -165,6 +205,7 @@
         <div class="px-4">
           <VaultCharacterFormFields
             data={charData}
+            changedFields={changedFieldKeys}
             onUpdate={(newData) => {
               charData = newData
               emitUpdate()
@@ -174,6 +215,7 @@
       {:else if change.entityType === 'scenario' && scenarioData}
         <VaultScenarioFormFields
           data={scenarioData}
+          changedFields={changedFieldKeys}
           onUpdate={(newData) => {
             scenarioData = newData
             emitUpdate()
@@ -190,7 +232,7 @@
 
     <!-- Footer -->
     <div
-      class="border-surface-700/50 bg-surface-900/40 flex shrink-0 items-center justify-end gap-2 border-t px-4 py-2.5"
+      class="border-surface-700 bg-surface-900 flex shrink-0 items-center justify-end gap-2 border-t px-4 py-2.5"
     >
       <Button variant="outline" size="sm" class="border-surface-600 h-7 text-xs" onclick={onClose}
         >Cancel</Button
