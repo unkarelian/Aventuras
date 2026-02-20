@@ -878,6 +878,8 @@ export interface CharacterBeforeState {
   relationship: string | null
   traits: string[]
   visualDescriptors: VisualDescriptors
+  /** Metadata snapshot for rollback (includes runtimeVars from pack runtime variables) */
+  metadata?: Record<string, unknown> | null
 }
 
 /** Snapshot of a location's mutable fields before a classification update */
@@ -887,6 +889,8 @@ export interface LocationBeforeState {
   visited: boolean
   current: boolean
   description: string | null
+  /** Metadata snapshot for rollback (includes runtimeVars from pack runtime variables) */
+  metadata?: Record<string, unknown> | null
 }
 
 /** Snapshot of an item's mutable fields before a classification update */
@@ -896,6 +900,8 @@ export interface ItemBeforeState {
   quantity: number
   equipped: boolean
   location: string
+  /** Metadata snapshot for rollback (includes runtimeVars from pack runtime variables) */
+  metadata?: Record<string, unknown> | null
 }
 
 /** Snapshot of a story beat's mutable fields before a classification update */
@@ -905,6 +911,8 @@ export interface StoryBeatBeforeState {
   status: string
   description: string | null
   resolvedAt: number | null
+  /** Metadata snapshot for rollback (includes runtimeVars from pack runtime variables) */
+  metadata?: Record<string, unknown> | null
 }
 
 /**

@@ -44,6 +44,9 @@ class PackService {
     const existingTemplates = await database.getPackTemplates('default-pack')
     const existingIds = new Set(existingTemplates.map((t) => t.templateId))
 
+    // Build lookup of existing templates by templateId for quick access
+    const existingByTemplateId = new Map(existingTemplates.map((t) => [t.templateId, t]))
+
     // Seed or update templates from PROMPT_TEMPLATES
     for (const template of PROMPT_TEMPLATES) {
       // Seed system prompt content
@@ -56,6 +59,14 @@ class PackService {
         await database.setPackTemplateContent('default-pack', userContentId, template.userContent)
       }
     }
+
+    // Refresh existing default-pack templates when code baseline changes.
+    // For each existing template, if its content_hash doesn't match the new code baseline,
+    // update it -- UNLESS the user has customized it (content doesn't match any known baseline).
+    // Since we can't track old baselines, we accept the tradeoff: default pack templates
+    // are auto-updated to match code changes. Users who need custom templates should use
+    // custom packs (which are never auto-updated).
+    await this.refreshDefaultPackTemplates(existingByTemplateId)
 
     this.initialized = true
   }
@@ -81,12 +92,13 @@ class PackService {
     const pack = await database.getPack(packId)
     if (!pack) return null
 
-    const [templates, variables] = await Promise.all([
+    const [templates, variables, runtimeVariables] = await Promise.all([
       database.getPackTemplates(packId),
       database.getPackVariables(packId),
+      database.getRuntimeVariables(packId),
     ])
 
-    return { pack, templates, variables }
+    return { pack, templates, variables, runtimeVariables }
   }
 
   /** Create a new pack seeded from the pristine PROMPT_TEMPLATES baseline. */
@@ -187,6 +199,44 @@ class PackService {
 
     await database.setPackTemplateContent(packId, templateId, defaultContent)
     return true
+  }
+
+  /**
+   * Refresh default pack templates whose code baseline has changed.
+   * Only updates templates that haven't been user-modified from their PREVIOUS baseline.
+   * Since we can't distinguish "user modified old baseline" from "code changed, user didn't touch",
+   * we update all default-pack templates to the current code baseline. Users who customize templates
+   * should use custom packs (which are never auto-updated).
+   */
+  private async refreshDefaultPackTemplates(
+    existingByTemplateId: Map<string, { templateId: string; contentHash: string }>,
+  ): Promise<void> {
+    for (const template of PROMPT_TEMPLATES) {
+      // Check system prompt content
+      const existing = existingByTemplateId.get(template.id)
+      if (existing) {
+        const newHash = await hashContent(template.content)
+        if (existing.contentHash !== newHash) {
+          await database.setPackTemplateContent('default-pack', template.id, template.content)
+        }
+      }
+
+      // Check user content
+      if (template.userContent) {
+        const userContentId = `${template.id}-user`
+        const existingUser = existingByTemplateId.get(userContentId)
+        if (existingUser) {
+          const newUserHash = await hashContent(template.userContent)
+          if (existingUser.contentHash !== newUserHash) {
+            await database.setPackTemplateContent(
+              'default-pack',
+              userContentId,
+              template.userContent,
+            )
+          }
+        }
+      }
+    }
   }
 
   /**

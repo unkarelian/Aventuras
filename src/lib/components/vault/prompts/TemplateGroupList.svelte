@@ -2,24 +2,28 @@
   import { getTemplateGroups } from './templateGroups'
   import * as Collapsible from '$lib/components/ui/collapsible'
   import { ScrollArea } from '$lib/components/ui/scroll-area'
-  import { ChevronRight, Variable, Settings } from 'lucide-svelte'
+  import { ChevronRight, Variable, Settings, Activity } from 'lucide-svelte'
   import { cn } from '$lib/utils/cn'
 
   interface Props {
     selectedTemplateId: string | null
     showVariables: boolean
+    showRuntimeVars: boolean
     showSettings: boolean
     onSelectTemplate: (templateId: string) => void
     onToggleVariables: () => void
+    onToggleRuntimeVars: () => void
     onShowSettings: () => void
   }
 
   let {
     selectedTemplateId,
     showVariables,
+    showRuntimeVars,
     showSettings,
     onSelectTemplate,
     onToggleVariables,
+    onToggleRuntimeVars,
     onShowSettings,
   }: Props = $props()
 
@@ -80,8 +84,8 @@
       </Collapsible.Root>
     {/each}
 
-    <!-- Variables button after groups -->
-    <div class="mx-2 mt-1 border-t pt-2">
+    <!-- Variables buttons after groups -->
+    <div class="mx-2 mt-1 space-y-1.5 border-t pt-2">
       <button
         type="button"
         class={cn(
@@ -94,6 +98,19 @@
       >
         <Variable class="h-4 w-4" />
         Variables
+      </button>
+      <button
+        type="button"
+        class={cn(
+          'flex w-full items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors',
+          showRuntimeVars
+            ? 'border-primary/50 bg-primary/10 text-primary'
+            : 'border-border bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground',
+        )}
+        onclick={onToggleRuntimeVars}
+      >
+        <Activity class="h-4 w-4" />
+        Runtime Vars
       </button>
     </div>
   </div>

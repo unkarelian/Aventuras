@@ -151,6 +151,10 @@ Items: {{ existingItems }}
 ## Active Story Beats (update these when resolved!)
 {{ existingBeats }}
 
+{% if customVariableInstructions != '' %}
+{{ customVariableInstructions }}
+{% endif %}
+
 ## Your Task
 1. Check if any EXISTING entities need updates (status change, new info learned, etc.)
 2. **IMPORTANT**: Check if any active story beats have been COMPLETED or FAILED in this passage - mark them accordingly to keep the list clean

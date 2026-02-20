@@ -7,6 +7,7 @@
   import TemplateGroupList from './TemplateGroupList.svelte'
   import TemplateEditor from './TemplateEditor.svelte'
   import VariableManager from './VariableManager.svelte'
+  import RuntimeVariableManager from './RuntimeVariableManager.svelte'
   import VariablePalette from './VariablePalette.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Badge } from '$lib/components/ui/badge'
@@ -42,6 +43,7 @@
 
   let selectedTemplateId = $state<string | null>(null)
   let showVariables = $state(false)
+  let showRuntimeVars = $state(false)
   let fullPack = $state<FullPack | null>(null)
   let loading = $state(true)
   let drawerOpen = $state(false)
@@ -135,6 +137,7 @@
     if (templateId === selectedTemplateId) return
     guardDirty(() => {
       showVariables = false
+      showRuntimeVars = false
       selectedTemplateId = templateId
       isEditorDirty = false
       drawerOpen = false
@@ -146,6 +149,19 @@
       showVariables = !showVariables
       if (showVariables) {
         selectedTemplateId = null
+        showRuntimeVars = false
+      }
+      isEditorDirty = false
+      drawerOpen = false
+    })
+  }
+
+  function handleToggleRuntimeVars() {
+    guardDirty(() => {
+      showRuntimeVars = !showRuntimeVars
+      if (showRuntimeVars) {
+        selectedTemplateId = null
+        showVariables = false
       }
       isEditorDirty = false
       drawerOpen = false
@@ -156,12 +172,13 @@
     guardDirty(() => {
       selectedTemplateId = null
       showVariables = false
+      showRuntimeVars = false
       isEditorDirty = false
       drawerOpen = false
     })
   }
 
-  const showSettings = $derived(!selectedTemplateId && !showVariables)
+  const showSettings = $derived(!selectedTemplateId && !showVariables && !showRuntimeVars)
 
   function handleBack() {
     guardDirty(() => {
@@ -445,9 +462,11 @@
           <TemplateGroupList
             {selectedTemplateId}
             {showVariables}
+            {showRuntimeVars}
             {showSettings}
             onSelectTemplate={handleSelectTemplate}
             onToggleVariables={handleToggleVariables}
+            onToggleRuntimeVars={handleToggleRuntimeVars}
             onShowSettings={handleShowSettings}
           />
         </div>
@@ -460,6 +479,14 @@
             <VariableManager
               {packId}
               variables={fullPack?.variables ?? []}
+              onVariablesChanged={refreshPack}
+            />
+          </div>
+        {:else if showRuntimeVars}
+          <div class="flex-1 overflow-hidden">
+            <RuntimeVariableManager
+              {packId}
+              runtimeVariables={fullPack?.runtimeVariables ?? []}
               onVariablesChanged={refreshPack}
             />
           </div>
@@ -589,9 +616,11 @@
         <TemplateGroupList
           {selectedTemplateId}
           {showVariables}
+          {showRuntimeVars}
           {showSettings}
           onSelectTemplate={handleSelectTemplate}
           onToggleVariables={handleToggleVariables}
+          onToggleRuntimeVars={handleToggleRuntimeVars}
           onShowSettings={handleShowSettings}
         />
       </div>

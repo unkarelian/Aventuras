@@ -20,12 +20,14 @@
     Save,
   } from 'lucide-svelte'
   import type { Character } from '$lib/types'
+  import type { RuntimeVariable, RuntimeVarsMap } from '$lib/services/packs/types'
   import {
     hasRequiredCredentials,
     getProviderDisplayName,
     generatePortrait as sdkGeneratePortrait,
   } from '$lib/services/ai/image'
   import { database } from '$lib/services/database'
+  import RuntimeVariableDisplay from './RuntimeVariableDisplay.svelte'
   import { ContextBuilder } from '$lib/services/context'
   import { normalizeImageDataUrl } from '$lib/utils/image'
   import { createLogger } from '$lib/services/ai/core/config'
@@ -65,6 +67,41 @@
   let expandedPortrait = $state<{ src: string; name: string } | null>(null)
   let savedToVaultId = $state<string | null>(null)
   let expandedDescriptors = $state<Set<string>>(new Set())
+
+  // Runtime variables
+  let runtimeVarDefs = $state<RuntimeVariable[]>([])
+  let editRuntimeVars = $state<RuntimeVarsMap>({})
+
+  $effect(() => {
+    if (story.currentStory) {
+      loadRuntimeVarDefs()
+    }
+  })
+
+  async function loadRuntimeVarDefs() {
+    if (!story.currentStory) return
+    try {
+      const packId = await database.getStoryPackId(story.currentStory.id)
+      if (packId) {
+        runtimeVarDefs = await database.getRuntimeVariablesByEntityType(packId, 'character')
+      } else {
+        runtimeVarDefs = []
+      }
+    } catch {
+      runtimeVarDefs = []
+    }
+  }
+
+  function updateEditRuntimeVar(
+    defId: string,
+    variableName: string,
+    value: string | number | null,
+  ) {
+    editRuntimeVars = {
+      ...editRuntimeVars,
+      [defId]: { variableName, v: value },
+    }
+  }
 
   function toggleDescriptorExpand(characterId: string) {
     const newSet = new SvelteSet(expandedDescriptors)
@@ -176,6 +213,9 @@
     editVisualDescriptors = descriptorsToString(character.visualDescriptors)
     editPortrait = character.portrait
     portraitError = null
+    // Initialize runtime vars from entity metadata
+    const rv = (character.metadata as Record<string, unknown> | null)?.runtimeVars
+    editRuntimeVars = rv && typeof rv === 'object' ? { ...(rv as RuntimeVarsMap) } : {}
   }
 
   function cancelEdit() {
@@ -188,6 +228,7 @@
     editStatus = 'active'
     editPortrait = null
     portraitError = null
+    editRuntimeVars = {}
   }
 
   async function saveEdit(character: Character) {
@@ -201,6 +242,19 @@
       .filter(Boolean)
     const visualDescriptors = stringToDescriptors(editVisualDescriptors)
 
+    // Merge runtime vars into metadata
+    const existingMeta = (character.metadata as Record<string, unknown>) ?? {}
+    const hasRuntimeVarEdits = Object.keys(editRuntimeVars).length > 0
+    const updatedMetadata = hasRuntimeVarEdits
+      ? {
+          ...existingMeta,
+          runtimeVars: {
+            ...((existingMeta.runtimeVars as RuntimeVarsMap) ?? {}),
+            ...editRuntimeVars,
+          },
+        }
+      : character.metadata
+
     await story.updateCharacter(character.id, {
       name,
       description: editDescription.trim() || null,
@@ -209,6 +263,7 @@
       traits,
       visualDescriptors,
       portrait: editPortrait,
+      metadata: updatedMetadata,
     })
 
     cancelEdit()
@@ -584,6 +639,19 @@
                 />
               </div>
 
+              <!-- Runtime Variables (Edit) -->
+              {#if runtimeVarDefs.length > 0}
+                <RuntimeVariableDisplay
+                  definitions={runtimeVarDefs}
+                  values={editRuntimeVars}
+                  editMode={true}
+                  onValueChange={(defId, value) => {
+                    const def = runtimeVarDefs.find((d) => d.id === defId)
+                    if (def) updateEditRuntimeVar(defId, def.variableName, value)
+                  }}
+                />
+              {/if}
+
               <!-- Portrait Section -->
               <div class="border-border bg-muted/20 rounded-md border p-2">
                 <div
@@ -860,7 +928,26 @@
                     {character.translatedDescription ?? character.description}
                   </p>
                 {/if}
+
+                <!-- Runtime Variables (Non-pinned, collapsible) -->
+                {#if runtimeVarDefs.length > 0}
+                  <RuntimeVariableDisplay
+                    definitions={runtimeVarDefs}
+                    values={character.metadata?.runtimeVars as RuntimeVarsMap | undefined}
+                    pinnedOnly={false}
+                  />
+                {/if}
               </div>
+            {/if}
+
+            <!-- Runtime Variables (Pinned, always visible) -->
+            {#if runtimeVarDefs.length > 0}
+              <RuntimeVariableDisplay
+                definitions={runtimeVarDefs}
+                values={character.metadata?.runtimeVars as RuntimeVarsMap | undefined}
+                pinnedOnly={true}
+                class={isCollapsed ? 'mt-2' : 'mt-1'}
+              />
             {/if}
 
             <!-- Footer Actions -->

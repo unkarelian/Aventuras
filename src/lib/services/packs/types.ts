@@ -71,6 +71,46 @@ export interface PresetPack {
   updatedAt: number
 }
 
+/** Entity types that support runtime variables. */
+export type RuntimeEntityType = 'character' | 'location' | 'item' | 'story_beat'
+
+/** Runtime variable data type. No boolean -- only text, number, enum per user decision. */
+export type RuntimeVariableType = 'text' | 'number' | 'enum'
+
+/** A runtime variable definition tied to a pack and entity type. */
+export interface RuntimeVariable {
+  id: string
+  packId: string
+  entityType: RuntimeEntityType
+  variableName: string
+  displayName: string
+  description?: string
+  variableType: RuntimeVariableType
+  defaultValue?: string
+  minValue?: number
+  maxValue?: number
+  enumOptions?: EnumOption[]
+  color: string
+  icon?: string
+  pinned: boolean
+  sortOrder: number
+  createdAt: number
+}
+
+/** Per-entity stored value for a runtime variable. Keyed by defId in metadata.runtimeVars. */
+export interface RuntimeVariableValue {
+  variableName: string
+  v: string | number | null
+}
+
+/**
+ * Shape of runtimeVars inside entity metadata.
+ * Keyed by RuntimeVariable.id (defId), NOT by variableName.
+ * This makes rename free -- renaming only changes the definition, not the stored values.
+ * Locked decision: "Renaming: values follow the rename (linked by ID, not name)."
+ */
+export type RuntimeVarsMap = Record<string, RuntimeVariableValue>
+
 /** Full pack with all templates and variables. */
 export interface FullPack {
   /** Pack metadata */
@@ -79,4 +119,6 @@ export interface FullPack {
   templates: PackTemplate[]
   /** All custom variables in this pack */
   variables: CustomVariable[]
+  /** All runtime variable definitions in this pack */
+  runtimeVariables?: RuntimeVariable[]
 }

@@ -25,7 +25,15 @@ import type {
   VisualDescriptors,
   WorldStateSnapshot,
 } from '$lib/types'
-import type { PresetPack, PackTemplate, CustomVariable } from '$lib/services/packs/types'
+import type {
+  PresetPack,
+  PackTemplate,
+  CustomVariable,
+  RuntimeVariable,
+  RuntimeVariableType,
+  RuntimeEntityType,
+  EnumOption,
+} from '$lib/services/packs/types'
 import { hashContent } from '$lib/services/packs/hash'
 
 /**
@@ -127,6 +135,23 @@ class DatabaseService {
       await this.init()
     }
     return this.db!
+  }
+
+  /**
+   * Run a callback inside a BEGIN/COMMIT transaction.
+   * Automatically rolls back on error.
+   */
+  async withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    const db = await this.getDb()
+    await db.execute('BEGIN')
+    try {
+      const result = await fn()
+      await db.execute('COMMIT')
+      return result
+    } catch (error) {
+      await db.execute('ROLLBACK')
+      throw error
+    }
   }
 
   /**
@@ -3321,6 +3346,219 @@ class DatabaseService {
     await db.execute('DELETE FROM pack_variables WHERE id = ?', [id])
   }
 
+  // ===== Runtime Variable Definition Operations =====
+
+  async getRuntimeVariables(packId: string): Promise<RuntimeVariable[]> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>(
+      'SELECT * FROM pack_runtime_variables WHERE pack_id = ? ORDER BY entity_type ASC, sort_order ASC, variable_name ASC',
+      [packId],
+    )
+    return results.map(this.mapRuntimeVariable)
+  }
+
+  async getRuntimeVariablesByEntityType(
+    packId: string,
+    entityType: RuntimeEntityType,
+  ): Promise<RuntimeVariable[]> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>(
+      'SELECT * FROM pack_runtime_variables WHERE pack_id = ? AND entity_type = ? ORDER BY sort_order ASC, variable_name ASC',
+      [packId, entityType],
+    )
+    return results.map(this.mapRuntimeVariable)
+  }
+
+  async createRuntimeVariable(
+    packId: string,
+    variable: Omit<RuntimeVariable, 'id' | 'packId' | 'createdAt'>,
+  ): Promise<RuntimeVariable> {
+    const db = await this.getDb()
+    const id = crypto.randomUUID()
+    const now = Date.now()
+    await db.execute(
+      `INSERT INTO pack_runtime_variables (id, pack_id, entity_type, variable_name, display_name, description, variable_type, default_value, min_value, max_value, enum_options, color, icon, pinned, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        packId,
+        variable.entityType,
+        variable.variableName,
+        variable.displayName,
+        variable.description ?? null,
+        variable.variableType,
+        variable.defaultValue ?? null,
+        variable.minValue ?? null,
+        variable.maxValue ?? null,
+        variable.enumOptions ? JSON.stringify(variable.enumOptions) : null,
+        variable.color,
+        variable.icon ?? null,
+        variable.pinned ? 1 : 0,
+        variable.sortOrder ?? 0,
+        now,
+      ],
+    )
+    return { id, packId, ...variable, createdAt: now }
+  }
+
+  async updateRuntimeVariable(
+    id: string,
+    updates: {
+      entityType?: RuntimeEntityType
+      variableName?: string
+      displayName?: string
+      description?: string | null
+      variableType?: RuntimeVariableType
+      defaultValue?: string | null
+      minValue?: number | null
+      maxValue?: number | null
+      enumOptions?: EnumOption[] | null
+      color?: string
+      icon?: string | null
+      pinned?: boolean
+      sortOrder?: number
+    },
+  ): Promise<void> {
+    const db = await this.getDb()
+    const setClauses: string[] = []
+    const values: any[] = []
+
+    if (updates.entityType !== undefined) {
+      setClauses.push('entity_type = ?')
+      values.push(updates.entityType)
+    }
+    if (updates.variableName !== undefined) {
+      setClauses.push('variable_name = ?')
+      values.push(updates.variableName)
+    }
+    if (updates.displayName !== undefined) {
+      setClauses.push('display_name = ?')
+      values.push(updates.displayName)
+    }
+    if (updates.description !== undefined) {
+      setClauses.push('description = ?')
+      values.push(updates.description || null)
+    }
+    if (updates.variableType !== undefined) {
+      setClauses.push('variable_type = ?')
+      values.push(updates.variableType)
+    }
+    if (updates.defaultValue !== undefined) {
+      setClauses.push('default_value = ?')
+      values.push(updates.defaultValue || null)
+    }
+    if (updates.minValue !== undefined) {
+      setClauses.push('min_value = ?')
+      values.push(updates.minValue)
+    }
+    if (updates.maxValue !== undefined) {
+      setClauses.push('max_value = ?')
+      values.push(updates.maxValue)
+    }
+    if (updates.enumOptions !== undefined) {
+      setClauses.push('enum_options = ?')
+      values.push(updates.enumOptions ? JSON.stringify(updates.enumOptions) : null)
+    }
+    if (updates.color !== undefined) {
+      setClauses.push('color = ?')
+      values.push(updates.color)
+    }
+    if (updates.icon !== undefined) {
+      setClauses.push('icon = ?')
+      values.push(updates.icon || null)
+    }
+    if (updates.pinned !== undefined) {
+      setClauses.push('pinned = ?')
+      values.push(updates.pinned ? 1 : 0)
+    }
+    if (updates.sortOrder !== undefined) {
+      setClauses.push('sort_order = ?')
+      values.push(updates.sortOrder)
+    }
+
+    if (setClauses.length === 0) return
+
+    values.push(id)
+    await db.execute(
+      `UPDATE pack_runtime_variables SET ${setClauses.join(', ')} WHERE id = ?`,
+      values,
+    )
+  }
+
+  async deleteRuntimeVariable(id: string): Promise<void> {
+    const db = await this.getDb()
+    await db.execute('DELETE FROM pack_runtime_variables WHERE id = ?', [id])
+  }
+
+  // ===== Runtime Variable Entity Value Operations =====
+
+  async getStoriesUsingPack(packId: string): Promise<string[]> {
+    const db = await this.getDb()
+    const results = await db.select<any[]>('SELECT id FROM stories WHERE pack_id = ?', [packId])
+    return results.map((r) => r.id)
+  }
+
+  async countEntitiesWithRuntimeVar(packId: string, defId: string): Promise<number> {
+    const storyIds = await this.getStoriesUsingPack(packId)
+    if (storyIds.length === 0) return 0
+
+    const db = await this.getDb()
+    const placeholders = storyIds.map(() => '?').join(', ')
+    const jsonPath = `$.runtimeVars.${defId}`
+
+    const tables = ['characters', 'locations', 'items', 'story_beats']
+    let total = 0
+
+    for (const table of tables) {
+      const results = await db.select<any[]>(
+        `SELECT COUNT(*) as cnt FROM ${table} WHERE story_id IN (${placeholders}) AND json_extract(metadata, ?) IS NOT NULL`,
+        [...storyIds, jsonPath],
+      )
+      total += results[0]?.cnt ?? 0
+    }
+
+    return total
+  }
+
+  async clearRuntimeVarFromEntities(packId: string, defId: string): Promise<void> {
+    const storyIds = await this.getStoriesUsingPack(packId)
+    if (storyIds.length === 0) return
+
+    const db = await this.getDb()
+    const placeholders = storyIds.map(() => '?').join(', ')
+    const jsonPath = `$.runtimeVars.${defId}`
+
+    const tables = ['characters', 'locations', 'items', 'story_beats']
+    for (const table of tables) {
+      await db.execute(
+        `UPDATE ${table} SET metadata = json_remove(metadata, ?) WHERE story_id IN (${placeholders}) AND json_extract(metadata, ?) IS NOT NULL`,
+        [jsonPath, ...storyIds, jsonPath],
+      )
+    }
+  }
+
+  async renameRuntimeVarInEntities(
+    packId: string,
+    defId: string,
+    newVariableName: string,
+  ): Promise<void> {
+    const storyIds = await this.getStoriesUsingPack(packId)
+    if (storyIds.length === 0) return
+
+    const db = await this.getDb()
+    const placeholders = storyIds.map(() => '?').join(', ')
+    const jsonPath = `$.runtimeVars.${defId}`
+    const varNamePath = `$.runtimeVars.${defId}.variableName`
+
+    const tables = ['characters', 'locations', 'items', 'story_beats']
+    for (const table of tables) {
+      await db.execute(
+        `UPDATE ${table} SET metadata = json_set(metadata, ?, ?) WHERE story_id IN (${placeholders}) AND json_extract(metadata, ?) IS NOT NULL`,
+        [varNamePath, newVariableName, ...storyIds, jsonPath],
+      )
+    }
+  }
+
   // ===== Story-Pack Assignment =====
 
   async getStoryPackId(storyId: string): Promise<string | null> {
@@ -3416,6 +3654,35 @@ class DatabaseService {
       contentHash: row.content_hash,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+    }
+  }
+
+  private mapRuntimeVariable(row: any): RuntimeVariable {
+    return {
+      id: row.id,
+      packId: row.pack_id,
+      entityType: row.entity_type,
+      variableName: row.variable_name,
+      displayName: row.display_name,
+      description: row.description ?? undefined,
+      variableType: row.variable_type,
+      defaultValue: row.default_value ?? undefined,
+      minValue: row.min_value != null ? Number(row.min_value) : undefined,
+      maxValue: row.max_value != null ? Number(row.max_value) : undefined,
+      enumOptions: row.enum_options
+        ? (() => {
+            try {
+              return JSON.parse(row.enum_options)
+            } catch {
+              return undefined
+            }
+          })()
+        : undefined,
+      color: row.color,
+      icon: row.icon ?? undefined,
+      pinned: !!row.pinned,
+      sortOrder: row.sort_order ?? 0,
+      createdAt: row.created_at,
     }
   }
 
