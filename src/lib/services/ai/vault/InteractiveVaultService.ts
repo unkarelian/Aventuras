@@ -7,7 +7,7 @@
  */
 
 import type { VaultCharacter, VaultLorebook, VaultLorebookEntry, VaultScenario } from '$lib/types'
-import type { ModelMessage, ToolModelMessage, TextPart, ToolCallPart, ToolSet } from 'ai'
+import type { ModelMessage, TextPart, ToolSet } from 'ai'
 import { settings } from '$lib/stores/settings.svelte'
 import { characterVault } from '$lib/stores/characterVault.svelte'
 import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
@@ -21,11 +21,15 @@ import {
   createInteractiveVaultLorebookTools,
   createVaultLinkingTools,
   createFandomTools,
+  createViewerTools,
+  createImageTools,
   type CharacterToolContext,
   type ScenarioToolContext,
   type FandomToolContext,
   type VaultLorebookToolContext,
   type LorebookEntryToolContext,
+  type ViewerToolContext,
+  type ImageToolContext,
 } from '../sdk/tools'
 import type { VaultPendingChange } from '../sdk/schemas/vault'
 import { promptService } from '$lib/services/prompts'
@@ -65,6 +69,13 @@ export type StreamEvent =
   | { type: 'message'; message: ChatMessage }
   | { type: 'done'; result: SendMessageResult }
   | { type: 'error'; error: string }
+  | {
+      type: 'show_entity'
+      change: VaultPendingChange
+      entityId: string
+      entityType: string
+    }
+  | { type: 'image_generated'; imageId: string; base64DataUrl: string }
 
 /** Tool call info for display in chat */
 export interface ToolCallDisplay {
@@ -73,6 +84,10 @@ export interface ToolCallDisplay {
   args: Record<string, unknown>
   result: string
   pendingChange?: VaultPendingChange
+  /** Data URL of a generated image, if this tool call produced one */
+  imageUrl?: string
+  /** Stable ID of the generated image — use to reference it in follow-up messages */
+  imageId?: string
 }
 
 export interface ChatMessage {
@@ -108,6 +123,16 @@ export class InteractiveVaultService {
   private conversationHistory: ModelMessage[] = []
   private systemPrompt: string = ''
   private conversationId: string | null = null
+
+  /** Session-level map of generated images: imageId → base64 data URL */
+  readonly generatedImages: Map<string, string> = new Map()
+
+  /**
+   * Session-level map of already-generated portraits: characterId → imageId.
+   * Prevents the model from generating multiple portraits for the same character
+   * when it calls tools in parallel or split across conversation turns.
+   */
+  readonly generatedPortraitIds: Map<string, string> = new Map()
 
   constructor(presetId: string) {
     this.presetId = presetId
@@ -181,9 +206,10 @@ export class InteractiveVaultService {
       pendingChanges.push(change)
     }
 
-    // --- Compose all tool sets ---
+    // Event queues for deferred stream events (from tool callbacks)
+    const deferredEvents: StreamEvent[] = []
 
-    console.log('vaultState :>> ', vaultState)
+    // --- Compose all tool sets ---
 
     // Character tools
     const characterContext: CharacterToolContext = {
@@ -339,6 +365,31 @@ export class InteractiveVaultService {
     }
     const fandomTools = createFandomTools(fandomContext)
 
+    // Viewer tools
+    const viewerContext: ViewerToolContext = {
+      characters: vaultState.characters,
+      scenarios: vaultState.scenarios,
+      lorebooks: vaultState.lorebooks,
+      onShowEntity: (change, entityId, entityType) => {
+        deferredEvents.push({ type: 'show_entity', change, entityId, entityType })
+      },
+      generateId,
+    }
+    const viewerTools = createViewerTools(viewerContext)
+
+    // Image tools
+    // generatedPortraitIds is scoped to the service instance: if the model calls generate_portrait
+    // for the same character again, the tool returns the already-generated imageId immediately.
+    const imageContext: ImageToolContext = {
+      characters: vaultState.characters,
+      generatedImages: this.generatedImages,
+      generatedPortraitIds: this.generatedPortraitIds,
+      onImageGenerated: (imageId, base64DataUrl) => {
+        deferredEvents.push({ type: 'image_generated', imageId, base64DataUrl })
+      },
+    }
+    const imageTools = createImageTools(imageContext)
+
     // Combine all tools
     const tools: Record<string, unknown> = {
       ...characterTools,
@@ -346,6 +397,8 @@ export class InteractiveVaultService {
       ...lorebookTools,
       ...vaultLinkingTools,
       ...fandomTools,
+      ...viewerTools,
+      ...imageTools,
     }
 
     // Add user message to conversation history
@@ -482,8 +535,44 @@ export class InteractiveVaultService {
                 linkedChangeIds.add(latestChange.id)
               }
 
+              // Attach generated image URL directly to the tool call display before yielding
+              const imageIdStr =
+                toolResult && typeof toolResult === 'object' && 'imageId' in toolResult
+                  ? String((toolResult as any).imageId)
+                  : undefined
+
+              // Provide a tiny delay to allow any pending promise resolutions to push to deferredEvents
+              await new Promise((resolve) => setTimeout(resolve, 10))
+
+              let imageEventIdx = -1
+              if (imageIdStr) {
+                imageEventIdx = deferredEvents.findIndex(
+                  (e) => e.type === 'image_generated' && e.imageId === imageIdStr,
+                )
+              }
+
+              if (imageEventIdx !== -1) {
+                const imageEvent = deferredEvents[imageEventIdx] as {
+                  type: 'image_generated'
+                  imageId: string
+                  base64DataUrl: string
+                }
+                toolCallDisplay.imageUrl = imageEvent.base64DataUrl
+                toolCallDisplay.imageId = imageEvent.imageId
+                deferredEvents.splice(imageEventIdx, 1)
+              }
+
               stepToolCalls.push(toolCallDisplay)
               yield { type: 'tool_end', toolCall: toolCallDisplay }
+
+              // Flush any non-image deferred events from tool callbacks.
+              // We keep 'image_generated' events in the array so they can be correlated
+              // with their specific tool-result (which may arrive later in parallel executions).
+              while (true) {
+                const idx = deferredEvents.findIndex((e) => e.type !== 'image_generated')
+                if (idx === -1) break
+                yield deferredEvents.splice(idx, 1)[0]!
+              }
             }
             break
           }
@@ -494,27 +583,12 @@ export class InteractiveVaultService {
         }
       }
 
-      // Add assistant response to conversation history
-      if (responseContent || toolCalls.length > 0) {
-        const assistantMessage: ModelMessage = {
-          role: 'assistant',
-          content: this.buildAssistantContent(responseContent, toolCalls),
-        }
-        this.conversationHistory.push(assistantMessage)
-
-        if (toolCalls.length > 0) {
-          const toolResultMessage: ToolModelMessage = {
-            role: 'tool',
-            content: toolCalls.map((tc) => ({
-              type: 'tool-result' as const,
-              toolCallId: tc.id,
-              toolName: tc.name,
-              output: { type: 'text' as const, value: tc.result },
-            })),
-          }
-          this.conversationHistory.push(toolResultMessage)
-        }
-      }
+      // Add assistant response to conversation history using the SDK's properly-sequenced
+      // messages. This correctly handles multi-step tool calls (e.g. two parallel
+      // generate_portrait calls in the same step) where manual reconstruction would
+      // collapse step-1 tool calls and step-2 text into one wrong assistant message.
+      const sdkResponse = await result.response
+      this.conversationHistory.push(...(sdkResponse.messages as ModelMessage[]))
 
       // Auto-save conversation after AI response completes
       try {
@@ -537,31 +611,6 @@ export class InteractiveVaultService {
       log('Error in sendMessageStreaming', { error: errorMessage })
       yield { type: 'error', error: errorMessage }
     }
-  }
-
-  /**
-   * Build assistant message content with text and tool calls.
-   */
-  private buildAssistantContent(
-    text: string,
-    toolCalls: ToolCallDisplay[],
-  ): Array<TextPart | ToolCallPart> {
-    const content: Array<TextPart | ToolCallPart> = []
-
-    if (text) {
-      content.push({ type: 'text', text })
-    }
-
-    for (const tc of toolCalls) {
-      content.push({
-        type: 'tool-call',
-        toolCallId: tc.id,
-        toolName: tc.name,
-        input: tc.args,
-      })
-    }
-
-    return content.length > 0 ? content : [{ type: 'text', text: '' }]
   }
 
   /**
@@ -861,6 +910,7 @@ export class InteractiveVaultService {
     this.systemPrompt = ''
     this.initialized = false
     this.conversationId = null
+    this.generatedImages.clear()
   }
 
   /**

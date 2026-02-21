@@ -3,11 +3,13 @@
   import type { VaultCharacterInput, VaultScenarioInput } from '$lib/services/ai/sdk/schemas/vault'
   import type { VaultLorebook, VaultLorebookEntry } from '$lib/types'
   import { Button } from '$lib/components/ui/button'
-  import { X, Check, User, BookOpen, Map as MapIcon } from 'lucide-svelte'
+  import { X, Check, Save, User, BookOpen, Map as MapIcon } from 'lucide-svelte'
   import VaultCharacterFormFields from './VaultCharacterFormFields.svelte'
   import VaultScenarioFormFields from './VaultScenarioFormFields.svelte'
   import VaultLorebookEditorContent from './VaultLorebookEditorContent.svelte'
   import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
+  import { characterVault } from '$lib/stores/characterVault.svelte'
+  import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
   import { vaultEditor } from '$lib/stores/vaultEditorStore.svelte'
   import { slide } from 'svelte/transition'
 
@@ -97,9 +99,48 @@
           : 'Scenario',
   )
 
+  const isViewMode = $derived(vaultEditor.viewMode)
+
   const actionLabel = $derived(
-    'action' in change ? change.action.charAt(0).toUpperCase() + change.action.slice(1) : '',
+    isViewMode
+      ? 'View'
+      : 'action' in change
+        ? change.action.charAt(0).toUpperCase() + change.action.slice(1)
+        : '',
   )
+
+  /** Save edits directly to the vault store (view mode only) */
+  async function handleViewModeSave() {
+    const entityId = vaultEditor.viewEntityId
+    const entityType = vaultEditor.viewEntityType
+    if (!entityId || !entityType) return
+
+    if (entityType === 'character' && charData) {
+      await characterVault.update(entityId, {
+        name: charData.name,
+        description: charData.description,
+        traits: charData.traits,
+        visualDescriptors: charData.visualDescriptors,
+        portrait: charData.portrait,
+        tags: charData.tags,
+        favorite: charData.favorite,
+      })
+    } else if (entityType === 'scenario' && scenarioData) {
+      await scenarioVault.update(entityId, {
+        name: scenarioData.name,
+        description: scenarioData.description,
+        settingSeed: scenarioData.settingSeed,
+        npcs: scenarioData.npcs,
+        primaryCharacterName: scenarioData.primaryCharacterName,
+        firstMessage: scenarioData.firstMessage,
+        alternateGreetings: scenarioData.alternateGreetings,
+        tags: scenarioData.tags,
+        favorite: scenarioData.favorite,
+      })
+    }
+
+    onClose()
+  }
 
   // --- Diff computation for update actions ---
 
@@ -234,17 +275,31 @@
     <div
       class="border-surface-700 bg-surface-900 flex shrink-0 items-center justify-end gap-2 border-t px-4 py-2.5"
     >
-      <Button variant="outline" size="sm" class="border-surface-600 h-7 text-xs" onclick={onClose}
-        >Cancel</Button
-      >
-      <Button
-        size="sm"
-        class="h-7 gap-1.5 bg-emerald-600 text-xs text-white hover:bg-emerald-500"
-        onclick={handleApproveWithEdits}
-      >
-        <Check class="h-3 w-3" />
-        Confirm & Approve
-      </Button>
+      {#if isViewMode}
+        <Button variant="outline" size="sm" class="border-surface-600 h-7 text-xs" onclick={onClose}
+          >Close</Button
+        >
+        <Button
+          size="sm"
+          class="h-7 gap-1.5 bg-blue-600 text-xs text-white hover:bg-blue-500"
+          onclick={handleViewModeSave}
+        >
+          <Save class="h-3 w-3" />
+          Save
+        </Button>
+      {:else}
+        <Button variant="outline" size="sm" class="border-surface-600 h-7 text-xs" onclick={onClose}
+          >Cancel</Button
+        >
+        <Button
+          size="sm"
+          class="h-7 gap-1.5 bg-emerald-600 text-xs text-white hover:bg-emerald-500"
+          onclick={handleApproveWithEdits}
+        >
+          <Check class="h-3 w-3" />
+          Confirm & Approve
+        </Button>
+      {/if}
     </div>
   {/if}
 </div>

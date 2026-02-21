@@ -26,6 +26,15 @@ class VaultEditorStore {
   /** Whether the entity editor panel is visible */
   editorOpen = $state(false)
 
+  /** Whether the editor is in view mode (direct editing, no approval workflow) */
+  viewMode = $state(false)
+
+  /** Entity ID being viewed (for saving edits in view mode) */
+  viewEntityId = $state<string | null>(null)
+
+  /** Entity type being viewed (for routing saves in view mode) */
+  viewEntityType = $state<string | null>(null)
+
   /** Edited versions of pending changes (user modifications before approval) */
   private _editedChanges = $state<SvelteMap<string, VaultPendingChange>>(new SvelteMap())
 
@@ -189,14 +198,29 @@ class VaultEditorStore {
 
   /** Force-open the editor for a specific change */
   openEditor(change: VaultPendingChange): void {
+    this.viewMode = false
+    this.viewEntityId = null
+    this.viewEntityType = null
     this.activeChange = change
     this.editorOpen = true
+  }
+
+  /** Open the editor in view mode for direct editing (no approval workflow) */
+  openViewer(change: VaultPendingChange, entityId: string, entityType: string): void {
+    this.activeChange = change
+    this.editorOpen = true
+    this.viewMode = true
+    this.viewEntityId = entityId
+    this.viewEntityType = entityType
   }
 
   /** Close the editor panel */
   closeEditor(): void {
     this.activeChange = null
     this.editorOpen = false
+    this.viewMode = false
+    this.viewEntityId = null
+    this.viewEntityType = null
   }
 
   /**
@@ -295,6 +319,9 @@ class VaultEditorStore {
     this.pendingChanges = []
     this.activeChange = null
     this.editorOpen = false
+    this.viewMode = false
+    this.viewEntityId = null
+    this.viewEntityType = null
     this._editedChanges = new SvelteMap()
   }
 

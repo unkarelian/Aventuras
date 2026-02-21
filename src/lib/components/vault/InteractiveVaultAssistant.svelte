@@ -33,6 +33,8 @@
     Check,
     X,
     ListChecks,
+    ImageIcon,
+    CornerDownLeft,
   } from 'lucide-svelte'
   import { Button } from '$lib/components/ui/button'
   import { Textarea } from '$lib/components/ui/textarea'
@@ -41,6 +43,7 @@
   import { fade, slide } from 'svelte/transition'
   import { onMount, onDestroy, tick } from 'svelte'
   import * as Sheet from '$lib/components/ui/sheet'
+  import * as Dialog from '$lib/components/ui/dialog'
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { parseMarkdown } from '$lib/utils/markdown'
   import { cn } from '$lib/utils/cn'
@@ -87,6 +90,8 @@
   // Pending changes quick list
   let pendingListOpen = $state(false)
   const pendingOnly = $derived(vaultEditor.pendingChanges.filter((c) => c.status === 'pending'))
+
+  let enlargedImageUrl = $state<string | null>(null)
 
   const entityIcons = {
     character: User,
@@ -219,6 +224,11 @@
     }
   }
 
+  function handleReferenceImage(imageId: string) {
+    const ref = `[Image: ${imageId}]`
+    inputValue = inputValue.trim() ? `${inputValue.trim()}\n${ref}` : ref
+  }
+
   async function handleSend() {
     if (!service || isGenerating) return
 
@@ -328,6 +338,16 @@
             break
           }
 
+          case 'show_entity':
+            // Open entity in view mode (no approval workflow)
+            if (!isMobile.current) {
+              vaultEditor.openViewer(event.change, event.entityId, event.entityType)
+            }
+            break
+
+          case 'image_generated':
+            break
+
           case 'done':
             break
 
@@ -398,6 +418,8 @@
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
   }
+
+  const IMAGE_TOOL_NAMES = new Set(['generate_standard_image', 'generate_portrait'])
 
   // --- Approval handlers (delegated to store) ---
 
@@ -777,14 +799,48 @@
                     {#if message.toolCalls && message.toolCalls.length > 0}
                       <div class="mt-1.5 space-y-1">
                         {#each message.toolCalls as toolCall (toolCall.id)}
-                          <div
-                            class="border-surface-700 bg-surface-800 flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs"
-                          >
-                            <Wrench class="text-surface-500 h-3 w-3 flex-shrink-0" />
-                            <span class="text-surface-400 font-medium"
-                              >{formatToolCallName(toolCall.name)}</span
+                          {#if !IMAGE_TOOL_NAMES.has(toolCall.name) || toolCall.imageUrl}
+                            <div
+                              class="border-surface-700 bg-surface-800 flex items-center gap-2 rounded-lg border px-2.5 py-1 text-xs"
                             >
-                          </div>
+                              {#if IMAGE_TOOL_NAMES.has(toolCall.name)}
+                                <ImageIcon class="text-surface-500 h-3 w-3 flex-shrink-0" />
+                              {:else}
+                                <Wrench class="text-surface-500 h-3 w-3 flex-shrink-0" />
+                              {/if}
+                              <span class="text-surface-400 font-medium"
+                                >{formatToolCallName(toolCall.name)}</span
+                              >
+                            </div>
+                          {/if}
+                          {#if toolCall.imageUrl}
+                            <div class="group relative mt-1 inline-block">
+                              <button
+                                class="border-surface-700 block cursor-pointer overflow-hidden rounded-lg border transition-transform hover:scale-[1.02]"
+                                onclick={() => (enlargedImageUrl = toolCall.imageUrl!)}
+                                title="Click to enlarge"
+                              >
+                                <img
+                                  src={toolCall.imageUrl}
+                                  alt="AI generated result"
+                                  class="h-auto max-h-52 w-auto max-w-full object-contain"
+                                />
+                              </button>
+                              {#if toolCall.imageId}
+                                <button
+                                  class="absolute right-1.5 bottom-1.5 flex items-center gap-1 rounded-md bg-black/70 px-1.5 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/90"
+                                  onclick={(e) => {
+                                    e.stopPropagation()
+                                    handleReferenceImage(toolCall.imageId!)
+                                  }}
+                                  title="Add image reference to message"
+                                >
+                                  <CornerDownLeft class="h-2.5 w-2.5" />
+                                  Use
+                                </button>
+                              {/if}
+                            </div>
+                          {/if}
                         {/each}
                       </div>
                     {/if}
@@ -949,3 +1005,26 @@
     </Sheet.Content>
   </Sheet.Root>
 {/if}
+
+<!-- Image enlargement dialog -->
+<Dialog.Root
+  open={!!enlargedImageUrl}
+  onOpenChange={(open) => {
+    if (!open) enlargedImageUrl = null
+  }}
+>
+  <Dialog.Content
+    class="max-h-[90vh] max-w-[90vw] overflow-hidden border-none bg-transparent p-0 shadow-none"
+  >
+    <Dialog.Title class="sr-only">Generated Image</Dialog.Title>
+    <button class="flex items-center justify-center" onclick={() => (enlargedImageUrl = null)}>
+      {#if enlargedImageUrl}
+        <img
+          src={enlargedImageUrl}
+          alt="Enlarged view"
+          class="max-h-[85vh] max-w-full rounded-lg object-contain"
+        />
+      {/if}
+    </button>
+  </Dialog.Content>
+</Dialog.Root>

@@ -23,3 +23,5 @@ export { createScenarioTools, type ScenarioToolContext, type ScenarioTools } fro
 export { createVaultLinkingTools, type VaultLinkingContext, type VaultLinkingTools } from './vault'
 export { createFandomTools, type FandomToolContext, type FandomTools } from './fandom'
 export { createRetrievalTools, type RetrievalToolContext, type RetrievalTools } from './retrieval'
+export { createViewerTools, type ViewerToolContext, type ViewerTools } from './viewer'
+export { createImageTools, type ImageToolContext, type ImageTools } from './image'
