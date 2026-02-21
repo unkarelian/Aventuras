@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { VaultLorebook, VaultLorebookEntry, EntryType, EntryInjectionMode } from '$lib/types'
   import type { VaultPendingChange } from '$lib/services/ai/sdk/schemas/vault'
+  import type { FocusedEntity } from '$lib/services/ai/vault/InteractiveVaultService'
   import {
     X,
     Plus,
@@ -22,6 +23,7 @@
     Check,
     Pencil,
     GitMerge,
+    Bot,
   } from 'lucide-svelte'
   import TagInput from '$lib/components/tags/TagInput.svelte'
   import VaultLorebookEntryFields from './VaultLorebookEntryFields.svelte'
@@ -47,6 +49,7 @@
     onApproveEntry?: (change: VaultPendingChange) => void
     onRejectEntry?: (change: VaultPendingChange) => void
     onUpdatePendingChange?: (change: VaultPendingChange, newData: VaultLorebookEntry) => void
+    onOpenAssistant?: (entity: FocusedEntity) => void
   }
 
   let {
@@ -62,6 +65,7 @@
     onApproveEntry,
     onRejectEntry,
     onUpdatePendingChange,
+    onOpenAssistant,
   }: Props = $props()
 
   // Local state for editing - initialized from props but mutable
@@ -1068,31 +1072,49 @@
   <!-- Footer -->
   {#if !isEmbedded}
     <div
-      class="border-surface-700 bg-surface-800 flex flex-shrink-0 items-center gap-2 border-t px-4 py-2.5 sm:justify-end"
+      class="border-surface-700 bg-surface-800 flex flex-shrink-0 items-center gap-2 border-t px-4 py-2.5"
     >
-      <Button
-        variant="outline"
-        class="border-surface-600 h-8 w-10 p-0 text-xs sm:w-auto sm:px-3"
-        onclick={onClose}
-        disabled={saving}
-      >
-        <X class="h-3.5 w-3.5" />
-        <span class="hidden sm:inline">Cancel</span>
-      </Button>
-      <Button
-        class="h-8 flex-1 text-xs sm:flex-none"
-        onclick={() => handleSaveClick(onSaveAndClose ?? onSave)}
-        disabled={saving || !name.trim()}
-      >
-        {#if saving}
-          <div
-            class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
-          ></div>
-        {:else}
-          <Save class="h-3.5 w-3.5" />
-        {/if}
-        Save Changes
-      </Button>
+      {#if onOpenAssistant}
+        <Button
+          variant="outline"
+          class="border-surface-600 h-8 text-xs"
+          onclick={() =>
+            onOpenAssistant({
+              entityType: 'lorebook',
+              entityId: lorebook.id,
+              entityName: lorebook.name,
+            })}
+          disabled={saving}
+        >
+          <Bot class="h-3.5 w-3.5" />
+          <span class="hidden sm:inline">Ask Assistant</span>
+        </Button>
+      {/if}
+      <div class="flex flex-1 items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          class="border-surface-600 h-8 w-10 p-0 text-xs sm:w-auto sm:px-3"
+          onclick={onClose}
+          disabled={saving}
+        >
+          <X class="h-3.5 w-3.5" />
+          <span class="hidden sm:inline">Cancel</span>
+        </Button>
+        <Button
+          class="h-8 flex-1 text-xs sm:flex-none"
+          onclick={() => handleSaveClick(onSaveAndClose ?? onSave)}
+          disabled={saving || !name.trim()}
+        >
+          {#if saving}
+            <div
+              class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+            ></div>
+          {:else}
+            <Save class="h-3.5 w-3.5" />
+          {/if}
+          Save Changes
+        </Button>
+      </div>
     </div>
   {/if}
 </div>

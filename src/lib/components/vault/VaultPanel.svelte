@@ -23,6 +23,7 @@
   import VaultCharacterForm from './VaultCharacterForm.svelte'
   import VaultLorebookEditor from './VaultLorebookEditor.svelte'
   import VaultScenarioEditor from './VaultScenarioEditor.svelte'
+  import type { FocusedEntity } from '$lib/services/ai/vault/InteractiveVaultService'
   import DiscoveryModal from '$lib/components/discovery/DiscoveryModal.svelte'
   import TagFilter from './TagFilter.svelte'
   import TagManager from '$lib/components/tags/TagManager.svelte'
@@ -64,6 +65,16 @@
   let showDiscoveryModal = $state(false)
   let discoveryMode = $state<VaultType>('character')
   let showVaultAssistant = $state(false)
+  let assistantFocusedEntity = $state<FocusedEntity | null>(null)
+
+  function openAssistantWithEntity(entity: FocusedEntity) {
+    showCharForm = false
+    editingCharacter = null
+    editingLorebook = null
+    editingScenario = null
+    assistantFocusedEntity = entity
+    showVaultAssistant = true
+  }
 
   // Configuration
   interface VaultSectionConfig {
@@ -508,17 +519,26 @@
       showCharForm = false
       editingCharacter = null
     }}
+    onOpenAssistant={openAssistantWithEntity}
   />
 {/if}
 
 <!-- Lorebook Editor Modal -->
 {#if editingLorebook}
-  <VaultLorebookEditor lorebook={editingLorebook} onClose={() => (editingLorebook = null)} />
+  <VaultLorebookEditor
+    lorebook={editingLorebook}
+    onClose={() => (editingLorebook = null)}
+    onOpenAssistant={openAssistantWithEntity}
+  />
 {/if}
 
 <!-- Scenario Editor Modal -->
 {#if editingScenario}
-  <VaultScenarioEditor scenario={editingScenario} onClose={() => (editingScenario = null)} />
+  <VaultScenarioEditor
+    scenario={editingScenario}
+    onClose={() => (editingScenario = null)}
+    onOpenAssistant={openAssistantWithEntity}
+  />
 {/if}
 
 <!-- Discovery Modal -->
@@ -535,5 +555,11 @@
 
 <!-- Vault Assistant Overlay -->
 {#if showVaultAssistant}
-  <InteractiveVaultAssistant onClose={() => (showVaultAssistant = false)} />
+  <InteractiveVaultAssistant
+    focusedEntity={assistantFocusedEntity}
+    onClose={() => {
+      showVaultAssistant = false
+      assistantFocusedEntity = null
+    }}
+  />
 {/if}

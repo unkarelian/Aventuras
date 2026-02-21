@@ -890,5 +890,7 @@ export interface VaultConversation {
   title: string
   createdAt: string
   updatedAt: string
-  messages: string // JSON blob — parsed by the service layer into ModelMessage[]
+  messages: string // JSON blob — AI SDK ModelMessage[]
+  chatMessages: string // JSON blob — ChatMessage[] (UI display state with diff cards, images, reasoning)
+  pendingChanges: string // JSON blob — VaultPendingChange[] (full list including status)
 }

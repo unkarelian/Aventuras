@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { VaultCharacter } from '$lib/types'
   import { characterVault } from '$lib/stores/characterVault.svelte'
-  import { Loader2 } from 'lucide-svelte'
+  import { Loader2, Bot } from 'lucide-svelte'
   import VaultCharacterFormFields from './VaultCharacterFormFields.svelte'
   import type { VaultCharacterInput } from '$lib/services/ai/sdk/schemas/vault'
+  import type { FocusedEntity } from '$lib/services/ai/vault/InteractiveVaultService'
   import { untrack } from 'svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
@@ -13,9 +14,10 @@
     character?: VaultCharacter | null
     onClose: () => void
     onSaved?: (character: VaultCharacter) => void
+    onOpenAssistant?: (entity: FocusedEntity) => void
   }
 
-  let { character = null, onClose, onSaved }: Props = $props()
+  let { character = null, onClose, onSaved, onOpenAssistant }: Props = $props()
 
   // Form state encapsulated in a single object for the fields component
   let formData = $state<VaultCharacterInput>(
@@ -100,6 +102,24 @@
 
     <!-- Actions -->
     <ResponsiveModal.Footer class="gap-2 sm:gap-0">
+      {#if isEditing && onOpenAssistant}
+        <Button
+          variant="outline"
+          class="w-full sm:w-auto"
+          disabled={saving}
+          onclick={() => {
+            if (!character) return
+            onOpenAssistant({
+              entityType: 'character',
+              entityId: character.id,
+              entityName: character.name,
+            })
+          }}
+        >
+          <Bot class="h-4 w-4" />
+          Ask Assistant
+        </Button>
+      {/if}
       <Button
         type="submit"
         form="character-form"

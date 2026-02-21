@@ -7,7 +7,7 @@
  */
 
 import type { VaultCharacter, VaultLorebook, VaultLorebookEntry, VaultScenario } from '$lib/types'
-import type { ModelMessage, TextPart, ToolSet } from 'ai'
+import type { ModelMessage, ToolModelMessage, TextPart, ToolCallPart, ToolSet } from 'ai'
 import { settings } from '$lib/stores/settings.svelte'
 import { characterVault } from '$lib/stores/characterVault.svelte'
 import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
@@ -35,7 +35,6 @@ import type { VaultPendingChange } from '../sdk/schemas/vault'
 import { promptService } from '$lib/services/prompts'
 import { streamText } from 'ai'
 import { database } from '$lib/services/database'
-import { ui } from '$lib/stores/ui.svelte'
 
 const log = createLogger('InteractiveVault')
 
@@ -51,6 +50,17 @@ export interface VaultState {
   /** Current lorebook entries for entry-level tools (optional, scoped to active lorebook) */
   activeLorebookId?: string
   activeEntries?: VaultLorebookEntry[]
+  /** ID of the character the user is actively editing (for focused assistant context) */
+  activeCharacterId?: string
+  /** ID of the scenario the user is actively editing (for focused assistant context) */
+  activeScenarioId?: string
+}
+
+/** Entity context passed when the assistant is opened from an edit interface */
+export interface FocusedEntity {
+  entityType: 'character' | 'lorebook' | 'scenario'
+  entityId: string
+  entityName: string
 }
 
 /** Summary data for initializing the system prompt */
@@ -75,7 +85,6 @@ export type StreamEvent =
       entityId: string
       entityType: string
     }
-  | { type: 'image_generated'; imageId: string; base64DataUrl: string }
 
 /** Tool call info for display in chat */
 export interface ToolCallDisplay {
@@ -148,8 +157,9 @@ export class InteractiveVaultService {
 
   /**
    * Initialize the conversation with vault summary data.
+   * Optionally pass a focusedEntity to inject context about which entity the user was editing.
    */
-  initialize(vaultSummary: VaultSummary): void {
+  initialize(vaultSummary: VaultSummary, focusedEntity?: FocusedEntity): void {
     this.conversationHistory = []
 
     this.systemPrompt = promptService.renderPrompt(
@@ -167,6 +177,10 @@ export class InteractiveVaultService {
         scenarioCount: vaultSummary.scenarioCount,
       },
     )
+
+    if (focusedEntity) {
+      this.systemPrompt += `\n\n## Active Context\nThe user opened this assistant from the ${focusedEntity.entityType} editor for "${focusedEntity.entityName}" (ID: \`${focusedEntity.entityId}\`). When the user refers to "this character", "this lorebook", "this scenario", or uses pronouns referencing an entity without naming it, assume they mean this one.`
+    }
 
     this.initialized = true
     log('Initialized conversation', { ...vaultSummary, model: this.preset.model })
@@ -384,9 +398,8 @@ export class InteractiveVaultService {
       characters: vaultState.characters,
       generatedImages: this.generatedImages,
       generatedPortraitIds: this.generatedPortraitIds,
-      onImageGenerated: (imageId, base64DataUrl) => {
-        deferredEvents.push({ type: 'image_generated', imageId, base64DataUrl })
-      },
+      onPendingChange,
+      generateId,
     }
     const imageTools = createImageTools(imageContext)
 
@@ -410,12 +423,9 @@ export class InteractiveVaultService {
     }
 
     // Resolve agent config
-    const debugId = crypto.randomUUID()
-    const startTime = Date.now()
     const { model, providerOptions, preset } = resolveAgentConfig(
       this.presetId,
       'interactive-vault',
-      debugId,
     )
 
     try {
@@ -429,26 +439,17 @@ export class InteractiveVaultService {
         providerOptions,
         abortSignal: signal,
         stopWhen: stopWhenDone(50),
-        onFinish: (result) => {
-          ui.addDebugResponse(
-            debugId,
-            'interactive-vault',
-            {
-              text: result.text,
-              toolCalls: result.toolCalls?.map((tc) => ({
-                name: tc.toolName,
-                args: tc.input,
-              })),
-              usage: result.usage,
-            },
-            startTime,
-          )
-        },
       })
 
-      // Track tool calls for the current step
-      const currentToolCalls: Map<string, { name: string; args: Record<string, unknown> }> =
-        new Map()
+      // Track tool calls for the current step.
+      // Use an array (not a Map) so duplicate toolCallIds from providers like Ollama
+      // don't overwrite each other — results are matched FIFO per id.
+      const currentToolCalls: Array<{
+        id: string
+        name: string
+        args: Record<string, unknown>
+        claimed: boolean
+      }> = []
 
       // Track per-step content
       let stepContent = ''
@@ -462,7 +463,7 @@ export class InteractiveVaultService {
             stepContent = ''
             stepToolCalls = []
             stepReasoning = undefined
-            currentToolCalls.clear()
+            currentToolCalls.length = 0
             break
 
           case 'finish-step':
@@ -501,9 +502,11 @@ export class InteractiveVaultService {
             break
 
           case 'tool-call':
-            currentToolCalls.set(event.toolCallId, {
+            currentToolCalls.push({
+              id: event.toolCallId,
               name: event.toolName,
               args: event.input as Record<string, unknown>,
+              claimed: false,
             })
             yield {
               type: 'tool_start',
@@ -514,7 +517,10 @@ export class InteractiveVaultService {
             break
 
           case 'tool-result': {
-            const toolInfo = currentToolCalls.get(event.toolCallId)
+            const toolInfo = currentToolCalls.find(
+              (tc) => tc.id === event.toolCallId && !tc.claimed,
+            )
+            if (toolInfo) toolInfo.claimed = true
             const toolResult = 'result' in event ? event.result : event.output
             if (toolInfo) {
               const toolCallDisplay: ToolCallDisplay = {
@@ -535,43 +541,26 @@ export class InteractiveVaultService {
                 linkedChangeIds.add(latestChange.id)
               }
 
-              // Attach generated image URL directly to the tool call display before yielding
+              // Attach generated image URL directly to the tool call display
               const imageIdStr =
                 toolResult && typeof toolResult === 'object' && 'imageId' in toolResult
                   ? String((toolResult as any).imageId)
                   : undefined
 
-              // Provide a tiny delay to allow any pending promise resolutions to push to deferredEvents
-              await new Promise((resolve) => setTimeout(resolve, 10))
-
-              let imageEventIdx = -1
               if (imageIdStr) {
-                imageEventIdx = deferredEvents.findIndex(
-                  (e) => e.type === 'image_generated' && e.imageId === imageIdStr,
-                )
-              }
-
-              if (imageEventIdx !== -1) {
-                const imageEvent = deferredEvents[imageEventIdx] as {
-                  type: 'image_generated'
-                  imageId: string
-                  base64DataUrl: string
+                const dataUrl = this.generatedImages.get(imageIdStr)
+                if (dataUrl) {
+                  toolCallDisplay.imageUrl = dataUrl
+                  toolCallDisplay.imageId = imageIdStr
                 }
-                toolCallDisplay.imageUrl = imageEvent.base64DataUrl
-                toolCallDisplay.imageId = imageEvent.imageId
-                deferredEvents.splice(imageEventIdx, 1)
               }
 
               stepToolCalls.push(toolCallDisplay)
               yield { type: 'tool_end', toolCall: toolCallDisplay }
 
-              // Flush any non-image deferred events from tool callbacks.
-              // We keep 'image_generated' events in the array so they can be correlated
-              // with their specific tool-result (which may arrive later in parallel executions).
-              while (true) {
-                const idx = deferredEvents.findIndex((e) => e.type !== 'image_generated')
-                if (idx === -1) break
-                yield deferredEvents.splice(idx, 1)[0]!
+              // Flush any deferred events from tool callbacks (e.g. show_entity)
+              while (deferredEvents.length > 0) {
+                yield deferredEvents.shift()!
               }
             }
             break
@@ -583,19 +572,9 @@ export class InteractiveVaultService {
         }
       }
 
-      // Add assistant response to conversation history using the SDK's properly-sequenced
-      // messages. This correctly handles multi-step tool calls (e.g. two parallel
-      // generate_portrait calls in the same step) where manual reconstruction would
-      // collapse step-1 tool calls and step-2 text into one wrong assistant message.
-      const sdkResponse = await result.response
-      this.conversationHistory.push(...(sdkResponse.messages as ModelMessage[]))
-
-      // Auto-save conversation after AI response completes
-      try {
-        await this.saveConversation()
-      } catch (saveError) {
-        log('Auto-save failed', { error: saveError })
-      }
+      // Add assistant response to conversation history
+      const responseMessages = await result.response
+      this.conversationHistory.push(...responseMessages.messages)
 
       yield {
         type: 'done',
@@ -809,15 +788,25 @@ export class InteractiveVaultService {
   }
 
   /**
-   * Save the current conversation to the database.
+   * Save the current conversation to the database, including the full UI state.
    * Creates a new conversation if none exists, otherwise updates the existing one.
+   *
+   * @param chatMessages - UI-level ChatMessage[] (with diff cards, images, reasoning)
+   * @param pendingChanges - Full VaultPendingChange[] list (includes approved/rejected for history)
    */
-  async saveConversation(): Promise<string> {
+  async saveConversation(
+    chatMessages: ChatMessage[],
+    pendingChanges: VaultPendingChange[],
+  ): Promise<string> {
     const messagesJson = JSON.stringify(this.conversationHistory)
+    const chatMessagesJson = JSON.stringify(chatMessages)
+    const pendingChangesJson = JSON.stringify(pendingChanges)
 
     if (this.conversationId) {
       await database.saveVaultConversation(this.conversationId, {
         messages: messagesJson,
+        chatMessages: chatMessagesJson,
+        pendingChanges: pendingChangesJson,
       })
       log('Saved conversation', { id: this.conversationId })
       return this.conversationId
@@ -834,6 +823,8 @@ export class InteractiveVaultService {
       createdAt: now,
       updatedAt: now,
       messages: messagesJson,
+      chatMessages: chatMessagesJson,
+      pendingChanges: pendingChangesJson,
     })
 
     this.conversationId = id
@@ -842,26 +833,49 @@ export class InteractiveVaultService {
   }
 
   /**
-   * Load a conversation from the database and restore its history.
+   * Load a conversation from the database and restore its full state.
+   * Returns the UI-level chat messages and pending changes for the component to restore,
+   * or null if the conversation was not found or could not be parsed.
    */
-  async loadConversation(conversationId: string): Promise<boolean> {
+  async loadConversation(
+    conversationId: string,
+  ): Promise<{ chatMessages: ChatMessage[]; pendingChanges: VaultPendingChange[] } | null> {
     const conversation = await database.loadVaultConversation(conversationId)
     if (!conversation) {
       log('Conversation not found', { conversationId })
-      return false
+      return null
     }
 
     try {
       this.conversationHistory = JSON.parse(conversation.messages) as ModelMessage[]
       this.conversationId = conversationId
+
+      const chatMessages = JSON.parse(conversation.chatMessages) as ChatMessage[]
+      const pendingChanges = JSON.parse(conversation.pendingChanges) as VaultPendingChange[]
+
+      // Restore generated images from chat messages so set_portrait still works
+      // for images generated in a previous session
+      this.generatedImages.clear()
+      for (const msg of chatMessages) {
+        if (msg.toolCalls) {
+          for (const tc of msg.toolCalls) {
+            if (tc.imageId && tc.imageUrl) {
+              this.generatedImages.set(tc.imageId, tc.imageUrl)
+            }
+          }
+        }
+      }
+
       log('Loaded conversation', {
         id: conversationId,
         messageCount: this.conversationHistory.length,
+        chatMessageCount: chatMessages.length,
+        pendingChangeCount: pendingChanges.length,
       })
-      return true
+      return { chatMessages, pendingChanges }
     } catch (error) {
-      log('Failed to parse conversation messages', { conversationId, error })
-      return false
+      log('Failed to parse conversation data', { conversationId, error })
+      return null
     }
   }
 

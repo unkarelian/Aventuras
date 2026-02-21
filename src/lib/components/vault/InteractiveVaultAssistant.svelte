@@ -4,6 +4,7 @@
     type ChatMessage,
     type ToolCallDisplay,
     type VaultState,
+    type FocusedEntity,
   } from '$lib/services/ai/vault/InteractiveVaultService'
   import type { VaultPendingChange } from '$lib/services/ai/sdk/schemas/vault'
   import type { VaultConversation } from '$lib/types'
@@ -54,9 +55,10 @@
   interface Props {
     onClose: () => void
     onEditEntity?: (change: VaultPendingChange) => void
+    focusedEntity?: FocusedEntity | null
   }
 
-  let { onClose, onEditEntity }: Props = $props()
+  let { onClose, onEditEntity, focusedEntity = null }: Props = $props()
 
   // Mobile detection
   const isMobile = createIsMobile()
@@ -144,19 +146,25 @@
       service = new InteractiveVaultService(presetId)
 
       const allLorebooks = lorebookVault.items
-      service.initialize({
-        characterCount: characterVault.items.length,
-        lorebookCount: allLorebooks.length,
-        totalEntryCount: allLorebooks.reduce((sum, lb) => sum + lb.entries.length, 0),
-        scenarioCount: scenarioVault.items.length,
-      })
+      service.initialize(
+        {
+          characterCount: characterVault.items.length,
+          lorebookCount: allLorebooks.length,
+          totalEntryCount: allLorebooks.reduce((sum, lb) => sum + lb.entries.length, 0),
+          scenarioCount: scenarioVault.items.length,
+        },
+        focusedEntity ?? undefined,
+      )
+
+      const greetingContent = focusedEntity
+        ? `Hello! I can see you were editing the ${focusedEntity.entityType} **${focusedEntity.entityName}**. What would you like to work on?`
+        : "Hello! I'm your Vault Assistant. I can help you manage characters, lorebooks, and scenarios in your vault.\n\nTry asking me to create a character, organize lorebook entries, or set up a new scenario."
 
       messages = [
         {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content:
-            "Hello! I'm your Vault Assistant. I can help you manage characters, lorebooks, and scenarios in your vault.\n\nTry asking me to create a character, organize lorebook entries, or set up a new scenario.",
+          content: greetingContent,
           timestamp: Date.now(),
           isGreeting: true,
         },
@@ -178,7 +186,7 @@
     if (!service) return
     // Auto-save current conversation before starting new one
     if (messages.some((m) => !m.isGreeting)) {
-      await service.saveConversation().catch(() => {})
+      await service.saveConversation(messages, vaultEditor.pendingChanges).catch(() => {})
     }
     service.reset()
     vaultEditor.reset()
@@ -190,25 +198,34 @@
     if (!service) return
     // Auto-save current before switching
     if (messages.some((m) => !m.isGreeting)) {
-      await service.saveConversation().catch(() => {})
+      await service.saveConversation(messages, vaultEditor.pendingChanges).catch(() => {})
     }
-    const ok = await service.loadConversation(id)
-    if (ok) {
+    const loaded = await service.loadConversation(id)
+    if (loaded) {
       vaultEditor.reset()
-      // Rebuild chat display from restored history
-      const loaded = service.getChatMessages()
-      messages =
-        loaded.length > 0
-          ? loaded
-          : [
-              {
-                id: crypto.randomUUID(),
-                role: 'assistant',
-                content: 'Conversation loaded. Continue where you left off!',
-                timestamp: Date.now(),
-                isGreeting: true,
-              },
-            ]
+      // Restore full UI state from persisted data
+      if (loaded.chatMessages.length > 0) {
+        messages = loaded.chatMessages
+      } else {
+        // Fallback for conversations saved in the old format (messages-only)
+        const reconstructed = service.getChatMessages()
+        messages =
+          reconstructed.length > 0
+            ? reconstructed
+            : [
+                {
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  content: 'Conversation loaded. Continue where you left off!',
+                  timestamp: Date.now(),
+                  isGreeting: true,
+                },
+              ]
+      }
+      // Restore pending changes (includes approved/rejected for history display)
+      for (const change of loaded.pendingChanges) {
+        vaultEditor.addPendingChange(change)
+      }
       await tick()
       scrollToBottom()
     }
@@ -218,6 +235,11 @@
   async function handleDeleteConversation(id: string) {
     try {
       await database.deleteVaultConversation(id)
+      if (service?.getConversationId() === id) {
+        service.reset()
+        vaultEditor.reset()
+        initializeService()
+      }
       await loadConversationsList()
     } catch {
       // Ignore
@@ -261,13 +283,21 @@
         lorebooks: () => lorebookVault.items,
         scenarios: () => scenarioVault.items,
         get activeLorebookId() {
+          if (focusedEntity?.entityType === 'lorebook') return focusedEntity.entityId
           return vaultEditor.currentLorebookId ?? undefined
         },
         get activeEntries() {
-          const id = vaultEditor.currentLorebookId
+          const id =
+            focusedEntity?.entityType === 'lorebook'
+              ? focusedEntity.entityId
+              : vaultEditor.currentLorebookId
           if (!id) return undefined
           return lorebookVault.getById(id)?.entries
         },
+        activeCharacterId:
+          focusedEntity?.entityType === 'character' ? focusedEntity.entityId : undefined,
+        activeScenarioId:
+          focusedEntity?.entityType === 'scenario' ? focusedEntity.entityId : undefined,
       }
 
       for await (const event of service.sendMessageStreaming(
@@ -345,10 +375,12 @@
             }
             break
 
-          case 'image_generated':
-            break
-
           case 'done':
+            // Save full UI state so user can continue exactly where they left off
+            service
+              .saveConversation(messages, vaultEditor.pendingChanges)
+              .then(() => loadConversationsList())
+              .catch(() => {})
             break
 
           case 'error':
@@ -527,7 +559,7 @@
             : 'mx-auto w-full max-w-2xl'}"
         >
           <!-- Conversation selector -->
-          <div class="relative z-10">
+          <div class="relative {conversationSelectorOpen ? 'z-20' : 'z-10'}">
             <button
               class="border-surface-700 text-surface-400 hover:text-foreground hover:bg-foreground/5 flex w-full items-center gap-2 border-b px-3 py-1.5 text-xs transition-colors"
               onclick={() => (conversationSelectorOpen = !conversationSelectorOpen)}

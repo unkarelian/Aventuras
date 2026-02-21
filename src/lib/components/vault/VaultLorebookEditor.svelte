@@ -4,13 +4,15 @@
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { cn } from '$lib/utils/cn'
   import VaultLorebookEditorContent from './VaultLorebookEditorContent.svelte'
+  import type { FocusedEntity } from '$lib/services/ai/vault/InteractiveVaultService'
 
   interface Props {
     lorebook: VaultLorebook
     onClose: () => void
+    onOpenAssistant?: (entity: FocusedEntity) => void
   }
 
-  let { lorebook, onClose }: Props = $props()
+  let { lorebook, onClose, onOpenAssistant }: Props = $props()
 
   async function handleSave(updated: VaultLorebook) {
     await lorebookVault.update(updated.id, updated)
@@ -38,6 +40,7 @@
       onSave={handleSave}
       onSaveAndClose={handleSaveAndClose}
       {onClose}
+      {onOpenAssistant}
       initialEntryIndex={null}
     />
   </ResponsiveModal.Content>

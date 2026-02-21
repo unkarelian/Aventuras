@@ -530,6 +530,34 @@ export const CONTEXT_PLACEHOLDERS: ContextPlaceholder[] = [
   // Service placeholders
   // ============================================================================
   {
+    id: 'character-count',
+    name: 'Character Count',
+    token: 'characterCount',
+    category: 'service',
+    description: 'Number of characters in the vault',
+  },
+  {
+    id: 'lorebook-count',
+    name: 'Lorebook Count',
+    token: 'lorebookCount',
+    category: 'service',
+    description: 'Number of lorebooks in the vault',
+  },
+  {
+    id: 'total-entry-count',
+    name: 'Total Entry Count',
+    token: 'totalEntryCount',
+    category: 'service',
+    description: 'Total number of lorebook entries across all lorebooks in the vault',
+  },
+  {
+    id: 'scenario-count',
+    name: 'Scenario Count',
+    token: 'scenarioCount',
+    category: 'service',
+    description: 'Number of scenarios in the vault',
+  },
+  {
     id: 'lorebook-name',
     name: 'Lorebook Name',
     token: 'lorebookName',

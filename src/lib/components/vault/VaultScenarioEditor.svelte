@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { VaultScenario } from '$lib/types'
   import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
-  import { Save, MapPin, Loader2 } from 'lucide-svelte'
+  import { Save, MapPin, Loader2, Bot } from 'lucide-svelte'
   import VaultScenarioFormFields from './VaultScenarioFormFields.svelte'
   import type { VaultScenarioInput } from '$lib/services/ai/sdk/schemas/vault'
+  import type { FocusedEntity } from '$lib/services/ai/vault/InteractiveVaultService'
   import { untrack } from 'svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
@@ -12,9 +13,10 @@
   interface Props {
     scenario: VaultScenario
     onClose: () => void
+    onOpenAssistant?: (entity: FocusedEntity) => void
   }
 
-  let { scenario, onClose }: Props = $props()
+  let { scenario, onClose, onOpenAssistant }: Props = $props()
 
   // Form State encapsulated in a single object
   let formData = $state<VaultScenarioInput>(
@@ -105,16 +107,35 @@
     </div>
 
     <ResponsiveModal.Footer class="bg-muted/40 border-t px-6 py-4">
-      <div class="flex w-full items-center justify-end gap-2">
-        <Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
-        <Button onclick={handleSave} disabled={saving || !formData.name.trim()}>
-          {#if saving}
-            <Loader2 class=" h-4 w-4 animate-spin" />
-          {:else}
-            <Save class=" h-4 w-4" />
-          {/if}
-          {isCreating ? 'Create Scenario' : 'Save Changes'}
-        </Button>
+      <div class="flex w-full items-center justify-between gap-2">
+        {#if !isCreating && onOpenAssistant}
+          <Button
+            variant="outline"
+            disabled={saving}
+            onclick={() =>
+              onOpenAssistant({
+                entityType: 'scenario',
+                entityId: scenario.id,
+                entityName: scenario.name,
+              })}
+          >
+            <Bot class="h-4 w-4" />
+            Ask Assistant
+          </Button>
+        {:else}
+          <div></div>
+        {/if}
+        <div class="flex items-center gap-2">
+          <Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
+          <Button onclick={handleSave} disabled={saving || !formData.name.trim()}>
+            {#if saving}
+              <Loader2 class=" h-4 w-4 animate-spin" />
+            {:else}
+              <Save class=" h-4 w-4" />
+            {/if}
+            {isCreating ? 'Create Scenario' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
     </ResponsiveModal.Footer>
   </ResponsiveModal.Content>

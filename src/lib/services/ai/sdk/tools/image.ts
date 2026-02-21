@@ -9,6 +9,7 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 import type { VaultCharacter } from '$lib/types'
+import type { VaultPendingChange } from '$lib/services/ai/sdk/schemas/vault'
 import { generateImage } from '$lib/services/ai/sdk/generate'
 import {
   generatePortrait as sdkGeneratePortrait,
@@ -18,7 +19,6 @@ import {
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from '$lib/services/ai/image/constants'
 import { promptService } from '$lib/services/prompts'
 import { settings } from '$lib/stores/settings.svelte'
-import { characterVault } from '$lib/stores/characterVault.svelte'
 import { descriptorsToString } from '$lib/utils/visualDescriptors'
 
 /**
@@ -35,8 +35,10 @@ export interface ImageToolContext {
    * in a single turn when it incorrectly believes a completed call was interrupted.
    */
   generatedPortraitIds: Map<string, string>
-  /** Callback when an image is generated */
-  onImageGenerated: (imageId: string, base64DataUrl: string) => void
+  /** Callback to register a pending change for user approval */
+  onPendingChange: (change: VaultPendingChange) => void
+  /** Generate unique ID for pending changes */
+  generateId: () => string
 }
 
 /**
@@ -62,7 +64,7 @@ function getStylePrompt(styleId: string): string {
  * Create image generation tools with the given context.
  */
 export function createImageTools(context: ImageToolContext) {
-  const { characters, generatedImages, generatedPortraitIds, onImageGenerated } = context
+  const { characters, generatedImages, generatedPortraitIds, onPendingChange, generateId } = context
 
   return {
     /**
@@ -103,7 +105,6 @@ export function createImageTools(context: ImageToolContext) {
             const imageId = crypto.randomUUID()
             const dataUrl = `data:image/png;base64,${result.base64}`
             generatedImages.set(imageId, dataUrl)
-            onImageGenerated(imageId, dataUrl)
             return {
               success: true,
               imageId,
@@ -129,7 +130,7 @@ export function createImageTools(context: ImageToolContext) {
      */
     generate_portrait: tool({
       description:
-        'Generate a character portrait image using their visual descriptors. The character must have visual descriptors defined. You may call this for multiple characters in parallel. ALWAYS assume the image generation succeeded. NEVER automatically retry.',
+        'Generate a character portrait image using their visual descriptors. The character must have visual descriptors defined. Can only generate one portrait per character per turn.',
       inputSchema: z.object({
         characterId: z.string().describe('ID of the character to generate a portrait for'),
       }),
@@ -205,7 +206,6 @@ export function createImageTools(context: ImageToolContext) {
             const dataUrl = `data:image/png;base64,${base64}`
             console.log('base64', base64)
             generatedImages.set(imageId, dataUrl)
-            onImageGenerated(imageId, dataUrl)
           }
 
           return {
@@ -231,7 +231,7 @@ export function createImageTools(context: ImageToolContext) {
      */
     set_portrait: tool({
       description:
-        "Set a previously generated image as a character's portrait. Requires an imageId from a prior generate_standard_image or generate_portrait call.",
+        "Set a previously generated image as a character's portrait. Requires an imageId from a prior generate_standard_image or generate_portrait call. The change will be pending until approved.",
       inputSchema: z.object({
         characterId: z.string().describe('ID of the character to set the portrait for'),
         imageId: z.string().describe('ID of the previously generated image to use as portrait'),
@@ -241,7 +241,7 @@ export function createImageTools(context: ImageToolContext) {
         if (!character) {
           return { success: false, error: `Character with ID "${characterId}" not found` }
         }
-        console.log('generatedImages', generatedImages)
+
         const dataUrl = generatedImages.get(imageId)
         if (!dataUrl) {
           const available = Array.from(generatedImages.keys()).join(', ')
@@ -251,18 +251,33 @@ export function createImageTools(context: ImageToolContext) {
           }
         }
 
-        try {
-          await characterVault.update(characterId, { portrait: dataUrl })
-          return {
-            success: true,
-            message: `Portrait set for "${character.name}" successfully.`,
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-          return {
-            success: false,
-            error: `Failed to save portrait for "${character.name}": ${errorMessage}`,
-          }
+        const previous = {
+          name: character.name,
+          description: character.description,
+          traits: character.traits,
+          visualDescriptors: character.visualDescriptors,
+          portrait: character.portrait,
+          tags: character.tags,
+          favorite: character.favorite,
+        }
+
+        const changeId = generateId()
+        const pendingChange: VaultPendingChange = {
+          id: changeId,
+          toolCallId: changeId,
+          entityType: 'character',
+          action: 'update',
+          entityId: characterId,
+          data: { ...previous, portrait: dataUrl },
+          previous,
+          status: 'pending',
+        }
+
+        onPendingChange(pendingChange)
+
+        return {
+          success: true,
+          message: `Created pending portrait update for "${character.name}". Awaiting approval.`,
         }
       },
     }),

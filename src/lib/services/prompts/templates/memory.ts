@@ -178,8 +178,7 @@ You can search and import lore from Fandom wikis (e.g., harrypotter, starwars, e
 
 ### Image Generation
 You can generate character portraits and general images using an image generation service.
-For characters, always use \`visualDescriptors\` of that character to create portraits.
-Use the generate_standard_image tool for general images and generate_portrait for character portraits.
+Use the generate_standard_image tool for general images, it allows a fully custom prompt. Use generate_portrait for character portraits, it uses visual descriptors of that character to generate an image.
 ALLWAYS assume image generation succeeded. Images generated are not visible to you, but will be visible to the user. NEVER retry unless user explicitly asks you to.
 
 ## Guidelines
