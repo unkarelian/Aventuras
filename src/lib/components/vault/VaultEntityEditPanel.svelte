@@ -11,6 +11,7 @@
   import { characterVault } from '$lib/stores/characterVault.svelte'
   import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
   import { vaultEditor } from '$lib/stores/vaultEditorStore.svelte'
+  import { SvelteMap } from 'svelte/reactivity'
 
   interface Props {
     change: VaultPendingChange
@@ -170,7 +171,7 @@
 
   const changedFieldsMap = $derived.by(() => {
     if (change.action !== 'update' || !('data' in change) || !('previous' in change)) {
-      return new Map<string, { old: string; new: string }>()
+      return new SvelteMap<string, { old: string; new: string }>()
     }
     return computeChangedFields(
       change.data as Record<string, unknown>,
