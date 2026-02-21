@@ -578,7 +578,7 @@
             </button>
             {#if conversationSelectorOpen}
               <!-- Backdrop -->
-              <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
               <!-- svelte-ignore a11y_click_events_have_key_events -->
               <div
                 class="fixed inset-0 z-10"
@@ -677,7 +677,7 @@
               </button>
               {#if pendingListOpen}
                 <!-- Backdrop -->
-                <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <!-- svelte-ignore a11y_click_events_have_key_events -->
                 <div
                   class="fixed inset-0 z-10"
@@ -724,7 +724,7 @@
                           </div>
                         </div>
                         <!-- Actions -->
-                        <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+                        <!-- svelte-ignore a11y_no_static_element_interactions -->
                         <!-- svelte-ignore a11y_click_events_have_key_events -->
                         <div
                           class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"

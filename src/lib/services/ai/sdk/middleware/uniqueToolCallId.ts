@@ -32,7 +32,7 @@ export function uniqueToolCallIdMiddleware(): LanguageModelV3Middleware {
       const patched = stream.pipeThrough(
         new TransformStream({
           transform(chunk, controller) {
-            if (chunk.type === 'tool-call-delta' || chunk.type === 'tool-call') {
+            if (chunk.type === 'tool-call') {
               controller.enqueue({ ...chunk, toolCallId: uniqueId(chunk.toolCallId) })
             } else {
               controller.enqueue(chunk)

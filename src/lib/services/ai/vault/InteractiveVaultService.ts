@@ -7,7 +7,7 @@
  */
 
 import type { VaultCharacter, VaultLorebook, VaultLorebookEntry, VaultScenario } from '$lib/types'
-import type { ModelMessage, ToolModelMessage, TextPart, ToolCallPart, ToolSet } from 'ai'
+import type { ModelMessage, TextPart, ToolSet } from 'ai'
 import { settings } from '$lib/stores/settings.svelte'
 import { characterVault } from '$lib/stores/characterVault.svelte'
 import { lorebookVault } from '$lib/stores/lorebookVault.svelte'

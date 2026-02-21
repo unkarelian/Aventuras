@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { VaultLorebookEntry } from '$lib/types'
-  import { Users, MapPin, Box, Flag, Brain, Calendar } from 'lucide-svelte'
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
   import { Label } from '$lib/components/ui/label'
@@ -28,15 +27,6 @@
     { value: 'keyword', label: 'Automatic', description: 'Matched by keywords or AI relevance' },
     { value: 'never', label: 'Disabled', description: 'Not included in AI context' },
   ]
-
-  const typeIcons: Record<EntryType, any> = {
-    character: Users,
-    location: MapPin,
-    item: Box,
-    faction: Flag,
-    concept: Brain,
-    event: Calendar,
-  }
 
   function handleInput() {
     onUpdate({ ...data })

@@ -3082,7 +3082,7 @@ class DatabaseService {
         try {
           const tags = JSON.parse(row.tags) as string[]
           tags.forEach((t) => uniqueTags.add(t.trim()))
-        } catch { }
+        } catch {}
       }
 
       for (const tagName of uniqueTags) {
@@ -3757,12 +3757,12 @@ class DatabaseService {
       maxValue: row.max_value != null ? Number(row.max_value) : undefined,
       enumOptions: row.enum_options
         ? (() => {
-          try {
-            return JSON.parse(row.enum_options)
-          } catch {
-            return undefined
-          }
-        })()
+            try {
+              return JSON.parse(row.enum_options)
+            } catch {
+              return undefined
+            }
+          })()
         : undefined,
       color: row.color,
       icon: row.icon ?? undefined,
@@ -3785,12 +3785,12 @@ class DatabaseService {
       defaultValue: row.default_value ?? undefined,
       enumOptions: row.enum_options
         ? (() => {
-          try {
-            return JSON.parse(row.enum_options)
-          } catch {
-            return undefined
-          }
-        })()
+            try {
+              return JSON.parse(row.enum_options)
+            } catch {
+              return undefined
+            }
+          })()
         : undefined,
       createdAt: row.created_at,
     }

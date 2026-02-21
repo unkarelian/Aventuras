@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { VaultLorebook, VaultLorebookEntry, EntryType, EntryInjectionMode } from '$lib/types'
+  import type { VaultLorebook, VaultLorebookEntry, EntryType } from '$lib/types'
   import type { VaultPendingChange } from '$lib/services/ai/sdk/schemas/vault'
   import type { FocusedEntity } from '$lib/services/ai/vault/InteractiveVaultService'
   import {
@@ -10,8 +10,6 @@
     Save,
     ArrowLeft,
     List,
-    Maximize2,
-    Minimize2,
     Users,
     MapPin,
     Box,
@@ -35,6 +33,7 @@
   import { Label } from '$lib/components/ui/label'
   import * as Tabs from '$lib/components/ui/tabs'
   import { cn } from '$lib/utils/cn'
+  import { SvelteMap, SvelteSet } from 'svelte/reactivity'
 
   interface Props {
     lorebook: VaultLorebook
@@ -60,7 +59,6 @@
     initialEntryIndex = null,
     isEmbedded = false,
     isPendingApproval = false,
-    onApprove,
     pendingEntries = [],
     onApproveEntry,
     onRejectEntry,
@@ -110,7 +108,6 @@
   let saving = $state(false)
   let error = $state<string | null>(null)
   let activeTab = $derived(isPendingApproval && entries.length === 0 ? 'settings' : 'editor')
-  let isMaximized = $state(false)
 
   // Dirty tracking & save feedback
   let settingsDirty = $state(false)
@@ -146,10 +143,10 @@
 
   const combinedEntries = $derived.by((): CombinedEntry[] => {
     // Build a map of pending changes that target existing entries (by entryIndex)
-    const editMap = new Map<number, VaultPendingChange>()
-    const deleteMap = new Map<number, VaultPendingChange>()
+    const editMap = new SvelteMap<number, VaultPendingChange>()
+    const deleteMap = new SvelteMap<number, VaultPendingChange>()
     const creates: VaultPendingChange[] = []
-    const mergeDeletedIndices = new Set<number>()
+    const mergeDeletedIndices = new SvelteSet<number>()
     const mergeCreates: VaultPendingChange[] = []
 
     for (const change of pendingEntries) {
@@ -264,7 +261,7 @@
 
   const pendingOperations = $derived.by((): PendingOperation[] => {
     const ops: PendingOperation[] = []
-    const seenMergeIds = new Set<string>()
+    const seenMergeIds = new SvelteSet<string>()
 
     for (const combined of combinedEntries) {
       if (!combined.isPending || !combined.pendingChange) continue
@@ -329,15 +326,6 @@
     return ops
   })
 
-  // Set of indices that are claimed by a pending operation (for dimming in the list)
-  const pendingIndices = $derived.by(() => {
-    const indices = new Set<number>()
-    for (const c of combinedEntries) {
-      if (c.isPending) indices.add(c.index)
-    }
-    return indices
-  })
-
   // Ensure selectedIndex is valid when entries change
   // Note: negative indices (< 0) are valid — they encode pending entries (-100 - i)
   // -1 is reserved for the new entry draft
@@ -382,7 +370,7 @@
     if (!selectedPendingChange || selectedPendingChange.action !== 'update') return undefined
     if (!('previous' in selectedPendingChange) || !selectedPendingChange.previous) return undefined
     if (!('data' in selectedPendingChange)) return undefined
-    const changed = new Set<string>()
+    const changed = new SvelteSet<string>()
     const prev = selectedPendingChange.previous as Record<string, unknown>
     const cur = selectedPendingChange.data as Record<string, unknown>
     for (const key of Object.keys(cur)) {

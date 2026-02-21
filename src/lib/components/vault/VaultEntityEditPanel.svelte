@@ -11,7 +11,6 @@
   import { characterVault } from '$lib/stores/characterVault.svelte'
   import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
   import { vaultEditor } from '$lib/stores/vaultEditorStore.svelte'
-  import { slide } from 'svelte/transition'
 
   interface Props {
     change: VaultPendingChange
@@ -155,8 +154,8 @@
   function computeChangedFields(
     data: Record<string, unknown> | undefined,
     previous: Record<string, unknown> | undefined,
-  ): Map<string, { old: string; new: string }> {
-    const result = new Map<string, { old: string; new: string }>()
+  ): SvelteMap<string, { old: string; new: string }> {
+    const result = new SvelteMap<string, { old: string; new: string }>()
     if (!data || !previous) return result
     for (const key of Object.keys(data)) {
       if (key === 'portrait') continue // skip binary data

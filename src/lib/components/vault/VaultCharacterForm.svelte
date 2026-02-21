@@ -32,18 +32,18 @@
   )
 
   let saving = $state(false)
-  let error = $state<string | null>(null)
+  let _error = $state<string | null>(null)
 
   const isEditing = $derived(!!character)
 
   async function handleSubmit() {
     if (!formData.name.trim()) {
-      error = 'Name is required'
+      _error = 'Name is required'
       return
     }
 
     saving = true
-    error = null
+    _error = null
 
     try {
       if (isEditing && character) {
@@ -72,7 +72,7 @@
       }
       onClose()
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to save character'
+      _error = e instanceof Error ? e.message : 'Failed to save character'
     } finally {
       saving = false
     }

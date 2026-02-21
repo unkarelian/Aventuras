@@ -302,8 +302,11 @@
                       </div>
                     {:else if tab.id === 'experimental'}
                       <ExperimentalSettings />
+                    {/if}
+                  </div>
                 {/if}
               </TabsContent>
+            {/each}
           </Tabs>
         </div>
       </ScrollArea>

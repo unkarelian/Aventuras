@@ -74,7 +74,7 @@ export function createImageTools(context: ImageToolContext) {
       execute: async ({ prompt }: { prompt: string }) => {
         const imageSettings = settings.systemServicesSettings.imageGeneration
         const profileId = imageSettings.profileId
-        const model = imageSettings.model
+        const model = profileId ? (settings.getImageProfile(profileId)?.model ?? '') : ''
         const size = imageSettings.size
 
         if (!isImageGenerationEnabled() || !hasRequiredCredentials() || !profileId || !model) {

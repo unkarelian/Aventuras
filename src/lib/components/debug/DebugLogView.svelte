@@ -17,6 +17,7 @@
   import { Separator } from '$lib/components/ui/separator'
   import { Autocomplete } from '$lib/components/ui/autocomplete'
   import { cn } from '$lib/utils/cn.js'
+  import { SvelteMap } from 'svelte/reactivity'
 
   interface Props {
     logs: DebugLogEntry[]
@@ -61,7 +62,7 @@
     return `${(duration / 1000).toFixed(2)}s`
   }
 
-  const jsonCache = new Map<string, string>()
+  const jsonCache = new SvelteMap<string, string>()
 
   const MAX_DISPLAY_CHARS = 200_000
 
@@ -119,7 +120,7 @@
     }
 
     const groups: { request?: DebugLogEntry; response?: DebugLogEntry }[] = []
-    const requestMap = new Map<string, number>()
+    const requestMap = new SvelteMap<string, number>()
 
     for (const log of currentLogs) {
       if (log.type === 'request') {
