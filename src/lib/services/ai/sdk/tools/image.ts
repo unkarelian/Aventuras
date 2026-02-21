@@ -10,14 +10,15 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import type { VaultCharacter } from '$lib/types'
 import type { VaultPendingChange } from '$lib/services/ai/sdk/schemas/vault'
-import { generateImage } from '$lib/services/ai/sdk/generate'
 import {
+  generateImage,
   generatePortrait as sdkGeneratePortrait,
   isImageGenerationEnabled,
   hasRequiredCredentials,
 } from '$lib/services/ai/image'
 import { DEFAULT_FALLBACK_STYLE_PROMPT } from '$lib/services/ai/image/constants'
-import { promptService } from '$lib/services/prompts'
+import { database } from '$lib/services/database'
+import { ContextBuilder } from '$lib/services/context'
 import { settings } from '$lib/stores/settings.svelte'
 import { descriptorsToString } from '$lib/utils/visualDescriptors'
 
@@ -44,16 +45,10 @@ export interface ImageToolContext {
 /**
  * Get the style prompt for the configured style ID.
  */
-function getStylePrompt(styleId: string): string {
+async function getStylePrompt(styleId: string): Promise<string> {
   try {
-    const promptContext = {
-      mode: 'adventure' as const,
-      pov: 'second' as const,
-      tense: 'present' as const,
-      protagonistName: '',
-    }
-    const customized = promptService.getPrompt(styleId, promptContext)
-    if (customized) return customized
+    const template = await database.getPackTemplate('default-pack', styleId)
+    if (template?.content) return template.content
   } catch {
     // Fall through to default
   }
@@ -91,7 +86,7 @@ export function createImageTools(context: ImageToolContext) {
 
         try {
           // Build full prompt with style (inside try so any config errors are caught)
-          const stylePrompt = getStylePrompt(imageSettings.styleId)
+          const stylePrompt = await getStylePrompt(imageSettings.styleId)
           const fullPrompt = `${prompt}. ${stylePrompt}`
 
           const result = await generateImage({
@@ -175,15 +170,11 @@ export function createImageTools(context: ImageToolContext) {
           // Build portrait prompt using the template (same as CharacterPanel)
           const imageSettings = settings.systemServicesSettings.imageGeneration
           const styleId = imageSettings.portraitStyleId
-          const promptContext = {
-            mode: 'adventure' as const,
-            pov: 'second' as const,
-            tense: 'present' as const,
-            protagonistName: '',
-          }
+
           let stylePrompt = ''
           try {
-            stylePrompt = promptService.getPrompt(styleId, promptContext) || ''
+            const template = await database.getPackTemplate('default-pack', styleId)
+            stylePrompt = template?.content || ''
           } catch {
             stylePrompt = DEFAULT_FALLBACK_STYLE_PROMPT
           }
@@ -192,15 +183,17 @@ export function createImageTools(context: ImageToolContext) {
           generatedPortraitIds.set(characterId, imageId)
 
           if (descriptors.trim()) {
-            const portraitPrompt = promptService.renderPrompt(
-              'image-portrait-generation',
-              promptContext,
-              {
-                imageStylePrompt: stylePrompt,
-                visualDescriptors: descriptors,
-                characterName: character.name,
-              },
-            )
+            const ctx = new ContextBuilder()
+            ctx.add({
+              mode: 'adventure',
+              pov: 'second',
+              tense: 'present',
+              protagonistName: '',
+              imageStylePrompt: stylePrompt,
+              visualDescriptors: descriptors,
+              characterName: character.name,
+            })
+            const { system: portraitPrompt } = await ctx.render('image-portrait-generation')
 
             const base64 = await sdkGeneratePortrait(portraitPrompt)
             const dataUrl = `data:image/png;base64,${base64}`

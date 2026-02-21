@@ -165,10 +165,10 @@ export class InteractiveVaultService {
 
     let content = template?.content ?? ''
     content = content
-    .replace(/\{\{\s*characterCount\s*\}\}/g, String(vaultSummary.characterCount))
-    .replace(/\{\{\s*lorebookCount\s*\}\}/g, String(vaultSummary.lorebookCount))
-    .replace(/\{\{\s*totalEntryCount\s*\}\}/g, String(vaultSummary.totalEntryCount))
-    .replace(/\{\{\s*scenarioCount\s*\}\}/g, String(vaultSummary.scenarioCount))
+      .replace(/\{\{\s*characterCount\s*\}\}/g, String(vaultSummary.characterCount))
+      .replace(/\{\{\s*lorebookCount\s*\}\}/g, String(vaultSummary.lorebookCount))
+      .replace(/\{\{\s*totalEntryCount\s*\}\}/g, String(vaultSummary.totalEntryCount))
+      .replace(/\{\{\s*scenarioCount\s*\}\}/g, String(vaultSummary.scenarioCount))
     this.systemPrompt = content
 
     if (focusedEntity) {

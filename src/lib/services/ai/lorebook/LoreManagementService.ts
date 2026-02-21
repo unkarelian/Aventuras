@@ -9,7 +9,10 @@ import type { Entry, VaultLorebookEntry } from '$lib/types'
 import { createLogger } from '../core/config'
 import { createAgentFromPreset, extractTerminalToolResult, stopOnTerminalTool } from '../sdk/agents'
 import { createLoreManagementTools } from '../sdk/tools'
-import type { FinishLoreManagementSchema, LorebookEntryPendingChangeSchema } from '../sdk/schemas/lorebook'
+import type {
+  FinishLoreManagementSchema,
+  LorebookEntryPendingChangeSchema,
+} from '../sdk/schemas/lorebook'
 import { ContextBuilder } from '$lib/services/context'
 import type { LoreManagementToolContext } from '../sdk/tools/lorebook'
 
