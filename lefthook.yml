@@ -1,6 +1,6 @@
 pre-push:
   commands:
     lint:
-      run: npm run lint
+      run: NODE_OPTIONS="--max-old-space-size=8192" npm run lint
     check:
       run: npm run check
