@@ -10,4 +10,5 @@ export {
   processVisualProseWithImages,
   processContentWithInlineImages,
   processVisualProseWithInlineImages,
+  getPlacedImageIds,
 } from './ImageEmbeddingService'

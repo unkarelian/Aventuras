@@ -156,20 +156,65 @@ pub fn run() {
         },
         Migration {
             version: 25,
+            description: "world_state_deltas",
+            sql: include_str!("../migrations/025_world_state_deltas.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 26,
+            description: "cow_branches",
+            sql: include_str!("../migrations/026_cow_branches.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 27,
+            description: "entry_suggested_actions",
+            sql: include_str!("../migrations/027_entry_suggested_actions.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 28,
+            description: "cow_tombstones",
+            sql: include_str!("../migrations/028_cow_tombstones.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 29,
+            description: "branch_entity_snapshots",
+            sql: include_str!("../migrations/029_branch_entity_snapshots.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 30,
+            description: "preset_packs",
+            sql: include_str!("../migrations/030_preset_packs.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 31,
+            description: "pack_variable_extensions",
+            sql: include_str!("../migrations/031_pack_variable_extensions.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 32,
+            description: "runtime_variables",
+            sql: include_str!("../migrations/032_runtime_variables.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 33,
             description: "vault_assistant_conversations",
-            sql: include_str!("../migrations/025_vault_assistant_conversations.sql"),
+            sql: include_str!("../migrations/033_vault_assistant_conversations.sql"),
             kind: MigrationKind::Up,
         }
     ];
 
-    #[cfg(debug_assertions)] // only enable instrumentation in development builds
-    let devtools = tauri_plugin_devtools::init();
+    let mut builder = tauri::Builder::default();
 
-    let mut builder = tauri::Builder::default();    
-
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, feature = "devtools"))] // only enable instrumentation in development builds
     {
-        builder = builder.plugin(devtools);
+        builder = builder.plugin(tauri_plugin_devtools::init());
     }
 
     builder

@@ -21,6 +21,11 @@ npm run check:watch     # Watch mode type checking
 npx svelte-check --tsconfig ./tsconfig.json    # Direct type check
 ```
 
+
+### Testing
+
+**Current Status**: No test suite is currently configured in `package.json`.
+
 ### Linting & Formatting
 
 ```bash

@@ -9,11 +9,8 @@ import type { Entry, VaultLorebookEntry } from '$lib/types'
 import { createLogger } from '../core/config'
 import { createAgentFromPreset, extractTerminalToolResult, stopOnTerminalTool } from '../sdk/agents'
 import { createLoreManagementTools } from '../sdk/tools'
-import type {
-  LorebookEntryPendingChangeSchema,
-  FinishLoreManagementSchema,
-} from '../sdk/schemas/lorebook'
-import { promptService } from '$lib/services/prompts'
+import type { FinishLoreManagementSchema, LorebookEntryPendingChangeSchema } from '../sdk/schemas/lorebook'
+import { ContextBuilder } from '$lib/services/context'
 import type { LoreManagementToolContext } from '../sdk/tools/lorebook'
 
 const log = createLogger('LoreManagement')
@@ -160,16 +157,6 @@ ${context.narrativeResponse}
 
 `
 
-    // Get prompts from prompt service
-    const dummyContext = {
-      mode: 'adventure' as const,
-      pov: 'second' as const,
-      tense: 'present' as const,
-      protagonistName: '',
-    }
-
-    const systemPrompt = promptService.renderPrompt('lore-management', dummyContext)
-
     // Build chapter summary from chapters array
     const chapterSummary =
       context.chapters && context.chapters.length > 0
@@ -181,11 +168,10 @@ ${context.narrativeResponse}
             .join('\n')
         : 'No chapters available. Use list_chapters and query_chapter tools to explore story history.'
 
-    const userPrompt = promptService.renderUserPrompt('lore-management', dummyContext, {
-      entrySummary,
-      recentStorySection,
-      chapterSummary,
-    })
+    // Render prompts through unified pipeline
+    const ctx = new ContextBuilder()
+    ctx.add({ entrySummary, recentStorySection, chapterSummary })
+    const { system: systemPrompt, user: userPrompt } = await ctx.render('lore-management')
 
     // Create the agent
     const agent = createAgentFromPreset(

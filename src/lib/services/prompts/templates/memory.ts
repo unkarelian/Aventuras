@@ -1,17 +1,6 @@
-/**
- * Memory System Prompt Templates
- *
- * Templates for the memory and retrieval system including
- * chapter analysis, summarization, and context retrieval.
- */
-
 import type { PromptTemplate } from '../types'
 
-/**
- * Chapter Analysis prompt template
- * Identifies the best endpoint for chapter summarization
- */
-export const chapterAnalysisPromptTemplate: PromptTemplate = {
+const chapterAnalysisPromptTemplate: PromptTemplate = {
   id: 'chapter-analysis',
   name: 'Chapter Analysis',
   category: 'service',
@@ -28,20 +17,16 @@ Select the message ID that represents the longest self-contained narrative arc w
 - Choose the point that creates the most complete, self-contained chapter
 - Prefer later messages that still complete the arc (avoid cutting mid-beat)`,
   userContent: `# Message Range for Auto-Summarize
-First valid message ID: {{firstValidId}}
-Last valid message ID: {{lastValidId}}
+First valid message ID: {{ firstValidId }}
+Last valid message ID: {{ lastValidId }}
 
 # Messages in Range:
-{{messagesInRange}}
+{{ messagesInRange }}
 
 Select the single best chapter endpoint from this range.`,
 }
 
-/**
- * Chapter Summarization prompt template
- * Creates summaries of story chapters for the memory system
- */
-export const chapterSummarizationPromptTemplate: PromptTemplate = {
+const chapterSummarizationPromptTemplate: PromptTemplate = {
   id: 'chapter-summarization',
   name: 'Chapter Summarization',
   category: 'service',
@@ -64,19 +49,15 @@ For each chapter, create a concise summary that includes ONLY:
 - Dialogue excerpts (unless pivotal)
 - Stylistic or thematic analysis
 - Personal interpretations or opinions`,
-  userContent: `{{previousContext}}Summarize this story chapter and extract metadata.
+  userContent: `{{ previousContext }}Summarize this story chapter and extract metadata.
 
 CHAPTER CONTENT:
 """
-{{chapterContent}}
+{{ chapterContent }}
 """`,
 }
 
-/**
- * Retrieval Decision prompt template
- * Decides which past chapters are relevant for current context
- */
-export const retrievalDecisionPromptTemplate: PromptTemplate = {
+const retrievalDecisionPromptTemplate: PromptTemplate = {
   id: 'retrieval-decision',
   name: 'Retrieval Decision',
   category: 'service',
@@ -90,29 +71,25 @@ Guidelines:
   userContent: `Based on the user's input and current scene, decide which past chapters are relevant.
 
 USER INPUT:
-"{{userInput}}"
+"{{ userInput }}"
 
 CURRENT SCENE (last few messages):
 """
-{{recentContext}}
+{{ recentContext }}
 """
 
 CHAPTER SUMMARIES:
-{{chapterSummaries}}
+{{ chapterSummaries }}
 
 
 Guidelines:
 - Only include chapters that are ACTUALLY relevant to the current context
 - Often, no chapters need to be queried - return empty arrays if nothing is relevant
-- Maximum {{maxChaptersPerRetrieval}} chapters per query
+- Maximum {{ maxChaptersPerRetrieval }} chapters per query
 - Consider: characters mentioned, locations being revisited, plot threads referenced`,
 }
 
-/**
- * Lore Management prompt template
- * Agentic lore management for maintaining story database
- */
-export const loreManagementPromptTemplate: PromptTemplate = {
+const loreManagementPromptTemplate: PromptTemplate = {
   id: 'lore-management',
   name: 'Lore Management',
   category: 'service',
@@ -136,9 +113,9 @@ Guidelines:
 
 Use your tools to review the story and make necessary changes. When finished, call finish_lore_management with a summary.`,
   userContent: `# Current Lorebook Entries
-{{entrySummary}}
-{{recentStorySection}}# Chapter Summaries
-{{chapterSummary}}
+{{ entrySummary }}
+{{ recentStorySection }}# Chapter Summaries
+{{ chapterSummary }}
 
 Please review the story content and identify:
 1. Important elements that should have entries but don't
@@ -148,13 +125,9 @@ Please review the story content and identify:
 Use the available tools to make necessary changes, then call finish_lore_management when done.`,
 }
 
-/**
- * Interactive Vault prompt template
- * AI-assisted vault management for characters, lorebooks, and scenarios
- */
-export const interactiveVaultPromptTemplate: PromptTemplate = {
-  id: 'interactive-vault',
-  name: 'Interactive Vault',
+const interactiveLorebookPromptTemplate: PromptTemplate = {
+  id: 'interactive-lorebook',
+  name: 'Interactive Lorebook',
   category: 'service',
   description: 'AI-assisted vault management for characters, lorebooks, and scenarios',
   content: `You are an assistant helping manage a creative writing vault for interactive fiction. The vault contains characters, lorebooks, and scenarios that can be used in stories.
@@ -192,11 +165,7 @@ ALLWAYS assume image generation succeeded. Images generated are not visible to y
 - **Be proactive** about suggesting related operations. If a user creates a character, offer to create a matching lorebook entry or add them to a scenario as an NPC.`,
 }
 
-/**
- * Agentic Retrieval prompt template
- * Agentic context retrieval for gathering past story context
- */
-export const agenticRetrievalPromptTemplate: PromptTemplate = {
+const agenticRetrievalPromptTemplate: PromptTemplate = {
   id: 'agentic-retrieval',
   name: 'Agentic Retrieval',
   category: 'service',
@@ -225,28 +194,25 @@ The chapterSummary is crucial - it's how information from past chapters reaches 
   userContent: `# Current Situation
 
 USER INPUT:
-"{{userInput}}"
+"{{ userInput }}"
 
 RECENT SCENE:
-{{recentContext}}
+{{ recentContext }}
 
-# Available Chapters: {{chaptersCount}}
-{{chapterList}}
+# Available Chapters: {{ chaptersCount }}
+{{ chapterList }}
 
-# Lorebook Entries: {{entriesCount}}
-{{entryList}}
+# Lorebook Entries: {{ entriesCount }}
+{{ entryList }}
 
 Please gather relevant context from past chapters that will help respond to this situation. Focus on information that is actually needed - often, no retrieval is necessary for simple actions.`,
 }
 
-/**
- * Memory templates array for registration
- */
 export const memoryTemplates: PromptTemplate[] = [
   chapterAnalysisPromptTemplate,
   chapterSummarizationPromptTemplate,
   retrievalDecisionPromptTemplate,
   loreManagementPromptTemplate,
-  interactiveVaultPromptTemplate,
+  interactiveLorebookPromptTemplate,
   agenticRetrievalPromptTemplate,
 ]

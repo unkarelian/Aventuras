@@ -32,7 +32,7 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { type UnlistenFn } from '@tauri-apps/api/event'
 import { settings } from './settings.svelte'
 
-export type VaultTab = 'characters' | 'lorebooks' | 'scenarios'
+export type VaultTab = 'characters' | 'lorebooks' | 'scenarios' | 'prompts'
 
 // Debug log entry for request/response logging
 export interface DebugLogEntry {
@@ -152,16 +152,9 @@ class UIStore {
   // Computed getter for current story's retry backup
   get retryBackup(): RetryBackup | null {
     if (!this.currentRetryStoryId) {
-      console.log('[UI] retryBackup getter: no currentRetryStoryId')
       return null
     }
     const backup = this.retryBackups.get(this.currentRetryStoryId) ?? null
-    console.log('[UI] retryBackup getter:', {
-      currentRetryStoryId: this.currentRetryStoryId,
-      hasBackup: !!backup,
-      hasFullState: backup?.hasFullState,
-      backupStoryId: backup?.storyId,
-    })
     return backup
   }
 
@@ -198,6 +191,10 @@ class UIStore {
   // Creative writing suggestions (displayed after narration)
   suggestions = $state<Suggestion[]>([])
   suggestionsLoading = $state(false)
+
+  // Flag to request auto-regeneration of suggestions/actions after time-travel delete
+  // when no saved actions were found on the restored entry
+  suggestionsRegenerationNeeded = $state(false)
 
   // Style reviewer state
   messagesSinceLastStyleReview = $state(0)
@@ -557,9 +554,9 @@ class UIStore {
     const backup: RetryBackup = {
       storyId,
       timestamp,
-      // Large data - store reference (safe due to immutable update patterns)
-      entries: entries,
-      embeddedImages: embeddedImages,
+      // Large data - shallow copy to break potential proxy chains
+      entries: [...entries],
+      embeddedImages: [...embeddedImages],
       // Smaller data - shallow copy to break proxy chains
       characters: copyCharacters(characters),
       locations: copyLocations(locations),
@@ -637,6 +634,8 @@ class UIStore {
           embeddedImageIds,
           characterSnapshots,
           timeTracker: timeTracker ? { ...timeTracker } : null,
+          activationData: Object.fromEntries(Object.entries(this.activationData)),
+          storyPosition: this.currentStoryPosition,
         }),
       'persist',
     )
@@ -704,6 +703,8 @@ class UIStore {
       embeddedImageIds?: string[]
       characterSnapshots?: PersistentCharacterSnapshot[]
       timeTracker?: TimeTracker | null
+      activationData?: Record<string, number>
+      storyPosition?: number
     },
   ) {
     // Skip if we already have an in-memory backup for this story (it's more complete)
@@ -751,9 +752,9 @@ class UIStore {
       rawInput: retryState.rawInput,
       actionType: retryState.actionType,
       wasRawActionChoice: retryState.wasRawActionChoice,
-      // Empty activation data
-      activationData: {},
-      storyPosition: 0,
+      // Restore activation data from persistent state if available
+      activationData: retryState.activationData ?? {},
+      storyPosition: retryState.storyPosition ?? 0,
       // Persistent retry fields
       entryCountBeforeAction: retryState.entryCountBeforeAction,
       hasFullState: false, // Indicates ID-based restore
@@ -1000,6 +1001,61 @@ class UIStore {
       }
     } catch (err) {
       console.warn('[UI] Failed to load persisted suggestions:', err)
+    }
+  }
+
+  /**
+   * Restore action choices or suggestions from a saved entry's suggestedActions field.
+   * Used during time-travel (entry deletion) to restore the correct suggestions
+   * for the new last position.
+   * @param storyMode - 'adventure' or 'creative-writing'
+   * @param savedActions - JSON string of ActionChoice[] or Suggestion[] from the entry
+   * @param storyId - story ID for persistence
+   * @returns true if actions were restored, false if no saved actions existed
+   */
+  restoreSuggestedActionsFromEntry(
+    storyMode: string,
+    savedActions: string | null | undefined,
+    storyId: string,
+  ): boolean {
+    if (!savedActions) {
+      // No saved actions — clear current ones
+      if (storyMode === 'adventure') {
+        this.actionChoices = []
+      } else {
+        this.suggestions = []
+      }
+      return false
+    }
+
+    try {
+      const parsed = JSON.parse(savedActions)
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        return false
+      }
+
+      if (storyMode === 'adventure') {
+        this.actionChoices = parsed as ActionChoice[]
+        // Also persist to settings so they survive app restart
+        const data: PersistedActionChoices = { storyId, choices: parsed as ActionChoice[] }
+        database
+          .setSetting(this.getActionChoicesKey(storyId), JSON.stringify(data))
+          .catch((err) => {
+            console.warn('[UI] Failed to persist restored action choices:', err)
+          })
+      } else {
+        this.suggestions = parsed as Suggestion[]
+        const data: PersistedSuggestions = { storyId, suggestions: parsed as Suggestion[] }
+        database.setSetting(this.getSuggestionsKey(storyId), JSON.stringify(data)).catch((err) => {
+          console.warn('[UI] Failed to persist restored suggestions:', err)
+        })
+      }
+
+      console.log('[UI] Restored suggested actions from entry for story:', storyId)
+      return true
+    } catch (err) {
+      console.warn('[UI] Failed to parse saved suggested actions:', err)
+      return false
     }
   }
 

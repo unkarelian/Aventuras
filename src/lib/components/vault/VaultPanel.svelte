@@ -17,6 +17,8 @@
     MapPin,
     Tags,
     Bot,
+    FileCode,
+    Download,
   } from 'lucide-svelte'
   import UniversalVaultCard from './UniversalVaultCard.svelte'
   import InteractiveVaultAssistant from './InteractiveVaultAssistant.svelte'
@@ -29,6 +31,15 @@
   import TagManager from '$lib/components/tags/TagManager.svelte'
   import { tagStore } from '$lib/stores/tags.svelte'
   import { fade } from 'svelte/transition'
+  import PromptPackList from './prompts/PromptPackList.svelte'
+  import PromptPackEditor from './prompts/PromptPackEditor.svelte'
+  import ImportPreviewDialog from './prompts/ImportPreviewDialog.svelte'
+  import {
+    importExportService,
+    type ImportValidationResult,
+    type ConflictStrategy,
+  } from '$lib/services/packs/import-export'
+  import type { PresetPack } from '$lib/services/packs/types'
 
   // Shared Components
   import EmptyState from '$lib/components/ui/empty-state/empty-state.svelte'
@@ -43,7 +54,7 @@
   import { cn } from '$lib/utils/cn'
 
   // Types
-  type VaultTab = 'characters' | 'lorebooks' | 'scenarios'
+  import type { VaultTab } from '$lib/stores/ui.svelte'
   type VaultType = 'character' | 'lorebook' | 'scenario'
 
   type AnyVaultItem = VaultCharacter | VaultLorebook | VaultScenario
@@ -55,6 +66,17 @@
   let selectedTags = $state<string[]>([])
   let filterLogic = $state<'AND' | 'OR'>('OR')
   let showTagManager = $state(false)
+  let showCreatePackDialog = $state(false)
+
+  // Import state
+  let importDialogOpen = $state(false)
+  let importValidation = $state<ImportValidationResult | null>(null)
+  let importConflictPack = $state<PresetPack | null>(null)
+  // Prompts tab view state
+  type PromptsViewState = { mode: 'browsing' } | { mode: 'editing'; packId: string }
+  let promptsViewState = $state<PromptsViewState>({ mode: 'browsing' })
+  let isPromptEditorDirty = $state(false)
+  let promptEditorRef = $state<PromptPackEditor | null>(null)
 
   // Modal States
   let showCharForm = $state(false)
@@ -296,11 +318,76 @@
   async function handleToggleFavorite(id: string, store: any) {
     await store.toggleFavorite(id)
   }
+
+  function handleOpenPack(packId: string) {
+    promptsViewState = { mode: 'editing', packId }
+  }
+
+  function guardPromptNavigation(action: () => void) {
+    if (
+      activeTab === 'prompts' &&
+      promptsViewState.mode === 'editing' &&
+      isPromptEditorDirty &&
+      promptEditorRef
+    ) {
+      promptEditorRef.guardNavigation(() => {
+        promptsViewState = { mode: 'browsing' }
+        action()
+      })
+    } else {
+      if (activeTab === 'prompts' && promptsViewState.mode === 'editing') {
+        promptsViewState = { mode: 'browsing' }
+      }
+      action()
+    }
+  }
+
+  // Import pack handlers
+  async function handleImportPack() {
+    const content = await importExportService.pickAndReadImportFile()
+    if (!content) return
+    const result = importExportService.validateImport(content)
+    importValidation = result
+    if (result.valid && result.pack) {
+      importConflictPack = await importExportService.checkNameConflict(result.pack.name)
+    } else {
+      importConflictPack = null
+    }
+    importDialogOpen = true
+  }
+
+  async function handleImportConfirm(strategy: ConflictStrategy) {
+    if (!importValidation?.pack) return
+    try {
+      const newPackId = await importExportService.applyImport(
+        importValidation.pack,
+        strategy,
+        importConflictPack ?? undefined,
+      )
+      if (newPackId) {
+        ui.showToast('Pack imported successfully', 'info')
+      }
+    } catch (e) {
+      console.error('Import failed:', e)
+      ui.showToast('Import failed', 'error')
+    } finally {
+      importDialogOpen = false
+      importValidation = null
+      importConflictPack = null
+    }
+  }
 </script>
 
 <Tabs
   value={activeTab}
-  onValueChange={(v) => (activeTab = v as VaultTab)}
+  onValueChange={(v) => {
+    if (!v) return
+    const newTab = v as VaultTab
+    if (newTab === activeTab) return
+    guardPromptNavigation(() => {
+      activeTab = newTab
+    })
+  }}
   class="bg-background flex h-full flex-col"
 >
   <!-- Header -->
@@ -312,7 +399,7 @@
           variant="link"
           size="icon"
           class="text-muted-foreground hover:text-foreground -ml-2 h-9 w-9"
-          onclick={() => ui.setActivePanel('library')}
+          onclick={() => guardPromptNavigation(() => ui.setActivePanel('library'))}
           title="Back to Library"
         >
           <ChevronLeft class="h-5 w-5" />
@@ -342,51 +429,78 @@
           class="h-9"
           onclick={() => (showTagManager = true)}
         />
+        {#if activeTab === 'prompts' && promptsViewState.mode === 'browsing'}
+          <Button
+            icon={Download}
+            label="Import"
+            variant="outline"
+            size="sm"
+            class="h-9"
+            onclick={handleImportPack}
+          />
 
-        {#each sections as section (section.id)}
-          {#if activeTab === section.id}
-            <Button
-              icon={Globe}
-              label="Browse Online"
-              variant="outline"
-              size="sm"
-              class="h-9"
-              onclick={() => openBrowseOnline(section.type)}
-            />
+          <Button
+            icon={Plus}
+            label="New Pack"
+            size="sm"
+            class="h-9"
+            onclick={() => (showCreatePackDialog = true)}
+          />
+        {:else if activeTab !== 'prompts'}
+          <Button
+            icon={Tags}
+            label="Tags"
+            variant="outline"
+            size="sm"
+            class="h-9"
+            onclick={() => (showTagManager = true)}
+          />
 
-            <div class="relative">
+          {#each sections as section (section.id)}
+            {#if activeTab === section.id}
               <Button
-                icon={Upload}
-                label={section.importLabel}
+                icon={Globe}
+                label="Browse Online"
                 variant="outline"
                 size="sm"
-                class="h-9 cursor-pointer"
-              />
-              <input
-                type="file"
-                accept={section.id === 'lorebooks' ? '.json,application/json' : '.json,.png'}
-                class="absolute inset-0 cursor-pointer opacity-0"
-                onchange={section.importAction}
-              />
-            </div>
-
-            {#if section.createAction}
-              <Button
-                icon={Plus}
-                label={section.createLabel!}
-                size="sm"
                 class="h-9"
-                onclick={section.createAction}
+                onclick={() => openBrowseOnline(section.type)}
               />
+
+              <div class="relative">
+                <Button
+                  icon={Upload}
+                  label={section.importLabel}
+                  variant="outline"
+                  size="sm"
+                  class="h-9 cursor-pointer"
+                />
+                <input
+                  type="file"
+                  accept={section.id === 'lorebooks' ? '.json,application/json' : '.json,.png'}
+                  class="absolute inset-0 cursor-pointer opacity-0"
+                  onchange={section.importAction}
+                />
+              </div>
+
+              {#if section.createAction}
+                <Button
+                  icon={Plus}
+                  label={section.createLabel!}
+                  size="sm"
+                  class="h-9"
+                  onclick={section.createAction}
+                />
+              {/if}
             {/if}
-          {/if}
-        {/each}
+          {/each}
+        {/if}
       </div>
     </div>
 
     <!-- Tab Bar -->
     <div class="px-4 pb-2">
-      <TabsList class="bg-muted/50 grid w-full max-w-md grid-cols-3">
+      <TabsList class="bg-muted/50 grid w-full max-w-lg grid-cols-4">
         {#each sections as section (section.id)}
           <TabsTrigger value={section.id} class="flex items-center gap-2">
             <section.icon class="h-4 w-4" />
@@ -396,13 +510,18 @@
             </Badge>
           </TabsTrigger>
         {/each}
+        <TabsTrigger value="prompts" class="flex items-center gap-2">
+          <FileCode class="h-4 w-4" />
+          <span class="hidden sm:inline">Prompts</span>
+        </TabsTrigger>
       </TabsList>
     </div>
   </div>
 
-  <!-- Search and Filters -->
+  <!-- Search and Filters (hidden for Prompts tab) -->
   <div
     class="bg-background/95 supports-[backdrop-filter]:bg-background/60 flex flex-col gap-3 p-4 backdrop-blur"
+    class:hidden={activeTab === 'prompts'}
   >
     <div class="flex items-center gap-2">
       <Input
@@ -509,6 +628,34 @@
       </ScrollArea>
     </TabsContent>
   {/each}
+
+  <!-- Prompts Tab Content -->
+  <TabsContent
+    value="prompts"
+    class="m-0 flex-1 overflow-hidden p-0 outline-none data-[state=inactive]:hidden"
+  >
+    {#if promptsViewState.mode === 'browsing'}
+      <ScrollArea class="h-full">
+        <div class="flex min-h-full flex-col px-4 pt-4 pb-36 sm:pb-16">
+          <PromptPackList
+            onOpenPack={handleOpenPack}
+            bind:showCreateDialog={showCreatePackDialog}
+          />
+        </div>
+      </ScrollArea>
+    {:else}
+      <PromptPackEditor
+        bind:this={promptEditorRef}
+        packId={promptsViewState.packId}
+        onClose={() => {
+          promptsViewState = { mode: 'browsing' }
+        }}
+        onDirtyChange={(dirty) => {
+          isPromptEditorDirty = dirty
+        }}
+      />
+    {/if}
+  </TabsContent>
 </Tabs>
 
 <!-- Character Form Modal -->
@@ -563,3 +710,15 @@
     }}
   />
 {/if}
+<!-- Import Preview Dialog -->
+<ImportPreviewDialog
+  open={importDialogOpen}
+  validationResult={importValidation}
+  conflictPack={importConflictPack}
+  onConfirm={handleImportConfirm}
+  onCancel={() => {
+    importDialogOpen = false
+    importValidation = null
+    importConflictPack = null
+  }}
+/>

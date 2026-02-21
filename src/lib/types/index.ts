@@ -62,6 +62,9 @@ export interface PersistentRetryState {
   characterSnapshots?: PersistentCharacterSnapshot[] // Added in v1.4.1 for retry state restoration
   // Story time snapshot captured before the user action (optional for backwards compatibility)
   timeTracker?: TimeTracker | null
+  // Lorebook activation data for stickiness preservation (optional for backwards compatibility)
+  activationData?: Record<string, number>
+  storyPosition?: number
 }
 
 export interface PersistentCharacterSnapshot {
@@ -131,6 +134,10 @@ export interface StoryEntry {
   translatedContent?: string | null // Translated text for display
   translationLanguage?: string | null // Language code of translation
   originalInput?: string | null // Original user input before translation (for user_action type)
+  // Phase 1: World state delta tracking
+  worldStateDelta?: WorldStateDelta | null // World state changes caused by this entry's classification
+  // Persisted action suggestions/choices for time-travel restore
+  suggestedActions?: string | null // JSON blob: ActionChoice[] or Suggestion[] depending on story mode
 }
 
 export interface EntryMetadata {
@@ -157,6 +164,8 @@ export interface Character {
   status: 'active' | 'inactive' | 'deceased'
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this character belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
+  deleted?: boolean // COD: tombstone — entity is deleted on this branch (COW only)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -316,6 +325,8 @@ export interface Location {
   connections: string[]
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this location belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
+  deleted?: boolean // COD: tombstone — entity is deleted on this branch (COW only)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -332,6 +343,8 @@ export interface Item {
   location: string
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this item belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
+  deleted?: boolean // COD: tombstone — entity is deleted on this branch (COW only)
   // Translation fields
   translatedName?: string | null
   translatedDescription?: string | null
@@ -349,6 +362,8 @@ export interface StoryBeat {
   resolvedAt?: number | null
   metadata: Record<string, unknown> | null
   branchId: string | null // Branch this beat belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
+  deleted?: boolean // COD: tombstone — entity is deleted on this branch (COW only)
   // Translation fields
   translatedTitle?: string | null
   translatedDescription?: string | null
@@ -426,6 +441,7 @@ export interface Branch {
   forkEntryId: string // Entry where this branch diverges from parent
   checkpointId: string | null // Checkpoint for world state restoration
   createdAt: number
+  snapshotComplete?: boolean // When true, branch has its own complete entity set (no lineage resolution needed)
 }
 
 // ===== Entry/Lorebook System (per design doc section 3.2) =====
@@ -473,6 +489,8 @@ export interface Entry {
 
   // Branch support
   branchId: string | null // Branch this entry belongs to (null = main/inherited)
+  overridesId?: string | null // COW: ID of the parent entity this row overrides (null = original)
+  deleted?: boolean // COD: tombstone — entity is deleted on this branch (COW only)
 }
 
 export interface EntryInjection {
@@ -722,6 +740,28 @@ export interface UpdateSettings {
   lastChecked: number | null // Timestamp of last check
 }
 
+// ===== Image Provider & Profile System =====
+
+export type ImageProviderType =
+  | 'nanogpt'
+  | 'openai'
+  | 'chutes'
+  | 'pollinations'
+  | 'google'
+  | 'zhipu'
+  | 'comfyui'
+
+export interface ImageProfile {
+  id: string
+  name: string
+  providerType: ImageProviderType
+  apiKey: string
+  baseUrl?: string
+  model: string
+  providerOptions: Record<string, unknown>
+  createdAt: number
+}
+
 // ===== Image Generation System =====
 
 export type EmbeddedImageStatus = 'pending' | 'generating' | 'complete' | 'failed'
@@ -800,66 +840,6 @@ export interface GenerationPreset {
   manualBody: string
 }
 
-// ===== Prompt Export/Import Types =====
-
-/**
- * Exported Generation Preset - excludes sensitive profileId
- * On import, user must reconnect each preset to an API profile
- */
-export interface ExportedGenerationPreset {
-  id: string
-  name: string
-  description: string | null
-  model: string
-  temperature: number
-  maxTokens: number
-  reasoningEffort: ReasoningEffort
-  manualBody: string
-  // profileId is EXCLUDED - will be reconnected on import
-}
-
-/**
- * Main export structure for prompts, macros, presets, and assignments
- */
-export interface PromptExportData {
-  version: string
-  exportedAt: number
-  appVersion?: string
-
-  promptSettings: {
-    customMacros: import('$lib/services/prompts/types').Macro[]
-    macroOverrides: import('$lib/services/prompts/types').MacroOverride[]
-    templateOverrides: import('$lib/services/prompts/types').PromptOverride[]
-  }
-
-  generationPresets: ExportedGenerationPreset[]
-  servicePresetAssignments: Record<string, string>
-}
-
-/**
- * Parsed import data with validation state
- */
-export interface ParsedPromptImport {
-  success: boolean
-  data: PromptExportData | null
-  errors: string[]
-  warnings: string[]
-}
-
-/**
- * Profile assignment for import - allows customizing preset parameters
- */
-export interface ImportPresetConfig {
-  presetId: string
-  presetName: string
-  profileId: string
-  model: string
-  temperature: number
-  maxTokens: number
-  reasoningEffort: ReasoningEffort
-  manualBody: string
-}
-
 // ===== Translation System Types =====
 
 /**
@@ -873,6 +853,116 @@ export interface TranslationSettings {
   translateNarration: boolean // Translate AI responses after generation
   translateUserInput: boolean // Translate user input to English for prompts
   translateWorldState: boolean // Translate world state UI elements
+}
+
+// ===== Experimental Features =====
+
+export interface ExperimentalFeatures {
+  /** Phase 1: Record world state deltas on story entries after classification */
+  stateTracking: boolean
+  /** Phase 2: Undo world state changes when deleting entries (cascade rollback) */
+  rollbackOnDelete: boolean
+  /** Phase 3: Copy-on-write branches instead of full entity duplication */
+  lightweightBranches: boolean
+  /** Number of entries between automatic world state snapshots (for fast rollback) */
+  autoSnapshotInterval: number
+}
+
+// ===== World State Delta Tracking (Phase 1) =====
+
+/** Snapshot of a character's mutable fields before a classification update */
+export interface CharacterBeforeState {
+  id: string
+  name: string
+  status: string
+  relationship: string | null
+  traits: string[]
+  visualDescriptors: VisualDescriptors
+  /** Metadata snapshot for rollback (includes runtimeVars from pack runtime variables) */
+  metadata?: Record<string, unknown> | null
+}
+
+/** Snapshot of a location's mutable fields before a classification update */
+export interface LocationBeforeState {
+  id: string
+  name: string
+  visited: boolean
+  current: boolean
+  description: string | null
+  /** Metadata snapshot for rollback (includes runtimeVars from pack runtime variables) */
+  metadata?: Record<string, unknown> | null
+}
+
+/** Snapshot of an item's mutable fields before a classification update */
+export interface ItemBeforeState {
+  id: string
+  name: string
+  quantity: number
+  equipped: boolean
+  location: string
+  /** Metadata snapshot for rollback (includes runtimeVars from pack runtime variables) */
+  metadata?: Record<string, unknown> | null
+}
+
+/** Snapshot of a story beat's mutable fields before a classification update */
+export interface StoryBeatBeforeState {
+  id: string
+  title: string
+  status: string
+  description: string | null
+  resolvedAt: number | null
+  /** Metadata snapshot for rollback (includes runtimeVars from pack runtime variables) */
+  metadata?: Record<string, unknown> | null
+}
+
+/**
+ * Records the complete world state change caused by a single classification.
+ * Stored as JSON on the story_entries.world_state_delta column.
+ * Contains enough information to fully undo the classification's effects.
+ */
+export interface WorldStateDelta {
+  /** The raw classification result that was applied (stored as-is for debugging/audit) */
+  classificationResult: Record<string, unknown>
+
+  /** Before-state of each entity that was UPDATED (for undo) */
+  previousState: {
+    characters: CharacterBeforeState[]
+    locations: LocationBeforeState[]
+    items: ItemBeforeState[]
+    storyBeats: StoryBeatBeforeState[]
+    /** ID of the location that was 'current' before this classification */
+    currentLocationId: string | null
+    /** Time tracker state before time progression was applied */
+    timeTracker: TimeTracker | null
+  }
+
+  /** IDs of entities CREATED by this classification (undo = delete these) */
+  createdEntities: {
+    characterIds: string[]
+    locationIds: string[]
+    itemIds: string[]
+    storyBeatIds: string[]
+  }
+}
+
+/**
+ * Periodic full snapshot of world state for fast rollback reconstruction.
+ * Instead of replaying all deltas from the start, rollback can start from the
+ * nearest snapshot and only replay/undo deltas from there.
+ */
+export interface WorldStateSnapshot {
+  id: string
+  storyId: string
+  branchId: string | null
+  entryId: string
+  entryPosition: number
+  charactersSnapshot: Character[]
+  locationsSnapshot: Location[]
+  itemsSnapshot: Item[]
+  storyBeatsSnapshot: StoryBeat[]
+  lorebookEntriesSnapshot?: Entry[]
+  timeTrackerSnapshot: TimeTracker | null
+  createdAt: number
 }
 
 export type VaultType = 'character' | 'lorebook' | 'scenario'

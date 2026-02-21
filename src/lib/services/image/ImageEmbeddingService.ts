@@ -7,6 +7,7 @@ import type { EmbeddedImage } from '$lib/types'
 import { parseMarkdown } from '$lib/utils/markdown'
 import { sanitizeVisualProse } from '$lib/utils/htmlSanitize'
 import { replacePicTagsWithImages, type ImageReplacementInfo } from '$lib/utils/inlineImageParser'
+import { createFuzzyTextRegex } from '$lib/utils/text'
 
 interface ImageMarker {
   start: number
@@ -15,58 +16,35 @@ interface ImageMarker {
   status: string
 }
 
-const uncommonCharacters: Record<string, string> = {
-  // Quotes
-  '’': "'",
-  '‘': "'",
-  '“': '"',
-  '”': '"',
-  '‟': '"',
-  '„': '"',
-  '‚': "'",
-  // Dashes
-  '–': '-',
-  '—': '-',
-  '−': '-',
-  // Others
-  '…': '...',
-  '\u00A0': ' ', // Non-breaking space
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 function getDisplayableImages(images: EmbeddedImage[]): EmbeddedImage[] {
   return images.filter(
-    (img) => img.status === 'complete' || img.status === 'generating' || img.status === 'pending',
+    (img) =>
+      (img.status === 'complete' || img.status === 'generating' || img.status === 'pending') &&
+      img.sourceText.length >= 20,
   )
 }
 
-function replaceUncommonCharacters(content: string): string {
-  for (const [uncommon, common] of Object.entries(uncommonCharacters)) {
-    content = content.replaceAll(uncommon, common)
-  }
-  return content
-}
-
-/** Find and mark all source text matches, sorted longest-first to avoid partial matches. */
+/** Find and mark all source text matches, sorted reverse by position (for safe replacement). */
 function buildMarkers(content: string, images: EmbeddedImage[]): ImageMarker[] {
-  const sortedImages = [...images].sort((a, b) => b.sourceText.length - a.sourceText.length)
+  const displayable = getDisplayableImages(images)
+  const sortedImages = [...displayable].sort((a, b) => b.sourceText.length - a.sourceText.length)
   const markers: ImageMarker[] = []
 
   for (const img of sortedImages) {
-    const regex = new RegExp(escapeRegex(replaceUncommonCharacters(img.sourceText)), 'gi')
+    const regex = createFuzzyTextRegex(img.sourceText)
+
     let match
-    while ((match = regex.exec(replaceUncommonCharacters(content))) !== null) {
+    while ((match = regex.exec(content)) !== null) {
       const start = match.index
       const end = start + match[0].length
+
       const overlaps = markers.some(
         (m) =>
           (start >= m.start && start < m.end) ||
           (end > m.start && end <= m.end) ||
           (start <= m.start && end >= m.end),
       )
+
       if (!overlaps) {
         markers.push({ start, end, imageId: img.id, status: img.status })
       }
@@ -76,18 +54,28 @@ function buildMarkers(content: string, images: EmbeddedImage[]): ImageMarker[] {
   return markers.sort((a, b) => b.start - a.start)
 }
 
-/** Apply markers to content, wrapping matched text in clickable spans. */
-function applyMarkers(
+/**
+ * Replace matched source text with placeholder tokens, render via `render()`,
+ * then swap placeholders back with the actual image-link HTML spans.
+ */
+function applyMarkersWithPlaceholders(
   content: string,
-  markers: ImageMarker[],
+  images: EmbeddedImage[],
   regeneratingIds: Set<string>,
+  render: (text: string) => string,
 ): string {
-  let processed = content
+  const markers = buildMarkers(content, images)
+  if (markers.length === 0) return render(content)
 
+  let text = content
+  const placeholderMap = new Map<string, string>()
+
+  // markers are already reverse-sorted by position
   for (const marker of markers) {
-    const originalText = processed.slice(marker.start, marker.end)
-    const isRegenerating = regeneratingIds.has(marker.imageId)
-    const statusClass = isRegenerating
+    const originalText = content.slice(marker.start, marker.end)
+    const placeholder = `IMGPH_${marker.imageId.replace(/-/g, '')}`
+
+    const statusClass = regeneratingIds.has(marker.imageId)
       ? 'regenerating'
       : marker.status === 'complete'
         ? 'complete'
@@ -95,11 +83,18 @@ function applyMarkers(
           ? 'generating'
           : 'pending'
 
-    const replacement = `<span class="embedded-image-link ${statusClass}" data-image-id="${marker.imageId}">${originalText}</span>`
-    processed = processed.slice(0, marker.start) + replacement + processed.slice(marker.end)
+    placeholderMap.set(
+      placeholder,
+      `<span class="embedded-image-link ${statusClass}" data-image-id="${marker.imageId}">${originalText}</span>`,
+    )
+    text = text.slice(0, marker.start) + placeholder + text.slice(marker.end)
   }
 
-  return processed
+  let html = render(text)
+  for (const [placeholder, replacement] of placeholderMap) {
+    html = html.replaceAll(placeholder, replacement)
+  }
+  return html
 }
 
 /** Build image map for inline <pic> tag replacement. */
@@ -119,6 +114,16 @@ function buildInlineImageMap(images: EmbeddedImage[]): Map<string, ImageReplacem
 }
 
 /**
+ * Get the IDs of images that would be successfully placed in the content.
+ * Uses the exact same logic as the rendering process.
+ */
+export function getPlacedImageIds(content: string, images: EmbeddedImage[]): Set<string> {
+  if (images.length === 0) return new Set()
+  const markers = buildMarkers(content, images)
+  return new Set(markers.map((m) => m.imageId))
+}
+
+/**
  * Process standard content with embedded image markers.
  * Wraps matched source text in clickable spans for image expansion.
  */
@@ -128,10 +133,7 @@ export function processContentWithImages(
   regeneratingIds: Set<string> = new Set(),
 ): string {
   if (images.length === 0) return parseMarkdown(content)
-  const displayable = getDisplayableImages(images)
-  const markers = buildMarkers(content, displayable)
-  const processed = applyMarkers(content, markers, regeneratingIds)
-  return parseMarkdown(processed)
+  return applyMarkersWithPlaceholders(content, images, regeneratingIds, parseMarkdown)
 }
 
 /**
@@ -145,10 +147,9 @@ export function processVisualProseWithImages(
   regeneratingIds: Set<string> = new Set(),
 ): string {
   if (images.length === 0) return sanitizeVisualProse(content, entryId)
-  const displayable = getDisplayableImages(images)
-  const markers = buildMarkers(content, displayable)
-  const processed = applyMarkers(content, markers, regeneratingIds)
-  return sanitizeVisualProse(processed, entryId)
+  return applyMarkersWithPlaceholders(content, images, regeneratingIds, (t) =>
+    sanitizeVisualProse(t, entryId),
+  )
 }
 
 /**

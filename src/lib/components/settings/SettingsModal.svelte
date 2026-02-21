@@ -10,10 +10,10 @@
     Key,
     Cpu,
     Palette,
-    Scroll,
     Image,
     Volume2,
     Settings as SettingsIcon,
+    FlaskConical,
   } from 'lucide-svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
@@ -30,22 +30,27 @@
   import GenerationTab from './tabs/generation.svelte'
   import InterfaceTab from './tabs/interface.svelte'
   import ImagesTab from './tabs/images.svelte'
-  import PromptsTab from './tabs/prompts.svelte'
   import TTSSettings from './TTSSettings.svelte'
   import AdvancedSettings from './AdvancedSettings.svelte'
-  import PromptImportModal from './PromptImportModal.svelte'
-
+  import ExperimentalSettings from './ExperimentalSettings.svelte'
   const tabs = [
     { id: 'api', label: 'API', icon: Key },
     { id: 'generation', label: 'Generation', icon: Cpu },
     { id: 'interface', label: 'Interface', icon: Palette },
-    { id: 'prompts', label: 'Prompts', icon: Scroll },
     { id: 'images', label: 'Images', icon: Image },
     { id: 'tts', label: 'TTS', icon: Volume2 },
     { id: 'advanced', label: 'Advanced', icon: SettingsIcon },
+    { id: 'experimental', label: 'Labs', icon: FlaskConical },
   ] as const
 
-  type SettingsTab = 'api' | 'generation' | 'interface' | 'prompts' | 'images' | 'tts' | 'advanced'
+  type SettingsTab =
+    | 'api'
+    | 'generation'
+    | 'interface'
+    | 'images'
+    | 'tts'
+    | 'advanced'
+    | 'experimental'
 
   // Use the tab from UI store (allows navigation from outside, e.g., profile warning banner)
   let activeTab = $state<SettingsTab>(ui.settingsTab as SettingsTab)
@@ -56,8 +61,6 @@
       activeTab = ui.settingsTab as SettingsTab
     }
   })
-
-  let promptImportModalOpen = $state(false)
 
   let manualBodyEditorOpen = $state(false)
   let manualBodyEditorTitle = $state('Manual Request Body')
@@ -264,8 +267,6 @@
                       <GenerationTab onOpenManualBodyEditor={openManualBodyEditor} />
                     {:else if tab.id === 'interface'}
                       <InterfaceTab />
-                    {:else if tab.id === 'prompts'}
-                      <PromptsTab openImportModal={() => (promptImportModalOpen = true)} />
                     {:else if tab.id === 'images'}
                       <ImagesTab />
                     {:else if tab.id === 'tts'}
@@ -299,11 +300,10 @@
                           </Button>
                         </div>
                       </div>
-                    {/if}
-                  </div>
+                    {:else if tab.id === 'experimental'}
+                      <ExperimentalSettings />
                 {/if}
               </TabsContent>
-            {/each}
           </Tabs>
         </div>
       </ScrollArea>
@@ -363,8 +363,6 @@
     </Dialog.Footer>
   </Dialog.Content>
 </Dialog.Root>
-
-<PromptImportModal open={promptImportModalOpen} onClose={() => (promptImportModalOpen = false)} />
 
 <style>
   .slide-in-right {
