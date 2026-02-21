@@ -226,8 +226,8 @@ export function createTimeoutFetch(
 
       const text = await response.text()
 
+      let responsePayload
       if (!(parsedBody as Record<string, unknown>).stream) {
-        let responsePayload
         try {
           responsePayload = JSON.parse(text)
         } catch {

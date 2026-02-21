@@ -3082,7 +3082,7 @@ class DatabaseService {
         try {
           const tags = JSON.parse(row.tags) as string[]
           tags.forEach((t) => uniqueTags.add(t.trim()))
-        } catch {}
+        } catch { }
       }
 
       for (const tagName of uniqueTags) {
@@ -3129,7 +3129,7 @@ class DatabaseService {
     )
   }
 
-    async listVaultConversations(): Promise<VaultConversation[]> {
+  async listVaultConversations(): Promise<VaultConversation[]> {
     const db = await this.getDb()
     const results = await db.select<any[]>(
       'SELECT * FROM vault_assistant_conversations ORDER BY updated_at DESC',
@@ -3174,11 +3174,11 @@ class DatabaseService {
     values.push(id)
     await db.execute(
       `UPDATE vault_assistant_conversations SET ${setClauses.join(', ')} WHERE id = ?`,
-            values,
+      values,
     )
   }
 
-    async deleteVaultConversation(id: string): Promise<void> {
+  async deleteVaultConversation(id: string): Promise<void> {
     const db = await this.getDb()
     await db.execute('DELETE FROM vault_assistant_conversations WHERE id = ?', [id])
   }
@@ -3757,12 +3757,12 @@ class DatabaseService {
       maxValue: row.max_value != null ? Number(row.max_value) : undefined,
       enumOptions: row.enum_options
         ? (() => {
-            try {
-              return JSON.parse(row.enum_options)
-            } catch {
-              return undefined
-            }
-          })()
+          try {
+            return JSON.parse(row.enum_options)
+          } catch {
+            return undefined
+          }
+        })()
         : undefined,
       color: row.color,
       icon: row.icon ?? undefined,
@@ -3785,12 +3785,12 @@ class DatabaseService {
       defaultValue: row.default_value ?? undefined,
       enumOptions: row.enum_options
         ? (() => {
-            try {
-              return JSON.parse(row.enum_options)
-            } catch {
-              return undefined
-            }
-          })()
+          try {
+            return JSON.parse(row.enum_options)
+          } catch {
+            return undefined
+          }
+        })()
         : undefined,
       createdAt: row.created_at,
     }

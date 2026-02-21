@@ -32,7 +32,6 @@ import {
   type ImageToolContext,
 } from '../sdk/tools'
 import type { VaultPendingChange } from '../sdk/schemas/vault'
-import { promptService } from '$lib/services/prompts'
 import { streamText } from 'ai'
 import { database } from '$lib/services/database'
 
@@ -159,24 +158,18 @@ export class InteractiveVaultService {
    * Initialize the conversation with vault summary data.
    * Optionally pass a focusedEntity to inject context about which entity the user was editing.
    */
-  initialize(vaultSummary: VaultSummary, focusedEntity?: FocusedEntity): void {
+  async initialize(vaultSummary: VaultSummary, focusedEntity?: FocusedEntity): Promise<void> {
     this.conversationHistory = []
 
-    this.systemPrompt = promptService.renderPrompt(
-      'interactive-vault',
-      {
-        mode: 'adventure',
-        pov: 'second',
-        tense: 'present',
-        protagonistName: '',
-      },
-      {
-        characterCount: vaultSummary.characterCount,
-        lorebookCount: vaultSummary.lorebookCount,
-        totalEntryCount: vaultSummary.totalEntryCount,
-        scenarioCount: vaultSummary.scenarioCount,
-      },
-    )
+    const template = await database.getPackTemplate('default-pack', 'interactive-lorebook')
+
+    let content = template?.content ?? ''
+    content = content
+    .replace(/\{\{\s*characterCount\s*\}\}/g, String(vaultSummary.characterCount))
+    .replace(/\{\{\s*lorebookCount\s*\}\}/g, String(vaultSummary.lorebookCount))
+    .replace(/\{\{\s*totalEntryCount\s*\}\}/g, String(vaultSummary.totalEntryCount))
+    .replace(/\{\{\s*scenarioCount\s*\}\}/g, String(vaultSummary.scenarioCount))
+    this.systemPrompt = content
 
     if (focusedEntity) {
       this.systemPrompt += `\n\n## Active Context\nThe user opened this assistant from the ${focusedEntity.entityType} editor for "${focusedEntity.entityName}" (ID: \`${focusedEntity.entityId}\`). When the user refers to "this character", "this lorebook", "this scenario", or uses pronouns referencing an entity without naming it, assume they mean this one.`
