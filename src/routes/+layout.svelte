@@ -14,6 +14,44 @@
     let lastBackAttemptAt = 0
 
     ;(window as any).__aventuraBackHandler = () => {
+      // Close open overlays before triggering exit flow
+      if (ui.settingsModalOpen) {
+        ui.closeSettings()
+        return
+      }
+      if (ui.syncModalOpen) {
+        ui.closeSyncModal()
+        return
+      }
+      if (ui.debugModalOpen) {
+        ui.closeDebugModal()
+        return
+      }
+      if (ui.lorebookImportModalOpen) {
+        ui.closeLorebookImport()
+        return
+      }
+      if (ui.lorebookExportModalOpen) {
+        ui.closeLorebookExport()
+        return
+      }
+      if (ui.manualChapterModalOpen) {
+        ui.closeManualChapterModal()
+        return
+      }
+      if (ui.resummarizeModalOpen) {
+        ui.closeResummarizeModal()
+        return
+      }
+      if (ui.lorebookDebugOpen) {
+        ui.closeLorebookDebug()
+        return
+      }
+      if (ui.sidebarOpen && window.innerWidth < 640) {
+        ui.toggleSidebar()
+        return
+      }
+
       const now = Date.now()
       const pressedBackAgain = now - lastBackAttemptAt <= BACK_EXIT_WINDOW_MS
 
