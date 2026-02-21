@@ -298,7 +298,6 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
  "tauri-plugin-http",
- "tauri-plugin-mcp-bridge",
  "tauri-plugin-opener",
  "tauri-plugin-process",
  "tauri-plugin-sql",
@@ -5686,35 +5685,6 @@ dependencies = [
  "tokio",
  "url",
  "urlpattern",
-]
-
-[[package]]
-name = "tauri-plugin-mcp-bridge"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d7a4377d58271c681729a469dd7766cd25f9db7640d1be541caa6124b0ea905"
-dependencies = [
- "base64 0.22.1",
- "block2 0.5.1",
- "futures-util",
- "image",
- "jni",
- "objc2 0.5.2",
- "objc2-app-kit 0.2.2",
- "objc2-foundation 0.2.2",
- "objc2-ui-kit 0.2.2",
- "objc2-web-kit 0.2.2",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin",
- "thiserror 1.0.69",
- "tokio",
- "tokio-tungstenite",
- "uuid",
- "webview2-com",
- "windows",
- "windows-core 0.61.2",
 ]
 
 [[package]]

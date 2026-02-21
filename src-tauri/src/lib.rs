@@ -211,11 +211,6 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_devtools::init());
     }
 
-    #[cfg(all(debug_assertions, feature = "mcp-bridge"))]
-    {
-        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
-    }
-
     builder
         .manage(sync::SyncState::default())
         .plugin(tauri_plugin_opener::init())
