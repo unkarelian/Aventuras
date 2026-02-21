@@ -1,6 +1,6 @@
 pre-push:
   commands:
     lint:
-      run: node --max-old-space-size=8192 ./node_modules/eslint/bin/eslint.js .
+      run: NODE_OPTIONS="--max-old-space-size=8192" npm run lint
     check:
       run: npm run check
