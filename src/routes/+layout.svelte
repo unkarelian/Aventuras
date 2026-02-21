@@ -3,6 +3,7 @@
   import { onMount } from 'svelte'
   import Toast from '$lib/components/Toast.svelte'
   import { ui } from '$lib/stores/ui.svelte'
+  import { story } from '$lib/stores/story.svelte'
 
   let { children } = $props()
 
@@ -24,6 +25,21 @@
 
       if (ui.sidebarOpen && window.innerWidth < 640) {
         ui.toggleSidebar()
+        return
+      }
+
+      // Navigate back: sub-panels → story, story/vault → library
+      if (ui.activePanel !== 'library') {
+        if (
+          ui.activePanel === 'lorebook' ||
+          ui.activePanel === 'memory' ||
+          ui.activePanel === 'gallery'
+        ) {
+          ui.setActivePanel('story')
+        } else {
+          if (story.currentStory) story.closeStory()
+          ui.setActivePanel('library')
+        }
         return
       }
 
