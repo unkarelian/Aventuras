@@ -204,9 +204,10 @@ pub fn run() {
         },
     ];
 
-    let mut builder = tauri::Builder::default();
+    let builder = tauri::Builder::default();
 
-    #[cfg(all(debug_assertions, feature = "devtools"))] // only enable instrumentation in development builds
+    #[cfg(all(debug_assertions, feature = "devtools"))]
+    // only enable instrumentation in development builds
     {
         builder = builder.plugin(tauri_plugin_devtools::init());
     }
