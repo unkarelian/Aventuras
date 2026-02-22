@@ -204,6 +204,12 @@ pub fn run() {
             sql: include_str!("../migrations/032_runtime_variables.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 33,
+            description: "vault_assistant_conversations",
+            sql: include_str!("../migrations/033_vault_assistant_conversations.sql"),
+            kind: MigrationKind::Up,
+        }
     ];
 
     let mut builder = tauri::Builder::default();
