@@ -551,7 +551,7 @@ export function supportsReasoning(providerType: ProviderType): boolean {
 /** Get the reasoning mode for a provider */
 export function getReasoningMode(
   providerType: ProviderType,
-): 'native' | 'openrouter' | 'fetched' | false {
+): 'native' | 'openrouter' | 'fetched' | 'heuristic' | false {
   return PROVIDERS[providerType].capabilities.reasoning
 }
 

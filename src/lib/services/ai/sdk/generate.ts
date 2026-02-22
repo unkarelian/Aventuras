@@ -258,7 +258,7 @@ function createJsonExtractMiddleware(): LanguageModelV3Middleware {
 function buildStructuredMiddleware(
   supportsStructuredOutput: boolean,
   providerType: ProviderType,
-  reasoningEffort: ReasoningEffort = 'medium',
+  _reasoningEffort: ReasoningEffort = 'medium',
 ): LanguageModelV3Middleware[] {
   const base: LanguageModelV3Middleware[] = [patchResponseMiddleware()]
   const useThinkTag = getReasoningExtraction(providerType) === 'think-tag'
@@ -283,7 +283,7 @@ function buildStructuredMiddleware(
 
 function buildPlainTextMiddleware(
   providerType: ProviderType,
-  reasoningEffort: ReasoningEffort = 'medium',
+  _reasoningEffort: ReasoningEffort = 'medium',
 ): LanguageModelV3Middleware[] {
   const base: LanguageModelV3Middleware[] = [patchResponseMiddleware()]
   if (getReasoningExtraction(providerType) === 'think-tag') {
@@ -299,7 +299,7 @@ function buildPlainTextMiddleware(
  */
 function buildNarrativeMiddleware(
   providerType: ProviderType,
-  reasoningEffort: ReasoningEffort = 'medium',
+  _reasoningEffort: ReasoningEffort = 'medium',
 ): LanguageModelV3Middleware[] {
   const base: LanguageModelV3Middleware[] = [patchResponseMiddleware()]
   if (getReasoningExtraction(providerType) === 'think-tag') {
