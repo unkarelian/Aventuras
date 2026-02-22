@@ -6,8 +6,9 @@
  */
 
 import type { TranslationSettings } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { createLogger } from '../core/config'
-import { generatePlainText, generateStructured } from '../sdk/generate'
+import { generatePlainText } from '../sdk/generate'
 import { ContextBuilder } from '$lib/services/context'
 import {
   translatedUIResultSchema,
@@ -79,11 +80,9 @@ export interface UITranslationItem {
 /**
  * Service that handles translation of narrative and UI content.
  */
-export class TranslationService {
-  private presetId: string
-
-  constructor(presetId: string = 'translation') {
-    this.presetId = presetId
+export class TranslationService extends BaseAIService {
+  constructor(serviceId: string) {
+    super(serviceId)
   }
 
   /**
@@ -187,15 +186,7 @@ export class TranslationService {
       ctx.add({ targetLanguage: this.getLanguageName(targetLanguage), elementsJson })
       const { system, user: prompt } = await ctx.render('translate-ui')
 
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: translatedUIResultSchema,
-          system,
-          prompt,
-        },
-        'translate-ui',
-      )
+      const result = await this.generate(translatedUIResultSchema, system, prompt, 'translate-ui')
 
       // Merge translated text back into original items
       log('Translated', result.items.length, 'UI elements to', targetLanguage)
@@ -231,13 +222,10 @@ export class TranslationService {
       ctx.add({ targetLanguage: this.getLanguageName(targetLanguage), suggestionsJson })
       const { system, user: prompt } = await ctx.render('translate-suggestions')
 
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: translatedSuggestionsResultSchema,
-          system,
-          prompt,
-        },
+      const result = await this.generate(
+        translatedSuggestionsResultSchema,
+        system,
+        prompt,
         'translate-suggestions',
       )
 
@@ -275,13 +263,10 @@ export class TranslationService {
       ctx.add({ targetLanguage: this.getLanguageName(targetLanguage), choicesJson })
       const { system, user: prompt } = await ctx.render('translate-action-choices')
 
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: translatedActionChoicesResultSchema,
-          system,
-          prompt,
-        },
+      const result = await this.generate(
+        translatedActionChoicesResultSchema,
+        system,
+        prompt,
         'translate-action-choices',
       )
 
@@ -357,13 +342,10 @@ export class TranslationService {
 
 ${fieldsJson}`
 
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: translatedWizardBatchResultSchema,
-          system,
-          prompt,
-        },
+      const result = await this.generate(
+        translatedWizardBatchResultSchema,
+        system,
+        prompt,
         'translate-wizard-content',
       )
 

@@ -6,6 +6,7 @@
  */
 
 import type { Entry, Chapter } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { createLogger } from '../core/config'
 import { createAgentFromPreset, extractTerminalToolResult, stopOnTerminalTool } from '../sdk/agents'
 import { createRetrievalTools, type RetrievalToolContext } from '../sdk/tools'
@@ -79,12 +80,11 @@ interface FinishRetrievalResult {
  * Service that uses agentic reasoning for intelligent lorebook retrieval.
  * Uses ToolLoopAgent for multi-turn tool calling.
  */
-export class AgenticRetrievalService {
-  private presetId: string
+export class AgenticRetrievalService extends BaseAIService {
   private maxIterations: number
 
-  constructor(presetId: string = 'agentic', maxIterations: number = 30) {
-    this.presetId = presetId
+  constructor(serviceId: string, maxIterations: number = 30) {
+    super(serviceId)
     this.maxIterations = maxIterations
   }
 

@@ -8,9 +8,9 @@
  */
 
 import type { StoryEntry, Entry, Character, Location, Item, StoryBeat } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { ContextBuilder } from '$lib/services/context'
 import { createLogger } from '../core/config'
-import { generateStructured } from '../sdk/generate'
 import { actionChoicesResultSchema, type ActionChoice } from '../sdk/schemas/actionchoices'
 
 const log = createLogger('ActionChoices')
@@ -35,11 +35,9 @@ export interface ActionChoicesContext {
 /**
  * Service that generates action choices for adventure mode.
  */
-export class ActionChoicesService {
-  private presetId: string
-
-  constructor(presetId: string = 'actionChoices') {
-    this.presetId = presetId
+export class ActionChoicesService extends BaseAIService {
+  constructor(serviceId: string) {
+    super(serviceId)
   }
 
   /**
@@ -159,13 +157,10 @@ export class ActionChoicesService {
     const { system, user: prompt } = await ctx.render('action-choices')
 
     try {
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: actionChoicesResultSchema,
-          system,
-          prompt,
-        },
+      const result = await this.generate(
+        actionChoicesResultSchema,
+        system,
+        prompt,
         'action-choices',
       )
 

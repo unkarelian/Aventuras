@@ -428,7 +428,7 @@ class AIService {
       hasRetrievedContext: !!retrievedChapterContext,
     })
 
-    const contextBuilder = new EntryInjector(config)
+    const contextBuilder = new EntryInjector(config, 'entryRetrieval')
     const result = await contextBuilder.buildContext(
       worldState,
       userInput,
@@ -468,10 +468,7 @@ class AIService {
     })
 
     const config = getEntryRetrievalConfigFromSettings()
-    const entryService = new EntryRetrievalService(
-      config,
-      settings.getServicePresetId('entryRetrieval'),
-    )
+    const entryService = new EntryRetrievalService(config, 'entryRetrieval')
     const result = await entryService.getRelevantEntries(
       entries,
       userInput,
@@ -1114,7 +1111,7 @@ class AIService {
     try {
       const service = serviceFactory.createBackgroundImageService()
       emitBackgroundImageAnalysisStarted()
-      const result = await service.analyzeReponsesForBackgroundImage(visibleEntries)
+      const result = await service.analyzeResponsesForBackgroundImage(visibleEntries)
       emitBackgroundImageAnalysisComplete()
       // Ai returns empty string or short response if no change, otherwise the image prompt
       if (result.changeNecessary) {

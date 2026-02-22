@@ -5,7 +5,7 @@
  */
 
 import type { Chapter, StoryEntry } from '$lib/types'
-import { generateStructured } from '../sdk/generate'
+import { BaseAIService } from '../BaseAIService'
 import { ContextBuilder } from '$lib/services/context'
 import {
   chapterAnalysisSchema,
@@ -38,11 +38,9 @@ export interface RetrievalContext {
   availableChapters: Chapter[]
 }
 
-export class MemoryService {
-  private presetId: string
-
-  constructor(presetId: string = 'memory') {
-    this.presetId = presetId
+export class MemoryService extends BaseAIService {
+  constructor(serviceId: string) {
+    super(serviceId)
   }
 
   /**
@@ -77,13 +75,10 @@ export class MemoryService {
     })
     const { system, user: prompt } = await ctx.render('chapter-summarization')
 
-    const result = await generateStructured(
-      {
-        presetId: this.presetId,
-        schema: chapterSummaryResultSchema,
-        system,
-        prompt,
-      },
+    const result = await this.generate(
+      chapterSummaryResultSchema,
+      system,
+      prompt,
       'chapter-summarization',
     )
 
@@ -126,15 +121,7 @@ export class MemoryService {
     })
     const { system, user: prompt } = await ctx.render('chapter-analysis')
 
-    const result = await generateStructured(
-      {
-        presetId: this.presetId,
-        schema: chapterAnalysisSchema,
-        system,
-        prompt,
-      },
-      'chapter-analysis',
-    )
+    const result = await this.generate(chapterAnalysisSchema, system, prompt, 'chapter-analysis')
 
     log('analyzeForChapter complete', {
       shouldCreateChapter: result.shouldCreateChapter,
@@ -176,13 +163,10 @@ export class MemoryService {
     })
     const { system, user: prompt } = await ctx.render('retrieval-decision')
 
-    const result = await generateStructured(
-      {
-        presetId: this.presetId,
-        schema: retrievalDecisionSchema,
-        system,
-        prompt,
-      },
+    const result = await this.generate(
+      retrievalDecisionSchema,
+      system,
+      prompt,
       'retrieval-decision',
     )
 

@@ -11,7 +11,6 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createChutes } from '@chutes-ai/ai-sdk-provider'
 import { createPollinations } from 'ai-sdk-pollinations'
-import { createOllama } from 'ollama-ai-provider'
 import { createXai } from '@ai-sdk/xai'
 import { createGroq } from '@ai-sdk/groq'
 import { createZhipu } from 'zhipu-ai-provider'
@@ -62,10 +61,15 @@ export function createProviderFromProfile(profile: APIProfile, presetId: string,
       return createPollinations({ apiKey: profile.apiKey || undefined, fetch })
 
     case 'ollama':
-      return createOllama({ baseURL: baseURL ?? PROVIDERS.ollama.baseUrl, fetch })
+      return createOpenAICompatible({
+        name: 'ollama',
+        apiKey: 'ollama',
+        baseURL: baseURL ?? PROVIDERS.ollama.baseUrl,
+        fetch,
+      })
 
     case 'lmstudio':
-      return createOpenAI({
+      return createOpenAICompatible({
         name: 'lmstudio',
         apiKey: profile.apiKey || 'lm-studio',
         baseURL: baseURL ?? PROVIDERS.lmstudio.baseUrl,
@@ -73,7 +77,7 @@ export function createProviderFromProfile(profile: APIProfile, presetId: string,
       })
 
     case 'llamacpp':
-      return createOpenAI({
+      return createOpenAICompatible({
         name: 'llamacpp',
         apiKey: profile.apiKey || 'llamacpp',
         baseURL: baseURL ?? PROVIDERS.llamacpp.baseUrl,
@@ -81,7 +85,7 @@ export function createProviderFromProfile(profile: APIProfile, presetId: string,
       })
 
     case 'nvidia-nim':
-      return createOpenAI({
+      return createOpenAICompatible({
         name: 'nvidia-nim',
         apiKey: profile.apiKey,
         baseURL: baseURL ?? PROVIDERS['nvidia-nim'].baseUrl,

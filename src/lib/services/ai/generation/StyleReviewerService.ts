@@ -6,9 +6,9 @@
  */
 
 import type { StoryEntry, StoryMode, POV, Tense } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { ContextBuilder } from '$lib/services/context'
 import { createLogger } from '../core/config'
-import { generateStructured } from '../sdk/generate'
 import { styleReviewResultSchema, type PhraseAnalysis } from '../sdk/schemas/style'
 
 const log = createLogger('StyleReviewer')
@@ -28,11 +28,9 @@ export interface StyleReviewResult {
 /**
  * Service that analyzes text for style issues.
  */
-export class StyleReviewerService {
-  private presetId: string
-
-  constructor(presetId: string = 'styleReviewer') {
-    this.presetId = presetId
+export class StyleReviewerService extends BaseAIService {
+  constructor(serviceId: string) {
+    super(serviceId)
   }
 
   /**
@@ -103,15 +101,7 @@ export class StyleReviewerService {
     const { system, user: prompt } = await ctx.render('style-reviewer')
 
     try {
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: styleReviewResultSchema,
-          system,
-          prompt,
-        },
-        'style-reviewer',
-      )
+      const result = await this.generate(styleReviewResultSchema, system, prompt, 'style-reviewer')
 
       log('analyzeStyle complete', { phrasesFound: result.phrases.length })
 

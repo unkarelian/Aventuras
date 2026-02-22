@@ -1,3 +1,4 @@
+import { generateStructured } from '../sdk/generate'
 /**
  * Classifier Service
  *
@@ -19,10 +20,10 @@ import type {
   StoryBeat,
   TimeTracker,
 } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { ContextBuilder } from '$lib/services/context'
 import { database } from '$lib/services/database'
 import { createLogger } from '../core/config'
-import { generateStructured } from '../sdk/generate'
 import {
   classificationResultSchema,
   clampNumber,
@@ -50,12 +51,11 @@ export interface ClassificationContext {
 /**
  * Service that classifies narrative responses to extract world state changes.
  */
-export class ClassifierService {
-  private presetId: string
+export class ClassifierService extends BaseAIService {
   private chatHistoryTruncation: number
 
-  constructor(presetId: string = 'classification', chatHistoryTruncation: number = 100) {
-    this.presetId = presetId
+  constructor(serviceId: string, chatHistoryTruncation: number = 100) {
+    super(serviceId)
     this.chatHistoryTruncation = chatHistoryTruncation
   }
 

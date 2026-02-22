@@ -1,3 +1,4 @@
+import { settings } from '$lib/stores/settings.svelte'
 /**
  * Interactive Lorebook Service
  *
@@ -7,7 +8,7 @@
 
 import type { VaultLorebookEntry } from '$lib/types'
 import type { ModelMessage, ToolModelMessage, TextPart, ToolCallPart } from 'ai'
-import { settings } from '$lib/stores/settings.svelte'
+import { BaseAIService } from '../BaseAIService'
 import { createLogger } from '../core/config'
 import { FandomService } from '../../fandom'
 import { resolveAgentConfig, stopWhenDone } from '../sdk/agents'
@@ -95,15 +96,14 @@ function schemaToPendingChange(schema: PendingChangeSchema): PendingChange {
  * Service that provides interactive lorebook management via chat.
  * Uses streamText with tools for real-time responses.
  */
-export class InteractiveLorebookService {
+export class InteractiveLorebookService extends BaseAIService {
   private initialized: boolean = false
-  private presetId: string
   private fandomService: FandomService
   private conversationHistory: ModelMessage[] = []
   private systemPrompt: string = ''
 
-  constructor(presetId: string) {
-    this.presetId = presetId
+  constructor(serviceId: string) {
+    super(serviceId)
     this.fandomService = new FandomService()
   }
 

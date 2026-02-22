@@ -661,7 +661,7 @@ export type ProviderType =
   | 'nanogpt' // OpenAI-compatible at nano-gpt.com
   | 'chutes' // @chutes-ai/ai-sdk-provider
   | 'pollinations' // ai-sdk-pollinations
-  | 'ollama' // ollama-ai-provider (local)
+  | 'ollama' // @ai-sdk/openai-compatible (local)
   | 'lmstudio' // @ai-sdk/openai (local, default localhost:1234)
   | 'llamacpp' // @ai-sdk/openai (local, default localhost:8080)
   | 'nvidia-nim' // @ai-sdk/openai (NVIDIA NIM)

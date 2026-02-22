@@ -6,9 +6,10 @@
  */
 
 import type { Chapter, StoryEntry } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { ContextBuilder } from '$lib/services/context'
 import { createLogger } from '../core/config'
-import { generateStructured, generatePlainText } from '../sdk/generate'
+import { generatePlainText } from '../sdk/generate'
 import { timelineQueriesResultSchema, type TimelineQuery } from '../sdk/schemas/timeline'
 
 const log = createLogger('TimelineFill')
@@ -60,12 +61,11 @@ export interface TimelineFillResult {
 /**
  * Service that answers timeline questions using chapter summaries.
  */
-export class TimelineFillService {
-  private presetId: string
+export class TimelineFillService extends BaseAIService {
   private maxQueries: number
 
-  constructor(presetId: string = 'timelineFill', maxQueries: number = 5) {
-    this.presetId = presetId
+  constructor(serviceId: string, maxQueries: number = 5) {
+    super(serviceId)
     this.maxQueries = maxQueries
   }
 
@@ -102,13 +102,10 @@ export class TimelineFillService {
     const { system, user: prompt } = await ctx.render('timeline-fill')
 
     try {
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: timelineQueriesResultSchema,
-          system,
-          prompt,
-        },
+      const result = await this.generate(
+        timelineQueriesResultSchema,
+        system,
+        prompt,
         'timeline-fill',
       )
 

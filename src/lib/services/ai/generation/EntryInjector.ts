@@ -9,8 +9,8 @@
  */
 
 import type { Character, Location, Item, StoryBeat, StoryEntry, Chapter } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { createLogger } from '../core/config'
-import { generateStructured } from '../sdk/generate'
 import { entitySelectionSchema } from '../sdk/schemas/context'
 import { ContextBuilder as ContextPipeline } from '$lib/services/context'
 
@@ -66,13 +66,12 @@ export interface ContextResult {
  * - Tier 1 and Tier 2 work without AI
  * - Tier 3 uses LLM selection when entry count exceeds threshold
  */
-export class EntryInjector {
+export class EntryInjector extends BaseAIService {
   private config: ContextConfig
-  private presetId: string
 
-  constructor(config: Partial<ContextConfig> = {}, presetId: string = 'classification') {
+  constructor(config: Partial<ContextConfig> = {}, serviceId: string = 'entryRetrieval') {
+    super(serviceId)
     this.config = { ...DEFAULT_CONTEXT_CONFIG, ...config }
-    this.presetId = presetId
   }
 
   /**
@@ -381,13 +380,10 @@ export class EntryInjector {
     const { system, user: prompt } = await ctx.render('tier3-entry-selection')
 
     try {
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: entitySelectionSchema,
-          system,
-          prompt,
-        },
+      const result = await this.generate(
+        entitySelectionSchema,
+        system,
+        prompt,
         'tier3-entry-selection',
       )
 

@@ -16,6 +16,7 @@
   import { Button } from '$lib/components/ui/button'
   import { Slider } from '$lib/components/ui/slider'
   import { Input } from '$lib/components/ui/input'
+  import { Switch } from '$lib/components/ui/switch'
   import { Textarea } from '$lib/components/ui/textarea'
   import ModelSelector from './ModelSelector.svelte'
 
@@ -102,6 +103,13 @@
     const profile = settings.getMainNarrativeProfile()
     if (!profile) return false
     return getReasoningMode(profile.providerType) === 'fetched'
+  })
+
+  // For 'heuristic' providers (e.g., Ollama), reasoning is tag-based only — no effort levels
+  let isHeuristicReasoningProvider = $derived.by(() => {
+    const profile = settings.getMainNarrativeProfile()
+    if (!profile) return false
+    return getReasoningMode(profile.providerType) === 'heuristic'
   })
 
   // Proxy states for sliders to ensure correct array type binding
@@ -242,8 +250,8 @@
       </div>
     </div>
 
-    <!-- Thinking Row (only shown if provider/model supports reasoning via slider) -->
-    {#if reasoningSupported && !isFetchedReasoningProvider}
+    <!-- Thinking Row (only shown if provider/model supports native reasoning slider) -->
+    {#if reasoningSupported && !isFetchedReasoningProvider && !isHeuristicReasoningProvider}
       <div
         class={cn(
           'grid grid-cols-1 gap-6 border-t pt-4 md:grid-cols-2',
