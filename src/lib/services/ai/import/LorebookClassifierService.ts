@@ -65,12 +65,17 @@ export class LorebookClassifierService extends BaseAIService {
         ctx.add({ mode, pov: 'second', tense: 'present', protagonistName: '', entriesJson })
         const { system, user: prompt } = await ctx.render('lorebook-classifier')
 
-        const classifications = await this.generate(
-          lorebookClassificationResultSchema,
-          system,
-          prompt,
-          'lorebook-classifier',
-        )
+        let classifications: Array<{ index: number; type: string }> = []
+        try {
+          classifications = await this.generate(
+            lorebookClassificationResultSchema,
+            system,
+            prompt,
+            'lorebook-classifier',
+          )
+        } catch (err) {
+          log('Failed to classify batch starting at ' + startIndex, err)
+        }
 
         return { startIndex, batch, classifications }
       })
