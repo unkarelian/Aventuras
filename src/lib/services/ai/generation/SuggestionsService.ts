@@ -8,9 +8,9 @@
  */
 
 import type { StoryEntry, StoryBeat, Entry } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { ContextBuilder } from '$lib/services/context'
 import { createLogger, getContextConfig, getLorebookConfig } from '../core/config'
-import { generateStructured } from '../sdk/generate'
 import { suggestionsResultSchema, type SuggestionsResult } from '../sdk/schemas/suggestions'
 
 const log = createLogger('Suggestions')
@@ -21,15 +21,13 @@ const log = createLogger('Suggestions')
  * This service has been refactored to use the Vercel AI SDK with Zod schemas
  * for automatic output validation. The constructor no longer requires a provider.
  */
-export class SuggestionsService {
-  private presetId: string
-
+export class SuggestionsService extends BaseAIService {
   /**
    * Create a new SuggestionsService.
-   * @param presetId - The preset ID to use for generation settings (default: 'suggestions')
+   * @param serviceId - The service ID used to resolve the preset dynamically
    */
-  constructor(presetId: string = 'suggestions') {
-    this.presetId = presetId
+  constructor(serviceId: string) {
+    super(serviceId)
   }
 
   /**
@@ -120,15 +118,7 @@ export class SuggestionsService {
 
     try {
       // Use SDK's generateStructured - all boilerplate handled automatically
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: suggestionsResultSchema,
-          system,
-          prompt,
-        },
-        'suggestions',
-      )
+      const result = await this.generate(suggestionsResultSchema, system, prompt, 'suggestions')
 
       log('Suggestions generated:', result.suggestions.length)
       return result

@@ -13,21 +13,25 @@ import { generateImage } from './providers/registry'
 const log = createLogger('BackgroundImageService')
 
 export class BackgroundImageService {
-  private analysisPresetId: string
+  private serviceId: string
   private imageSettings: typeof settings.systemServicesSettings.imageGeneration
 
   constructor(
-    analysisPresetId: string = 'bgImageGeneration',
+    serviceId: string,
     imageSettings: typeof settings.systemServicesSettings.imageGeneration,
   ) {
-    this.analysisPresetId = analysisPresetId
+    this.serviceId = serviceId
     this.imageSettings = imageSettings
   }
 
-  async analyzeReponsesForBackgroundImage(
+  private get analysisPresetId(): string {
+    return settings.getServicePresetId(this.serviceId)
+  }
+
+  async analyzeResponsesForBackgroundImage(
     visibleEntries: StoryEntry[],
   ): Promise<BackgroundImageAnalysisResult> {
-    log('analyzeReponsesForBackgroundImage called', {
+    log('analyzeResponsesForBackgroundImage called', {
       visibleEntriesCount: visibleEntries.length,
     })
 

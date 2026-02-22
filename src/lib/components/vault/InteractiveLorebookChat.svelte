@@ -6,7 +6,6 @@
     type ChatMessage,
     type ToolCallDisplay,
   } from '$lib/services/ai/lorebook/InteractiveLorebookService'
-  import { settings } from '$lib/stores/settings.svelte'
   import DiffView from './DiffView.svelte'
   import {
     X,
@@ -77,9 +76,7 @@
 
   async function initializeService() {
     try {
-      const presetId = settings.getServicePresetId('interactiveLorebook')
-
-      service = new InteractiveLorebookService(presetId)
+      service = new InteractiveLorebookService('interactiveLorebook')
       await service.initialize(lorebookName || 'New Lorebook', entries.length)
 
       // Add initial greeting message (display-only, not sent to API)

@@ -372,12 +372,13 @@
       settings.generationPresets = settings.generationPresets.filter((p) => p.id !== presetId)
       await settings.saveGenerationPresets()
 
-      // Reset assignments
+      // Reset assignments - mutate in-memory then save once
       for (const service of systemServices) {
         if (settings.servicePresetAssignments[service.id] === presetId) {
-          settings.setServicePresetId(service.id, '')
+          settings.servicePresetAssignments[service.id] = ''
         }
       }
+      await settings.saveServicePresetAssignments()
     }
   }
 
@@ -482,6 +483,15 @@
     const profile = settings.getProfile(profileId)
     if (!profile) return false
     return getReasoningMode(profile.providerType) === 'fetched'
+  })
+
+  // For 'heuristic' providers (e.g., Ollama), reasoning is tag-based only — no effort levels
+  let isHeuristicProvider = $derived.by(() => {
+    if (!tempPreset) return false
+    const profileId = tempPreset.profileId ?? settings.getDefaultProfileIdForProvider()
+    const profile = settings.getProfile(profileId)
+    if (!profile) return false
+    return getReasoningMode(profile.providerType) === 'heuristic'
   })
 </script>
 
@@ -638,7 +648,7 @@
               Some models support reasoning. Fetch models to detect capabilities.
             </p>
           {/if}
-        {:else if tempPresetReasoningSupported}
+        {:else if tempPresetReasoningSupported && !isHeuristicProvider}
           <div class="grid gap-4">
             <div class="flex justify-between">
               <Label>Thinking: {reasoningLabels[tempPreset.reasoningEffort]}</Label>

@@ -6,6 +6,7 @@
  */
 
 import type { Entry, VaultLorebookEntry } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { createLogger } from '../core/config'
 import { createAgentFromPreset, extractTerminalToolResult, stopOnTerminalTool } from '../sdk/agents'
 import { createLorebookTools, type LorebookToolContext } from '../sdk/tools'
@@ -82,12 +83,11 @@ function entryToVaultEntry(entry: Entry): VaultLorebookEntry {
  * Service that autonomously manages lorebook entries.
  * Uses ToolLoopAgent for multi-turn tool calling.
  */
-export class LoreManagementService {
-  private presetId: string
+export class LoreManagementService extends BaseAIService {
   private maxIterations: number
 
-  constructor(presetId: string = 'agentic', maxIterations: number = 3) {
-    this.presetId = presetId
+  constructor(serviceId: string, maxIterations: number = 3) {
+    super(serviceId)
     this.maxIterations = maxIterations
   }
 

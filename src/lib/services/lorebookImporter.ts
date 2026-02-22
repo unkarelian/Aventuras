@@ -12,11 +12,8 @@ import type {
   VaultLorebookEntry,
 } from '$lib/types'
 import type { StoryMode } from '$lib/types'
-import { ContextBuilder } from '$lib/services/context'
-import { generateStructured } from './ai/sdk/generate'
-import { lorebookClassificationResultSchema } from './ai/sdk/schemas/lorebook'
 import { createLogger } from './ai/core/config'
-import { settings } from '$lib/stores/settings.svelte'
+import { LorebookClassifierService } from './ai/import/LorebookClassifierService'
 
 const log = createLogger('LorebookImporter')
 
@@ -246,94 +243,8 @@ export async function classifyEntriesWithLLM(
   onProgress?: (classified: number, total: number) => void,
   mode: StoryMode = 'adventure',
 ): Promise<ImportedEntry[]> {
-  if (entries.length === 0) return entries
-
-  const lorebookSettings = settings.serviceSpecificSettings?.lorebookClassifier
-  const BATCH_SIZE = lorebookSettings?.batchSize ?? 50
-  const MAX_CONCURRENT = lorebookSettings?.maxConcurrent ?? 5
-
-  const result = [...entries]
-  let classified = 0
-
-  // Build all batch indices
-  const batchStarts: number[] = []
-  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-    batchStarts.push(i)
-  }
-
-  // Process batches with concurrency limit
-  for (let ci = 0; ci < batchStarts.length; ci += MAX_CONCURRENT) {
-    const concurrentStarts = batchStarts.slice(ci, ci + MAX_CONCURRENT)
-
-    const batchPromises = concurrentStarts.map(async (startIndex) => {
-      const batch = entries.slice(startIndex, startIndex + BATCH_SIZE)
-
-      // Build entries JSON for the prompt
-      const entriesJson = JSON.stringify(
-        batch.map((entry, batchIndex) => ({
-          index: batchIndex,
-          name: entry.name,
-          content: entry.description.slice(0, 500), // Limit content length
-          keywords: entry.keywords.slice(0, 10),
-        })),
-        null,
-        2,
-      )
-
-      // Render prompts via ContextBuilder pipeline
-      const ctx = new ContextBuilder()
-      ctx.add({
-        mode,
-        pov: 'second',
-        tense: 'present',
-        protagonistName: '',
-        entriesJson,
-      })
-      const { system, user: prompt } = await ctx.render('lorebook-classifier')
-
-      const classifications = await generateStructured(
-        {
-          presetId: 'classification',
-          schema: lorebookClassificationResultSchema,
-          system,
-          prompt,
-        },
-        'lorebook-classifier',
-      )
-
-      return { startIndex, batch, classifications }
-    })
-
-    const batchResults = await Promise.all(batchPromises)
-
-    // Apply classifications from all concurrent batches
-    for (const { startIndex, batch, classifications } of batchResults) {
-      for (const classification of classifications) {
-        const globalIndex = startIndex + classification.index
-        if (globalIndex < result.length) {
-          result[globalIndex] = {
-            ...result[globalIndex],
-            type: classification.type as EntryType,
-          }
-        }
-      }
-
-      classified += batch.length
-      if (onProgress) {
-        onProgress(classified, entries.length)
-      }
-
-      log('Classified batch', {
-        batchStart: startIndex,
-        batchSize: BATCH_SIZE,
-        maxConcurrent: MAX_CONCURRENT,
-        classified,
-        total: entries.length,
-      })
-    }
-  }
-
-  return result
+  const service = new LorebookClassifierService()
+  return service.classifyEntries(entries, onProgress, mode)
 }
 
 function determineInjectionMode(entry: SillyTavernEntry): EntryInjectionMode {

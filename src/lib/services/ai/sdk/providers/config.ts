@@ -23,12 +23,13 @@ export interface ProviderCapabilities {
   structuredOutput: boolean
   /**
    * Whether the provider supports reasoning/thinking.
-   * - 'native': Provider has native reasoning support (Anthropic thinking, OpenAI reasoning)
-   * - 'openrouter': Uses OpenRouter's reasoning parameter
+   * - 'native': Provider has native reasoning support in its API (Anthropic, OpenAI, DeepSeek, xAI)
+   * - 'openrouter': Uses OpenRouter's specific reasoning parameter
    * - 'fetched': Reasoning support determined per-model from API capabilities (e.g., NanoGPT)
+   * - 'heuristic': No specific API parameter; reasoning is purely tag-based (local providers like Ollama)
    * - false: No reasoning support
    */
-  reasoning: 'native' | 'openrouter' | 'fetched' | false
+  reasoning: 'native' | 'openrouter' | 'fetched' | 'heuristic' | false
   /**
    * How reasoning is extracted from the response.
    * - 'sdk-native': SDK handles it natively (Anthropic, DeepSeek)
@@ -252,13 +253,14 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
   ollama: {
     name: 'Ollama',
     description: 'Run local LLMs (requires Ollama installed)',
-    baseUrl: 'http://localhost:11434',
+    baseUrl: 'http://localhost:11434/v1',
     requiresApiKey: false,
     capabilities: {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: true,
-      reasoning: false,
+      reasoning: 'heuristic',
+      reasoningExtraction: 'think-tag',
     },
     fallbackModels: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'qwen2.5', 'phi3', 'gemma2'],
     // No service defaults - user must configure models in Generation Settings
@@ -273,7 +275,8 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: false,
-      reasoning: false,
+      reasoning: 'heuristic',
+      reasoningExtraction: 'think-tag',
     },
     fallbackModels: ['loaded-model'],
     // No service defaults - user must configure models in Generation Settings
@@ -288,7 +291,8 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: false,
-      reasoning: false,
+      reasoning: 'heuristic',
+      reasoningExtraction: 'think-tag',
     },
     fallbackModels: ['loaded-model'],
     // No service defaults - user must configure models in Generation Settings
@@ -303,9 +307,11 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: true,
-      reasoning: false,
+      reasoning: 'native',
+      reasoningExtraction: 'think-tag',
     },
     fallbackModels: [
+      'nvidia/llama-3.1-nemotron-nano-8b-v2',
       'meta/llama-3.1-70b-instruct',
       'meta/llama-3.1-8b-instruct',
       'nvidia/llama-3.1-nemotron-70b-instruct',
@@ -322,7 +328,8 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: false,
-      reasoning: false,
+      reasoning: 'heuristic',
+      reasoningExtraction: 'think-tag',
     },
     fallbackModels: ['default'],
     // No service defaults - user must configure models in Generation Settings
@@ -544,7 +551,7 @@ export function supportsReasoning(providerType: ProviderType): boolean {
 /** Get the reasoning mode for a provider */
 export function getReasoningMode(
   providerType: ProviderType,
-): 'native' | 'openrouter' | 'fetched' | false {
+): 'native' | 'openrouter' | 'fetched' | 'heuristic' | false {
   return PROVIDERS[providerType].capabilities.reasoning
 }
 

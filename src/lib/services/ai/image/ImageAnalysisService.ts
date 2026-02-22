@@ -9,9 +9,9 @@
  */
 
 import type { VisualDescriptors } from '$lib/types'
+import { BaseAIService } from '../BaseAIService'
 import { ContextBuilder } from '$lib/services/context'
 import { createLogger } from '../core/config'
-import { generateStructured } from '../sdk/generate'
 import { sceneAnalysisResultSchema, type ImageableScene } from '../sdk/schemas/imageanalysis'
 
 const log = createLogger('ImageAnalysis')
@@ -55,15 +55,13 @@ export interface ImageAnalysisContext {
 /**
  * Service that identifies imageable scenes in narrative text using the Vercel AI SDK.
  */
-export class ImageAnalysisService {
-  private presetId: string
-
+export class ImageAnalysisService extends BaseAIService {
   /**
    * Create a new ImageAnalysisService.
-   * @param presetId - The preset ID to use for generation settings (default: 'imageGeneration')
+   * @param serviceId - The service ID used to resolve the preset dynamically
    */
-  constructor(presetId: string = 'imageGeneration') {
-    this.presetId = presetId
+  constructor(serviceId: string) {
+    super(serviceId)
   }
 
   /**
@@ -121,15 +119,7 @@ ${context.translatedNarrative}`
     const { system, user: prompt } = await ctx.render(templateId)
 
     try {
-      const result = await generateStructured(
-        {
-          presetId: this.presetId,
-          schema: sceneAnalysisResultSchema,
-          system,
-          prompt,
-        },
-        templateId,
-      )
+      const result = await this.generate(sceneAnalysisResultSchema, system, prompt, templateId)
 
       // Sort by priority (highest first)
       const sortedScenes = result.scenes.sort((a, b) => b.priority - a.priority)
@@ -139,7 +129,7 @@ ${context.translatedNarrative}`
         priorities: sortedScenes.map((s) => s.priority),
       })
 
-      return sortedScenes
+      return sortedScenes as ImageableScene[]
     } catch (error) {
       log('identifyScenes failed', error)
       return []
