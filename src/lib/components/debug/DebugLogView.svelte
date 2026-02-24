@@ -3,6 +3,7 @@
   import {
     ArrowUpCircle,
     ArrowDownCircle,
+    ArrowUp,
     Copy,
     Check,
     Filter,
@@ -31,8 +32,7 @@
   let copiedId = $state<string | null>(null)
   let selectedCategories = $state<string[]>([])
   let scrollContainer: HTMLDivElement | null = $state(null)
-  let savedScrollTop = 0
-  let savedScrollHeight = 0
+  let userScrolledAway = $state(false)
 
   // Pagination
   let currentPage = $state(1)
@@ -140,21 +140,33 @@
     return groupedLogs.slice(start, start + pageSize)
   })
 
-  // Scroll management
-  $effect.pre(() => {
-    void groupedLogs
-    if (scrollContainer) {
-      savedScrollTop = scrollContainer.scrollTop
-      savedScrollHeight = scrollContainer.scrollHeight
-    }
-  })
+  // Auto-scroll to top when new logs arrive (newest logs appear at top)
+  let prevLogCount = 0
+
+  function scrollToTop() {
+    if (!scrollContainer) return
+    scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function isNearTop(): boolean {
+    if (!scrollContainer) return true
+    return scrollContainer.scrollTop < 50
+  }
+
+  function handleScroll() {
+    if (!scrollContainer) return
+    userScrolledAway = !isNearTop()
+  }
 
   $effect(() => {
-    void groupedLogs
-    if (scrollContainer && savedScrollHeight > 0) {
-      const heightDiff = scrollContainer.scrollHeight - savedScrollHeight
-      scrollContainer.scrollTop = savedScrollTop + heightDiff
+    const currentCount = logs.length
+    if (currentCount > prevLogCount && !userScrolledAway) {
+      // New logs arrived and user hasn't scrolled away — scroll to top
+      requestAnimationFrame(() => {
+        if (scrollContainer) scrollContainer.scrollTop = 0
+      })
     }
+    prevLogCount = currentCount
   })
 </script>
 
@@ -252,7 +264,11 @@
   </div>
 
   <!-- Logs Area -->
-  <div class="flex-1 overflow-y-auto px-6 py-4" bind:this={scrollContainer}>
+  <div
+    class="relative flex-1 overflow-y-auto px-6 py-4"
+    bind:this={scrollContainer}
+    onscroll={handleScroll}
+  >
     {#if pagedLogs.length === 0}
       <div class="text-muted-foreground flex h-48 flex-col items-center justify-center text-sm">
         <p>No API requests matching the current filter.</p>
@@ -346,6 +362,22 @@
             {/if}
           </div>
         {/each}
+      </div>
+    {/if}
+
+    <!-- Scroll to latest button -->
+    {#if userScrolledAway}
+      <div class="pointer-events-none sticky top-2 flex w-full justify-center">
+        <Button
+          variant="outline"
+          size="sm"
+          class="border-border bg-background/80 hover:bg-accent animate-in fade-in slide-in-from-top-2 pointer-events-auto h-8 rounded-full border px-3 shadow-lg backdrop-blur-sm"
+          onclick={scrollToTop}
+          aria-label="Scroll to latest"
+        >
+          <ArrowUp class="mr-1.5 h-3.5 w-3.5" />
+          <span class="text-xs">Latest</span>
+        </Button>
       </div>
     {/if}
   </div>
