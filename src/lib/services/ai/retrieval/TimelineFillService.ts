@@ -239,7 +239,12 @@ export class TimelineFillService {
           }
         }
 
-        const answer = await this.answerQuestion(q.query, chapters, chapterNumbers, getChapterEntries)
+        const answer = await this.answerQuestion(
+          q.query,
+          chapters,
+          chapterNumbers,
+          getChapterEntries,
+        )
 
         return {
           query: q.query,
