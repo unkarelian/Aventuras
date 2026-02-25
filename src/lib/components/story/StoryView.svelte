@@ -28,10 +28,6 @@
   let windowStart = $state(0)
   let windowEnd = $state(DEFAULT_VISIBLE_ENTRIES)
 
-  // 'bottom': window anchored to latest entries (auto-scroll active)
-  // 'top':    user navigated to oldest entries (auto-scroll disengaged)
-  let viewMode = $state<'top' | 'bottom'>('bottom')
-
   // Track if user has scrolled away from top (for showing scroll-to-top button)
   let userScrolledDown = $state(false)
 
@@ -61,7 +57,6 @@
 
     if (currentStoryId !== lastStoryId) {
       lastStoryId = currentStoryId
-      viewMode = 'bottom'
       anchorToBottom(story.entries.length)
     }
   })
@@ -151,7 +146,6 @@
   }
 
   function scrollToBottom() {
-    viewMode = 'bottom'
     anchorToBottom(story.entries.length)
     requestAnimationFrame(() => {
       performScroll(storyContainer?.scrollHeight ?? 0)
@@ -161,7 +155,6 @@
   function scrollToTop() {
     ui.setScrollBreak(true)
     suppressScrollHandler = true
-    viewMode = 'top'
     anchorToTop(story.entries.length)
     requestAnimationFrame(() => {
       performScroll(0)
@@ -230,7 +223,6 @@
 
     // New entries: re-anchor window to the latest entries
     if (wasAdded) {
-      viewMode = 'bottom'
       anchorToBottom(currentCount)
     }
 
