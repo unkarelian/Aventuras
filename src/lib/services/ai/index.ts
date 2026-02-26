@@ -1084,6 +1084,10 @@ class AIService {
           await database.updateCharacter(character.id, {
             portrait: result.base64,
           })
+          // Update the in-memory store so the UI reflects the new portrait immediately
+          story.characters = story.characters.map((c) =>
+            c.id === character.id ? { ...c, portrait: result.base64 } : c,
+          )
           log('Saved portrait to character', { characterId: character.id, name: charName })
         }
       }
