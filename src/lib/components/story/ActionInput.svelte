@@ -361,7 +361,8 @@
       if (success) {
         const body =
           settings.experimentalFeatures.notificationPreview && responseText.length > 0
-            ? responseText.slice(0, 120).replace(/[<>]/g, '') + (responseText.length > 120 ? '…' : '')
+            ? responseText.slice(0, 120).replace(/[<>]/g, '') +
+              (responseText.length > 120 ? '…' : '')
             : 'Tap to return to your story.'
         sendNotification({ title: 'Story generation complete', body })
       } else {

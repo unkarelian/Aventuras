@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { getVersion } from '@tauri-apps/api/app'
+  import { ask } from '@tauri-apps/plugin-dialog'
   import { ui } from '$lib/stores/ui.svelte'
   import { settings } from '$lib/stores/settings.svelte'
   import { story } from '$lib/stores/story.svelte'
@@ -146,8 +147,9 @@
   }
 
   async function handleResetAll() {
-    const confirmed = confirm(
+    const confirmed = await ask(
       'Reset all settings to their default values?\n\nYour API key will be preserved, but all other settings (models, temperatures, prompts, UI preferences) will be reset.\n\nThis cannot be undone.',
+      { title: 'Reset All Settings', kind: 'warning' },
     )
     if (!confirmed) return
 

@@ -36,6 +36,10 @@
   import * as Dialog from '$lib/components/ui/dialog'
   import { database } from '$lib/services/database'
   import { isAndroid } from '$lib/utils/platform'
+  import { ask } from '@tauri-apps/plugin-dialog'
+
+  // Local mirror so we can revert the visual state if the confirm dialog is cancelled
+  let stateTrackingChecked = $state(settings.experimentalFeatures.stateTracking)
 
   let isBackingUp = $state(false)
   let backupResult = $state<{ success: boolean; message: string } | null>(null)
@@ -165,10 +169,14 @@
   async function handleStateTrackingToggle(checked: boolean) {
     if (checked && !hasEverBackedUp) {
       // Recommend backup before enabling
-      const shouldContinue = confirm(
+      const shouldContinue = await ask(
         'It is strongly recommended to download a full backup before enabling experimental features.\n\nWould you like to continue without a backup?',
+        { title: 'Enable State Tracking', kind: 'warning' },
       )
-      if (!shouldContinue) return
+      if (!shouldContinue) {
+        stateTrackingChecked = !checked // revert visual state
+        return
+      }
     }
     await settings.updateExperimentalFeatures({ stateTracking: checked })
   }
@@ -238,6 +246,7 @@
 
   async function handleResetAll() {
     await settings.resetExperimentalFeatures()
+    stateTrackingChecked = settings.experimentalFeatures.stateTracking
   }
 </script>
 
@@ -335,10 +344,7 @@
           </p>
         {/if}
       </div>
-      <Switch
-        checked={settings.experimentalFeatures.stateTracking}
-        onCheckedChange={handleStateTrackingToggle}
-      />
+      <Switch bind:checked={stateTrackingChecked} onCheckedChange={handleStateTrackingToggle} />
     </div>
 
     <!-- Rollback on Delete -->
