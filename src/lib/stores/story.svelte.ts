@@ -4014,7 +4014,7 @@ class StoryStore {
     }
 
     // Generate background image from opening scene
-    if (data.openingScene && openingEntry) {
+    if (data.openingScene && openingEntry && storyData.settings?.backgroundImagesEnabled) {
       aiService.analyzeBackgroundChangeAndGenerateImage(storyId, [openingEntry])
       log('Generated background image')
     }

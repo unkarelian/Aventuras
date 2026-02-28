@@ -85,10 +85,6 @@ export class BackgroundImagePhase {
     }
 
     try {
-      console.log('BackgroundImagePhase.execute2')
-      // Start image generation (runs in background via AIService)
-      // Note: This is intentionally fire-and-forget within the pipeline
-      // The AIService handles its own error logging
       await this.deps.analyzeBackgroundChangeAndGenerateImage(storyId, storyEntries)
 
       const result: BackgroundImageResult = { started: true }
