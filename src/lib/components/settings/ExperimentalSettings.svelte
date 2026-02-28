@@ -190,13 +190,15 @@
   const showAndroidSection = isAndroid()
 
   async function handleBackgroundGenerationToggle(checked: boolean) {
-    await settings.updateExperimentalFeatures({ backgroundGeneration: checked })
-    // Turning off master toggle cascades to disable sub-toggles
     if (!checked) {
+      // Turning off master toggle cascades to disable sub-toggles (single write)
       await settings.updateExperimentalFeatures({
+        backgroundGeneration: false,
         generationNotifications: false,
         notificationPreview: false,
       })
+    } else {
+      await settings.updateExperimentalFeatures({ backgroundGeneration: true })
     }
   }
 
@@ -219,8 +221,12 @@
         console.warn('[ExperimentalSettings] Notification permission check failed:', e)
       }
     } else {
-      // Turning off notifications cascades to disable preview
-      await settings.updateExperimentalFeatures({ notificationPreview: false })
+      // Turning off notifications cascades to disable preview (single write)
+      await settings.updateExperimentalFeatures({
+        generationNotifications: false,
+        notificationPreview: false,
+      })
+      return
     }
     await settings.updateExperimentalFeatures({ generationNotifications: checked })
   }

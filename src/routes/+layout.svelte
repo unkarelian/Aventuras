@@ -4,6 +4,7 @@
   import Toast from '$lib/components/Toast.svelte'
   import { ui } from '$lib/stores/ui.svelte'
   import { story } from '$lib/stores/story.svelte'
+  import { isAndroid } from '$lib/utils/platform'
 
   let { children } = $props()
 
@@ -13,7 +14,7 @@
     // Start tracking visibility changes for background generation detection
     ui.initVisibilityTracking()
 
-    if (!/Android/i.test(navigator.userAgent)) {
+    if (!isAndroid()) {
       return () => {
         ui.destroyVisibilityTracking()
       }

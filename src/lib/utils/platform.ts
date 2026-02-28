@@ -12,12 +12,4 @@ export function isAndroid(): boolean {
   return /Android/i.test(navigator.userAgent)
 }
 
-/**
- * Returns `true` when the app is running as a Tauri Android application.
- * Combines the user-agent check with a Tauri runtime probe.
- */
-export function isTauriAndroid(): boolean {
-  if (!isAndroid()) return false
-  // window.__TAURI_INTERNALS__ is set by the Tauri runtime
-  return typeof (window as any).__TAURI_INTERNALS__ !== 'undefined'
-}
+

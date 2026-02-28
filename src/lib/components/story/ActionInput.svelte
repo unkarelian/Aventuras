@@ -36,7 +36,6 @@
   } from '$lib/services/events'
   import { isTouchDevice } from '$lib/utils/swipe'
   import { isAndroid } from '$lib/utils/platform'
-  import '$lib/types/android.d.ts'
   import {
     GenerationPipeline,
     retryService,
