@@ -10,7 +10,7 @@
 
 import type { Character, Location, Item, StoryBeat, StoryEntry, Chapter } from '$lib/types'
 import { BaseAIService } from '../BaseAIService'
-import { createLogger } from '../core/config'
+import { AI_CONFIG, createLogger } from '../core/config'
 import { entitySelectionSchema } from '../sdk/schemas/context'
 import { ContextBuilder as ContextPipeline } from '$lib/services/context'
 
@@ -37,8 +37,8 @@ export interface ContextConfig {
 }
 
 export const DEFAULT_CONTEXT_CONFIG: ContextConfig = {
-  llmThreshold: 30,
-  maxEntriesPerTier: 10,
+  llmThreshold: AI_CONFIG.lorebook.llmThreshold,
+  maxEntriesPerTier: AI_CONFIG.lorebook.maxEntriesPerTier,
   enableLLMSelection: true,
   recentEntriesCount: 5,
 }

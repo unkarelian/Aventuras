@@ -7,6 +7,7 @@
 
 import { ui } from '$lib/stores/ui.svelte'
 import { fetch as tauriHttpFetch } from '@tauri-apps/plugin-http'
+import { LLM_TIMEOUT_DEFAULT } from '$lib/constants/timeout'
 
 function normalizeHeaders(headers: RequestInit['headers']): Record<string, string> {
   if (!headers) return {}
@@ -44,7 +45,7 @@ function patchResponseJson(json: Record<string, unknown>): Record<string, unknow
 }
 
 export function createTimeoutFetch(
-  timeoutMs = 180000,
+  timeoutMs = LLM_TIMEOUT_DEFAULT,
   serviceId: string,
   debugIdExternal?: string,
 ) {

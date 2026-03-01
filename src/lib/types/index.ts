@@ -98,7 +98,7 @@ export interface PersistentStyleReviewState {
 }
 
 export interface MemoryConfig {
-  tokenThreshold: number // Token count before triggering summarization (default: 24000)
+  tokenThreshold: number // Token count before triggering summarization (default: 16000)
   chapterBuffer: number // Recent messages protected from chapter end (default: 10)
   autoSummarize: boolean // Enable auto-summarization
   enableRetrieval: boolean // Enable memory retrieval
@@ -707,7 +707,7 @@ export interface APISettings {
   reasoningEffort: ReasoningEffort // Reasoning effort for the main narrative model
   manualBody: string // Manual request body JSON for the main narrative model
   enableThinking: boolean // Legacy toggle for reasoning (backward compatibility)
-  llmTimeoutMs: number // Request timeout in milliseconds (default: 180000 = 3 minutes)
+  llmTimeoutMs: number // Request timeout in milliseconds (default: 360000 = 6 minutes)
   useNativeTimeout: boolean // If true, pass timeout to API's native timeout parameter (modern SDK-compatible endpoints)
 }
 

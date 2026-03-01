@@ -15,13 +15,13 @@ import {
   type ChapterSummaryResult,
   type RetrievalDecision,
 } from '../sdk/schemas/memory'
-import { createLogger } from '../core/config'
+import { AI_CONFIG, createLogger } from '../core/config'
 
 const log = createLogger('Memory')
 
 export const DEFAULT_MEMORY_CONFIG = {
-  tokenThreshold: 24000,
-  chapterBuffer: 10,
+  tokenThreshold: AI_CONFIG.memory.defaultTokenThreshold,
+  chapterBuffer: AI_CONFIG.memory.defaultChapterBuffer,
   autoSummarize: true,
   enableRetrieval: true,
   maxChaptersPerRetrieval: 3,

@@ -18,10 +18,11 @@ import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createMistral } from '@ai-sdk/mistral'
 
 import type { APIProfile } from '$lib/types'
+import { LLM_TIMEOUT_DEFAULT } from '$lib/constants/timeout'
 import { createTimeoutFetch } from './fetch'
 import { PROVIDERS, getBaseUrl } from './config'
 
-const DEFAULT_TIMEOUT_MS = 180000
+const DEFAULT_TIMEOUT_MS = LLM_TIMEOUT_DEFAULT
 
 export function createProviderFromProfile(profile: APIProfile, presetId: string, debugId?: string) {
   const fetch = createTimeoutFetch(DEFAULT_TIMEOUT_MS, presetId, debugId)

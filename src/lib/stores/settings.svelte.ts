@@ -831,7 +831,7 @@ export function getDefaultContextWindowSettings(): ContextWindowSettings {
     recentEntriesForNarrative: 20,
     recentEntriesForTiered: 10,
     recentEntriesForRetrieval: 5,
-    recentEntriesForChoices: 3,
+    recentEntriesForChoices: 5,
     userActionsForStyle: 6,
     recentEntriesForLoreManagement: 10,
     recentEntriesForNameMatching: 3,
@@ -844,7 +844,7 @@ export function getDefaultLorebookLimitsSettings(): LorebookLimitsSettings {
     maxForSuggestions: 15,
     maxForAgenticPreview: 20,
     llmThreshold: 30,
-    maxEntriesPerTier: 10,
+    maxEntriesPerTier: 20,
   }
 }
 
