@@ -6,8 +6,8 @@ if [[ -z "${ANDROID_HOME:-}" && -n "${ANDROID_SDK_ROOT:-}" ]]; then
     export ANDROID_HOME="$ANDROID_SDK_ROOT"
 fi
 
-if [ -z "${ANDROID_HOME:-}" ] || [ -z "${NDK_HOME:-}" ]; then
-    echo "Error: ANDROID_HOME (or ANDROID_SDK_ROOT) and NDK_HOME environment variables must be set."
+if [[ -z "${ANDROID_HOME:-}" || -z "${NDK_HOME:-}" ]]; then
+    echo "Error: ANDROID_HOME (or ANDROID_SDK_ROOT) and NDK_HOME environment variables must be set." >&2
     exit 1
 fi
 
