@@ -436,14 +436,6 @@
           onclick={() => (showVaultAssistant = true)}
         />
 
-        <Button
-          icon={Tags}
-          label="Tags"
-          variant="outline"
-          size="sm"
-          class="h-9"
-          onclick={() => (showTagManager = true)}
-        />
         {#if activeTab === 'prompts' && promptsViewState.mode === 'browsing'}
           <Button
             icon={Download}
