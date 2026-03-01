@@ -146,6 +146,9 @@ export class ServiceFactory {
    */
   createBackgroundImageService(): BackgroundImageService {
     const imageSettings = settings.systemServicesSettings.imageGeneration
+    if (!imageSettings.backgroundProfileId) {
+      throw new Error('Background profile ID is missing')
+    }
     return new BackgroundImageService('bgImageGeneration', imageSettings)
   }
 }

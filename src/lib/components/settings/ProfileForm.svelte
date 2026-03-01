@@ -200,7 +200,7 @@
   />
 
   <!-- Models Section -->
-  <div class="">
+  <div class="flex flex-col gap-2">
     <div class="flex items-center justify-between">
       <Label class="flex items-center gap-2">
         <Box class="h-4 w-4" />
@@ -236,7 +236,7 @@
     </div>
 
     {#if fetchError}
-      <Alert variant="destructive" class="mt-2">
+      <Alert variant="destructive">
         <AlertCircle class="h-4 w-4" />
         <AlertDescription class="text-xs">{fetchError}</AlertDescription>
       </Alert>
@@ -244,19 +244,17 @@
 
     <!-- Model filter (shown when there are enough models) -->
     {#if fetchedModels.length + customModels.length > 10}
-      <div class="my-2">
-        <Input
-          placeholder="Filter models..."
-          bind:value={modelFilterInput}
-          leftIcon={Search}
-          class="text-xs"
-        />
-      </div>
+      <Input
+        placeholder="Filter models..."
+        bind:value={modelFilterInput}
+        leftIcon={Search}
+        class="text-xs"
+      />
     {/if}
 
     <!-- Fetched Models -->
     {#if fetchedModels.length > 0}
-      <div class="mt-2 mb-2 space-y-1">
+      <div class="space-y-1">
         <p class="text-muted-foreground text-xs font-medium">
           Fetched Models ({fetchedModels.length})
         </p>
@@ -293,7 +291,7 @@
 
     <!-- Custom Models -->
     {#if customModels.length > 0}
-      <div class="mb-2 space-y-1">
+      <div class="space-y-1">
         <p class="text-muted-foreground text-xs font-medium">
           Custom Models ({customModels.length})
         </p>

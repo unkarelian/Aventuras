@@ -1518,6 +1518,7 @@ class UIStore {
    * Add a request log entry. Returns the entry ID for pairing with response.
    */
   addDebugRequest(serviceName: string, data: Record<string, unknown>, debugId?: string): string {
+    if (!settings.uiSettings.debugMode) return ''
     let id = debugId || `debug-${++this.debugLogIdCounter}-${Date.now()}`
     // Multi-step streamText reuses the same debugId for each fetch call — deduplicate
     if (debugId && this.debugLogs.some((e) => e.id === id)) {

@@ -1029,6 +1029,38 @@ export function getDefaultUISettings(): UISettings {
   }
 }
 
+export const DEFAULT_SERVICE_PRESET_ASSIGNMENTS: Record<string, string> = {
+  classifier: 'classification',
+  lorebookClassifier: 'classification',
+  entryRetrieval: 'classification',
+  characterCardImport: 'classification',
+  memory: 'memory',
+  chapterQuery: 'memory',
+  timelineFill: 'memory',
+  suggestions: 'suggestions',
+  actionChoices: 'suggestions',
+  styleReviewer: 'suggestions',
+  loreManagement: 'agentic',
+  agenticRetrieval: 'agentic',
+  interactiveVault: 'agentic',
+  imageGeneration: 'suggestions',
+  bgImageGeneration: 'suggestions',
+  'wizard:settingExpansion': 'wizard',
+  'wizard:settingRefinement': 'wizard',
+  'wizard:protagonistGeneration': 'wizard',
+  'wizard:characterElaboration': 'wizard',
+  'wizard:characterRefinement': 'wizard',
+  'wizard:supportingCharacters': 'wizard',
+  'wizard:openingGeneration': 'wizard',
+  'wizard:openingRefinement': 'wizard',
+  'translation:narration': 'translation',
+  'translation:input': 'translation',
+  'translation:ui': 'translation',
+  'translation:suggestions': 'translation',
+  'translation:actionChoices': 'translation',
+  'translation:wizard': 'translation',
+}
+
 // Settings Store using Svelte 5 runes
 class SettingsStore {
   // Provider preset - which provider's defaults to use
@@ -1075,35 +1107,7 @@ class SettingsStore {
 
   // Service preset assignments - which preset each service uses
   servicePresetAssignments = $state<Record<string, string>>({
-    classifier: 'classification',
-    lorebookClassifier: 'classification',
-    entryRetrieval: 'classification',
-    characterCardImport: 'classification',
-    memory: 'memory',
-    chapterQuery: 'memory',
-    timelineFill: 'memory',
-    suggestions: 'suggestions',
-    actionChoices: 'suggestions',
-    styleReviewer: 'suggestions',
-    loreManagement: 'agentic',
-    agenticRetrieval: 'agentic',
-    interactiveVault: 'agentic',
-    imageGeneration: 'suggestions',
-    bgImageGeneration: 'suggestions',
-    'wizard:settingExpansion': 'wizard',
-    'wizard:settingRefinement': 'wizard',
-    'wizard:protagonistGeneration': 'wizard',
-    'wizard:characterElaboration': 'wizard',
-    'wizard:characterRefinement': 'wizard',
-    'wizard:supportingCharacters': 'wizard',
-    'wizard:openingGeneration': 'wizard',
-    'wizard:openingRefinement': 'wizard',
-    'translation:narration': 'translation',
-    'translation:input': 'translation',
-    'translation:ui': 'translation',
-    'translation:suggestions': 'translation',
-    'translation:actionChoices': 'translation',
-    'translation:wizard': 'translation',
+    ...DEFAULT_SERVICE_PRESET_ASSIGNMENTS,
   })
 
   serviceSpecificSettings = $state<ServiceSpecificSettings>(getDefaultServiceSpecificSettings())
@@ -2434,6 +2438,11 @@ class SettingsStore {
     await this.saveGenerationPresets()
   }
 
+  async resetServicePresetAssignments() {
+    this.servicePresetAssignments = { ...DEFAULT_SERVICE_PRESET_ASSIGNMENTS }
+    await this.saveServicePresetAssignments()
+  }
+
   async saveSystemServicesSettings() {
     await database.setSetting(
       'system_services_settings',
@@ -2791,6 +2800,8 @@ class SettingsStore {
     await this.saveWizardSettings()
     await this.saveSystemServicesSettings()
     await this.saveUpdateSettings()
+    await this.resetGenerationPresets()
+    await this.resetServicePresetAssignments()
 
     // Apply theme and font size
     this.applyTheme(this.uiSettings.theme)
