@@ -45,6 +45,14 @@
   let dragStartBtnY = 0
   let dragMoved = false // tracks if pointer moved enough to be a drag
   const DRAG_THRESHOLD = 5 // px before it counts as drag, not click
+  const DEBUG_BUTTON_SIZE = 48 // h-12 w-12 = 3rem = 48px
+
+  function clampDebugButtonToViewport() {
+    if (debugBtnX === null || debugBtnY === null) return
+
+    debugBtnX = Math.max(0, Math.min(window.innerWidth - DEBUG_BUTTON_SIZE, debugBtnX))
+    debugBtnY = Math.max(0, Math.min(window.innerHeight - DEBUG_BUTTON_SIZE, debugBtnY))
+  }
 
   function handleDebugPointerDown(e: PointerEvent) {
     isDraggingDebug = true
@@ -78,9 +86,8 @@
     dragMoved = true
 
     // Clamp to viewport
-    const btnSize = 48 // h-12 w-12 = 3rem = 48px
-    debugBtnX = Math.max(0, Math.min(window.innerWidth - btnSize, dragStartBtnX + dx))
-    debugBtnY = Math.max(0, Math.min(window.innerHeight - btnSize, dragStartBtnY + dy))
+    debugBtnX = Math.max(0, Math.min(window.innerWidth - DEBUG_BUTTON_SIZE, dragStartBtnX + dx))
+    debugBtnY = Math.max(0, Math.min(window.innerHeight - DEBUG_BUTTON_SIZE, dragStartBtnY + dy))
   }
 
   function handleDebugPointerUp() {
@@ -89,6 +96,10 @@
       // It was a click/tap, not a drag
       ui.toggleDebugModal()
     }
+  }
+
+  function handleWindowResize() {
+    clampDebugButtonToViewport()
   }
 
   // Resizing logic
@@ -135,7 +146,12 @@
   })
 </script>
 
-<svelte:window onmousemove={handleMouseMove} onmouseup={stopResizing} onmouseleave={stopResizing} />
+<svelte:window
+  onmousemove={handleMouseMove}
+  onmouseup={stopResizing}
+  onmouseleave={stopResizing}
+  onresize={handleWindowResize}
+/>
 
 <div
   class="app-shell bg-surface-900 relative flex h-screen w-screen flex-col"
@@ -222,7 +238,7 @@
   <!-- Floating Debug Button (when debug mode enabled) - draggable, high z-index -->
   {#if settings.uiSettings.debugMode && !ui.debugModalOpen}
     <button
-      class="fixed z-[9998] flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-shadow hover:bg-amber-500 active:shadow-xl"
+      class="fixed z-9998 flex h-12 w-12 items-center justify-center rounded-full bg-amber-600 text-white shadow-lg transition-shadow hover:bg-amber-500 active:shadow-xl"
       class:cursor-grabbing={isDraggingDebug}
       class:cursor-grab={!isDraggingDebug}
       style="{debugBtnX !== null && debugBtnY !== null
