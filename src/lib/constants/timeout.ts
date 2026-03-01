@@ -12,7 +12,7 @@ export const LLM_TIMEOUT_MIN = 30000
 export const LLM_TIMEOUT_MAX = 600000
 
 /** Default timeout for LLM requests: 3 minutes */
-export const LLM_TIMEOUT_DEFAULT = 180000
+export const LLM_TIMEOUT_DEFAULT = 360000
 
 /** Timeout slider step: 30 seconds */
 export const LLM_TIMEOUT_STEP = 30000
