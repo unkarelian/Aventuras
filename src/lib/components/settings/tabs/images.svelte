@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte'
   import { settings } from '$lib/stores/settings.svelte'
   import { Label } from '$lib/components/ui/label'
   import { Button } from '$lib/components/ui/button'
@@ -37,7 +38,7 @@
     { value: '2048x2048', label: '2048x2048 (Highest Quality)' },
   ] as const
 
-  function getBackgroundSizes() {
+  const backgroundSizes = $derived.by(() => {
     const sizes = [
       { value: '1280x720', label: '1280x720 (Widescreen)' },
       { value: '720x1280', label: '720x1280 (Portrait)' },
@@ -49,7 +50,7 @@
       }
     }
     return sizes
-  }
+  })
 
   const providerTypes: { value: ImageProviderType; label: string }[] = [
     { value: 'nanogpt', label: 'NanoGPT' },
@@ -70,26 +71,20 @@
     'profiles',
   )
 
+  // Maps profile type to the corresponding settings key
+  const profileIdKey = {
+    standard: 'profileId',
+    portrait: 'portraitProfileId',
+    reference: 'referenceProfileId',
+    background: 'backgroundProfileId',
+  } as const satisfies Record<string, keyof typeof settings.systemServicesSettings.imageGeneration>
+
   // Handle profile change
   function onProfileChange(
     profileId: string,
     type: 'standard' | 'portrait' | 'reference' | 'background',
   ) {
-    switch (type) {
-      case 'standard':
-        settings.systemServicesSettings.imageGeneration.profileId = profileId
-        break
-      case 'portrait':
-        settings.systemServicesSettings.imageGeneration.portraitProfileId = profileId
-        break
-      case 'reference':
-        settings.systemServicesSettings.imageGeneration.referenceProfileId = profileId
-        break
-      case 'background':
-        settings.systemServicesSettings.imageGeneration.backgroundProfileId = profileId
-        break
-    }
-
+    settings.systemServicesSettings.imageGeneration[profileIdKey[type]] = profileId
     settings.saveSystemServicesSettings()
   }
 
@@ -97,21 +92,7 @@
   function getSelectedImageProfile(
     type: 'standard' | 'portrait' | 'reference' | 'background',
   ): ImageProfile | undefined {
-    let profileId: string | null
-    switch (type) {
-      case 'standard':
-        profileId = settings.systemServicesSettings.imageGeneration.profileId
-        break
-      case 'portrait':
-        profileId = settings.systemServicesSettings.imageGeneration.portraitProfileId
-        break
-      case 'reference':
-        profileId = settings.systemServicesSettings.imageGeneration.referenceProfileId
-        break
-      case 'background':
-        profileId = settings.systemServicesSettings.imageGeneration.backgroundProfileId
-        break
-    }
+    const profileId = settings.systemServicesSettings.imageGeneration[profileIdKey[type]]
     return profileId ? settings.getImageProfile(profileId) : undefined
   }
 
@@ -148,6 +129,13 @@
   let availableLoras = $state<string[]>([])
   let saveTimeout: ReturnType<typeof setTimeout> | null = null
 
+  onDestroy(() => {
+    if (saveTimeout) {
+      clearTimeout(saveTimeout)
+      saveTimeout = null
+    }
+  })
+
   // Model info cache for active profiles
   let activeProfilesModelInfo = $state<Record<string, ImageModelInfo[]>>({})
 
@@ -165,6 +153,7 @@
       settings.systemServicesSettings.imageGeneration.portraitProfileId,
       settings.systemServicesSettings.imageGeneration.referenceProfileId,
       settings.systemServicesSettings.imageGeneration.backgroundProfileId,
+      testProfileId,
     ].filter(Boolean) as string[]
 
     for (const id of profilesToLoad) {
@@ -197,10 +186,10 @@
         break
     }
 
-    if (!profileId) return type === 'background' ? getBackgroundSizes() : imageSizes
+    if (!profileId) return type === 'background' ? backgroundSizes : imageSizes
 
     const profile = settings.getImageProfile(profileId)
-    if (!profile) return type === 'background' ? getBackgroundSizes() : imageSizes
+    if (!profile) return type === 'background' ? backgroundSizes : imageSizes
 
     const models = activeProfilesModelInfo[profileId] || []
     const modelInfo = models.find((m) => m.id === profile.model)
@@ -212,25 +201,20 @@
       if (validSizes.length > 0) {
         const modelSizeItems = validSizes.map((size) => {
           // Try to match with existing labels for better UX
-          const existing = [...imageSizes, ...getBackgroundSizes()].find((s) => s.value === size)
+          const existing = [...imageSizes, ...backgroundSizes].find((s) => s.value === size)
           return { value: size, label: existing?.label || size }
         })
         if (type === 'background') {
           // Merge: generic background sizes + model sizes (deduplicated)
-          const bgSizes = getBackgroundSizes()
-          const merged = [...bgSizes]
-          for (const ms of modelSizeItems) {
-            if (!merged.some((s) => s.value === ms.value)) {
-              merged.push(ms)
-            }
-          }
-          return merged
+          const bgValues = new Set(backgroundSizes.map((s) => s.value))
+          const uniqueModelSizes = modelSizeItems.filter((ms) => !bgValues.has(ms.value))
+          return [...backgroundSizes, ...uniqueModelSizes]
         }
         return modelSizeItems
       }
     }
 
-    return type === 'background' ? getBackgroundSizes() : imageSizes
+    return type === 'background' ? backgroundSizes : imageSizes
   }
 
   // Testing state
@@ -240,6 +224,16 @@
   let isGeneratingTestImage = $state(false)
   let testImageResult = $state<string | null>(null)
   let testError = $state<string | null>(null)
+
+  // Derived supported sizes — computed once per reactive change, not twice per Autocomplete render
+  const standardSizes = $derived(getSupportedSizes('standard'))
+  const referenceSizes = $derived(getSupportedSizes('reference'))
+  const portraitSizes = $derived(getSupportedSizes('portrait'))
+  const bgSupportedSizes = $derived(getSupportedSizes('background'))
+  const testingSizes = $derived(getSupportedSizes('testing'))
+
+  // Derived LoRA items — avoids re-mapping on every render
+  const loraItems = $derived(availableLoras.map((l) => ({ value: l, label: l })))
 
   // Load models for the profile form when provider/apiKey change
   async function loadProfileFormModels(providerType: ImageProviderType, apiKey: string) {
@@ -306,27 +300,31 @@
     }
   }
 
+  // Builds the provider-specific options object from current form state
+  function buildProviderOptions(): Record<string, any> {
+    if (profileProviderType !== 'comfyui') return {}
+    const opts: Record<string, any> = {
+      sampler: profileSampler,
+      scheduler: profileScheduler,
+      mode: profileMode,
+      cfg: profileCfg || 1,
+      step: profileSteps || 6,
+      positivePrompt: profilePositivePrompt,
+      negativePrompt: profileNegativePrompt,
+    }
+    if (profileLoraName) {
+      opts.lora = {
+        name: profileLoraName,
+        strengthModel: profileLoraStrengthModel || 1,
+        strengthClip: profileLoraStrengthClip || 1,
+      }
+    }
+    return opts
+  }
+
   // Save current profile edits (called when collapsible closes)
   async function autoSaveProfile() {
     if (isNewProfile || !editingProfileId || !profileName.trim()) return
-
-    const providerOptions: Record<string, any> = {}
-    if (profileProviderType === 'comfyui') {
-      providerOptions.sampler = profileSampler
-      providerOptions.scheduler = profileScheduler
-      providerOptions.mode = profileMode
-      providerOptions.cfg = profileCfg || 1
-      providerOptions.step = profileSteps || 6
-      providerOptions.positivePrompt = profilePositivePrompt
-      providerOptions.negativePrompt = profileNegativePrompt
-      if (profileLoraName) {
-        providerOptions.lora = {
-          name: profileLoraName,
-          strengthModel: profileLoraStrengthModel || 1,
-          strengthClip: profileLoraStrengthClip || 1,
-        }
-      }
-    }
 
     await settings.updateImageProfile(editingProfileId, {
       name: profileName.trim(),
@@ -334,7 +332,7 @@
       apiKey: profileApiKey,
       baseUrl: profileBaseUrl || undefined,
       model: profileModel,
-      providerOptions,
+      providerOptions: buildProviderOptions(),
     })
   }
 
@@ -451,31 +449,13 @@
   async function handleSaveProfile() {
     if (!profileName.trim()) return
 
-    const providerOptions: Record<string, any> = {}
-    if (profileProviderType === 'comfyui') {
-      providerOptions.sampler = profileSampler
-      providerOptions.scheduler = profileScheduler
-      providerOptions.mode = profileMode
-      providerOptions.cfg = profileCfg || 1
-      providerOptions.step = profileSteps || 6
-      providerOptions.positivePrompt = profilePositivePrompt
-      providerOptions.negativePrompt = profileNegativePrompt
-      if (profileLoraName) {
-        providerOptions.lora = {
-          name: profileLoraName,
-          strengthModel: profileLoraStrengthModel || 1,
-          strengthClip: profileLoraStrengthClip || 1,
-        }
-      }
-    }
-
     await settings.addImageProfile({
       name: profileName.trim(),
       providerType: profileProviderType,
       apiKey: profileApiKey,
       baseUrl: profileBaseUrl || undefined,
       model: profileModel,
-      providerOptions,
+      providerOptions: buildProviderOptions(),
     })
 
     resetEditState()
@@ -649,8 +629,8 @@
                   <div class="space-y-2">
                     <Label>Regular Image Size</Label>
                     <Autocomplete
-                      items={getSupportedSizes('standard')}
-                      selected={getSupportedSizes('standard').find(
+                      items={standardSizes}
+                      selected={standardSizes.find(
                         (s) => s.value === settings.systemServicesSettings.imageGeneration.size,
                       ) ||
                         (settings.systemServicesSettings.imageGeneration.size
@@ -697,8 +677,8 @@
                   <div class="space-y-2">
                     <Label>Reference Image Size</Label>
                     <Autocomplete
-                      items={getSupportedSizes('reference')}
-                      selected={getSupportedSizes('reference').find(
+                      items={referenceSizes}
+                      selected={referenceSizes.find(
                         (s) =>
                           s.value === settings.systemServicesSettings.imageGeneration.referenceSize,
                       ) ||
@@ -798,8 +778,8 @@
             <div class="space-y-2">
               <Label>Character Portrait Size</Label>
               <Autocomplete
-                items={getSupportedSizes('portrait')}
-                selected={getSupportedSizes('portrait').find(
+                items={portraitSizes}
+                selected={portraitSizes.find(
                   (s) => s.value === settings.systemServicesSettings.imageGeneration.portraitSize,
                 ) ||
                   (settings.systemServicesSettings.imageGeneration.portraitSize
@@ -872,8 +852,8 @@
           <div class="space-y-2">
             <Label>Background Size</Label>
             <Autocomplete
-              items={getSupportedSizes('background')}
-              selected={getSupportedSizes('background').find(
+              items={bgSupportedSizes}
+              selected={bgSupportedSizes.find(
                 (s) => s.value === settings.systemServicesSettings.imageGeneration.backgroundSize,
               ) ||
                 (settings.systemServicesSettings.imageGeneration.backgroundSize
@@ -943,8 +923,8 @@
             <div class="space-y-2">
               <Label>Size</Label>
               <Autocomplete
-                items={getSupportedSizes('testing')}
-                selected={getSupportedSizes('testing').find((s) => s.value === testSize) || {
+                items={testingSizes}
+                selected={testingSizes.find((s) => s.value === testSize) || {
                   value: testSize,
                   label: testSize,
                 }}
@@ -1161,7 +1141,7 @@
           <div class="col-span-2 space-y-2">
             <Label>LoRA Model</Label>
             <Autocomplete
-              items={availableLoras.map((l) => ({ value: l, label: l }))}
+              items={loraItems}
               selected={availableLoras.includes(profileLoraName)
                 ? { value: profileLoraName, label: profileLoraName }
                 : undefined}
