@@ -38,7 +38,7 @@
     { value: '2048x2048', label: '2048x2048 (Highest Quality)' },
   ] as const
 
-  const backgroundSizes = $derived.by(() => {
+  const backgroundSizes = (() => {
     const sizes = [
       { value: '1280x720', label: '1280x720 (Widescreen)' },
       { value: '720x1280', label: '720x1280 (Portrait)' },
@@ -50,7 +50,7 @@
       }
     }
     return sizes
-  })
+  })()
 
   const providerTypes: { value: ImageProviderType; label: string }[] = [
     { value: 'nanogpt', label: 'NanoGPT' },
@@ -307,16 +307,16 @@
       sampler: profileSampler,
       scheduler: profileScheduler,
       mode: profileMode,
-      cfg: profileCfg || 1,
-      step: profileSteps || 6,
+      cfg: profileCfg ?? 1,
+      step: profileSteps ?? 6,
       positivePrompt: profilePositivePrompt,
       negativePrompt: profileNegativePrompt,
     }
     if (profileLoraName) {
       opts.lora = {
         name: profileLoraName,
-        strengthModel: profileLoraStrengthModel || 1,
-        strengthClip: profileLoraStrengthClip || 1,
+        strengthModel: profileLoraStrengthModel ?? 1,
+        strengthClip: profileLoraStrengthClip ?? 1,
       }
     }
     return opts
