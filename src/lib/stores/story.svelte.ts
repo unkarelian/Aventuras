@@ -1985,21 +1985,63 @@ class StoryStore {
       })
     }
 
+    // Track which newLocations were already created by locationUpdates
+    const createdNewLocationNames = new Set<string>()
+
     // Apply location updates
     for (const update of result.entryUpdates.locationUpdates) {
       await this.wrapUpdate('Update location', update.name, async () => {
-        const existing = this.locations.find(
+        let existing = this.locations.find(
           (l) => l.name.toLowerCase() === update.name.toLowerCase(),
         )
+
+        // If location doesn't exist yet, create it first
+        if (!existing) {
+          // Check if newLocations has data for this name
+          const newLocData = result.entryUpdates.newLocations.find(
+            (nl) => nl.name.toLowerCase() === update.name.toLowerCase(),
+          )
+          log('Creating location from update (not found):', update.name)
+          const locMetadata: Record<string, unknown> = { source: 'classifier' }
+          if (newLocData) {
+            const newLocInlineVars = extractInlineCustomVars(
+              newLocData as unknown as Record<string, unknown>,
+              defsByName,
+            )
+            if (Object.keys(newLocInlineVars).length > 0) {
+              Object.assign(locMetadata, mergeRuntimeVars(null, newLocInlineVars, defsByName))
+            }
+          }
+          const location: Location = {
+            id: crypto.randomUUID(),
+            storyId,
+            name: newLocData?.name ?? update.name,
+            description: newLocData?.description ?? null,
+            visited: newLocData?.visited ?? false,
+            current: newLocData?.current ?? false,
+            connections: [],
+            metadata: locMetadata,
+            branchId: this.currentStory?.currentBranchId ?? null,
+          }
+          await database.addLocation(location)
+          this.locations = [...this.locations, location]
+          if (trackingEnabled) createdLocationIds.push(location.id)
+          createdNewLocationNames.add(update.name.toLowerCase())
+          existing = location
+        }
+
         if (existing) {
           log('Updating location:', update.name, update.changes)
           const changes: Partial<Location> = {}
           if (update.changes.visited !== undefined) changes.visited = update.changes.visited
+          if (update.changes.description) {
+            changes.description = update.changes.description
+          }
           if (update.changes.descriptionAddition) {
             const addition = update.changes.descriptionAddition.trim()
             if (addition) {
-              changes.description = existing.description
-                ? `${existing.description} ${addition}`
+              changes.description = (changes.description ?? existing.description)
+                ? `${changes.description ?? existing.description} ${addition}`
                 : addition
             }
           }
@@ -2187,13 +2229,47 @@ class StoryStore {
       })
     }
 
-    // Add new locations (check for duplicates)
+    // Add new locations (check for duplicates, merge into existing if already created)
     for (const newLoc of result.entryUpdates.newLocations) {
       await this.wrapUpdate('Add location', newLoc.name, async () => {
-        const exists = this.locations.some(
+        // Skip if already created by locationUpdates handler above
+        if (createdNewLocationNames.has(newLoc.name.toLowerCase())) {
+          log('Skipping new location (already created by update):', newLoc.name)
+          return
+        }
+
+        const existing = this.locations.find(
           (l) => l.name.toLowerCase() === newLoc.name.toLowerCase(),
         )
-        if (!exists) {
+        if (existing) {
+          // Merge new location data into existing (e.g. stub created by currentLocationName)
+          log('Merging new location into existing:', newLoc.name)
+          const changes: Partial<Location> = {}
+          if (newLoc.description && !existing.description) {
+            changes.description = newLoc.description
+          }
+          if (newLoc.visited !== undefined && newLoc.visited !== existing.visited) {
+            changes.visited = newLoc.visited
+          }
+          if (newLoc.current && !existing.current) {
+            changes.current = true
+            changes.visited = true
+          }
+          // Merge inline runtime variable values into metadata if present
+          const newLocInlineVars = extractInlineCustomVars(
+            newLoc as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(newLocInlineVars).length > 0) {
+            changes.metadata = mergeRuntimeVars(existing.metadata, newLocInlineVars, defsByName)
+          }
+          if (Object.keys(changes).length > 0) {
+            await database.updateLocation(existing.id, changes)
+            this.locations = this.locations.map((l) =>
+              l.id === existing.id ? { ...l, ...changes } : l,
+            )
+          }
+        } else {
           log('Adding new location:', newLoc.name)
           // If this is the current location, unset others first
           if (newLoc.current) {
@@ -2244,7 +2320,28 @@ class StoryStore {
     if (result.scene.currentLocationName) {
       await this.wrapUpdate('Set scene location', result.scene.currentLocationName, async () => {
         const locationName = result.scene.currentLocationName!.toLowerCase()
-        const currentLoc = this.locations.find((l) => l.name.toLowerCase() === locationName)
+        let currentLoc = this.locations.find((l) => l.name.toLowerCase() === locationName)
+
+        // If location doesn't exist yet, create a stub
+        if (!currentLoc) {
+          log('Creating stub location from scene.currentLocationName:', result.scene.currentLocationName)
+          const stubLocation: Location = {
+            id: crypto.randomUUID(),
+            storyId,
+            name: result.scene.currentLocationName!,
+            description: null,
+            visited: true,
+            current: false,
+            connections: [],
+            metadata: { source: 'classifier' },
+            branchId: this.currentStory?.currentBranchId ?? null,
+          }
+          await database.addLocation(stubLocation)
+          this.locations = [...this.locations, stubLocation]
+          if (trackingEnabled) createdLocationIds.push(stubLocation.id)
+          currentLoc = stubLocation
+        }
+
         if (currentLoc && !currentLoc.current) {
           log('Setting current location from scene:', currentLoc.name)
           if (this.isCowBranch()) {
@@ -2271,15 +2368,15 @@ class StoryStore {
             )
             if (targetWasCowed && trackingEnabled) {
               createdLocationIds.push(ownedTarget.id)
-              const idx = locationsBefore.findIndex((lb) => lb.id === currentLoc.id)
+              const idx = locationsBefore.findIndex((lb) => lb.id === currentLoc!.id)
               if (idx !== -1) locationsBefore.splice(idx, 1)
             }
           } else {
             await database.setCurrentLocation(storyId, currentLoc.id)
             this.locations = this.locations.map((l) => ({
               ...l,
-              current: l.id === currentLoc.id,
-              visited: l.id === currentLoc.id ? true : l.visited,
+              current: l.id === currentLoc!.id,
+              visited: l.id === currentLoc!.id ? true : l.visited,
             }))
           }
         }
