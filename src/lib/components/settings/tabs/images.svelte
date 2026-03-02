@@ -45,6 +45,7 @@
   const providerTypes: { value: ImageProviderType; label: string }[] = [
     { value: 'nanogpt', label: 'NanoGPT' },
     { value: 'openai', label: 'OpenAI' },
+    { value: 'openrouter', label: 'OpenRouter' },
     { value: 'chutes', label: 'Chutes' },
     { value: 'pollinations', label: 'Pollinations' },
     { value: 'google', label: 'Google Imagen' },
