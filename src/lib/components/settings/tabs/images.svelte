@@ -37,10 +37,19 @@
     { value: '2048x2048', label: '2048x2048 (Highest Quality)' },
   ] as const
 
-  const backgroundSizes = [
-    { value: '1280x720', label: '1280x720 (Widescreen)' },
-    { value: '720x1280', label: '720x1280 (Portrait)' },
-  ] as const
+  function getBackgroundSizes() {
+    const sizes = [
+      { value: '1280x720', label: '1280x720 (Widescreen)' },
+      { value: '720x1280', label: '720x1280 (Portrait)' },
+    ]
+    if (typeof window !== 'undefined') {
+      const screenRes = `${window.screen.width}x${window.screen.height}`
+      if (!sizes.some((s) => s.value === screenRes)) {
+        sizes.unshift({ value: screenRes, label: `${screenRes} (Screen)` })
+      }
+    }
+    return sizes
+  }
 
   const providerTypes: { value: ImageProviderType; label: string }[] = [
     { value: 'nanogpt', label: 'NanoGPT' },
@@ -188,10 +197,10 @@
         break
     }
 
-    if (!profileId) return type === 'background' ? backgroundSizes : imageSizes
+    if (!profileId) return type === 'background' ? getBackgroundSizes() : imageSizes
 
     const profile = settings.getImageProfile(profileId)
-    if (!profile) return type === 'background' ? backgroundSizes : imageSizes
+    if (!profile) return type === 'background' ? getBackgroundSizes() : imageSizes
 
     const models = activeProfilesModelInfo[profileId] || []
     const modelInfo = models.find((m) => m.id === profile.model)
@@ -201,15 +210,27 @@
       const validSizes = modelInfo.supportsSizes.filter((size) => /^\d+x\d+$/.test(size))
 
       if (validSizes.length > 0) {
-        return validSizes.map((size) => {
+        const modelSizeItems = validSizes.map((size) => {
           // Try to match with existing labels for better UX
-          const existing = [...imageSizes, ...backgroundSizes].find((s) => s.value === size)
+          const existing = [...imageSizes, ...getBackgroundSizes()].find((s) => s.value === size)
           return { value: size, label: existing?.label || size }
         })
+        if (type === 'background') {
+          // Merge: generic background sizes + model sizes (deduplicated)
+          const bgSizes = getBackgroundSizes()
+          const merged = [...bgSizes]
+          for (const ms of modelSizeItems) {
+            if (!merged.some((s) => s.value === ms.value)) {
+              merged.push(ms)
+            }
+          }
+          return merged
+        }
+        return modelSizeItems
       }
     }
 
-    return type === 'background' ? backgroundSizes : imageSizes
+    return type === 'background' ? getBackgroundSizes() : imageSizes
   }
 
   // Testing state
