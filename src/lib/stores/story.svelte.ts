@@ -1924,12 +1924,52 @@ class StoryStore {
       }
     }
 
+    // Track which newCharacters were already created by characterUpdates
+    const createdNewCharacterNames = new SvelteSet<string>()
+
     // Apply character updates
     for (const update of result.entryUpdates.characterUpdates) {
       await this.wrapUpdate('Update character', update.name, async () => {
-        const existing = this.characters.find(
+        let existing = this.characters.find(
           (c) => c.name.toLowerCase() === update.name.toLowerCase(),
         )
+
+        // If character doesn't exist yet, create it first
+        if (!existing) {
+          const newCharData = result.entryUpdates.newCharacters.find(
+            (nc) => nc.name.toLowerCase() === update.name.toLowerCase(),
+          )
+          log('Creating character from update (not found):', update.name)
+          const charMetadata: Record<string, unknown> = { source: 'classifier' }
+          if (newCharData) {
+            const newCharInlineVars = extractInlineCustomVars(
+              newCharData as unknown as Record<string, unknown>,
+              defsByName,
+            )
+            if (Object.keys(newCharInlineVars).length > 0) {
+              Object.assign(charMetadata, mergeRuntimeVars(null, newCharInlineVars, defsByName))
+            }
+          }
+          const character: Character = {
+            id: crypto.randomUUID(),
+            storyId,
+            name: newCharData?.name ?? update.name,
+            description: newCharData?.description ?? null,
+            relationship: newCharData?.relationship ?? null,
+            traits: newCharData?.traits ?? [],
+            visualDescriptors: newCharData?.visualDescriptors ?? {},
+            status: (newCharData?.status as Character['status']) ?? 'active',
+            metadata: charMetadata,
+            portrait: null,
+            branchId: this.currentStory?.currentBranchId ?? null,
+          }
+          await database.addCharacter(character)
+          this.characters = [...this.characters, character]
+          if (trackingEnabled) createdCharacterIds.push(character.id)
+          createdNewCharacterNames.add(update.name.toLowerCase())
+          existing = character
+        }
+
         if (existing) {
           log('Updating character:', update.name, update.changes)
           const changes: Partial<Character> = {}
@@ -1986,7 +2026,7 @@ class StoryStore {
     }
 
     // Track which newLocations were already created by locationUpdates
-    const createdNewLocationNames = new Set<string>()
+    const createdNewLocationNames = new SvelteSet<string>()
 
     // Apply location updates
     for (const update of result.entryUpdates.locationUpdates) {
@@ -2040,9 +2080,10 @@ class StoryStore {
           if (update.changes.descriptionAddition) {
             const addition = update.changes.descriptionAddition.trim()
             if (addition) {
-              changes.description = (changes.description ?? existing.description)
-                ? `${changes.description ?? existing.description} ${addition}`
-                : addition
+              changes.description =
+                (changes.description ?? existing.description)
+                  ? `${changes.description ?? existing.description} ${addition}`
+                  : addition
             }
           }
           // Merge inline runtime variable values into metadata if present
@@ -2122,10 +2163,48 @@ class StoryStore {
       })
     }
 
+    // Track which newItems were already created by itemUpdates
+    const createdNewItemNames = new SvelteSet<string>()
+
     // Apply item updates
     for (const update of result.entryUpdates.itemUpdates) {
       await this.wrapUpdate('Update item', update.name, async () => {
-        const existing = this.items.find((i) => i.name.toLowerCase() === update.name.toLowerCase())
+        let existing = this.items.find((i) => i.name.toLowerCase() === update.name.toLowerCase())
+
+        // If item doesn't exist yet, create it first
+        if (!existing) {
+          const newItemData = result.entryUpdates.newItems.find(
+            (ni) => ni.name.toLowerCase() === update.name.toLowerCase(),
+          )
+          log('Creating item from update (not found):', update.name)
+          const itemMetadata: Record<string, unknown> = { source: 'classifier' }
+          if (newItemData) {
+            const newItemInlineVars = extractInlineCustomVars(
+              newItemData as unknown as Record<string, unknown>,
+              defsByName,
+            )
+            if (Object.keys(newItemInlineVars).length > 0) {
+              Object.assign(itemMetadata, mergeRuntimeVars(null, newItemInlineVars, defsByName))
+            }
+          }
+          const item: Item = {
+            id: crypto.randomUUID(),
+            storyId,
+            name: newItemData?.name ?? update.name,
+            description: newItemData?.description ?? null,
+            quantity: newItemData?.quantity ?? 1,
+            equipped: false,
+            location: newItemData?.location ?? 'inventory',
+            metadata: itemMetadata,
+            branchId: this.currentStory?.currentBranchId ?? null,
+          }
+          await database.addItem(item)
+          this.items = [...this.items, item]
+          if (trackingEnabled) createdItemIds.push(item.id)
+          createdNewItemNames.add(update.name.toLowerCase())
+          existing = item
+        }
+
         if (existing) {
           log('Updating item:', update.name, update.changes)
           const changes: Partial<Item> = {}
@@ -2153,12 +2232,50 @@ class StoryStore {
       })
     }
 
+    // Track which newStoryBeats were already created by storyBeatUpdates
+    const createdNewStoryBeatTitles = new SvelteSet<string>()
+
     // Apply story beat updates (mark as completed/failed)
     for (const update of result.entryUpdates.storyBeatUpdates) {
       await this.wrapUpdate('Update story beat', update.title, async () => {
-        const existing = this.storyBeats.find(
+        let existing = this.storyBeats.find(
           (b) => b.title.toLowerCase() === update.title.toLowerCase(),
         )
+
+        // If story beat doesn't exist yet, create it first
+        if (!existing) {
+          const newBeatData = result.entryUpdates.newStoryBeats.find(
+            (nb) => nb.title.toLowerCase() === update.title.toLowerCase(),
+          )
+          log('Creating story beat from update (not found):', update.title)
+          const beatMetadata: Record<string, unknown> = { source: 'classifier' }
+          if (newBeatData) {
+            const newBeatInlineVars = extractInlineCustomVars(
+              newBeatData as unknown as Record<string, unknown>,
+              defsByName,
+            )
+            if (Object.keys(newBeatInlineVars).length > 0) {
+              Object.assign(beatMetadata, mergeRuntimeVars(null, newBeatInlineVars, defsByName))
+            }
+          }
+          const beat: StoryBeat = {
+            id: crypto.randomUUID(),
+            storyId,
+            title: newBeatData?.title ?? update.title,
+            description: newBeatData?.description ?? null,
+            type: newBeatData?.type ?? 'event',
+            status: newBeatData?.status ?? 'active',
+            triggeredAt: Date.now(),
+            metadata: beatMetadata,
+            branchId: this.currentStory?.currentBranchId ?? null,
+          }
+          await database.addStoryBeat(beat)
+          this.storyBeats = [...this.storyBeats, beat]
+          if (trackingEnabled) createdStoryBeatIds.push(beat.id)
+          createdNewStoryBeatTitles.add(update.title.toLowerCase())
+          existing = beat
+        }
+
         if (existing) {
           log('Updating story beat:', update.title, update.changes)
           const changes: Partial<StoryBeat> = {}
@@ -2193,13 +2310,53 @@ class StoryStore {
       })
     }
 
-    // Add new characters (check for duplicates)
+    // Add new characters (check for duplicates, merge into existing if already created)
     for (const newChar of result.entryUpdates.newCharacters) {
       await this.wrapUpdate('Add character', newChar.name, async () => {
-        const exists = this.characters.some(
+        // Skip if already created by characterUpdates handler above
+        if (createdNewCharacterNames.has(newChar.name.toLowerCase())) {
+          log('Skipping new character (already created by update):', newChar.name)
+          return
+        }
+
+        const existing = this.characters.find(
           (c) => c.name.toLowerCase() === newChar.name.toLowerCase(),
         )
-        if (!exists) {
+        if (existing) {
+          // Merge new character data into existing
+          log('Merging new character into existing:', newChar.name)
+          const changes: Partial<Character> = {}
+          if (newChar.description && !existing.description) {
+            changes.description = newChar.description
+          }
+          if (newChar.relationship && !existing.relationship) {
+            changes.relationship = newChar.relationship
+          }
+          if (newChar.traits?.length && !existing.traits.length) {
+            changes.traits = newChar.traits
+          }
+          if (
+            newChar.visualDescriptors &&
+            Object.keys(newChar.visualDescriptors).length > 0 &&
+            Object.keys(existing.visualDescriptors).length === 0
+          ) {
+            changes.visualDescriptors = newChar.visualDescriptors
+          }
+          // Merge inline runtime variable values into metadata if present
+          const newCharInlineVars = extractInlineCustomVars(
+            newChar as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(newCharInlineVars).length > 0) {
+            changes.metadata = mergeRuntimeVars(existing.metadata, newCharInlineVars, defsByName)
+          }
+          if (Object.keys(changes).length > 0) {
+            await database.updateCharacter(existing.id, changes)
+            this.characters = this.characters.map((c) =>
+              c.id === existing.id ? { ...c, ...changes } : c,
+            )
+          }
+        } else {
           log('Adding new character:', newChar.name)
           const charMetadata: Record<string, unknown> = { source: 'classifier' }
           const newCharInlineVars = extractInlineCustomVars(
@@ -2324,7 +2481,10 @@ class StoryStore {
 
         // If location doesn't exist yet, create a stub
         if (!currentLoc) {
-          log('Creating stub location from scene.currentLocationName:', result.scene.currentLocationName)
+          log(
+            'Creating stub location from scene.currentLocationName:',
+            result.scene.currentLocationName,
+          )
           const stubLocation: Location = {
             id: crypto.randomUUID(),
             storyId,
@@ -2383,11 +2543,45 @@ class StoryStore {
       })
     }
 
-    // Add new items (check for duplicates)
+    // Add new items (check for duplicates, merge into existing if already created)
     for (const newItem of result.entryUpdates.newItems) {
       await this.wrapUpdate('Add item', newItem.name, async () => {
-        const exists = this.items.some((i) => i.name.toLowerCase() === newItem.name.toLowerCase())
-        if (!exists) {
+        // Skip if already created by itemUpdates handler above
+        if (createdNewItemNames.has(newItem.name.toLowerCase())) {
+          log('Skipping new item (already created by update):', newItem.name)
+          return
+        }
+
+        const existing = this.items.find((i) => i.name.toLowerCase() === newItem.name.toLowerCase())
+        if (existing) {
+          // Merge new item data into existing
+          log('Merging new item into existing:', newItem.name)
+          const changes: Partial<Item> = {}
+          if (newItem.description && !existing.description) {
+            changes.description = newItem.description
+          }
+          if (newItem.quantity !== undefined && newItem.quantity !== existing.quantity) {
+            changes.quantity = newItem.quantity
+          }
+          if (newItem.location && newItem.location !== existing.location) {
+            changes.location = newItem.location
+          }
+          if (newItem.equipped !== undefined && newItem.equipped !== existing.equipped) {
+            changes.equipped = newItem.equipped
+          }
+          // Merge inline runtime variable values into metadata if present
+          const newItemInlineVars = extractInlineCustomVars(
+            newItem as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(newItemInlineVars).length > 0) {
+            changes.metadata = mergeRuntimeVars(existing.metadata, newItemInlineVars, defsByName)
+          }
+          if (Object.keys(changes).length > 0) {
+            await database.updateItem(existing.id, changes)
+            this.items = this.items.map((i) => (i.id === existing.id ? { ...i, ...changes } : i))
+          }
+        } else {
           log('Adding new item:', newItem.name)
           const itemMetadata: Record<string, unknown> = { source: 'classifier' }
           const newItemInlineVars = extractInlineCustomVars(
@@ -2415,13 +2609,43 @@ class StoryStore {
       })
     }
 
-    // Add new story beats (check for duplicates by title)
+    // Add new story beats (check for duplicates, merge into existing if already created)
     for (const newBeat of result.entryUpdates.newStoryBeats) {
       await this.wrapUpdate('Add story beat', newBeat.title, async () => {
-        const exists = this.storyBeats.some(
+        // Skip if already created by storyBeatUpdates handler above
+        if (createdNewStoryBeatTitles.has(newBeat.title.toLowerCase())) {
+          log('Skipping new story beat (already created by update):', newBeat.title)
+          return
+        }
+
+        const existing = this.storyBeats.find(
           (b) => b.title.toLowerCase() === newBeat.title.toLowerCase(),
         )
-        if (!exists) {
+        if (existing) {
+          // Merge new story beat data into existing
+          log('Merging new story beat into existing:', newBeat.title)
+          const changes: Partial<StoryBeat> = {}
+          if (newBeat.description && !existing.description) {
+            changes.description = newBeat.description
+          }
+          if (newBeat.type && newBeat.type !== existing.type) {
+            changes.type = newBeat.type
+          }
+          // Merge inline runtime variable values into metadata if present
+          const newBeatInlineVars = extractInlineCustomVars(
+            newBeat as unknown as Record<string, unknown>,
+            defsByName,
+          )
+          if (Object.keys(newBeatInlineVars).length > 0) {
+            changes.metadata = mergeRuntimeVars(existing.metadata, newBeatInlineVars, defsByName)
+          }
+          if (Object.keys(changes).length > 0) {
+            await database.updateStoryBeat(existing.id, changes)
+            this.storyBeats = this.storyBeats.map((b) =>
+              b.id === existing.id ? { ...b, ...changes } : b,
+            )
+          }
+        } else {
           log('Adding new story beat:', newBeat.title)
           const beatMetadata: Record<string, unknown> = { source: 'classifier' }
           const newBeatInlineVars = extractInlineCustomVars(
