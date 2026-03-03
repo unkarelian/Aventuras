@@ -164,6 +164,7 @@ interface ResolvedConfig {
   model: LanguageModelV3
   providerOptions: ProviderOptions | undefined
   supportsStructuredOutput: boolean
+  useThinkTag: boolean
 }
 
 interface NarrativeConfig {
@@ -188,13 +189,35 @@ function resolveConfig(presetId: string, serviceId: string, debugId?: string): R
   const model = provider(preset.model) as LanguageModelV3
   const capabilities = PROVIDERS[profile.providerType].capabilities
 
+  const override = preset.structuredOutputOverride
+  let supportsStructuredOutput: boolean
+  if (override === 'on') {
+    supportsStructuredOutput = true
+  } else if (override === 'off') {
+    supportsStructuredOutput = false
+  } else {
+    // Auto: start with provider-level default, then refine with fetched model data if available
+    const providerDefault = capabilities?.structuredOutput ?? true
+    if (capabilities?.modelCapabilityFetching) {
+      const fetchedModel = settings.getProfileModels(profileId).find((m) => m.id === preset.model)
+      supportsStructuredOutput = !!fetchedModel?.structuredOutput
+    } else {
+      supportsStructuredOutput = providerDefault
+    }
+  }
+
+  const useThinkTag =
+    (profile.providerType === 'openai-compatible' && !!preset.forceThinkTagExtraction) ||
+    getReasoningExtraction(profile.providerType) === 'think-tag'
+
   return {
     preset,
     profile,
     providerType: profile.providerType,
     model,
     providerOptions: buildProviderOptions(preset, profile.providerType),
-    supportsStructuredOutput: capabilities?.structuredOutput ?? true,
+    supportsStructuredOutput,
+    useThinkTag,
   }
 }
 
@@ -257,17 +280,16 @@ function createJsonExtractMiddleware(): LanguageModelV3Middleware {
 
 function buildStructuredMiddleware(
   supportsStructuredOutput: boolean,
-  providerType: ProviderType,
-  _reasoningEffort: ReasoningEffort = 'medium',
+  useThinkTag: boolean,
+  reasoningEnabled: boolean,
 ): LanguageModelV3Middleware[] {
   const base: LanguageModelV3Middleware[] = [patchResponseMiddleware()]
-  const useThinkTag = getReasoningExtraction(providerType) === 'think-tag'
 
   if (useThinkTag) {
     base.push(thinkTagMiddleware)
   }
   if (!supportsStructuredOutput) {
-    if (useThinkTag) {
+    if (useThinkTag && reasoningEnabled) {
       base.push(
         promptSchemaMiddleware({
           instruction: `Respond with your reasoning inside <think> and </think> tags first. Then, output strictly valid JSON compatible with the TypeScript type Response from the following:\n\n{schema}\n\nOutput ONLY the JSON object after the </think> tag, no other text or markdown.`,
@@ -281,28 +303,9 @@ function buildStructuredMiddleware(
   return base
 }
 
-function buildPlainTextMiddleware(
-  providerType: ProviderType,
-  _reasoningEffort: ReasoningEffort = 'medium',
-): LanguageModelV3Middleware[] {
+function buildPlainTextMiddleware(useThinkTag: boolean): LanguageModelV3Middleware[] {
   const base: LanguageModelV3Middleware[] = [patchResponseMiddleware()]
-  if (getReasoningExtraction(providerType) === 'think-tag') {
-    base.push(thinkTagMiddleware)
-  }
-  base.push(loggingMiddleware())
-  return base
-}
-
-/**
- * Build middleware for narrative generation with reasoning support.
- * Includes extractReasoningMiddleware only for models that use <think> tags.
- */
-function buildNarrativeMiddleware(
-  providerType: ProviderType,
-  _reasoningEffort: ReasoningEffort = 'medium',
-): LanguageModelV3Middleware[] {
-  const base: LanguageModelV3Middleware[] = [patchResponseMiddleware()]
-  if (getReasoningExtraction(providerType) === 'think-tag') {
+  if (useThinkTag) {
     base.push(thinkTagMiddleware)
   }
   base.push(loggingMiddleware())
@@ -319,7 +322,8 @@ export async function generateStructured<T extends z.ZodType>(
 ): Promise<z.infer<T>> {
   const { presetId, schema, system, prompt, signal } = options
   const config = resolveConfig(presetId, serviceId)
-  const { preset, providerType, model, providerOptions, supportsStructuredOutput } = config
+  const { preset, providerType, model, providerOptions, supportsStructuredOutput, useThinkTag } =
+    config
 
   log('generateStructured', {
     presetId,
@@ -333,8 +337,8 @@ export async function generateStructured<T extends z.ZodType>(
       model,
       middleware: buildStructuredMiddleware(
         supportsStructuredOutput,
-        providerType,
-        preset.reasoningEffort,
+        useThinkTag,
+        !!preset.reasoningEffort && preset.reasoningEffort !== 'off',
       ),
     }),
     system,
@@ -354,14 +358,17 @@ export async function generatePlainText(
   serviceId: string,
 ): Promise<string> {
   const { presetId, system, prompt, signal } = options
-  const { preset, providerType, model, providerOptions } = resolveConfig(presetId, serviceId)
+  const { preset, providerType, model, providerOptions, useThinkTag } = resolveConfig(
+    presetId,
+    serviceId,
+  )
 
   log('generatePlainText', { presetId, model: preset.model, providerType })
 
   const { text } = await generateText({
     model: wrapLanguageModel({
       model,
-      middleware: buildPlainTextMiddleware(providerType, preset.reasoningEffort),
+      middleware: buildPlainTextMiddleware(useThinkTag),
     }),
     system,
     prompt,
@@ -377,7 +384,7 @@ export async function generatePlainText(
 export function streamPlainText(options: BaseGenerateOptions, serviceId: string) {
   const debugId = crypto.randomUUID()
   const { presetId, system, prompt, signal } = options
-  const { preset, providerType, model, providerOptions } = resolveConfig(
+  const { preset, providerType, model, providerOptions, useThinkTag } = resolveConfig(
     presetId,
     serviceId,
     debugId,
@@ -389,7 +396,7 @@ export function streamPlainText(options: BaseGenerateOptions, serviceId: string)
   return streamText({
     model: wrapLanguageModel({
       model,
-      middleware: buildPlainTextMiddleware(providerType, preset.reasoningEffort),
+      middleware: buildPlainTextMiddleware(useThinkTag),
     }),
     system,
     prompt,
@@ -417,7 +424,8 @@ export function streamStructured<T extends z.ZodType>(
   const { presetId, schema, system, prompt, signal } = options
   const debugId = crypto.randomUUID()
   const config = resolveConfig(presetId, serviceId, debugId)
-  const { preset, providerType, model, providerOptions, supportsStructuredOutput } = config
+  const { preset, providerType, model, providerOptions, supportsStructuredOutput, useThinkTag } =
+    config
 
   log('streamStructured', { presetId, model: preset.model, providerType, supportsStructuredOutput })
   const startTime = Date.now()
@@ -427,8 +435,8 @@ export function streamStructured<T extends z.ZodType>(
       model,
       middleware: buildStructuredMiddleware(
         supportsStructuredOutput,
-        providerType,
-        preset.reasoningEffort,
+        useThinkTag,
+        !!preset.reasoningEffort && preset.reasoningEffort !== 'off',
       ),
     }),
     system,
@@ -469,12 +477,11 @@ export function streamNarrative(options: NarrativeGenerateOptions) {
 
   log('streamNarrative', { model: settings.apiSettings.defaultModel, providerType })
   const startTime = Date.now()
-  const reasoningEffort = settings.apiSettings.reasoningEffort ?? 'off'
 
   return streamText({
     model: wrapLanguageModel({
       model,
-      middleware: buildNarrativeMiddleware(providerType, reasoningEffort),
+      middleware: buildPlainTextMiddleware(getReasoningExtraction(providerType) === 'think-tag'),
     }),
     system,
     prompt,
@@ -501,12 +508,11 @@ export async function generateNarrative(options: NarrativeGenerateOptions): Prom
   const { providerType, model, temperature, maxTokens, providerOptions } = resolveNarrativeConfig()
 
   log('generateNarrative', { model: settings.apiSettings.defaultModel, providerType })
-  const reasoningEffort = settings.apiSettings.reasoningEffort ?? 'off'
 
   const { text } = await generateText({
     model: wrapLanguageModel({
       model,
-      middleware: buildPlainTextMiddleware(providerType, reasoningEffort),
+      middleware: buildPlainTextMiddleware(getReasoningExtraction(providerType) === 'think-tag'),
     }),
     system,
     prompt,

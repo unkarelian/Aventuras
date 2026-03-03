@@ -23,21 +23,15 @@ export interface ProviderCapabilities {
   structuredOutput: boolean
   /**
    * Whether the provider supports reasoning/thinking.
-   * - 'native': Provider has native reasoning support in its API (Anthropic, OpenAI, DeepSeek, xAI)
-   * - 'openrouter': Uses OpenRouter's specific reasoning parameter
-   * - 'fetched': Reasoning support determined per-model from API capabilities (e.g., NanoGPT)
-   * - 'heuristic': No specific API parameter; reasoning is purely tag-based (local providers like Ollama)
-   * - false: No reasoning support
    */
-  reasoning: 'native' | 'openrouter' | 'fetched' | 'heuristic' | false
+  reasoning: boolean
   /**
    * How reasoning is extracted from the response.
-   * - 'sdk-native': SDK handles it natively (Anthropic, DeepSeek)
-   * - 'api-field': Provider sends reasoning in delta.reasoning field, needs fetch wrapper (NanoGPT)
    * - 'think-tag': Provider embeds reasoning in <think> tags, use extractReasoningMiddleware
-   * - undefined: No extraction needed
+   * - undefined: Standard handling
    */
-  reasoningExtraction?: 'sdk-native' | 'api-field' | 'think-tag'
+  reasoningExtraction?: 'think-tag'
+  modelCapabilityFetching?: boolean
 }
 
 export interface ImageDefaults {
@@ -82,8 +76,8 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: true,
-      reasoning: 'openrouter',
-      reasoningExtraction: 'think-tag',
+      reasoning: true,
+      modelCapabilityFetching: true,
     },
     fallbackModels: [
       'z-ai/glm-5',
@@ -147,8 +141,8 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: true,
       structuredOutput: false,
-      reasoning: 'fetched',
-      reasoningExtraction: 'api-field',
+      reasoning: true,
+      modelCapabilityFetching: true,
     },
     imageDefaults: {
       defaultModel: 'z-image-turbo',
@@ -216,7 +210,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: true,
       structuredOutput: true,
-      reasoning: false,
+      reasoning: true,
     },
     imageDefaults: {
       defaultModel: 'z-image-turbo',
@@ -259,7 +253,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: true,
-      reasoning: 'heuristic',
+      reasoning: true,
       reasoningExtraction: 'think-tag',
     },
     fallbackModels: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'qwen2.5', 'phi3', 'gemma2'],
@@ -275,7 +269,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: false,
-      reasoning: 'heuristic',
+      reasoning: true,
       reasoningExtraction: 'think-tag',
     },
     fallbackModels: ['loaded-model'],
@@ -291,7 +285,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: false,
-      reasoning: 'heuristic',
+      reasoning: true,
       reasoningExtraction: 'think-tag',
     },
     fallbackModels: ['loaded-model'],
@@ -307,7 +301,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: true,
-      reasoning: 'native',
+      reasoning: true,
       reasoningExtraction: 'think-tag',
     },
     fallbackModels: [
@@ -328,8 +322,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: false,
-      reasoning: 'heuristic',
-      reasoningExtraction: 'think-tag',
+      reasoning: true,
     },
     fallbackModels: ['default'],
     // No service defaults - user must configure models in Generation Settings
@@ -344,8 +337,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: true,
       structuredOutput: true,
-      reasoning: 'native',
-      reasoningExtraction: 'sdk-native',
+      reasoning: true,
     },
     imageDefaults: {
       defaultModel: 'dall-e-3',
@@ -373,8 +365,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: true,
-      reasoning: 'native',
-      reasoningExtraction: 'sdk-native',
+      reasoning: true,
     },
     fallbackModels: [
       'claude-opus-4-5-20251101',
@@ -422,8 +413,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: true,
-      reasoning: 'native',
-      reasoningExtraction: 'sdk-native',
+      reasoning: true,
     },
     fallbackModels: ['grok-3', 'grok-3-fast', 'grok-2', 'grok-2-vision'],
     // No service defaults - user must configure models in Generation Settings
@@ -485,8 +475,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
       textGeneration: true,
       imageGeneration: false,
       structuredOutput: true,
-      reasoning: 'native',
-      reasoningExtraction: 'sdk-native',
+      reasoning: true,
     },
     fallbackModels: ['deepseek-chat', 'deepseek-reasoner'],
     // No service defaults - user must configure models in Generation Settings
@@ -545,37 +534,17 @@ export function getProviderList(): Array<{
 
 /** Check if a provider supports reasoning/thinking */
 export function supportsReasoning(providerType: ProviderType): boolean {
-  return PROVIDERS[providerType].capabilities.reasoning !== false
+  return !!PROVIDERS[providerType].capabilities.reasoning
 }
 
-/** Get the reasoning mode for a provider */
-export function getReasoningMode(
-  providerType: ProviderType,
-): 'native' | 'openrouter' | 'fetched' | 'heuristic' | false {
-  return PROVIDERS[providerType].capabilities.reasoning
+/** Check if a provider supports capability fetching */
+export function supportsCapabilityFetch(providerType: ProviderType): boolean {
+  return !!PROVIDERS[providerType].capabilities.modelCapabilityFetching
 }
 
 /** Get the reasoning extraction method for a provider */
 export function getReasoningExtraction(
   providerType: ProviderType,
-): 'sdk-native' | 'api-field' | 'think-tag' | undefined {
+): ProviderCapabilities['reasoningExtraction'] {
   return PROVIDERS[providerType].capabilities.reasoningExtraction
-}
-
-/**
- * Check if a model supports reasoning controls (slider).
- * For 'fetched' providers (e.g., NanoGPT), check the profile's reasoningModels list.
- * For other providers, we assume all models support reasoning if the provider does.
- */
-export function modelSupportsReasoning(
-  modelId: string,
-  providerType: ProviderType,
-  reasoningModels?: string[],
-): boolean {
-  const config = PROVIDERS[providerType]
-  if (config.capabilities.reasoning === false) return false
-  if (config.capabilities.reasoning === 'fetched') {
-    return reasoningModels?.includes(modelId) ?? false
-  }
-  return true
 }

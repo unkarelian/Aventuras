@@ -683,8 +683,7 @@ export interface APIProfile {
   baseUrl?: string // Optional custom base URL (works for all providers)
   apiKey: string // API key for this endpoint
   customModels: string[] // Manually added models
-  fetchedModels: string[] // Auto-fetched from /models endpoint
-  reasoningModels: string[] // Models that support reasoning (fetched from API capabilities)
+  fetchedModels: TextModel[] // Auto-fetched from /models endpoint
   hiddenModels: string[] // Models hidden from selection lists
   favoriteModels: string[] // Models shown at the top of selection lists
   createdAt: number // Timestamp
@@ -713,6 +712,7 @@ export interface APISettings {
 
 export type ReasoningEffort = 'off' | 'low' | 'medium' | 'high'
 
+import type { TextModel } from '$lib/services/ai/sdk/providers'
 import type { ThemeId as ThemeIdImport } from '../../themes/themes'
 export type ThemeId = ThemeIdImport
 
@@ -841,6 +841,10 @@ export interface GenerationPreset {
   maxTokens: number
   reasoningEffort: ReasoningEffort
   manualBody: string
+  /** Override structured output capability detection. 'auto' = use provider default, 'on' = force enable, 'off' = force disable */
+  structuredOutputOverride?: 'auto' | 'on' | 'off'
+  /** Force extraction of reasoning from <think>...</think> tags in model output */
+  forceThinkTagExtraction?: boolean
 }
 
 // ===== Translation System Types =====

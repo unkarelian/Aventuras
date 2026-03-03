@@ -5,16 +5,15 @@
  */
 
 export { createProviderFromProfile } from './registry'
-export { fetchModelsFromProvider, type ModelFetchResult } from './modelFetcher'
+export { fetchModelsFromProvider, type TextModel } from './modelFetcher'
 export {
   PROVIDERS,
   getBaseUrl,
   hasDefaultEndpoint,
   getProviderList,
   supportsReasoning,
-  getReasoningMode,
+  supportsCapabilityFetch,
   getReasoningExtraction,
-  modelSupportsReasoning,
   type ProviderConfig,
   type ProviderServices,
   type ServiceModelDefaults,

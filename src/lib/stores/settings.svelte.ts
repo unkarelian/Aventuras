@@ -25,6 +25,7 @@ import { ui } from '$lib/stores/ui.svelte'
 import { getTheme } from '../../themes/themes'
 import { LLM_TIMEOUT_DEFAULT, LLM_TIMEOUT_MIN, LLM_TIMEOUT_MAX } from '$lib/constants/timeout'
 import { SvelteSet, SvelteMap } from 'svelte/reactivity'
+import type { TextModel } from '$lib/services/ai/sdk/providers'
 
 // Provider preset type (used by WelcomeScreen)
 export type ProviderPreset = 'openrouter' | 'nanogpt' | 'openai-compatible'
@@ -1231,17 +1232,34 @@ class SettingsStore {
       const profilesJson = await database.getSetting('api_profiles')
       if (profilesJson) {
         try {
-          const parsed = JSON.parse(profilesJson) as import('$lib/types').APIProfile[]
+          const parsed = JSON.parse(profilesJson) as (import('$lib/types').APIProfile & {
+            reasoningModels?: string[]
+          })[]
           // Ensure new fields have defaults for profiles saved before these fields existed
-          this.apiSettings.profiles = parsed.map((p) => ({
-            ...p,
-            customModels: Array.isArray(p.customModels) ? p.customModels : [],
-            fetchedModels: Array.isArray(p.fetchedModels) ? p.fetchedModels : [],
-            reasoningModels: Array.isArray(p.reasoningModels) ? p.reasoningModels : [],
-            hiddenModels: Array.isArray(p.hiddenModels) ? p.hiddenModels : [],
-            favoriteModels: Array.isArray(p.favoriteModels) ? p.favoriteModels : [],
-            providerType: p.providerType ?? 'openai-compatible',
-          }))
+          this.apiSettings.profiles = parsed.map((p) => {
+            // Migrate fetchedModels: old format was string[], new format is TextModel[]
+            let fetchedModels: import('$lib/services/ai/sdk/providers').TextModel[] = []
+            if (Array.isArray(p.fetchedModels) && p.fetchedModels.length > 0) {
+              if (typeof p.fetchedModels[0] === 'string') {
+                // Old format: string[] + optional reasoningModels string[]
+                const reasoningSet = new Set(p.reasoningModels ?? [])
+                fetchedModels = (p.fetchedModels as unknown as string[]).map((id) => ({
+                  id,
+                  reasoning: reasoningSet.has(id) || undefined,
+                }))
+              } else {
+                fetchedModels = p.fetchedModels
+              }
+            }
+            return {
+              ...p,
+              customModels: Array.isArray(p.customModels) ? p.customModels : [],
+              fetchedModels,
+              hiddenModels: Array.isArray(p.hiddenModels) ? p.hiddenModels : [],
+              favoriteModels: Array.isArray(p.favoriteModels) ? p.favoriteModels : [],
+              providerType: p.providerType ?? 'openai-compatible',
+            }
+          })
         } catch {
           this.apiSettings.profiles = []
         }
@@ -1867,24 +1885,24 @@ class SettingsStore {
     return this.getProfile(this.apiSettings.activeProfileId)
   }
 
-  getProfileModels(profileId: string | null): string[] {
+  getProfileModels(profileId: string | null): TextModel[] {
     if (!profileId) return []
     const profile = this.getProfile(profileId)
     if (!profile) return []
-    return [...new Set([...profile.fetchedModels, ...profile.customModels])]
+    return [...profile.fetchedModels, ...profile.customModels.map((m) => ({ id: m }))]
   }
 
-  getAvailableModels(profileId: string | null): string[] {
+  getAvailableModels(profileId: string | null): TextModel[] {
     if (!profileId) return []
     const profile = this.getProfile(profileId)
     if (!profile) return []
-    const hidden = new Set(profile.hiddenModels ?? [])
-    const favSet = new Set(profile.favoriteModels ?? [])
-    const all = [...new Set([...profile.fetchedModels, ...profile.customModels])].filter(
-      (m) => !hidden.has(m),
-    )
-    const favorites = all.filter((m) => favSet.has(m))
-    const rest = all.filter((m) => !favSet.has(m))
+
+    const hidden = profile.hiddenModels ?? []
+    const favSet = profile.favoriteModels ?? []
+    const profileModels = this.getProfileModels(profileId)
+    const all = profileModels.filter((m) => !hidden.includes(m.id))
+    const favorites = all.filter((m) => favSet.includes(m.id))
+    const rest = all.filter((m) => !favSet.includes(m.id))
     return [...favorites, ...rest]
   }
 
@@ -1994,7 +2012,6 @@ class SettingsStore {
         apiKey: existingApiKey || '', // Migrate existing key if present
         customModels: allModels, // Include all models in use plus defaults
         fetchedModels: [], // Will be populated when user fetches from API
-        reasoningModels: [],
         hiddenModels: [],
         favoriteModels: [],
         createdAt: Date.now(),
@@ -2849,7 +2866,6 @@ class SettingsStore {
       apiKey: apiKey,
       customModels: [],
       fetchedModels: [],
-      reasoningModels: [],
       hiddenModels: [],
       favoriteModels: [],
       createdAt: Date.now(),
@@ -2933,19 +2949,6 @@ class SettingsStore {
   getDefaultProviderType(): ProviderType {
     const defaultProfile = this.getDefaultProfile()
     return defaultProfile?.providerType ?? 'openrouter'
-  }
-
-  /**
-   * Get the first available model from the default profile.
-   * Used for 'custom' provider resets to use user's actual models instead of placeholders.
-   */
-  getFirstModelFromDefaultProfile(): string | null {
-    const defaultProfile = this.getDefaultProfile()
-    if (!defaultProfile) return null
-
-    // Prefer fetched models, then custom models
-    const models = [...defaultProfile.fetchedModels, ...defaultProfile.customModels]
-    return models.length > 0 ? models[0] : null
   }
 
   /**
