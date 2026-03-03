@@ -17,7 +17,6 @@
   import { Input } from '$lib/components/ui/input'
   import { Textarea } from '$lib/components/ui/textarea'
   import ModelSelector from './ModelSelector.svelte'
-  import { untrack } from 'svelte'
 
   interface Props {
     onOpenManualBodyEditor: (title: string, value: string, onSave: (next: string) => void) => void
