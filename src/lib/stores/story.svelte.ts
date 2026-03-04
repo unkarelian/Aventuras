@@ -1924,9 +1924,6 @@ class StoryStore {
       }
     }
 
-    // Track which newCharacters were already created by characterUpdates
-    const createdNewCharacterNames = new SvelteSet<string>()
-
     // Apply character updates
     for (const update of result.entryUpdates.characterUpdates) {
       await this.wrapUpdate('Update character', update.name, async () => {
@@ -1966,7 +1963,6 @@ class StoryStore {
           await database.addCharacter(character)
           this.characters = [...this.characters, character]
           if (trackingEnabled) createdCharacterIds.push(character.id)
-          createdNewCharacterNames.add(update.name.toLowerCase())
           existing = character
         }
 
@@ -2025,9 +2021,6 @@ class StoryStore {
       })
     }
 
-    // Track which newLocations were already created by locationUpdates
-    const createdNewLocationNames = new SvelteSet<string>()
-
     // Apply location updates
     for (const update of result.entryUpdates.locationUpdates) {
       await this.wrapUpdate('Update location', update.name, async () => {
@@ -2066,7 +2059,6 @@ class StoryStore {
           await database.addLocation(location)
           this.locations = [...this.locations, location]
           if (trackingEnabled) createdLocationIds.push(location.id)
-          createdNewLocationNames.add(update.name.toLowerCase())
           existing = location
         }
 
@@ -2163,9 +2155,6 @@ class StoryStore {
       })
     }
 
-    // Track which newItems were already created by itemUpdates
-    const createdNewItemNames = new SvelteSet<string>()
-
     // Apply item updates
     for (const update of result.entryUpdates.itemUpdates) {
       await this.wrapUpdate('Update item', update.name, async () => {
@@ -2201,7 +2190,6 @@ class StoryStore {
           await database.addItem(item)
           this.items = [...this.items, item]
           if (trackingEnabled) createdItemIds.push(item.id)
-          createdNewItemNames.add(update.name.toLowerCase())
           existing = item
         }
 
@@ -2231,9 +2219,6 @@ class StoryStore {
         }
       })
     }
-
-    // Track which newStoryBeats were already created by storyBeatUpdates
-    const createdNewStoryBeatTitles = new SvelteSet<string>()
 
     // Apply story beat updates (mark as completed/failed)
     for (const update of result.entryUpdates.storyBeatUpdates) {
@@ -2272,7 +2257,6 @@ class StoryStore {
           await database.addStoryBeat(beat)
           this.storyBeats = [...this.storyBeats, beat]
           if (trackingEnabled) createdStoryBeatIds.push(beat.id)
-          createdNewStoryBeatTitles.add(update.title.toLowerCase())
           existing = beat
         }
 
@@ -2313,12 +2297,6 @@ class StoryStore {
     // Add new characters (check for duplicates)
     for (const newChar of result.entryUpdates.newCharacters) {
       await this.wrapUpdate('Add character', newChar.name, async () => {
-        // Skip if already created by characterUpdates handler above
-        if (createdNewCharacterNames.has(newChar.name.toLowerCase())) {
-          log('Skipping new character (already created by update):', newChar.name)
-          return
-        }
-
         const exists = this.characters.some(
           (c) => c.name.toLowerCase() === newChar.name.toLowerCase(),
         )
@@ -2426,12 +2404,6 @@ class StoryStore {
     // Add new locations (check for duplicates, merge into recently created)
     for (const newLoc of result.entryUpdates.newLocations) {
       await this.wrapUpdate('Add location', newLoc.name, async () => {
-        // Skip if already created by locationUpdates handler above
-        if (createdNewLocationNames.has(newLoc.name.toLowerCase())) {
-          log('Skipping new location (already created by update):', newLoc.name)
-          return
-        }
-
         const existing = this.locations.find(
           (l) => l.name.toLowerCase() === newLoc.name.toLowerCase(),
         )
@@ -2514,12 +2486,6 @@ class StoryStore {
     // Add new items (check for duplicates)
     for (const newItem of result.entryUpdates.newItems) {
       await this.wrapUpdate('Add item', newItem.name, async () => {
-        // Skip if already created by itemUpdates handler above
-        if (createdNewItemNames.has(newItem.name.toLowerCase())) {
-          log('Skipping new item (already created by update):', newItem.name)
-          return
-        }
-
         const exists = this.items.some((i) => i.name.toLowerCase() === newItem.name.toLowerCase())
         if (!exists) {
           log('Adding new item:', newItem.name)
@@ -2552,12 +2518,6 @@ class StoryStore {
     // Add new story beats (check for duplicates)
     for (const newBeat of result.entryUpdates.newStoryBeats) {
       await this.wrapUpdate('Add story beat', newBeat.title, async () => {
-        // Skip if already created by storyBeatUpdates handler above
-        if (createdNewStoryBeatTitles.has(newBeat.title.toLowerCase())) {
-          log('Skipping new story beat (already created by update):', newBeat.title)
-          return
-        }
-
         const exists = this.storyBeats.some(
           (b) => b.title.toLowerCase() === newBeat.title.toLowerCase(),
         )
