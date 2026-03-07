@@ -650,6 +650,52 @@ class DatabaseService {
   }
 
   /**
+   * Bulk-insert story entries in batched multi-row INSERTs.
+   * Reduces IPC round-trips from O(n) to O(n/BATCH_SIZE).
+   * 15 parameters per row × BATCH_SIZE 50 = 750 params/batch,
+   * safely under SQLite's 999-variable limit.
+   * All entries share a single createdAt timestamp.
+   */
+  async bulkInsertStoryEntries(entries: Omit<StoryEntry, 'createdAt'>[]): Promise<void> {
+    if (entries.length === 0) return
+    const db = await this.getDb()
+    const now = Date.now()
+    const BATCH_SIZE = 50
+
+    for (let batchStart = 0; batchStart < entries.length; batchStart += BATCH_SIZE) {
+      const batch = entries.slice(batchStart, batchStart + BATCH_SIZE)
+      const valuePlaceholders = batch.map(() => '(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').join(',')
+      const values: unknown[] = []
+
+      for (const entry of batch) {
+        values.push(
+          entry.id,
+          entry.storyId,
+          entry.type,
+          entry.content,
+          entry.parentId,
+          entry.position,
+          now,
+          entry.metadata ? JSON.stringify(entry.metadata) : null,
+          entry.branchId || null,
+          entry.reasoning || null,
+          entry.translatedContent || null,
+          entry.translationLanguage || null,
+          entry.originalInput || null,
+          entry.worldStateDelta ? JSON.stringify(entry.worldStateDelta) : null,
+          entry.suggestedActions || null,
+        )
+      }
+
+      await db.execute(
+        `INSERT INTO story_entries (id, story_id, type, content, parent_id, position, created_at, metadata, branch_id, reasoning, translated_content, translation_language, original_input, world_state_delta, suggested_actions)
+         VALUES ${valuePlaceholders}`,
+        values,
+      )
+    }
+  }
+
+  /**
    * Delete multiple story entries by ID.
    */
   async deleteStoryEntries(ids: string[]): Promise<void> {

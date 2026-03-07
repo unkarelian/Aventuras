@@ -597,19 +597,19 @@ class StoryStore {
     // Wipe all existing main-branch entries
     await database.clearStoryEntries(storyId)
 
-    // Insert new entries sequentially (positions 0…n-1)
-    for (let i = 0; i < messages.length; i++) {
-      await database.addStoryEntry({
-        id: crypto.randomUUID(),
-        storyId,
-        type: messages[i].type,
-        content: messages[i].content,
-        parentId: null,
-        position: i,
-        metadata: { source: 'sillytavern_import' },
-        branchId: null,
-      })
-    }
+    // Build entry objects up front, then bulk-insert in batches
+    // (O(n/50) IPC calls instead of O(n))
+    const entries: Omit<StoryEntry, 'createdAt'>[] = messages.map((msg, i) => ({
+      id: crypto.randomUUID(),
+      storyId,
+      type: msg.type,
+      content: msg.content,
+      parentId: null,
+      position: i,
+      metadata: { source: 'sillytavern_import' },
+      branchId: null,
+    }))
+    await database.bulkInsertStoryEntries(entries)
 
     // Bump the story's updatedAt so the library view reflects the import
     await database.updateStory(storyId, {})
