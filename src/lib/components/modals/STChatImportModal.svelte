@@ -35,7 +35,7 @@
     e.preventDefault()
     dragOver = false
     const file = e.dataTransfer?.files[0]
-    if (file) processFile(file)
+    if (file) void processFile(file)
   }
 
   function handleDragOver(e: DragEvent) {
@@ -47,7 +47,7 @@
     dragOver = false
   }
 
-  async function processContent(text: string) {
+  function processContent(text: string) {
     parseResult = null
     const result = parseSTChat(text)
     if (!result.success) {

@@ -90,14 +90,14 @@ export function parseSTChat(content: string): STChatParseOutcome {
       continue
     }
 
-    const content = typeof obj.mes === 'string' ? obj.mes.trim() : ''
-    if (!content) {
+    const msgContent = typeof obj.mes === 'string' ? obj.mes.trim() : ''
+    if (!msgContent) {
       totalSkipped++
       continue
     }
 
     const type: StoryEntry['type'] = obj.is_user === true ? 'user_action' : 'narration'
-    messages.push({ type, content })
+    messages.push({ type, content: msgContent })
   }
 
   if (messages.length === 0) {
