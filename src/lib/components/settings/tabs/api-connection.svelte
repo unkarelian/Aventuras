@@ -130,7 +130,6 @@
   }
 
   function handleRemoveFetchedModel(model: string) {
-    formFetchedModels = formFetchedModels.filter((m) => m.id !== model)
     if (!formHiddenModels.find((m) => m === model)) {
       formHiddenModels = [...formHiddenModels, model]
     }

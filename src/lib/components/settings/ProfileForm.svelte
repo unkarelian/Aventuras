@@ -81,6 +81,12 @@
   let showCustomModelDialog = $state(false)
   let customModelDialogInput = $state('')
   let customModelDialogError = $state('')
+  let displaymodels = $derived.by(() => {
+    const allModels = [...fetchedModels.map((m) => m.id), ...customModels].filter(
+      (id) => !hiddenModels.includes(id),
+    )
+    return filterModels(allModels.map((id) => ({ id })))
+  })
 
   function isSelfHostedUrl(url: string): boolean {
     if (!url) return false
@@ -244,7 +250,7 @@
     {/if}
 
     <!-- Model filter (shown when there are enough models) -->
-    {#if fetchedModels.length + customModels.length > 10}
+    {#if displaymodels.length + customModels.length > 10}
       <Input
         placeholder="Filter models..."
         bind:value={modelFilterInput}
@@ -254,14 +260,14 @@
     {/if}
 
     <!-- Fetched Models -->
-    {#if fetchedModels.length > 0}
+    {#if displaymodels.length > 0}
       <div class="space-y-1">
         <p class="text-muted-foreground text-xs font-medium">
-          Fetched Models ({fetchedModels.length})
+          Fetched Models ({displaymodels.length})
         </p>
         <ScrollArea class="h-32 w-full rounded-md border">
           <div class="flex flex-wrap gap-1 p-2">
-            {#each filterModels(sortedModels(fetchedModels)) as model (model.id)}
+            {#each filterModels(sortedModels(displaymodels)) as model (model.id)}
               {@const isFav = favoriteModels.includes(model.id)}
               <Badge variant="secondary" class="gap-1 pr-0.5">
                 <button
