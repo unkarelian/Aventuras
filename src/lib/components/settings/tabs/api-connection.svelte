@@ -415,15 +415,13 @@
                 onToggleFavorite={handleToggleFavorite}
                 onAddCustomModel={handleAddCustomModel}
               />
-              {#if saveStatus !== 'idle'}
-                <p class="text-muted-foreground mt-2 text-right text-xs">
-                  {#if saveStatus === 'saving'}
-                    Saving...
-                  {:else}
-                    ✓ Saved
-                  {/if}
-                </p>
-              {/if}
+              <p class="text-muted-foreground mt-2 min-h-[1lh] text-right text-xs">
+                {#if saveStatus === 'saving'}
+                  Saving...
+                {:else if saveStatus !== 'idle'}
+                  ✓ Saved
+                {/if}
+              </p>
             </div>
           </Collapsible.Content>
         </Collapsible.Root>
