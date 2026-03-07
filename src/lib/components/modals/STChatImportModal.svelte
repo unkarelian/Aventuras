@@ -4,7 +4,7 @@
   import { parseSTChat, type STChatParseResult } from '$lib/services/stChatImporter'
   import { open } from '@tauri-apps/plugin-dialog'
   import { readTextFile } from '@tauri-apps/plugin-fs'
-  import { Upload, MessageSquare, Loader2, Check, AlertTriangle } from 'lucide-svelte'
+  import { Upload, MessageSquare, Loader2, Check, AlertTriangle, GitBranch } from 'lucide-svelte'
 
   import * as ResponsiveModal from '$lib/components/ui/responsive-modal'
   import { Button } from '$lib/components/ui/button'
@@ -111,7 +111,22 @@
     </ResponsiveModal.Header>
 
     <div class="flex-1 space-y-4 overflow-y-auto px-6 py-6">
-      {#if !parseResult}
+      {#if story.branches.length > 0}
+        <!-- Blocking error: branches must be deleted first -->
+        <div class="flex gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
+          <GitBranch class="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+          <div class="space-y-1 text-sm">
+            <p class="text-foreground font-medium">Branches must be deleted first</p>
+            <p class="text-muted-foreground">
+              This story has {story.branches.length} branch{story.branches.length === 1
+                ? ''
+                : 'es'}. Because branches reference main-branch entries via fork points,
+              importing would leave them broken. Delete all branches in the Branch panel, then
+              re-open this dialog.
+            </p>
+          </div>
+        </div>
+      {:else if !parseResult}
         <!-- File upload area -->
         <div
           class={cn(
@@ -189,7 +204,7 @@
       <Button variant="outline" onclick={close} disabled={importing}>Cancel</Button>
       <Button
         onclick={handleImport}
-        disabled={!parseResult || importing}
+        disabled={!parseResult || importing || story.branches.length > 0}
         variant="destructive"
         class="gap-2"
       >

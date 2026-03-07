@@ -594,6 +594,16 @@ class StoryStore {
 
     const storyId = this.currentStory.id
 
+    // Branches fork off main-branch entries via fork_entry_id.
+    // Deleting all main-branch entries would leave every branch with a
+    // dangling FK reference — block the import if any branches exist.
+    if (this.branches.length > 0) {
+      throw new Error(
+        `Cannot import: this story has ${this.branches.length} branch${this.branches.length === 1 ? '' : 'es'}. ` +
+          'Delete all branches before importing a SillyTavern chat.',
+      )
+    }
+
     // Wipe all existing main-branch entries
     await database.clearStoryEntries(storyId)
 
