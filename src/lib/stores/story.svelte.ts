@@ -627,8 +627,14 @@ class StoryStore {
 
     // Reload entries into the store
     await this.reloadEntriesForCurrentBranch()
+  }
 
-    // Restore or clear suggested actions so the UI reflects the new content
+  /**
+   * Trigger suggested-action generation after a SillyTavern import.
+   * Called by the modal once the user has made their world-state choice,
+   * so generation doesn't start before that dialog is resolved.
+   */
+  triggerSuggestionsAfterImport(): void {
     this.restoreSuggestedActionsAfterDelete()
   }
 

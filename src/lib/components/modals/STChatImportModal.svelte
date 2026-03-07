@@ -97,6 +97,7 @@
   }
 
   function handleKeepWorldState() {
+    story.triggerSuggestionsAfterImport()
     ui.showToast(`Imported ${total} messages`, 'info')
     ui.closeSTChatImport()
   }
@@ -105,6 +106,7 @@
     resettingWorldState = true
     try {
       await story.resetWorldStateAfterImport()
+      story.triggerSuggestionsAfterImport()
       ui.showToast(`Imported ${total} messages — world state reset`, 'info')
     } catch (err) {
       ui.showToast(err instanceof Error ? err.message : 'Reset failed', 'error')
@@ -247,14 +249,17 @@
 
     <ResponsiveModal.Footer class="mt-auto border-t px-6 py-4">
       {#if imported}
-        <Button variant="outline" onclick={handleKeepWorldState} disabled={resettingWorldState}>
+        <Button
+          onclick={handleKeepWorldState}
+          disabled={resettingWorldState}
+          class="gap-2 bg-yellow-500 text-black hover:bg-yellow-400"
+        >
           Keep World State
         </Button>
         <Button
-          variant="destructive"
           onclick={handleResetWorldState}
           disabled={resettingWorldState}
-          class="gap-2"
+          class="gap-2 bg-red-600 text-white hover:bg-red-500"
         >
           {#if resettingWorldState}
             <Loader2 class="h-4 w-4 animate-spin" />

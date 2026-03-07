@@ -657,19 +657,12 @@ class DatabaseService {
    */
   async resetWorldStateForImport(storyId: string): Promise<void> {
     const db = await this.getDb()
-    await db.execute(
-      'DELETE FROM locations WHERE story_id = ? AND branch_id IS NULL',
-      [storyId],
-    )
-    await db.execute(
-      'DELETE FROM items WHERE story_id = ? AND branch_id IS NULL',
-      [storyId],
-    )
-    await db.execute(
-      'DELETE FROM story_beats WHERE story_id = ? AND branch_id IS NULL',
-      [storyId],
-    )
-    await db.execute('UPDATE stories SET time_tracker = NULL WHERE id = ?', [storyId])
+    await Promise.all([
+      db.execute('DELETE FROM locations WHERE story_id = ? AND branch_id IS NULL', [storyId]),
+      db.execute('DELETE FROM items WHERE story_id = ? AND branch_id IS NULL', [storyId]),
+      db.execute('DELETE FROM story_beats WHERE story_id = ? AND branch_id IS NULL', [storyId]),
+      db.execute('UPDATE stories SET time_tracker = NULL WHERE id = ?', [storyId]),
+    ])
   }
 
   /**
