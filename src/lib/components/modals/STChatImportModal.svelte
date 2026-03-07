@@ -150,6 +150,10 @@
         <p class="text-muted-foreground text-center text-xs">
           Supports SillyTavern .jsonl chat exports
         </p>
+        <p class="text-muted-foreground text-center text-xs">
+          <strong class="text-foreground">Recommended:</strong> An empty story is recommended for
+          better state tracking and classification.
+        </p>
       {:else}
         <!-- Parse preview -->
         <div class="bg-muted/50 rounded-lg border p-4">

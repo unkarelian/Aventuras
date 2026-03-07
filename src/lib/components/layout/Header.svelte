@@ -21,7 +21,7 @@
     PanelRight,
     Settings,
     Library,
-    Download,
+    ArrowUpDown,
     FileJson,
     FileText,
     ChevronDown,
@@ -250,32 +250,34 @@
         title="View generated images"
       />
 
-      <!-- Import ST Chat Button -->
-      <Button
-        icon={MessageSquare}
-        label="Import ST Chat"
-        variant="text"
-        class="text-muted-foreground hover:text-primary min-h-11 min-w-11"
-        onclick={() => ui.openSTChatImport()}
-        title="Import SillyTavern chat"
-      />
-
-      <!-- Export Menu -->
+      <!-- Import / Export Menu -->
       <DropdownMenu.Root bind:open={showExportMenu}>
         <DropdownMenu.Trigger>
           {#snippet child({ props })}
             <Button
               {...props}
-              icon={Download}
-              label="Export"
+              icon={ArrowUpDown}
+              label="Import/Export"
               endIcon={ChevronDown}
               variant="text"
               class="text-muted-foreground hover:text-primary min-h-[44px] min-w-[44px]"
-              title="Export story"
+              title="Import / Export story"
             />
           {/snippet}
         </DropdownMenu.Trigger>
         <DropdownMenu.Content align="end">
+          <DropdownMenu.Label>Import</DropdownMenu.Label>
+          <DropdownMenu.Item
+            onclick={() => {
+              showExportMenu = false
+              ui.openSTChatImport()
+            }}
+          >
+            <MessageSquare class="text-muted-foreground h-4 w-4" />
+            SillyTavern Chat (.jsonl)
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator />
+          <DropdownMenu.Label>Export</DropdownMenu.Label>
           <DropdownMenu.Item onclick={() => exportAventuras()}>
             <FileJson class="text-accent-400 h-4 w-4" />
             Aventuras (.avt)
