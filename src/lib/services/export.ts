@@ -347,6 +347,24 @@ class ExportService {
         oldToNewId.set(entry.id, crypto.randomUUID())
       }
 
+      // Pre-map world-state entity IDs so that COW overridesId references can be
+      // resolved during import (override rows reference the original entity's old ID).
+      for (const char of data.characters ?? []) {
+        oldToNewId.set(char.id, crypto.randomUUID())
+      }
+      for (const loc of data.locations ?? []) {
+        oldToNewId.set(loc.id, crypto.randomUUID())
+      }
+      for (const item of data.items ?? []) {
+        oldToNewId.set(item.id, crypto.randomUUID())
+      }
+      for (const beat of data.storyBeats ?? []) {
+        oldToNewId.set(beat.id, crypto.randomUUID())
+      }
+      for (const entry of data.lorebookEntries ?? []) {
+        oldToNewId.set(entry.id, crypto.randomUUID())
+      }
+
       // Pre-map branch/checkpoint IDs if present
       if (data.branches) {
         for (const branch of data.branches) {
@@ -473,8 +491,7 @@ class ExportService {
       // Import characters
       if (data.characters) {
         for (const char of data.characters) {
-          const newCharId = crypto.randomUUID()
-          oldToNewId.set(char.id, newCharId)
+          const newCharId = oldToNewId.get(char.id) ?? crypto.randomUUID()
 
           await database.addCharacter({
             id: newCharId,
@@ -488,6 +505,9 @@ class ExportService {
             visualDescriptors: char.visualDescriptors ?? {},
             portrait: char.portrait ?? null,
             branchId: mapBranchId(char.branchId ?? null),
+            // COW fields: map overridesId to new UUID so resolution chain is preserved
+            overridesId: char.overridesId ? (oldToNewId.get(char.overridesId) ?? null) : null,
+            deleted: char.deleted ?? false,
             // Translation fields
             translatedName: char.translatedName ?? null,
             translatedDescription: char.translatedDescription ?? null,
@@ -502,8 +522,7 @@ class ExportService {
       // Import locations
       if (data.locations) {
         for (const loc of data.locations) {
-          const newLocId = crypto.randomUUID()
-          oldToNewId.set(loc.id, newLocId)
+          const newLocId = oldToNewId.get(loc.id) ?? crypto.randomUUID()
 
           await database.addLocation({
             id: newLocId,
@@ -515,6 +534,9 @@ class ExportService {
             connections: loc.connections.map((c) => oldToNewId.get(c) ?? c),
             metadata: loc.metadata,
             branchId: mapBranchId(loc.branchId ?? null),
+            // COW fields: map overridesId to new UUID so resolution chain is preserved
+            overridesId: loc.overridesId ? (oldToNewId.get(loc.overridesId) ?? null) : null,
+            deleted: loc.deleted ?? false,
             // Translation fields
             translatedName: loc.translatedName ?? null,
             translatedDescription: loc.translatedDescription ?? null,
@@ -526,8 +548,7 @@ class ExportService {
       // Import items
       if (data.items) {
         for (const item of data.items) {
-          const newItemId = crypto.randomUUID()
-          oldToNewId.set(item.id, newItemId)
+          const newItemId = oldToNewId.get(item.id) ?? crypto.randomUUID()
 
           const mappedLocation =
             item.location === 'inventory'
@@ -544,6 +565,9 @@ class ExportService {
             location: mappedLocation,
             metadata: item.metadata,
             branchId: mapBranchId(item.branchId ?? null),
+            // COW fields: map overridesId to new UUID so resolution chain is preserved
+            overridesId: item.overridesId ? (oldToNewId.get(item.overridesId) ?? null) : null,
+            deleted: item.deleted ?? false,
             // Translation fields
             translatedName: item.translatedName ?? null,
             translatedDescription: item.translatedDescription ?? null,
@@ -555,8 +579,7 @@ class ExportService {
       // Import story beats
       if (data.storyBeats) {
         for (const beat of data.storyBeats) {
-          const newBeatId = crypto.randomUUID()
-          oldToNewId.set(beat.id, newBeatId)
+          const newBeatId = oldToNewId.get(beat.id) ?? crypto.randomUUID()
 
           await database.addStoryBeat({
             id: newBeatId,
@@ -569,6 +592,9 @@ class ExportService {
             resolvedAt: beat.resolvedAt ?? null,
             metadata: beat.metadata,
             branchId: mapBranchId(beat.branchId ?? null),
+            // COW fields: map overridesId to new UUID so resolution chain is preserved
+            overridesId: beat.overridesId ? (oldToNewId.get(beat.overridesId) ?? null) : null,
+            deleted: beat.deleted ?? false,
             // Translation fields
             translatedTitle: beat.translatedTitle ?? null,
             translatedDescription: beat.translatedDescription ?? null,
@@ -580,8 +606,7 @@ class ExportService {
       // Import lorebook entries (added in v1.1.0)
       if (data.lorebookEntries) {
         for (const entry of data.lorebookEntries) {
-          const newEntryId = crypto.randomUUID()
-          oldToNewId.set(entry.id, newEntryId)
+          const newEntryId = oldToNewId.get(entry.id) ?? crypto.randomUUID()
 
           await database.addEntry({
             id: newEntryId,
@@ -607,6 +632,9 @@ class ExportService {
             updatedAt: Date.now(),
             loreManagementBlacklisted: entry.loreManagementBlacklisted || false,
             branchId: mapBranchId(entry.branchId ?? null),
+            // COW fields: map overridesId to new UUID so resolution chain is preserved
+            overridesId: entry.overridesId ? (oldToNewId.get(entry.overridesId) ?? null) : null,
+            deleted: entry.deleted ?? false,
           })
         }
       }
