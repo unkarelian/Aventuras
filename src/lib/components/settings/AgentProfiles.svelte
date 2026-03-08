@@ -689,7 +689,7 @@
           </div>
           <p class="text-muted-foreground text-xs">
             Auto uses provider/model capability detection. Force On/Off to override. Using
-            structured output can break reasoning when using local models.
+            structured output can break reasoning when using local model servers.
           </p>
         </div>
 
@@ -699,8 +699,8 @@
               <Label class="text-sm">Thinking nudge</Label>
               <p class="text-muted-foreground text-xs">
                 Inject a prompt to encourage the model to use <code>&lt;think&gt;</code> tags properly.
-                Useful for some local models such as Mistral models, but may cause issues other models
-                such as Qwen 3.5. Has no effect when using structured output.
+                Useful for some local models such as Mistral models, but may cause issues with other models
+                such as Qwen 3.5. Has no effect when using structured output with local model servers.
               </p>
             </div>
             <Switch
