@@ -23,15 +23,17 @@ import { PROVIDERS, getBaseUrl } from './config'
 
 const DEFAULT_TIMEOUT_MS = LLM_TIMEOUT_DEFAULT
 
-export function createProviderFromProfile(
+export function createProviderFromProfile(options: {
   profile: APIProfile,
   presetId: string,
   debugId?: string,
-  options?: { structuredOutputs?: boolean },
-) {
-  const fetch = createTimeoutFetch(DEFAULT_TIMEOUT_MS, presetId, debugId)
+  structuredOutputs?: boolean,
+  manualBody?: string,
+}) {
+  const { profile, presetId, debugId, structuredOutputs, manualBody } = options
+  const fetch = createTimeoutFetch(DEFAULT_TIMEOUT_MS, presetId, manualBody || '', debugId)
   const baseURL = profile.baseUrl || getBaseUrl(profile.providerType)
-  const supportsStructuredOutputs = options?.structuredOutputs ?? false
+  const supportsStructuredOutputs = structuredOutputs ?? false
 
   switch (profile.providerType) {
     case 'openrouter':

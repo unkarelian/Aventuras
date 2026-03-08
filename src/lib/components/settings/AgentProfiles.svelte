@@ -43,6 +43,7 @@
   import { Textarea } from '$lib/components/ui/textarea'
   import { Checkbox } from '$lib/components/ui/checkbox'
   import { Switch } from '$lib/components/ui/switch'
+  import { cn } from '$lib/utils/cn'
 
   const reasoningLevels = ['off', 'low', 'medium', 'high'] as const
   const reasoningLabels: Record<string, string> = {
@@ -632,7 +633,12 @@
             </div>
           {/if}
         {/if}
-        <div class="grid grid-cols-2 gap-6">
+        <div
+          class={cn(
+            'grid grid-cols-2 gap-6',
+            settings.advancedRequestSettings.manualMode && 'pointer-events-none opacity-50',
+          )}
+        >
           <div class="grid gap-4">
             <div class="flex justify-between">
               <Label>Temperature</Label>
@@ -708,7 +714,12 @@
         {/if}
 
         {#if tempGlobalProviderReasoningCapability && (!tempProviderModelCapabilityFetching || tempModelReasoningCapability !== 'unsupported')}
-          <div class="grid gap-4">
+          <div
+            class={cn(
+              'grid gap-4',
+              settings.advancedRequestSettings.manualMode && 'pointer-events-none opacity-50',
+            )}
+          >
             {#if tempProviderBinaryReasoning}
               <div class="flex items-center justify-between">
                 <Label>Thinking</Label>

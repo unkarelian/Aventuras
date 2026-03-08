@@ -15,7 +15,7 @@ import { lorebookVault } from '$lib/stores/lorebookVault.svelte'
 import { scenarioVault } from '$lib/stores/scenarioVault.svelte'
 import { createLogger } from '../core/config'
 import { FandomService } from '../../fandom'
-import { resolveAgentConfig, stopWhenDone } from '../sdk/agents'
+import { stopWhenDone } from '../sdk/agents'
 import {
   createCharacterTools,
   createScenarioTools,
@@ -33,8 +33,8 @@ import {
   type ImageToolContext,
 } from '../sdk/tools'
 import type { VaultPendingChange } from '../sdk/schemas/vault'
-import { streamText } from 'ai'
 import { database } from '$lib/services/database'
+import { createStreamingAgenticAssistant } from '../sdk/agents/factory'
 
 const log = createLogger('InteractiveVault')
 
@@ -80,11 +80,11 @@ export type StreamEvent =
   | { type: 'done'; result: SendMessageResult }
   | { type: 'error'; error: string }
   | {
-      type: 'show_entity'
-      change: VaultPendingChange
-      entityId: string
-      entityType: string
-    }
+    type: 'show_entity'
+    change: VaultPendingChange
+    entityId: string
+    entityType: string
+  }
 
 /** Tool call info for display in chat */
 export interface ToolCallDisplay {
@@ -415,24 +415,17 @@ export class InteractiveVaultService extends BaseAIService {
       })
     }
 
-    // Resolve agent config
-    const { model, providerOptions, preset } = resolveAgentConfig(
-      this.presetId,
-      'interactive-vault',
-    )
-
     try {
-      const result = streamText({
-        model,
-        system: this.systemPrompt,
-        messages: this.conversationHistory,
+      const agent = createStreamingAgenticAssistant({
+        presetId: this.presetId,
+        instructions: this.systemPrompt,
         tools: tools as ToolSet,
-        temperature: preset.temperature,
-        maxOutputTokens: preset.maxTokens,
-        providerOptions,
-        abortSignal: signal,
         stopWhen: stopWhenDone(50),
-      })
+        signal,
+      },
+        'interactive-vault'
+      )
+      const result = await agent.stream({ messages: this.conversationHistory })
 
       // Track tool calls for the current step.
       // Use an array (not a Map) so duplicate toolCallIds from providers like Ollama
@@ -891,9 +884,9 @@ export class InteractiveVaultService extends BaseAIService {
       typeof firstUserMessage.content === 'string'
         ? firstUserMessage.content
         : firstUserMessage.content
-            .filter((p): p is TextPart => p.type === 'text')
-            .map((p) => p.text)
-            .join(' ')
+          .filter((p): p is TextPart => p.type === 'text')
+          .map((p) => p.text)
+          .join(' ')
 
     if (!content) return 'New Conversation'
 
@@ -950,9 +943,9 @@ export class InteractiveVaultService extends BaseAIService {
         typeof msg.content === 'string'
           ? msg.content
           : (msg.content as Array<{ type: string; text?: string }>)
-              .filter((p) => p.type === 'text' && p.text)
-              .map((p) => p.text!)
-              .join('\n')
+            .filter((p) => p.type === 'text' && p.text)
+            .map((p) => p.text!)
+            .join('\n')
 
       // Skip internal system approval notes injected by handleApproval
       if (content.startsWith('[System:')) return

@@ -103,103 +103,90 @@ export function buildProviderOptions(
   const budgetTokens = REASONING_TOKEN_BUDGETS[preset.reasoningEffort] ?? 8000
   const reasoningEffort = preset.reasoningEffort === 'off' ? undefined : preset.reasoningEffort
 
-  switch (providerType) {
-    case 'openrouter':
-      // OpenRouter uses max_tokens for reasoning budget
-      if (reasoningEffort) {
-        options = { reasoning: { effort: reasoningEffort } } satisfies OpenRouterProviderOptions
-      }
-      break
-    case 'openai':
-      if (reasoningEffort) {
-        options = { reasoningEffort: reasoningEffort } satisfies OpenAIResponsesProviderOptions
-      }
-      break
-    case 'anthropic':
-      if (reasoningEffort) {
-        options = {
-          thinking: {
-            type: 'enabled',
-            budgetTokens,
-          },
-        } satisfies AnthropicProviderOptions
-      }
-      break
-    case 'xai':
-      if (reasoningEffort) {
-        // xAI Chat API supports 'low' | 'high' only (no 'medium')
-        options = {
-          reasoningEffort: reasoningEffort === 'medium' ? 'high' : reasoningEffort,
-        } satisfies XaiProviderOptions
-      }
-      options = { ...options, parallel_function_calling: true } satisfies XaiProviderOptions
-      break
-    case 'deepseek':
-      // DeepSeek uses binary thinking: enabled/disabled (no effort levels)
-      if (reasoningEffort) {
-        options = { thinking: { type: 'enabled' } } satisfies DeepSeekChatOptions
-      }
-      break
-    case 'google':
-      if (reasoningEffort) {
-        options = {
-          thinkingConfig: { thinkingLevel: reasoningEffort },
-          structuredOutputs,
-        } satisfies GoogleGenerativeAIProviderOptions
-      }
-      if (structuredOutputs) {
-        options = { ...options, structuredOutputs } satisfies GoogleGenerativeAIProviderOptions
-      }
-      break
-    case 'pollinations':
-      options = {
-        reasoningEffort: reasoningEffort,
-        parallel_tool_calls: true,
-      } satisfies PollinationsLanguageModelSettings
-      break
-    case 'groq':
-      options = {
-        reasoningEffort: reasoningEffort,
-        structuredOutputs,
-        parallelToolCalls: true,
-      } satisfies GroqProviderOptions
-      break
-    case 'zhipu':
-      if (reasoningEffort) {
-        options = { type: 'enabled', clearThinking: true, doSample: true }
-      }
-      break
-    case 'mistral':
-      options = {
-        safePrompt: false,
-        parallelToolCalls: true,
-        structuredOutputs,
-      } satisfies MistralLanguageModelOptions
-      break
-    case 'nvidia-nim':
-    case 'nanogpt':
-    case 'ollama':
-    case 'lmstudio':
-    case 'llamacpp':
-    case 'openai-compatible':
-      options = { reasoningEffort: reasoningEffort } satisfies OpenAICompatibleProviderOptions
-      break
-  }
-
-  if (preset.manualBody) {
-    try {
-      const manual = JSON.parse(preset.manualBody) as JSONObject
-      const reservedKeys = ['messages', 'tools', 'tool_choice', 'stream', 'model']
-      if (manual && typeof manual === 'object' && !Array.isArray(manual)) {
-        for (const [key, value] of Object.entries(manual)) {
-          if (!reservedKeys.includes(key)) {
-            options[key] = value
-          }
+  if (!settings.advancedRequestSettings.manualMode) {
+    switch (providerType) {
+      case 'openrouter':
+        // OpenRouter uses max_tokens for reasoning budget
+        if (reasoningEffort) {
+          options = { reasoning: { effort: reasoningEffort } } satisfies OpenRouterProviderOptions
         }
-      }
-    } catch {
-      log('Invalid manualBody JSON, skipping')
+        break
+      case 'openai':
+        if (reasoningEffort) {
+          options = { reasoningEffort: reasoningEffort } satisfies OpenAIResponsesProviderOptions
+        }
+        break
+      case 'anthropic':
+        if (reasoningEffort) {
+          options = {
+            thinking: {
+              type: 'enabled',
+              budgetTokens,
+            },
+          } satisfies AnthropicProviderOptions
+        }
+        break
+      case 'xai':
+        if (reasoningEffort) {
+          // xAI Chat API supports 'low' | 'high' only (no 'medium')
+          options = {
+            reasoningEffort: reasoningEffort === 'medium' ? 'high' : reasoningEffort,
+          } satisfies XaiProviderOptions
+        }
+        options = { ...options, parallel_function_calling: true } satisfies XaiProviderOptions
+        break
+      case 'deepseek':
+        // DeepSeek uses binary thinking: enabled/disabled (no effort levels)
+        if (reasoningEffort) {
+          options = { thinking: { type: 'enabled' } } satisfies DeepSeekChatOptions
+        }
+        break
+      case 'google':
+        if (reasoningEffort) {
+          options = {
+            thinkingConfig: { thinkingLevel: reasoningEffort },
+            structuredOutputs,
+          } satisfies GoogleGenerativeAIProviderOptions
+        }
+        if (structuredOutputs) {
+          options = { ...options, structuredOutputs } satisfies GoogleGenerativeAIProviderOptions
+        }
+        break
+      case 'pollinations':
+        options = {
+          reasoningEffort: reasoningEffort,
+          parallel_tool_calls: true,
+        } satisfies PollinationsLanguageModelSettings
+        break
+      case 'groq':
+        options = {
+          reasoningEffort: reasoningEffort,
+          structuredOutputs,
+          parallelToolCalls: true,
+        } satisfies GroqProviderOptions
+        break
+      case 'zhipu':
+        if (reasoningEffort) {
+          options = { type: 'enabled', clearThinking: true, doSample: true }
+        }
+        break
+      case 'mistral':
+        options = {
+          safePrompt: false,
+          parallelToolCalls: true,
+          structuredOutputs,
+        } satisfies MistralLanguageModelOptions
+        break
+      case 'nvidia-nim':
+      case 'nanogpt':
+      case 'ollama':
+      case 'lmstudio':
+      case 'llamacpp':
+      case 'openai-compatible':
+        options = { reasoningEffort: reasoningEffort } satisfies OpenAICompatibleProviderOptions
+        break
     }
+
   }
 
   if (Object.keys(options).length === 0) {
@@ -231,6 +218,7 @@ interface NarrativeConfig {
   temperature: number
   maxTokens: number
   providerOptions: ProviderOptions | undefined
+  useThinkTag: boolean
 }
 
 function resolveConfig(presetId: string, serviceId: string, debugId?: string): ResolvedConfig {
@@ -261,8 +249,10 @@ function resolveConfig(presetId: string, serviceId: string, debugId?: string): R
     }
   }
 
-  const provider = createProviderFromProfile(profile, serviceId, debugId, {
+  const provider = createProviderFromProfile({
+    profile, presetId: serviceId, debugId,
     structuredOutputs: supportsStructuredOutput,
+    manualBody: preset.manualBody ?? '',
   })
   const model = provider(preset.model) as LanguageModelV3
 
@@ -290,7 +280,7 @@ function resolveNarrativeConfig(debugId?: string): NarrativeConfig {
     )
   }
 
-  const provider = createProviderFromProfile(profile, 'narrative', debugId)
+  const provider = createProviderFromProfile({ profile, presetId: 'narrative', debugId, manualBody: settings.apiSettings.manualBody ?? '' })
   const baseModelId = settings.apiSettings.defaultModel
   const reasoningEffort = settings.apiSettings.reasoningEffort ?? 'off'
   const model = provider(baseModelId) as LanguageModelV3
@@ -304,8 +294,12 @@ function resolveNarrativeConfig(debugId?: string): NarrativeConfig {
     temperature: settings.apiSettings.temperature,
     maxTokens: settings.apiSettings.maxTokens,
     reasoningEffort: reasoningEffort,
-    manualBody: '',
+    manualBody: settings.apiSettings.manualBody ?? '',
   }
+
+  const useThinkTag =
+    profile.providerType === 'openai-compatible' ||
+    getReasoningExtraction(profile.providerType) === 'think-tag'
 
   return {
     profile,
@@ -314,6 +308,7 @@ function resolveNarrativeConfig(debugId?: string): NarrativeConfig {
     temperature: settings.apiSettings.temperature,
     maxTokens: settings.apiSettings.maxTokens,
     providerOptions: buildProviderOptions(narrativePreset, profile.providerType),
+    useThinkTag,
   }
 }
 
@@ -409,8 +404,8 @@ export async function generateStructured<T extends z.ZodType>(
     system,
     prompt,
     output: Output.object({ schema }),
-    temperature: preset.temperature,
-    maxOutputTokens: preset.maxTokens,
+    temperature: !settings.advancedRequestSettings.manualMode ? preset.temperature : undefined,
+    maxOutputTokens: !settings.advancedRequestSettings.manualMode ? preset.maxTokens : undefined,
     providerOptions,
     abortSignal: signal,
   })
@@ -437,8 +432,8 @@ export async function generatePlainText(
     }),
     system,
     prompt,
-    temperature: preset.temperature,
-    maxOutputTokens: preset.maxTokens,
+    temperature: !settings.advancedRequestSettings.manualMode ? preset.temperature : undefined,
+    maxOutputTokens: !settings.advancedRequestSettings.manualMode ? preset.maxTokens : undefined,
     providerOptions,
     abortSignal: signal,
   })
@@ -465,8 +460,8 @@ export function streamPlainText(options: BaseGenerateOptions, serviceId: string)
     }),
     system,
     prompt,
-    temperature: preset.temperature,
-    maxOutputTokens: preset.maxTokens,
+    temperature: !settings.advancedRequestSettings.manualMode ? preset.temperature : undefined,
+    maxOutputTokens: !settings.advancedRequestSettings.manualMode ? preset.maxTokens : undefined,
     providerOptions,
     abortSignal: signal,
     onFinish: (result) => {
@@ -508,8 +503,8 @@ export function streamStructured<T extends z.ZodType>(
     system,
     prompt,
     output: Output.object({ schema }),
-    temperature: preset.temperature,
-    maxOutputTokens: preset.maxTokens,
+    temperature: !settings.advancedRequestSettings.manualMode ? preset.temperature : undefined,
+    maxOutputTokens: !settings.advancedRequestSettings.manualMode ? preset.maxTokens : undefined,
     providerOptions,
     abortSignal: signal,
     onFinish: (result) => {
@@ -538,7 +533,7 @@ interface NarrativeGenerateOptions {
 export function streamNarrative(options: NarrativeGenerateOptions) {
   const { system, prompt, signal } = options
   const debugId = crypto.randomUUID()
-  const { providerType, model, temperature, maxTokens, providerOptions } =
+  const { providerType, model, temperature, maxTokens, providerOptions, useThinkTag } =
     resolveNarrativeConfig(debugId)
 
   log('streamNarrative', { model: settings.apiSettings.defaultModel, providerType })
@@ -547,12 +542,12 @@ export function streamNarrative(options: NarrativeGenerateOptions) {
   return streamText({
     model: wrapLanguageModel({
       model,
-      middleware: buildPlainTextMiddleware(getReasoningExtraction(providerType) === 'think-tag'),
+      middleware: buildPlainTextMiddleware(useThinkTag),
     }),
     system,
     prompt,
-    temperature,
-    maxOutputTokens: maxTokens,
+    temperature: !settings.advancedRequestSettings.manualMode ? temperature : undefined,
+    maxOutputTokens: !settings.advancedRequestSettings.manualMode ? maxTokens : undefined,
     providerOptions,
     abortSignal: signal,
     onFinish: (result) => {
