@@ -349,20 +349,16 @@ class ExportService {
 
       // Pre-map world-state entity IDs so that COW overridesId references can be
       // resolved during import (override rows reference the original entity's old ID).
-      for (const char of data.characters ?? []) {
-        oldToNewId.set(char.id, crypto.randomUUID())
-      }
-      for (const loc of data.locations ?? []) {
-        oldToNewId.set(loc.id, crypto.randomUUID())
-      }
-      for (const item of data.items ?? []) {
-        oldToNewId.set(item.id, crypto.randomUUID())
-      }
-      for (const beat of data.storyBeats ?? []) {
-        oldToNewId.set(beat.id, crypto.randomUUID())
-      }
-      for (const entry of data.lorebookEntries ?? []) {
-        oldToNewId.set(entry.id, crypto.randomUUID())
+      for (const collection of [
+        data.characters,
+        data.locations,
+        data.items,
+        data.storyBeats,
+        data.lorebookEntries,
+      ]) {
+        for (const entity of collection ?? []) {
+          oldToNewId.set(entity.id, crypto.randomUUID())
+        }
       }
 
       // Pre-map branch/checkpoint IDs if present
