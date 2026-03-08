@@ -400,6 +400,9 @@ class ExportService {
         branchId ? (branchIdMap.get(branchId) ?? null) : null
       const mapEntryId = (entryId: string | null | undefined) =>
         entryId ? (oldToNewId.get(entryId) ?? entryId) : null
+      // For COW overridesId: resolve to new UUID or null (never keep the old ID)
+      const mapOverridesId = (id: string | null | undefined) =>
+        id ? (oldToNewId.get(id) ?? null) : null
 
       // Import branches (insert parents before children)
       const branchCheckpointMap = new Map<string, string | null>()
@@ -470,7 +473,6 @@ class ExportService {
       // Import entries
       for (const entry of data.entries) {
         const newEntryId = oldToNewId.get(entry.id) ?? crypto.randomUUID()
-        oldToNewId.set(entry.id, newEntryId)
 
         await database.addStoryEntry({
           id: newEntryId,
@@ -505,8 +507,7 @@ class ExportService {
             visualDescriptors: char.visualDescriptors ?? {},
             portrait: char.portrait ?? null,
             branchId: mapBranchId(char.branchId ?? null),
-            // COW fields: map overridesId to new UUID so resolution chain is preserved
-            overridesId: char.overridesId ? (oldToNewId.get(char.overridesId) ?? null) : null,
+            overridesId: mapOverridesId(char.overridesId),
             deleted: char.deleted ?? false,
             // Translation fields
             translatedName: char.translatedName ?? null,
@@ -534,8 +535,7 @@ class ExportService {
             connections: loc.connections.map((c) => oldToNewId.get(c) ?? c),
             metadata: loc.metadata,
             branchId: mapBranchId(loc.branchId ?? null),
-            // COW fields: map overridesId to new UUID so resolution chain is preserved
-            overridesId: loc.overridesId ? (oldToNewId.get(loc.overridesId) ?? null) : null,
+            overridesId: mapOverridesId(loc.overridesId),
             deleted: loc.deleted ?? false,
             // Translation fields
             translatedName: loc.translatedName ?? null,
@@ -565,8 +565,7 @@ class ExportService {
             location: mappedLocation,
             metadata: item.metadata,
             branchId: mapBranchId(item.branchId ?? null),
-            // COW fields: map overridesId to new UUID so resolution chain is preserved
-            overridesId: item.overridesId ? (oldToNewId.get(item.overridesId) ?? null) : null,
+            overridesId: mapOverridesId(item.overridesId),
             deleted: item.deleted ?? false,
             // Translation fields
             translatedName: item.translatedName ?? null,
@@ -592,8 +591,7 @@ class ExportService {
             resolvedAt: beat.resolvedAt ?? null,
             metadata: beat.metadata,
             branchId: mapBranchId(beat.branchId ?? null),
-            // COW fields: map overridesId to new UUID so resolution chain is preserved
-            overridesId: beat.overridesId ? (oldToNewId.get(beat.overridesId) ?? null) : null,
+            overridesId: mapOverridesId(beat.overridesId),
             deleted: beat.deleted ?? false,
             // Translation fields
             translatedTitle: beat.translatedTitle ?? null,
@@ -632,8 +630,7 @@ class ExportService {
             updatedAt: Date.now(),
             loreManagementBlacklisted: entry.loreManagementBlacklisted || false,
             branchId: mapBranchId(entry.branchId ?? null),
-            // COW fields: map overridesId to new UUID so resolution chain is preserved
-            overridesId: entry.overridesId ? (oldToNewId.get(entry.overridesId) ?? null) : null,
+            overridesId: mapOverridesId(entry.overridesId),
             deleted: entry.deleted ?? false,
           })
         }
@@ -642,33 +639,31 @@ class ExportService {
       // Import checkpoints (added in v1.6.0)
       if (data.checkpoints) {
         const remapEntityId = (id: string) => oldToNewId.get(id) ?? id
-        const remapBranchId = (id: string | null | undefined) =>
-          id ? (branchIdMap.get(id) ?? null) : null
         const remapStoryEntry = (entry: StoryEntry): StoryEntry => ({
           ...entry,
           id: remapEntityId(entry.id),
           storyId: newStoryId,
           parentId: entry.parentId ? (remapEntityId(entry.parentId) ?? entry.parentId) : null,
-          branchId: remapBranchId(entry.branchId ?? null),
+          branchId: mapBranchId(entry.branchId ?? null),
         })
         const remapCharacter = (char: Character): Character => ({
           ...char,
           id: remapEntityId(char.id),
           storyId: newStoryId,
-          branchId: remapBranchId(char.branchId ?? null),
+          branchId: mapBranchId(char.branchId ?? null),
         })
         const remapLocation = (loc: Location): Location => ({
           ...loc,
           id: remapEntityId(loc.id),
           storyId: newStoryId,
-          branchId: remapBranchId(loc.branchId ?? null),
+          branchId: mapBranchId(loc.branchId ?? null),
           connections: loc.connections.map((id) => oldToNewId.get(id) ?? id),
         })
         const remapItem = (item: Item): Item => ({
           ...item,
           id: remapEntityId(item.id),
           storyId: newStoryId,
-          branchId: remapBranchId(item.branchId ?? null),
+          branchId: mapBranchId(item.branchId ?? null),
           location:
             item.location === 'inventory'
               ? 'inventory'
@@ -678,7 +673,7 @@ class ExportService {
           ...beat,
           id: remapEntityId(beat.id),
           storyId: newStoryId,
-          branchId: remapBranchId(beat.branchId ?? null),
+          branchId: mapBranchId(beat.branchId ?? null),
         })
         const remapChapter = (chapter: Chapter): Chapter => ({
           ...chapter,
@@ -686,13 +681,13 @@ class ExportService {
           storyId: newStoryId,
           startEntryId: remapEntityId(chapter.startEntryId),
           endEntryId: remapEntityId(chapter.endEntryId),
-          branchId: remapBranchId(chapter.branchId ?? null),
+          branchId: mapBranchId(chapter.branchId ?? null),
         })
         const remapLorebookEntry = (entry: Entry): Entry => ({
           ...entry,
           id: remapEntityId(entry.id),
           storyId: newStoryId,
-          branchId: remapBranchId(entry.branchId ?? null),
+          branchId: mapBranchId(entry.branchId ?? null),
           firstMentioned: entry.firstMentioned
             ? (oldToNewId.get(entry.firstMentioned) ?? entry.firstMentioned)
             : null,
