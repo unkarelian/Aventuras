@@ -205,12 +205,12 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
   chutes: {
     name: 'Chutes',
     description: 'Text and image generation',
-    baseUrl: 'https://api.chutes.ai',
+    baseUrl: 'https://llm.chutes.ai/v1',
     requiresApiKey: true,
     capabilities: {
       textGeneration: true,
       imageGeneration: true,
-      structuredOutput: true,
+      structuredOutput: false,
       reasoning: true,
     },
     imageDefaults: {
@@ -253,7 +253,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
     capabilities: {
       textGeneration: true,
       imageGeneration: false,
-      structuredOutput: true,
+      structuredOutput: false,
       reasoning: true,
       reasoningExtraction: 'think-tag',
     },
@@ -301,7 +301,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
     capabilities: {
       textGeneration: true,
       imageGeneration: false,
-      structuredOutput: true,
+      structuredOutput: false,
       reasoning: true,
       reasoningExtraction: 'think-tag',
     },
@@ -428,7 +428,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
     capabilities: {
       textGeneration: true,
       imageGeneration: false,
-      structuredOutput: true,
+      structuredOutput: false,
       reasoning: true,
     },
     fallbackModels: [
@@ -492,7 +492,7 @@ export const PROVIDERS: Record<ProviderType, ProviderConfig> = {
     capabilities: {
       textGeneration: true,
       imageGeneration: false,
-      structuredOutput: true,
+      structuredOutput: false,
       reasoning: false,
     },
     fallbackModels: [

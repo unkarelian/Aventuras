@@ -213,7 +213,7 @@ async function fetchChutesModels(baseUrl?: string, apiKey?: string): Promise<str
     throw new Error('Chutes requires an API key to fetch models')
   }
 
-  const effectiveBaseUrl = baseUrl || PROVIDERS.chutes.baseUrl
+  const effectiveBaseUrl = "https://api.chutes.ai"
   const chutesUrl = effectiveBaseUrl.replace(/\/$/, '') + '/chutes/?include_public=true&limit=200'
 
   const fetchFn = createTimeoutFetch(30000, 'model-fetch')
@@ -234,7 +234,7 @@ async function fetchChutesModels(baseUrl?: string, apiKey?: string): Promise<str
         (r: { standard_template?: string; user?: { username: string } }) =>
           r.standard_template?.includes('llm') && r.user?.username === 'chutes',
       )
-      .map(({ slug }: { slug?: string }) => slug || '')
+      .map(({ name }: { name?: string }) => name || '')
   }
 
   throw new Error('Unexpected Chutes API response format')

@@ -79,6 +79,10 @@ export function createTimeoutFetch(
       console.log('[Fetch] Invalid manualBody JSON, skipping')
     }
 
+    if (Object.keys(parsedBody).length === 0) {
+      parsedBody = undefined
+    }
+
     const debugId = ui.addDebugRequest(
       serviceId,
       {
@@ -92,7 +96,7 @@ export function createTimeoutFetch(
       const response = await tauriFetch(input, {
         ...init,
         signal: controller.signal,
-        body: JSON.stringify(parsedBody),
+        body: parsedBody ? JSON.stringify(parsedBody) : undefined,
       })
 
       if (!response.ok) {
@@ -248,7 +252,7 @@ export function createTimeoutFetch(
       const text = await response.text()
 
       let responsePayload
-      if (!(parsedBody as Record<string, unknown>).stream) {
+      if (parsedBody && !(parsedBody as Record<string, unknown>).stream) {
         try {
           responsePayload = JSON.parse(text)
         } catch {

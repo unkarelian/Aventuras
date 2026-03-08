@@ -9,7 +9,6 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
-import { createChutes } from '@chutes-ai/ai-sdk-provider'
 import { createPollinations } from 'ai-sdk-pollinations'
 import { createXai } from '@ai-sdk/xai'
 import { createGroq } from '@ai-sdk/groq'
@@ -63,7 +62,13 @@ export function createProviderFromProfile(options: {
       })
 
     case 'chutes':
-      return createChutes({ apiKey: profile.apiKey, fetch })
+      return createOpenAICompatible({
+        name: 'chutes',
+        apiKey: profile.apiKey,
+        baseURL: baseURL ?? PROVIDERS.chutes.baseUrl,
+        supportsStructuredOutputs,
+        fetch,
+      })
 
     case 'pollinations':
       return createPollinations({ apiKey: profile.apiKey || undefined, fetch })

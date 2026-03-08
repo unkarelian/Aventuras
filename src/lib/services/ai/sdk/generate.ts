@@ -177,6 +177,7 @@ export function buildProviderOptions(
           structuredOutputs,
         } satisfies MistralLanguageModelOptions
         break
+      case 'chutes':
       case 'nvidia-nim':
       case 'nanogpt':
       case 'ollama':
