@@ -17,11 +17,10 @@ import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createMistral } from '@ai-sdk/mistral'
 
 import type { APIProfile } from '$lib/types'
-import { LLM_TIMEOUT_DEFAULT } from '$lib/constants/timeout'
 import { createTimeoutFetch } from './fetch'
 import { PROVIDERS, getBaseUrl } from './config'
+import { settings } from '$lib/stores/settings.svelte'
 
-const DEFAULT_TIMEOUT_MS = LLM_TIMEOUT_DEFAULT
 
 export function createProviderFromProfile(options: {
   profile: APIProfile,
@@ -31,7 +30,7 @@ export function createProviderFromProfile(options: {
   manualBody?: string,
 }) {
   const { profile, presetId, debugId, structuredOutputs, manualBody } = options
-  const fetch = createTimeoutFetch(DEFAULT_TIMEOUT_MS, presetId, manualBody || '', debugId)
+  const fetch = createTimeoutFetch(settings.apiSettings.llmTimeoutMs, presetId, manualBody, debugId)
   const baseURL = profile.baseUrl || getBaseUrl(profile.providerType)
   const supportsStructuredOutputs = structuredOutputs ?? false
 

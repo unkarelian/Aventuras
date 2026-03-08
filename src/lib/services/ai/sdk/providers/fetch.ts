@@ -47,7 +47,7 @@ function patchResponseJson(json: Record<string, unknown>): Record<string, unknow
 export function createTimeoutFetch(
   timeoutMs = LLM_TIMEOUT_DEFAULT,
   serviceId: string,
-  manualBody: string,
+  manualBody: string = '',
   debugIdExternal?: string,
 ) {
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
