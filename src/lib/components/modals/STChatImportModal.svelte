@@ -274,8 +274,7 @@
         <Button
           onclick={handleImport}
           disabled={!parseResult || importing || story.branches.length > 0}
-          variant="destructive"
-          class="gap-2"
+          class="gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90"
         >
           {#if importing}
             <Loader2 class="h-4 w-4 animate-spin" />
