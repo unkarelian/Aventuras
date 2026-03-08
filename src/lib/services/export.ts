@@ -407,6 +407,25 @@ class ExportService {
       // Import branches (insert parents before children)
       const branchCheckpointMap = new Map<string, string | null>()
       if (data.branches && data.branches.length > 0) {
+        const insertBranch = async (branch: Branch, parentBranchId: string | null) => {
+          const newBranchId = branchIdMap.get(branch.id)
+          if (!newBranchId) return
+          await database.addBranch({
+            id: newBranchId,
+            storyId: newStoryId,
+            name: branch.name,
+            parentBranchId,
+            forkEntryId: mapEntryId(branch.forkEntryId) ?? branch.forkEntryId,
+            checkpointId: null,
+            createdAt: branch.createdAt,
+            snapshotComplete: branch.snapshotComplete ?? false,
+          })
+          const mappedCheckpointId = branch.checkpointId
+            ? (checkpointIdMap.get(branch.checkpointId) ?? null)
+            : null
+          branchCheckpointMap.set(newBranchId, mappedCheckpointId)
+        }
+
         const pending = [...data.branches]
         const inserted = new Set<string>()
         let progress = true
@@ -428,22 +447,7 @@ class ExportService {
               continue
             }
 
-            await database.addBranch({
-              id: newBranchId,
-              storyId: newStoryId,
-              name: branch.name,
-              parentBranchId: mappedParentId,
-              forkEntryId: mapEntryId(branch.forkEntryId) ?? branch.forkEntryId,
-              checkpointId: null,
-              createdAt: branch.createdAt,
-              snapshotComplete: branch.snapshotComplete ?? false,
-            })
-
-            const mappedCheckpointId = branch.checkpointId
-              ? (checkpointIdMap.get(branch.checkpointId) ?? null)
-              : null
-            branchCheckpointMap.set(newBranchId, mappedCheckpointId)
-
+            await insertBranch(branch, mappedParentId)
             inserted.add(newBranchId)
             pending.splice(i, 1)
             progress = true
@@ -452,23 +456,7 @@ class ExportService {
 
         // If any branches remain, insert them with no parent to avoid FK errors
         for (const branch of pending) {
-          const newBranchId = branchIdMap.get(branch.id)
-          if (!newBranchId) continue
-          await database.addBranch({
-            id: newBranchId,
-            storyId: newStoryId,
-            name: branch.name,
-            parentBranchId: null,
-            forkEntryId: mapEntryId(branch.forkEntryId) ?? branch.forkEntryId,
-            checkpointId: null,
-            createdAt: branch.createdAt,
-            snapshotComplete: branch.snapshotComplete ?? false,
-          })
-
-          const mappedCheckpointId = branch.checkpointId
-            ? (checkpointIdMap.get(branch.checkpointId) ?? null)
-            : null
-          branchCheckpointMap.set(newBranchId, mappedCheckpointId)
+          await insertBranch(branch, null)
         }
       }
 
