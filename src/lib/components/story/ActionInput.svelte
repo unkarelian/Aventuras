@@ -56,8 +56,10 @@
     type BackgroundTaskInput,
     type PipelineUICallbacks,
     type PipelineEventState,
+    type RestoreResult,
   } from '$lib/services/generation'
   import { InlineImageTracker } from '$lib/services/ai/image'
+  import type { GenerationLease } from '$lib/utils/generationLease'
 
   function log(...args: any[]) {
     console.log('[ActionInput]', ...args)
@@ -468,6 +470,7 @@
   }
 
   async function generateResponse(
+    lease: GenerationLease,
     userActionEntryId: string,
     userActionContent: string,
     options?: {
@@ -509,6 +512,9 @@
     ui.startStreaming(visualProseMode, streamingEntryId)
 
     const currentStoryRef = story.currentStory
+    // The branch this generation is bound to. Read from the lease, not the live store: the
+    // store's value is what the lease exists to stop moving.
+    const leasedBranchId = lease.branchId
 
     let inlineImageTracker: InlineImageTracker | null = null
     if (inlineImageMode) {
@@ -681,7 +687,7 @@
             ) ?? undefined
           ui.setLastRetrievalResult(retrievalResult ?? null, {
             storyId: currentStoryRef.id,
-            branchId: currentStoryRef.currentBranchId ?? null,
+            branchId: leasedBranchId,
             position: storyPosition,
             actionContent: userActionContent,
           })
@@ -702,6 +708,7 @@
           narrationEntry = await story.addEntry(
             'narration',
             fullResponse,
+            lease,
             generationMeta,
             fullReasoning || undefined,
             narrationEntryId,
@@ -794,7 +801,7 @@
 
       if (!fullResponse.trim()) {
         const errorMessage = 'The AI returned an empty response after 3 attempts. Please try again.'
-        const errorEntry = await story.addEntry('system', errorMessage)
+        const errorEntry = await story.addEntry('system', errorMessage, lease)
         ui.setGenerationError({
           message: errorMessage,
           errorEntryId: errorEntry.id,
@@ -822,7 +829,7 @@
       // Deliberately not awaited — but the flag has to outlive the call, or the Memory
       // view will offer to create a chapter while this one is being created.
       const bgStoryId = currentStoryRef.id
-      const bgBranchId = currentStoryRef.currentBranchId ?? null
+      const bgBranchId = leasedBranchId
       ui.setBackgroundTasksActive(bgStoryId, bgBranchId, true)
       coordinator
         .runBackgroundTasks(input)
@@ -850,13 +857,26 @@
       const errorMessage = ui.wasBackgroundedDuringGeneration
         ? `Generation may have been interrupted while the app was in the background. ${baseMessage}`
         : baseMessage
-      const errorEntry = await story.addEntry('system', `Generation failed: ${errorMessage}`)
-      ui.setGenerationError({
-        message: errorMessage,
-        errorEntryId: errorEntry.id,
-        userActionEntryId,
-        timestamp: Date.now(),
-      })
+      // The fallback must not be able to trip the same wire that brought us here. If the
+      // story or branch moved under the generation, `addEntry` refuses — and throwing again
+      // from the handler would lose the error entirely, leaving an unhandled rejection and
+      // no Retry affordance.
+      try {
+        const errorEntry = await story.addEntry(
+          'system',
+          `Generation failed: ${errorMessage}`,
+          lease,
+        )
+        ui.setGenerationError({
+          message: errorMessage,
+          errorEntryId: errorEntry.id,
+          userActionEntryId,
+          timestamp: Date.now(),
+        })
+      } catch (recordError) {
+        console.error('[ActionInput] Could not record the failure entry:', recordError)
+        ui.showToast(errorMessage, 'error')
+      }
 
       await notifyFailureIfBackgrounded()
     } finally {
@@ -1023,43 +1043,62 @@
     inputValue = ''
     if (textareaRef) textareaRef.scrollTop = 0
 
-    const embeddedImageIds = await database.getEmbeddedImageIdsForStory(story.currentStory.id)
-    ui.createRetryBackup(
-      story.currentStory.id,
-      story.entries,
-      story.characters,
-      story.locations,
-      story.items,
-      story.storyBeats,
-      embeddedImageIds,
-      content,
-      rawInput,
-      actionType,
-      wasRawActionChoice,
-      story.currentStory.timeTracker,
-    )
-
-    const {
-      promptContent,
-      originalInput,
-      timing: inputTranslation,
-    } = await translateUserInput(content, settings.translationSettings)
-
-    const userActionEntry = await story.addEntry('user_action', promptContent)
-
-    if (originalInput) {
-      await database.updateStoryEntry(userActionEntry.id, { originalInput })
-      await story.refreshEntry(userActionEntry.id)
+    // Claimed before the snapshot: everything below reads or writes on this generation's
+    // behalf, and the awaits between here and the narration are long enough to switch in.
+    let lease: GenerationLease
+    try {
+      lease = story.acquireGenerationLease()
+    } catch (error) {
+      // The box was cleared above on the assumption this would go ahead. Give the text back
+      // rather than making the reader retype it.
+      inputValue = rawInput
+      isRawActionChoice = wasRawActionChoice
+      ui.showToast(errMessage(error), 'error')
+      return
     }
 
-    emitUserInput(content, isCreativeMode ? 'direction' : forceFreeMode ? 'free' : actionType)
-    await tick()
+    try {
+      const embeddedImageIds = await database.getEmbeddedImageIdsForStory(story.currentStory.id)
+      ui.createRetryBackup(
+        story.currentStory.id,
+        lease.branchId,
+        story.entries,
+        story.characters,
+        story.locations,
+        story.items,
+        story.storyBeats,
+        embeddedImageIds,
+        content,
+        rawInput,
+        actionType,
+        wasRawActionChoice,
+        story.currentStory.timeTracker,
+      )
 
-    // `promptContent`, not the raw `content`: with translation on the two differ, and the
-    // entry the narrator reads holds `promptContent`. Passing the raw text here left
-    // retrieval and classification working from a different wording than the narration —
-    // and the retry path already passes `promptContent`, so the two disagreed.
-    await generateResponse(userActionEntry.id, promptContent, { inputTranslation })
+      const {
+        promptContent,
+        originalInput,
+        timing: inputTranslation,
+      } = await translateUserInput(content, settings.translationSettings)
+
+      const userActionEntry = await story.addEntry('user_action', promptContent, lease)
+
+      if (originalInput) {
+        await database.updateStoryEntry(userActionEntry.id, { originalInput })
+        await story.refreshEntry(userActionEntry.id)
+      }
+
+      emitUserInput(content, isCreativeMode ? 'direction' : forceFreeMode ? 'free' : actionType)
+      await tick()
+
+      // `promptContent`, not the raw `content`: with translation on the two differ, and the
+      // entry the narrator reads holds `promptContent`. Passing the raw text here left
+      // retrieval and classification working from a different wording than the narration —
+      // and the retry path already passes `promptContent`, so the two disagreed.
+      await generateResponse(lease, userActionEntry.id, promptContent, { inputTranslation })
+    } finally {
+      await lease.finish()
+    }
   }
 
   async function handleStopGeneration() {
@@ -1076,36 +1115,61 @@
       return
     }
 
-    ui.setLastLorebookRetrieval(null)
-    ui.setLastRetrievalResult(null)
+    const activeBranchId = story.currentStory.currentBranchId ?? null
+    const runRestore = () =>
+      retryService.handleStopGeneration(
+        backup,
+        {
+          restoreFromRetryBackup: story.restoreFromRetryBackup.bind(story),
+          deleteEntriesFromPosition: story.deleteEntriesFromPosition.bind(story),
+          deleteEntitiesCreatedAfterBackup: story.deleteEntitiesCreatedAfterBackup.bind(story),
+          restoreCharacterSnapshots: story.restoreCharacterSnapshots.bind(story),
+          restoreTimeTrackerSnapshot: story.restoreTimeTrackerSnapshot.bind(story),
+          assertEntriesRemovable: story.assertEntriesRemovable.bind(story),
+          lockRetryInProgress: story.lockRetryInProgress.bind(story),
+          unlockRetryInProgress: story.unlockRetryInProgress.bind(story),
+          restoreActivationData: ui.restoreActivationData.bind(ui),
+          clearActivationData: () => ui.clearActivationData(),
+          setLastLorebookRetrieval: ui.setLastLorebookRetrieval.bind(ui),
+        },
+        {
+          clearGenerationError: () => ui.clearGenerationError(),
+          clearSuggestions: () => ui.clearSuggestions(story.currentStory!.id),
+          clearActionChoices: () => ui.clearActionChoices(story.currentStory!.id),
+        },
+        activeBranchId,
+      )
 
-    const result = await retryService.handleStopGeneration(
-      backup,
-      {
-        restoreFromRetryBackup: story.restoreFromRetryBackup.bind(story),
-        deleteEntriesFromPosition: story.deleteEntriesFromPosition.bind(story),
-        deleteEntitiesCreatedAfterBackup: story.deleteEntitiesCreatedAfterBackup.bind(story),
-        restoreCharacterSnapshots: story.restoreCharacterSnapshots.bind(story),
-        restoreTimeTrackerSnapshot: story.restoreTimeTrackerSnapshot.bind(story),
-        assertEntriesRemovable: story.assertEntriesRemovable.bind(story),
-        lockRetryInProgress: story.lockRetryInProgress.bind(story),
-        unlockRetryInProgress: story.unlockRetryInProgress.bind(story),
-        restoreActivationData: ui.restoreActivationData.bind(ui),
-        clearActivationData: () => ui.clearActivationData(),
-        setLastLorebookRetrieval: ui.setLastLorebookRetrieval.bind(ui),
-      },
-      {
-        clearGenerationError: () => ui.clearGenerationError(),
-        clearSuggestions: () => ui.clearSuggestions(story.currentStory!.id),
-        clearActionChoices: () => ui.clearActionChoices(story.currentStory!.id),
-      },
-    )
+    // Aborting the request is not the end of the generation's writes: a classification
+    // already entered keeps going. Hand the rewind to the lease, which runs it once those
+    // have drained and only then gives the branch up. The lease's holder releases, not this.
+    let result: RestoreResult
+    const lease = story.currentGenerationLease
+    if (lease) {
+      let deferred: RestoreResult | undefined
+      const settled = lease.deferRestore(async () => {
+        deferred = await runRestore()
+      })
+      if (settled) {
+        await settled
+        result = deferred ?? { success: false, error: 'The restore did not run' }
+      } else {
+        result = await runRestore()
+      }
+    } else {
+      result = await runRestore()
+    }
 
     if (!result.success) {
       // The backup is the only way back to the pre-action story, so a refused restore keeps it.
       ui.showToast(result.error ?? 'Could not restore the story', 'error')
       return
     }
+
+    // Cleared only now: a refused restore leaves the story untouched, so wiping lorebook
+    // stickiness and the retrieval cache on the way in would be the one thing preflight
+    // exists to prevent. RetryService clears the lorebook debug state itself once it commits.
+    ui.setLastRetrievalResult(null)
 
     await tick()
     actionType = (result.restoredActionType as ActionType) ?? actionType
@@ -1118,26 +1182,40 @@
     const error = ui.lastGenerationError
     if (!error || ui.isGenerating) return
 
-    const userActionEntry = story.entries.find((e) => e.id === error.userActionEntryId)
-    if (!userActionEntry) {
-      ui.clearGenerationError()
+    let lease: GenerationLease
+    try {
+      lease = story.acquireGenerationLease()
+    } catch (err) {
+      ui.showToast(errMessage(err), 'error')
       return
     }
 
     try {
-      await story.deleteEntry(error.errorEntryId)
-    } catch (err) {
-      // Regenerating over an entry that could not be removed would leave the failed one above
-      // the new narration, so the retry stops here.
-      ui.showToast(errMessage(err), 'error')
-      return
-    }
-    ui.clearGenerationError()
+      const userActionEntry = story.entries.find((e) => e.id === error.userActionEntryId)
+      if (!userActionEntry) {
+        ui.clearGenerationError()
+        return
+      }
 
-    await generateResponse(userActionEntry.id, userActionEntry.content, {
-      countStyleReview: false,
-      styleReviewSource: 'retry-error',
-    })
+      try {
+        // The lease is this generation's own, so the guard lets it through: clearing the
+        // failed entry before regenerating is the holder tidying up after itself.
+        await story.deleteEntry(error.errorEntryId, lease)
+      } catch (err) {
+        // Regenerating over an entry that could not be removed would leave the failed one
+        // above the new narration, so the retry stops here.
+        ui.showToast(errMessage(err), 'error')
+        return
+      }
+      ui.clearGenerationError()
+
+      await generateResponse(lease, userActionEntry.id, userActionEntry.content, {
+        countStyleReview: false,
+        styleReviewSource: 'retry-error',
+      })
+    } finally {
+      await lease.finish()
+    }
   }
 
   function dismissError() {
@@ -1162,34 +1240,48 @@
     const userActionEntry = findPrecedingUserAction(story.entries, entryId)
     if (!userActionEntry) return
 
-    let undo: { entitiesUndone: boolean; timeUndone: boolean }
+    // Claimed before the undo, which is itself an asynchronous write on this generation's
+    // behalf.
+    let lease: GenerationLease
     try {
-      undo = await story.undoNarrationForRegenerate(entryId)
+      lease = story.acquireGenerationLease()
     } catch (error) {
       ui.showToast(errMessage(error), 'error')
       return
     }
 
-    // Entity changes are only reversible when stateTracking recorded a delta for the
-    // entry. Say so rather than leaving the user to notice a stray character later.
-    if (!undo.entitiesUndone) {
-      ui.showToast(
-        'Regenerating: story time was restored, but characters, locations or items the ' +
-          'previous response added could not be undone. Enable State Tracking in ' +
-          'Experimental Features to make these reversible.',
-        'warning',
-      )
-    }
+    try {
+      let undo: { entitiesUndone: boolean; timeUndone: boolean }
+      try {
+        undo = await story.undoNarrationForRegenerate(entryId, lease)
+      } catch (error) {
+        ui.showToast(errMessage(error), 'error')
+        return
+      }
 
-    // The rewind above put the story back exactly where the previous turn's retrieval was
-    // computed, so that result is still the right one — same branch, same position, same
-    // action. Read after the undo, since the key is position-sensitive.
-    const cachedRetrieval = retrievalKeyFor(userActionEntry.content)
-    await generateResponse(userActionEntry.id, userActionEntry.content, {
-      countStyleReview: false,
-      styleReviewSource: 'regenerate',
-      cachedRetrievalResult: cachedRetrieval ? ui.retrievalResultFor(cachedRetrieval) : null,
-    })
+      // Entity changes are only reversible when stateTracking recorded a delta for the
+      // entry. Say so rather than leaving the user to notice a stray character later.
+      if (!undo.entitiesUndone) {
+        ui.showToast(
+          'Regenerating: story time was restored, but characters, locations or items the ' +
+            'previous response added could not be undone. Enable State Tracking in ' +
+            'Experimental Features to make these reversible.',
+          'warning',
+        )
+      }
+
+      // The rewind above put the story back exactly where the previous turn's retrieval was
+      // computed, so that result is still the right one — same branch, same position, same
+      // action. Read after the undo, since the key is position-sensitive.
+      const cachedRetrieval = retrievalKeyFor(userActionEntry.content)
+      await generateResponse(lease, userActionEntry.id, userActionEntry.content, {
+        countStyleReview: false,
+        styleReviewSource: 'regenerate',
+        cachedRetrievalResult: cachedRetrieval ? ui.retrievalResultFor(cachedRetrieval) : null,
+      })
+    } finally {
+      await lease.finish()
+    }
   }
 
   async function handleRetryLastMessage() {
@@ -1206,64 +1298,79 @@
 
     const storyId = story.currentStory.id
 
-    const result = await retryService.handleRetryLastMessage(
-      backup,
-      {
-        restoreFromRetryBackup: story.restoreFromRetryBackup.bind(story),
-        deleteEntriesFromPosition: story.deleteEntriesFromPosition.bind(story),
-        deleteEntitiesCreatedAfterBackup: story.deleteEntitiesCreatedAfterBackup.bind(story),
-        restoreCharacterSnapshots: story.restoreCharacterSnapshots.bind(story),
-        restoreTimeTrackerSnapshot: story.restoreTimeTrackerSnapshot.bind(story),
-        assertEntriesRemovable: story.assertEntriesRemovable.bind(story),
-        lockRetryInProgress: story.lockRetryInProgress.bind(story),
-        unlockRetryInProgress: story.unlockRetryInProgress.bind(story),
-        restoreActivationData: ui.restoreActivationData.bind(ui),
-        clearActivationData: () => ui.clearActivationData(),
-        setLastLorebookRetrieval: ui.setLastLorebookRetrieval.bind(ui),
-      },
-      {
-        clearGenerationError: () => ui.clearGenerationError(),
-        clearSuggestions: () => ui.clearSuggestions(storyId),
-        clearActionChoices: () => ui.clearActionChoices(storyId),
-      },
-    )
-
-    if (!result.success) {
-      ui.showToast(result.error ?? 'Could not restore the story', 'error')
+    // Claimed before the rewind, which deletes entries and entities on this generation's
+    // behalf before the model is ever called.
+    let lease: GenerationLease
+    try {
+      lease = story.acquireGenerationLease()
+    } catch (error) {
+      ui.showToast(errMessage(error), 'error')
       return
     }
 
-    await tick()
-
-    const {
-      promptContent,
-      originalInput,
-      timing: inputTranslation,
-    } = await translateUserInput(backup.userActionContent, settings.translationSettings)
-    const userActionEntry = await story.addEntry('user_action', promptContent)
-
-    if (originalInput) {
-      await database.updateStoryEntry(userActionEntry.id, { originalInput })
-      await story.refreshEntry(userActionEntry.id)
-    }
-
-    emitUserInput(backup.userActionContent, isCreativeMode ? 'direction' : backup.actionType)
-    await tick()
-
-    // Read here rather than before the rewind: the key carries the position, so it only
-    // matches once the restore has put the story back where retrieval ran.
-    const cacheKey = retrievalKeyFor(promptContent)
-
-    ui.setRetryingLastMessage(true)
     try {
-      await generateResponse(userActionEntry.id, promptContent, {
-        countStyleReview: false,
-        styleReviewSource: 'retry-last-message',
-        cachedRetrievalResult: cacheKey ? ui.retrievalResultFor(cacheKey) : null,
-        inputTranslation,
-      })
+      const result = await retryService.handleRetryLastMessage(
+        backup,
+        {
+          restoreFromRetryBackup: story.restoreFromRetryBackup.bind(story),
+          deleteEntriesFromPosition: story.deleteEntriesFromPosition.bind(story),
+          deleteEntitiesCreatedAfterBackup: story.deleteEntitiesCreatedAfterBackup.bind(story),
+          restoreCharacterSnapshots: story.restoreCharacterSnapshots.bind(story),
+          restoreTimeTrackerSnapshot: story.restoreTimeTrackerSnapshot.bind(story),
+          assertEntriesRemovable: story.assertEntriesRemovable.bind(story),
+          lockRetryInProgress: story.lockRetryInProgress.bind(story),
+          unlockRetryInProgress: story.unlockRetryInProgress.bind(story),
+          restoreActivationData: ui.restoreActivationData.bind(ui),
+          clearActivationData: () => ui.clearActivationData(),
+          setLastLorebookRetrieval: ui.setLastLorebookRetrieval.bind(ui),
+        },
+        {
+          clearGenerationError: () => ui.clearGenerationError(),
+          clearSuggestions: () => ui.clearSuggestions(storyId),
+          clearActionChoices: () => ui.clearActionChoices(storyId),
+        },
+        lease.branchId,
+      )
+
+      if (!result.success) {
+        ui.showToast(result.error ?? 'Could not restore the story', 'error')
+        return
+      }
+
+      await tick()
+
+      const {
+        promptContent,
+        originalInput,
+        timing: inputTranslation,
+      } = await translateUserInput(backup.userActionContent, settings.translationSettings)
+      const userActionEntry = await story.addEntry('user_action', promptContent, lease)
+
+      if (originalInput) {
+        await database.updateStoryEntry(userActionEntry.id, { originalInput })
+        await story.refreshEntry(userActionEntry.id)
+      }
+
+      emitUserInput(backup.userActionContent, isCreativeMode ? 'direction' : backup.actionType)
+      await tick()
+
+      // Read here rather than before the rewind: the key carries the position, so it only
+      // matches once the restore has put the story back where retrieval ran.
+      const cacheKey = retrievalKeyFor(promptContent)
+
+      ui.setRetryingLastMessage(true)
+      try {
+        await generateResponse(lease, userActionEntry.id, promptContent, {
+          countStyleReview: false,
+          styleReviewSource: 'retry-last-message',
+          cachedRetrievalResult: cacheKey ? ui.retrievalResultFor(cacheKey) : null,
+          inputTranslation,
+        })
+      } finally {
+        ui.setRetryingLastMessage(false)
+      }
     } finally {
-      ui.setRetryingLastMessage(false)
+      await lease.finish()
     }
   }
 

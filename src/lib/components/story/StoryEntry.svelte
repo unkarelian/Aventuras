@@ -174,11 +174,14 @@
   })
 
   // Check if retry is available for this entry
+  // Branch as well as story: a snapshot taken elsewhere would be refused on restore, and
+  // offering it here hides the regenerate that does work on this branch.
   const canRetry = $derived(
     isLatestNarration &&
       ui.retryBackup &&
       story.currentStory &&
       ui.retryBackup.storyId === story.currentStory.id &&
+      (ui.retryBackup.branchId ?? null) === (story.currentStory.currentBranchId ?? null) &&
       !ui.isGenerating &&
       !ui.lastGenerationError,
   )
@@ -206,7 +209,11 @@
   )
 
   // A retry restore rewrites the same entries a generation does, and the store refuses both.
-  const entriesLocked = $derived(ui.isGenerating || story.isRetryInProgress)
+  // The lease, not just `isGenerating`: the store refuses on the same terms, and the flag is
+  // unset for the preparation before a turn and for the drain after Stop.
+  const entriesLocked = $derived(
+    ui.isGenerating || story.isRetryInProgress || story.isGenerationLeaseHeld,
+  )
 
   /**
    * Dismiss/delete this error entry from the story.
@@ -372,11 +379,14 @@
   )
 
   // Show regeneration hint when editing the last user_action and retry is available
+  // Same scope check as `canRetry`: the two derive availability from one value and must not
+  // disagree about what makes it usable.
   const canSaveAndRegenerate = $derived(
     isLastUserAction &&
       !!ui.retryBackup &&
       !!story.currentStory &&
-      ui.retryBackup.storyId === story.currentStory.id,
+      ui.retryBackup.storyId === story.currentStory.id &&
+      (ui.retryBackup.branchId ?? null) === (story.currentStory.currentBranchId ?? null),
   )
 
   async function handleCreateCheckpoint() {
